@@ -35,10 +35,10 @@ func (o *Orchestrator) Status(verbose bool) (validation.Value, error) {
 	}
 	return validation.VObj(
 		kvOf("campaign_id", validation.VStr(o.C.CampaignID)),
-		kvOf("program", objAt(st, "program")),
-		kvOf("phase", objAt(st, "phase")),
-		kvOf("pass", objAt(objAt(st, "budget"), "pass")),
-		kvOf("active_snapshot", objAt(st, "active_snapshot_id")),
+		kvOf("program", validation.ObjAt(st, "program")),
+		kvOf("phase", validation.ObjAt(st, "phase")),
+		kvOf("pass", validation.ObjAt(validation.ObjAt(st, "budget"), "pass")),
+		kvOf("active_snapshot", validation.ObjAt(st, "active_snapshot_id")),
 		kvOf("findings", validation.VObj(counts...)),
 		kvOf("coverage_summary", cov),
 		kvOf("stages", validation.VObj(view...)),
@@ -54,7 +54,7 @@ func statusCounts(c *state.Campaign) ([]validation.KV, error) {
 	counts := []validation.KV{}
 	index := map[string]int{}
 	for _, f := range all {
-		s := objAt(f, "status")
+		s := validation.ObjAt(f, "status")
 		if s.Kind != validation.Str {
 			// Python: counts[f["status"]] raises KeyError('status').
 			return nil, errText(validation.PyReprStr("status"))
@@ -80,7 +80,7 @@ func statusCoverage(c *state.Campaign) (validation.Value, error) {
 	if err != nil {
 		return validation.VNull(), err
 	}
-	if s := objAt(doc, "summary"); s.Kind == validation.Obj {
+	if s := validation.ObjAt(doc, "summary"); s.Kind == validation.Obj {
 		cov = s
 	}
 	return cov, nil
@@ -89,12 +89,12 @@ func statusCoverage(c *state.Campaign) (validation.Value, error) {
 // statusStages is the bounded stage view: notes are truncated to
 // STATUS_NOTE_CAP unless verbose asks for the full (still-capped) note.
 func statusStages(st validation.Value, verbose bool) ([]validation.KV, error) {
-	stages := objAt(st, "stages")
+	stages := validation.ObjAt(st, "stages")
 	view := make([]validation.KV, 0, len(stages.O))
 	for _, entry := range stages.O {
 		e := copyObj(entry.V)
 		if e.Kind == validation.Obj {
-			note := objAt(e, "note")
+			note := validation.ObjAt(e, "note")
 			noteStr := ""
 			if note.Kind == validation.Str {
 				noteStr = note.S
@@ -149,7 +149,7 @@ func NextActions(c *state.Campaign) (validation.Value, error) {
 			return validation.VNull(), err
 		}
 		if proof.Kind == validation.Obj {
-			if pyTruthyBigNonEmpty(objAt(proof, "done")) {
+			if pyTruthyBigNonEmpty(validation.ObjAt(proof, "done")) {
 				actions = append(actions, "webv2 run "+cid+"  # "+stage+
 					" proof holds; the stage auto-completes")
 			} else {
@@ -170,8 +170,8 @@ func NextActions(c *state.Campaign) (validation.Value, error) {
 			if pr.V.Kind != validation.Obj {
 				continue
 			}
-			if !pyTruthyBigNonEmpty(objAt(pr.V, "authoritative")) ||
-				pyTruthyBigNonEmpty(objAt(pr.V, "done")) {
+			if !pyTruthyBigNonEmpty(validation.ObjAt(pr.V, "authoritative")) ||
+				pyTruthyBigNonEmpty(validation.ObjAt(pr.V, "done")) {
 				continue
 			}
 			openProofs = append(openProofs, proofCommand(cid, pr.K,
@@ -186,7 +186,7 @@ func NextActions(c *state.Campaign) (validation.Value, error) {
 			actions = append(actions, openProofs...)
 		}
 	}
-	return strArr(actions), nil
+	return validation.StrArr(actions), nil
 }
 
 // proofCommand is one copyable proof line: the command that prints the exact

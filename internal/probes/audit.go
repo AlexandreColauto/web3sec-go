@@ -111,7 +111,7 @@ func auditSurface(c *state.Campaign, surface validation.Value) (validation.Value
 		kv("checked", validation.VInt(int64(len(surfaceSet)+len(planRows)+
 			len(blanks)))),
 		kv("rederived_rows", validation.VInt(int64(rederivedRowCount(rederived)))),
-		kv("problems", strArr(problems)),
+		kv("problems", validation.StrArr(problems)),
 		kv("ok", validation.VBool(len(problems) == 0))), nil
 }
 
@@ -330,7 +330,7 @@ func blankProblems(c *state.Campaign, surface validation.Value,
 				"cites %s, which the surface no longer publishes (blind: %s)",
 				validation.PyReprStr(lens),
 				validation.PyReprStr(vStr(entry, "anchor_blind")),
-				validation.PyRepr(strArr(keys))))
+				validation.PyRepr(validation.StrArr(keys))))
 		}
 	}
 	return problems

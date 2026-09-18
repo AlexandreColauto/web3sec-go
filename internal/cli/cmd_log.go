@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"websec/internal/validation"
 
 	"websec/internal/state"
 )
@@ -61,9 +62,9 @@ func runLog(root string, args []string, stdout io.Writer) error {
 		idx = len(events)
 	}
 	for _, e := range events[idx:] {
-		ref := objStr(e, "ref")
+		ref := validation.ObjStr(e, "ref")
 		fmt.Fprintf(stdout, "%4d %s  %-28s %s\n",
-			objInt(e, "seq"), objStr(e, "at"), objStr(e, "type"), ref)
+			objInt(e, "seq"), validation.ObjStr(e, "at"), validation.ObjStr(e, "type"), ref)
 	}
 	return nil
 }

@@ -264,7 +264,7 @@ func TestDriverEndToEndPass(t *testing.T) {
 	}
 	_ = stdout
 	res := readResult(t, wd)
-	if got := objStr(res, "spec_hash"); got != SpecHash(spec) {
+	if got := validation.ObjStr(res, "spec_hash"); got != SpecHash(spec) {
 		t.Errorf("spec_hash = %s", got)
 	}
 	steps := stepsOf(t, res)
@@ -272,25 +272,25 @@ func TestDriverEndToEndPass(t *testing.T) {
 		stepStatus(steps[1]) != "revert" {
 		t.Fatalf("statuses = %v", steps)
 	}
-	if objStr(steps[0], "actor") != "attacker" ||
-		objStr(steps[1], "actor") != "victim" {
+	if validation.ObjStr(steps[0], "actor") != "attacker" ||
+		validation.ObjStr(steps[1], "actor") != "victim" {
 		t.Errorf("actors wrong: %v", steps)
 	}
-	if got := objStr(steps[0], "tx_hash"); got !=
+	if got := validation.ObjStr(steps[0], "tx_hash"); got !=
 		"0xdeadbeef0000000000000000000000000000000000000000000000000000cafe" {
 		t.Errorf("tx_hash = %s", got)
 	}
-	if got := objStr(steps[1], "revert_reason"); got !=
+	if got := validation.ObjStr(steps[1], "revert_reason"); got !=
 		"execution reverted: claim too early" {
 		t.Errorf("revert_reason = %q", got)
 	}
-	asserts := listOf(objAt(res, "final_assertions"))
-	if len(asserts) != 2 || !objAt(asserts[0], "passed").B ||
-		!objAt(asserts[1], "passed").B {
+	asserts := listOf(validation.ObjAt(res, "final_assertions"))
+	if len(asserts) != 2 || !validation.ObjAt(asserts[0], "passed").B ||
+		!validation.ObjAt(asserts[1], "passed").B {
 		t.Errorf("assertions = %v", asserts)
 	}
-	if objStr(res, "overall") != "pass" {
-		t.Errorf("overall = %s", objStr(res, "overall"))
+	if validation.ObjStr(res, "overall") != "pass" {
+		t.Errorf("overall = %s", validation.ObjStr(res, "overall"))
 	}
 }
 
@@ -304,7 +304,7 @@ func TestDriverFailsOnUnexpectedRevert(t *testing.T) {
 		t.Fatalf("exit = %d, want 1", code)
 	}
 	res := readResult(t, wd)
-	if objStr(res, "overall") != "fail" {
+	if validation.ObjStr(res, "overall") != "fail" {
 		t.Error("overall must be fail")
 	}
 	if got := len(stepsOf(t, res)); got != 1 {
@@ -327,14 +327,14 @@ func TestDriverFailsOnAssertion(t *testing.T) {
 			t.Errorf("unexpected status %q", st)
 		}
 	}
-	a0 := listOf(objAt(res, "final_assertions"))[0]
-	if objAt(a0, "passed").B {
+	a0 := listOf(validation.ObjAt(res, "final_assertions"))[0]
+	if validation.ObjAt(a0, "passed").B {
 		t.Error("assertion must fail")
 	}
-	if got := objStr(a0, "observed"); got != "0xde0b6b3a7640000" {
+	if got := validation.ObjStr(a0, "observed"); got != "0xde0b6b3a7640000" {
 		t.Errorf("observed = %q", got)
 	}
-	if objStr(res, "overall") != "fail" {
+	if validation.ObjStr(res, "overall") != "fail" {
 		t.Error("overall must be fail")
 	}
 }
@@ -349,7 +349,7 @@ func TestDriverRevertWithoutReasonStillRecords(t *testing.T) {
 	}
 	res := readResult(t, wd)
 	steps := stepsOf(t, res)
-	if got := objStr(steps[1], "revert_reason"); got != "" {
+	if got := validation.ObjStr(steps[1], "revert_reason"); got != "" {
 		t.Errorf("revert_reason = %q, want empty", got)
 	}
 }
@@ -461,7 +461,7 @@ func TestDriverStepValueReachesCastArgv(t *testing.T) {
 	// the spec bytes, so a result minted from a valued spec cannot be
 	// confused with a value-less one).
 	res := readResult(t, wd)
-	if got, want := objStr(res, "spec_hash"), SpecHash(valuedSpec(t)); got != want {
+	if got, want := validation.ObjStr(res, "spec_hash"), SpecHash(valuedSpec(t)); got != want {
 		t.Fatalf("spec_hash = %s, want %s", got, want)
 	}
 }
@@ -479,8 +479,8 @@ func TestStepValueLoadLaw(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	step := listOf(objAt(loaded, "steps"))[0]
-	if got := objStr(step, "value"); got != "1000000000000000000" {
+	step := listOf(validation.ObjAt(loaded, "steps"))[0]
+	if got := validation.ObjStr(step, "value"); got != "1000000000000000000" {
 		t.Fatalf("loaded value = %q, want it verbatim", got)
 	}
 	bad := mustParse(t, `{
@@ -513,10 +513,10 @@ func TestResultSchemaRegistered(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	kinds := objAt(objAt(objAt(objAt(objAt(doc, "properties"), "artifacts"),
+	kinds := validation.ObjAt(validation.ObjAt(validation.ObjAt(validation.ObjAt(validation.ObjAt(doc, "properties"), "artifacts"),
 		"items"), "properties"), "kind")
 	found := false
-	for _, k := range listOf(objAt(kinds, "enum")) {
+	for _, k := range listOf(validation.ObjAt(kinds, "enum")) {
 		if k.Kind == validation.Str && k.S == "sequence-result" {
 			found = true
 		}
@@ -539,8 +539,8 @@ func TestDriverComparisonOpsLeAndNe(t *testing.T) {
 		t.Fatalf("exit %d: %s", code, stderr)
 	}
 	res := readResult(t, wd)
-	for i, a := range listOf(objAt(res, "final_assertions")) {
-		if !objAt(a, "passed").B {
+	for i, a := range listOf(validation.ObjAt(res, "final_assertions")) {
+		if !validation.ObjAt(a, "passed").B {
 			t.Errorf("assertion %d must pass", i)
 		}
 	}
@@ -553,12 +553,12 @@ func TestDriverComparisonOpsLeAndNe(t *testing.T) {
 		t.Fatalf("exit = %d, want 1", code2)
 	}
 	res2 := readResult(t, wd2)
-	for i, a := range listOf(objAt(res2, "final_assertions")) {
-		if objAt(a, "passed").B {
+	for i, a := range listOf(validation.ObjAt(res2, "final_assertions")) {
+		if validation.ObjAt(a, "passed").B {
 			t.Errorf("assertion %d must fail", i)
 		}
 	}
-	if objStr(res2, "overall") != "fail" {
+	if validation.ObjStr(res2, "overall") != "fail" {
 		t.Error("overall must be fail")
 	}
 }
@@ -574,11 +574,11 @@ func TestDriverHostileRPCOutputStaysValidJSON(t *testing.T) {
        "op": ">=", "value": "2000"}]`))
 	_, _, _, wd := driverRun(t, spec, stub, "wd")
 	res := readResult(t, wd) // must parse
-	a0 := listOf(objAt(res, "final_assertions"))[0]
-	if objAt(a0, "passed").B {
+	a0 := listOf(validation.ObjAt(res, "final_assertions"))[0]
+	if validation.ObjAt(a0, "passed").B {
 		t.Error("assertion must fail")
 	}
-	obs := objStr(a0, "observed")
+	obs := validation.ObjStr(a0, "observed")
 	if strings.ContainsAny(obs, `"\`) {
 		t.Errorf("observed %q must be sanitized", obs)
 	}
@@ -636,7 +636,7 @@ func TestCapturedPassStdoutMintsE5(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	out := filepath.Dir(objStr(rec, "stdout_path"))
+	out := filepath.Dir(validation.ObjStr(rec, "stdout_path"))
 	spec := runnerSpec(t)
 	if err := os.WriteFile(filepath.Join(out, "spec.json"),
 		CanonicalJSON(spec), 0o644); err != nil {
@@ -651,7 +651,7 @@ func TestCapturedPassStdoutMintsE5(t *testing.T) {
 		t.Fatal(err)
 	}
 	tier, etype := "T4", "fork-test"
-	if _, err := reproduction.AttemptAndMint(c, fid, objStr(rec, "exec_id"),
+	if _, err := reproduction.AttemptAndMint(c, fid, validation.ObjStr(rec, "exec_id"),
 		"sequence PoC SEQ-TEST-02 (2 steps) on the pinned fork", &tier,
 		&etype); err != nil {
 		t.Fatal(err)
@@ -660,7 +660,7 @@ func TestCapturedPassStdoutMintsE5(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !hasEvidence(f2, "E5", objStr(rec, "exec_id")) {
+	if !hasEvidence(f2, "E5", validation.ObjStr(rec, "exec_id")) {
 		t.Error("E5 fork-test evidence not minted")
 	}
 	// control: the empty-output gate still holds for a silent exec
@@ -672,11 +672,11 @@ func TestCapturedPassStdoutMintsE5(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := reproduction.RecordAttempt(c, fid2, "reproduced",
-		reproduction.RecordOpts{Tier: &tier, ExecID: strPtr(objStr(rec2,
+		reproduction.RecordOpts{Tier: &tier, ExecID: strPtr(validation.ObjStr(rec2,
 			"exec_id"))}); err != nil {
 		t.Fatal(err)
 	}
-	_, err = reproduction.MintReproEvidence(c, fid2, objStr(rec2, "exec_id"),
+	_, err = reproduction.MintReproEvidence(c, fid2, validation.ObjStr(rec2, "exec_id"),
 		"silent run", &tier, &etype)
 	if err == nil || !strings.Contains(err.Error(), "EMPTY") {
 		t.Fatalf("want EMPTY refusal, got %v", err)
@@ -698,7 +698,7 @@ func mkSeqFinding(t *testing.T, c *state.Campaign) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	f, err = findings.LoadFinding(c, fid)
 	if err != nil {
 		t.Fatal(err)
@@ -715,8 +715,8 @@ func mkSeqFinding(t *testing.T, c *state.Campaign) string {
 
 // hasEvidence is any(e.get("level") == level and e.get("artifact_id") == id).
 func hasEvidence(f validation.Value, level, artifactID string) bool {
-	for _, e := range listOf(objAt(f, "evidence")) {
-		if objStr(e, "level") == level && objStr(e, "artifact_id") == artifactID {
+	for _, e := range listOf(validation.ObjAt(f, "evidence")) {
+		if validation.ObjStr(e, "level") == level && validation.ObjStr(e, "artifact_id") == artifactID {
 			return true
 		}
 	}
@@ -931,7 +931,7 @@ func TestBridgedActorAliasesAreRunPathLegal(t *testing.T) {
 	}
 	// The bridge's own bytes are the input: the aliases are read back from
 	// the doc under test, never re-spelled by the row.
-	if a := objAt(doc, "actors"); len(a.O) != 2 ||
+	if a := validation.ObjAt(doc, "actors"); len(a.O) != 2 ||
 		!hasObjKey(a, "actor_1") || !hasObjKey(a, "actor_2") {
 		t.Fatalf("bridged actors = %s, want actor_1 + actor_2",
 			validation.CanonCompact(a))
@@ -948,8 +948,8 @@ func TestBridgedActorAliasesAreRunPathLegal(t *testing.T) {
 	// "Unchanged" is the load-bearing word: the keys that reach the run path
 	// are the bridge's own, so a rename slipped in between bridge and loader
 	// fails here instead of hiding a spelling regression.
-	if a, b := validation.CanonCompact(objAt(loaded, "actors")),
-		validation.CanonCompact(objAt(doc, "actors")); a != b {
+	if a, b := validation.CanonCompact(validation.ObjAt(loaded, "actors")),
+		validation.CanonCompact(validation.ObjAt(doc, "actors")); a != b {
 		t.Fatalf("loader changed the bridged actor keys:\n%s\nwant\n%s", a, b)
 	}
 	cmd, err := BuildCommand(loaded, "/wd")

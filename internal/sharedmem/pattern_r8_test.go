@@ -2,6 +2,7 @@ package sharedmem
 
 import (
 	"testing"
+	"websec/internal/validation"
 
 	"websec/internal/learning"
 )
@@ -22,15 +23,15 @@ func TestPublishCollapsesIdenticalPatterns(t *testing.T) {
 	}
 	rowsA, _ := learning.AllMemory(a)
 	if _, err := learning.ApproveMemory(a,
-		objStr(rowsA[0], "memory_id"), "operator"); err != nil {
+		validation.ObjStr(rowsA[0], "memory_id"), "operator"); err != nil {
 		t.Fatal(err)
 	}
 	first, err := PublishCampaign(a, "operator", false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objAt(first, "memory_added").I != 1 {
-		t.Fatalf("A adds one: %v", objAt(first, "memory_added").I)
+	if validation.ObjAt(first, "memory_added").I != 1 {
+		t.Fatalf("A adds one: %v", validation.ObjAt(first, "memory_added").I)
 	}
 	b := makeCampaign(t, root, "Shared Program")
 	if _, err := learning.QueueMemory(b, learning.QueueOpts{
@@ -40,18 +41,18 @@ func TestPublishCollapsesIdenticalPatterns(t *testing.T) {
 	}
 	rowsB, _ := learning.AllMemory(b)
 	if _, err := learning.ApproveMemory(b,
-		objStr(rowsB[0], "memory_id"), "operator"); err != nil {
+		validation.ObjStr(rowsB[0], "memory_id"), "operator"); err != nil {
 		t.Fatal(err)
 	}
 	second, err := PublishCampaign(b, "operator", false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objAt(second, "memory_added").I != 0 ||
-		objAt(second, "memory_pattern_deduped").I != 1 {
+	if validation.ObjAt(second, "memory_added").I != 0 ||
+		validation.ObjAt(second, "memory_pattern_deduped").I != 1 {
 		t.Fatalf("B must collapse (0 added, 1 deduped), got added=%d dedup=%d",
-			objAt(second, "memory_added").I,
-			objAt(second, "memory_pattern_deduped").I)
+			validation.ObjAt(second, "memory_added").I,
+			validation.ObjAt(second, "memory_pattern_deduped").I)
 	}
 	shared, err := LoadSharedMemory(root)
 	if err != nil {

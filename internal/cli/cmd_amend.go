@@ -164,8 +164,8 @@ func amendCmd(root string, args []string, r *Runner) error {
 	// name the new bar and the work it creates.
 	oldClass, oldStatus := "", ""
 	if pre, perr := findings.LoadFinding(c, pos[1]); perr == nil {
-		oldClass = objStr(objAt(pre, "root_cause"), "class")
-		oldStatus = objStr(pre, "status")
+		oldClass = validation.ObjStr(validation.ObjAt(pre, "root_cause"), "class")
+		oldStatus = validation.ObjStr(pre, "status")
 	}
 	f, err := findings.Amend(c, pos[1], opts)
 	if err != nil {
@@ -176,9 +176,9 @@ func amendCmd(root string, args []string, r *Runner) error {
 		return err
 	}
 	fmt.Fprintf(r.Out, "amended %s: claim_version %s (%s)\n", pos[1],
-		validation.IntText(objAt(f, "claim_version")), amendKeysText(opts))
+		validation.IntText(validation.ObjAt(f, "claim_version")), amendKeysText(opts))
 	if opts.HasClass && oldStatus == "CONFIRMED" {
-		newClass := objStr(objAt(f, "root_cause"), "class")
+		newClass := validation.ObjStr(validation.ObjAt(f, "root_cause"), "class")
 		was := findings.RequiredLevelForCampaign(c, "CONFIRMED", oldClass)
 		now := findings.RequiredLevelForCampaign(c, "CONFIRMED", newClass)
 		if was != now {

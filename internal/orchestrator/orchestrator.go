@@ -79,19 +79,6 @@ func kvOf(k string, v validation.Value) validation.KV {
 	return validation.KV{K: k, V: v}
 }
 
-// objAt is d.get(key, None): Null when the key is absent or v is not a dict.
-func objAt(v validation.Value, key string) validation.Value {
-	if v.Kind != validation.Obj {
-		return validation.VNull()
-	}
-	for _, kv := range v.O {
-		if kv.K == key {
-			return kv.V
-		}
-	}
-	return validation.VNull()
-}
-
 // hasKey is `key in d`.
 func hasKey(v validation.Value, key string) bool {
 	if v.Kind != validation.Obj {
@@ -123,7 +110,7 @@ func orEmptyObj(v validation.Value) validation.Value {
 
 // listAt is d.get(key, []) for list values; a non-list reads as empty.
 func listAt(v validation.Value, key string) []validation.Value {
-	e := objAt(v, key)
+	e := validation.ObjAt(v, key)
 	if e.Kind != validation.Arr {
 		return nil
 	}
@@ -132,7 +119,7 @@ func listAt(v validation.Value, key string) []validation.Value {
 
 // strAt is d.get(key, "") for string values.
 func strAt(v validation.Value, key string) string {
-	e := objAt(v, key)
+	e := validation.ObjAt(v, key)
 	if e.Kind == validation.Str {
 		return e.S
 	}
@@ -141,7 +128,7 @@ func strAt(v validation.Value, key string) string {
 
 // numAt is d.get(key, 0.0) for numeric values.
 func numAt(v validation.Value, key string) float64 {
-	e := objAt(v, key)
+	e := validation.ObjAt(v, key)
 	switch e.Kind {
 	case validation.Flt:
 		return e.F
@@ -171,7 +158,7 @@ func statFile(p string) (bool, error) {
 
 // intAt is d.get(key, 0) for integer values.
 func intAt(v validation.Value, key string) int64 {
-	e := objAt(v, key)
+	e := validation.ObjAt(v, key)
 	if e.Kind == validation.Int {
 		return e.I
 	}
@@ -180,7 +167,7 @@ func intAt(v validation.Value, key string) int64 {
 
 // boolAt is d.get(key, False) for boolean values.
 func boolAt(v validation.Value, key string) bool {
-	e := objAt(v, key)
+	e := validation.ObjAt(v, key)
 	return e.Kind == validation.Bool && e.B
 }
 
@@ -249,15 +236,6 @@ func pyStr(v validation.Value) string {
 		return v.S
 	}
 	return validation.PyRepr(v)
-}
-
-// strArr boxes a Go string slice as a JSON array.
-func strArr(ss []string) validation.Value {
-	items := make([]validation.Value, 0, len(ss))
-	for _, s := range ss {
-		items = append(items, validation.VStr(s))
-	}
-	return validation.VArr(items...)
 }
 
 // valueArr boxes a slice of already-built values.

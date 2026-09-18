@@ -20,7 +20,7 @@ func enfFixture(t *testing.T) validation.Value {
 
 func enfStat(t *testing.T, tbl validation.Value, key string) int64 {
 	t.Helper()
-	v := objAt(objAt(tbl, "stats"), key)
+	v := validation.ObjAt(validation.ObjAt(tbl, "stats"), key)
 	if v.Kind != validation.Int {
 		t.Fatalf("stats.%s: not an int (%v)", key, v)
 	}
@@ -29,9 +29,9 @@ func enfStat(t *testing.T, tbl validation.Value, key string) int64 {
 
 func enfSiteKeys(tbl validation.Value) []string {
 	out := []string{}
-	for _, s := range listOf(objAt(tbl, "sites")) {
-		out = append(out, objStr(s, "function_id")+"|"+objStr(s, "kind")+
-			"|"+intText(intAt(s, "line"))+"|"+objStr(s, "granularity"))
+	for _, s := range listOf(validation.ObjAt(tbl, "sites")) {
+		out = append(out, validation.ObjStr(s, "function_id")+"|"+validation.ObjStr(s, "kind")+
+			"|"+intText(intAt(s, "line"))+"|"+validation.ObjStr(s, "granularity"))
 	}
 	return out
 }
@@ -39,8 +39,8 @@ func enfSiteKeys(tbl validation.Value) []string {
 func enfFunctions(tbl validation.Value) []string {
 	seen := map[string]bool{}
 	out := []string{}
-	for _, s := range listOf(objAt(tbl, "sites")) {
-		id := objStr(s, "function_id")
+	for _, s := range listOf(validation.ObjAt(tbl, "sites")) {
+		id := validation.ObjStr(s, "function_id")
 		if !seen[id] {
 			seen[id] = true
 			out = append(out, id)
@@ -52,16 +52,16 @@ func enfFunctions(tbl validation.Value) []string {
 
 func enfSignalKinds(tbl validation.Value) []string {
 	out := []string{}
-	for _, s := range listOf(objAt(tbl, "signals")) {
-		out = append(out, objStr(s, "signal"))
+	for _, s := range listOf(validation.ObjAt(tbl, "signals")) {
+		out = append(out, validation.ObjStr(s, "signal"))
 	}
 	return out
 }
 
 func enfSiteAt(t *testing.T, tbl validation.Value, function string, kind string) validation.Value {
 	t.Helper()
-	for _, s := range listOf(objAt(tbl, "sites")) {
-		if objStr(s, "function_id") == function && objStr(s, "kind") == kind {
+	for _, s := range listOf(validation.ObjAt(tbl, "sites")) {
+		if validation.ObjStr(s, "function_id") == function && validation.ObjStr(s, "kind") == kind {
 			return s
 		}
 	}
@@ -81,17 +81,17 @@ const (
 // writes. stateRoots is read once, under a class-4 equality guard.
 func TestEnforcementTableNeverWrittenValue(t *testing.T) {
 	tbl := EnforcementTable(enfFixture(t), "stateRoots")
-	if got := objStr(tbl, "match"); got != "storage" {
+	if got := validation.ObjStr(tbl, "match"); got != "storage" {
 		t.Errorf("match = %q want storage", got)
 	}
 	want := []string{enfGuardScale + "|read|34|statement"}
 	if got := enfSiteKeys(tbl); !equalStrings(got, want) {
 		t.Errorf("sites = %v want %v", got, want)
 	}
-	if got := objStr(tbl, "ordering"); got != "call-graph" {
+	if got := validation.ObjStr(tbl, "ordering"); got != "call-graph" {
 		t.Errorf("ordering = %q want call-graph", got)
 	}
-	if got := objStr(tbl, "note"); got != "" {
+	if got := validation.ObjStr(tbl, "note"); got != "" {
 		t.Errorf("note = %q want empty", got)
 	}
 	for key, want := range map[string]int64{
@@ -118,7 +118,7 @@ func TestEnforcementTableNeverWrittenValue(t *testing.T) {
 // keeps the function-level lists as a fallback.
 func TestEnforcementTableStatementWriteBeatsStorageList(t *testing.T) {
 	tbl := EnforcementTable(enfFixture(t), "prevStateRoot")
-	if got := objStr(tbl, "match"); got != "storage" {
+	if got := validation.ObjStr(tbl, "match"); got != "storage" {
 		t.Errorf("match = %q want storage", got)
 	}
 	want := []string{
@@ -141,17 +141,17 @@ func TestEnforcementTableStatementWriteBeatsStorageList(t *testing.T) {
 	}
 	// The single pair is commitBatch's write reaching getPrevStateHash's read,
 	// and commitBatch's class-4 assertion about prevStateRoot covers it.
-	pairs := listOf(objAt(tbl, "stages"))
+	pairs := listOf(validation.ObjAt(tbl, "stages"))
 	if len(pairs) != 1 {
 		t.Fatalf("stages = %d want 1", len(pairs))
 	}
-	if got := objStr(objAt(pairs[0], "read"), "function"); got != "getPrevStateHash" {
+	if got := validation.ObjStr(validation.ObjAt(pairs[0], "read"), "function"); got != "getPrevStateHash" {
 		t.Errorf("pair read = %q", got)
 	}
-	if b := objAt(pairs[0], "write_guarded"); b.Kind != validation.Bool || !b.B {
+	if b := validation.ObjAt(pairs[0], "write_guarded"); b.Kind != validation.Bool || !b.B {
 		t.Errorf("commitBatch's write of prevStateRoot is guarded, so this is no gap")
 	}
-	if b := objAt(pairs[0], "gap"); b.Kind != validation.Bool || b.B {
+	if b := validation.ObjAt(pairs[0], "gap"); b.Kind != validation.Bool || b.B {
 		t.Errorf("pair should not be a gap")
 	}
 	if got := enfSignalKinds(tbl); !equalStrings(got, []string{"unguarded-read"}) {
@@ -166,25 +166,25 @@ func TestEnforcementTableGuardAttribution(t *testing.T) {
 	tbl := EnforcementTable(enfFixture(t), "prevStateRoot")
 
 	guarded := enfSiteAt(t, tbl, enfCommitBatch, "read")
-	if b := objAt(guarded, "guarded"); b.Kind != validation.Bool || !b.B {
+	if b := validation.ObjAt(guarded, "guarded"); b.Kind != validation.Bool || !b.B {
 		t.Fatalf("commitBatch read site should be guarded: %s",
 			validation.CanonCompact(guarded))
 	}
-	guards := listOf(objAt(guarded, "guards"))
+	guards := listOf(validation.ObjAt(guarded, "guards"))
 	if len(guards) != 1 {
 		t.Fatalf("commitBatch guards = %d want 1", len(guards))
 	}
 	g := guards[0]
 	if !boolAt(g, "about_variable") || intAt(g, "class") != 4 ||
-		objStr(g, "text") != "prevStateRoot[batchIndex] == stateRoot" {
+		validation.ObjStr(g, "text") != "prevStateRoot[batchIndex] == stateRoot" {
 		t.Errorf("guard = %s", validation.CanonCompact(g))
 	}
 
 	unguarded := enfSiteAt(t, tbl, enfPrevState, "read")
-	if b := objAt(unguarded, "guarded"); b.Kind != validation.Bool || b.B {
+	if b := validation.ObjAt(unguarded, "guarded"); b.Kind != validation.Bool || b.B {
 		t.Errorf("getPrevStateHash should have no guard about prevStateRoot")
 	}
-	if len(listOf(objAt(unguarded, "guards"))) != 0 {
+	if len(listOf(validation.ObjAt(unguarded, "guards"))) != 0 {
 		t.Errorf("getPrevStateHash guards should be empty")
 	}
 
@@ -193,7 +193,7 @@ func TestEnforcementTableGuardAttribution(t *testing.T) {
 	// table never shows it. Check the marking on the storedHash query below.
 	sh := EnforcementTable(enfFixture(t), "storedHash")
 	relay := enfSiteAt(t, sh, enfRelay, "read")
-	if b := objAt(relay, "guarded"); b.Kind != validation.Bool || !b.B {
+	if b := validation.ObjAt(relay, "guarded"); b.Kind != validation.Bool || !b.B {
 		t.Errorf("relayMessage read of storedHash should be guarded")
 	}
 }
@@ -226,19 +226,19 @@ func TestEnforcementTableStagePairs(t *testing.T) {
 	if got := enfStat(t, stored, "stage_open_gaps"); got != 0 {
 		t.Errorf("storedHash stage_open_gaps = %d want 0", got)
 	}
-	stages := listOf(objAt(stored, "stages"))
+	stages := listOf(validation.ObjAt(stored, "stages"))
 	if len(stages) != 2 {
 		t.Fatalf("storedHash stages = %d want 2", len(stages))
 	}
-	if b := objAt(stages[0], "read_guarded"); b.Kind != validation.Bool || !b.B {
+	if b := validation.ObjAt(stages[0], "read_guarded"); b.Kind != validation.Bool || !b.B {
 		t.Errorf("relayMessage guards storedHash, so read_guarded should be true")
 	}
-	if b := objAt(stages[0], "write_guarded"); b.Kind != validation.Bool || b.B {
+	if b := validation.ObjAt(stages[0], "write_guarded"); b.Kind != validation.Bool || b.B {
 		t.Errorf("commitBatch does not assert storedHash, so write_guarded is false")
 	}
 	stageSignals := 0
-	for _, sig := range listOf(objAt(stored, "signals")) {
-		if objStr(sig, "signal") == "unguarded-stage" {
+	for _, sig := range listOf(validation.ObjAt(stored, "signals")) {
+		if validation.ObjStr(sig, "signal") == "unguarded-stage" {
 			stageSignals++
 		}
 	}
@@ -264,18 +264,18 @@ func TestEnforcementTableStagePairs(t *testing.T) {
 		t.Errorf("tokenMapping should report the cross-contract pairs it skipped")
 	}
 	open := []validation.Value{}
-	for _, p := range listOf(objAt(tm, "stages")) {
-		if b := objAt(p, "read_guarded"); b.Kind == validation.Bool && !b.B {
+	for _, p := range listOf(validation.ObjAt(tm, "stages")) {
+		if b := validation.ObjAt(p, "read_guarded"); b.Kind == validation.Bool && !b.B {
 			open = append(open, p)
 		}
 	}
 	if len(open) != 1 {
 		t.Fatalf("open pairs = %d want 1", len(open))
 	}
-	if got := objStr(objAt(open[0], "write"), "function"); got != "updateTokenMapping" {
+	if got := validation.ObjStr(validation.ObjAt(open[0], "write"), "function"); got != "updateTokenMapping" {
 		t.Errorf("open pair write = %q", got)
 	}
-	if got := objStr(objAt(open[0], "read"), "function"); got != "onlyBase" {
+	if got := validation.ObjStr(validation.ObjAt(open[0], "read"), "function"); got != "onlyBase" {
 		t.Errorf("open pair read = %q", got)
 	}
 }
@@ -287,19 +287,19 @@ func TestEnforcementTableConceptName(t *testing.T) {
 	idx := enfFixture(t)
 	storage := EnforcementTable(idx, "prevStateRoot")
 	concept := EnforcementTable(idx, "prev-state root")
-	if got := objStr(concept, "match"); got != "concept" {
+	if got := validation.ObjStr(concept, "match"); got != "concept" {
 		t.Errorf("match = %q want concept", got)
 	}
 	if got, want := enfSiteKeys(concept), enfSiteKeys(storage); !equalStrings(got, want) {
 		t.Errorf("concept sites = %v want %v", got, want)
 	}
-	if got := objStr(concept, "concept_key"); got != "prev:state:root" {
+	if got := validation.ObjStr(concept, "concept_key"); got != "prev:state:root" {
 		t.Errorf("concept_key = %q want prev:state:root", got)
 	}
 	// The maximal key is what keeps a partial overlap out: guardScale's
 	// stateRoots expression shares the "root" token but not the whole key.
-	for _, s := range listOf(objAt(concept, "sites")) {
-		if got := objStr(s, "function_id"); got == enfGuardScale {
+	for _, s := range listOf(validation.ObjAt(concept, "sites")) {
+		if got := validation.ObjStr(s, "function_id"); got == enfGuardScale {
 			t.Errorf("guardScale must not match the prevStateRoot concept key")
 		}
 	}
@@ -311,8 +311,8 @@ func TestEnforcementTableScope(t *testing.T) {
 	idx := enfFixture(t)
 	all := EnforcementTable(idx, "tokenMapping")
 	contracts := map[string]bool{}
-	for _, s := range listOf(objAt(all, "sites")) {
-		contracts[objStr(s, "contract")] = true
+	for _, s := range listOf(validation.ObjAt(all, "sites")) {
+		contracts[validation.ObjStr(s, "contract")] = true
 	}
 	if len(contracts) < 2 {
 		t.Fatalf("fixture should have tokenMapping in several contracts: %v", contracts)
@@ -325,15 +325,15 @@ func TestEnforcementTableScope(t *testing.T) {
 	if got := enfStat(t, scoped, "sites"); got != 3 {
 		t.Errorf("scoped sites = %d want 3", got)
 	}
-	for _, s := range listOf(objAt(scoped, "sites")) {
-		if got := objStr(s, "contract"); got != "L1ERC20Gateway" {
+	for _, s := range listOf(validation.ObjAt(scoped, "sites")) {
+		if got := validation.ObjStr(s, "contract"); got != "L1ERC20Gateway" {
 			t.Errorf("scoped site contract = %q", got)
 		}
 	}
-	if got := objStr(scoped, "note"); got == "" {
+	if got := validation.ObjStr(scoped, "note"); got == "" {
 		t.Errorf("a scoped table should say so in note")
 	}
-	if got := objStr(all, "note"); strings.HasPrefix(got, "filtered to contract") {
+	if got := validation.ObjStr(all, "note"); strings.HasPrefix(got, "filtered to contract") {
 		t.Errorf("unscoped note = %q should not mention a filter", got)
 	}
 	empty := EnforcementTableOpts(idx, "tokenMapping",
@@ -345,22 +345,22 @@ func TestEnforcementTableScope(t *testing.T) {
 
 func TestEnforcementTableUnknownName(t *testing.T) {
 	tbl := EnforcementTable(enfFixture(t), "noSuchValue")
-	if got := objStr(tbl, "match"); got != "none" {
+	if got := validation.ObjStr(tbl, "match"); got != "none" {
 		t.Errorf("match = %q want none", got)
 	}
 	if got := enfStat(t, tbl, "sites"); got != 0 {
 		t.Errorf("sites = %d want 0", got)
 	}
-	if got := len(listOf(objAt(tbl, "signals"))); got != 0 {
+	if got := len(listOf(validation.ObjAt(tbl, "signals"))); got != 0 {
 		t.Errorf("signals = %d want 0", got)
 	}
-	if got := len(listOf(objAt(tbl, "stages"))); got != 0 {
+	if got := len(listOf(validation.ObjAt(tbl, "stages"))); got != 0 {
 		t.Errorf("stages = %d want 0", got)
 	}
-	if got := strList(objAt(tbl, "concept_keys")); len(got) == 0 {
+	if got := strList(validation.ObjAt(tbl, "concept_keys")); len(got) == 0 {
 		t.Errorf("concept_keys should record what was tried")
 	}
-	if got := objStr(tbl, "ordering"); got != "declaration" {
+	if got := validation.ObjStr(tbl, "ordering"); got != "declaration" {
 		t.Errorf("ordering = %q want declaration", got)
 	}
 }
@@ -387,8 +387,8 @@ func TestEnforcementOrderingPartial(t *testing.T) {
 			validation.KV{K: "name", V: validation.VStr(id[strings.Index(id, ".")+1:])},
 			validation.KV{K: "line", V: validation.VInt(1)},
 			validation.KV{K: "is_entry_point", V: validation.VBool(entry)},
-			validation.KV{K: "reads_storage", V: strArr(reads)},
-			validation.KV{K: "writes_storage", V: strArr(writes)},
+			validation.KV{K: "reads_storage", V: validation.StrArr(reads)},
+			validation.KV{K: "writes_storage", V: validation.StrArr(writes)},
 		)
 	}
 	orphan := "a.sol#A.readTheValue"
@@ -398,10 +398,10 @@ func TestEnforcementOrderingPartial(t *testing.T) {
 		validation.KV{K: "edges", V: validation.VArr()},
 	)
 	tbl := EnforcementTable(idx, "v")
-	if got := objStr(tbl, "ordering"); got != "declaration" {
+	if got := validation.ObjStr(tbl, "ordering"); got != "declaration" {
 		t.Errorf("ordering = %q want declaration", got)
 	}
-	if got := objStr(tbl, "note"); got == "" {
+	if got := validation.ObjStr(tbl, "note"); got == "" {
 		t.Errorf("declaration ordering should carry a note")
 	}
 	entry := "a.sol#A.entryPoint"
@@ -412,14 +412,14 @@ func TestEnforcementOrderingPartial(t *testing.T) {
 		validation.KV{K: "edges", V: validation.VArr()},
 	)
 	tbl = EnforcementTable(idx, "v")
-	if got := objStr(tbl, "ordering"); got != "partial" {
+	if got := validation.ObjStr(tbl, "ordering"); got != "partial" {
 		t.Errorf("ordering = %q want partial", got)
 	}
 	if got := enfSiteKeys(tbl); !equalStrings(got, []string{
 		entry + "|read|1|function", orphan + "|read|1|function"}) {
 		t.Errorf("partial order = %v (unreachable last)", got)
 	}
-	if got := objStr(tbl, "note"); got == "" {
+	if got := validation.ObjStr(tbl, "note"); got == "" {
 		t.Errorf("partial ordering should carry a note")
 	}
 }

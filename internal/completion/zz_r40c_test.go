@@ -87,7 +87,7 @@ func TestR40cSeparatorReasonIsOneRowAndHonoured(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Waive must accept a %s reason: %v", tc.name, err)
 			}
-			if got := objStr(row, "reason"); got != reason {
+			if got := validation.ObjStr(row, "reason"); got != reason {
 				t.Fatalf("returned reason = %q, want %q", got, reason)
 			}
 			raw, err := os.ReadFile(WaiversPath(c))
@@ -114,7 +114,7 @@ func TestR40cSeparatorReasonIsOneRowAndHonoured(t *testing.T) {
 			if len(rows) != 1 {
 				t.Fatalf("Waivers returned %d row(s), want 1", len(rows))
 			}
-			if got := objStr(rows[0], "reason"); got != reason {
+			if got := validation.ObjStr(rows[0], "reason"); got != reason {
 				t.Errorf("read-back reason = %q, want %q", got, reason)
 			}
 			// The proof HONOURS it — the whole point of the finding.
@@ -122,11 +122,11 @@ func TestR40cSeparatorReasonIsOneRowAndHonoured(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if d := objAt(pr, "done"); d.Kind != validation.Bool || !d.B {
+			if d := validation.ObjAt(pr, "done"); d.Kind != validation.Bool || !d.B {
 				t.Errorf("the waiver was not honoured: %s",
 					validation.PyRepr(pr))
 			}
-			if note := objStr(pr, "note"); note == "proof raised" {
+			if note := validation.ObjStr(pr, "note"); note == "proof raised" {
 				t.Errorf("proof raised instead of honouring the waiver: %s",
 					validation.PyRepr(pr))
 			}
@@ -176,7 +176,7 @@ func TestR40cLegacyRawSeparatorRowReadsLikeTheAuditReader(t *testing.T) {
 	if len(rows) != 1 {
 		t.Fatalf("Waivers returned %d row(s), want 1", len(rows))
 	}
-	if got := objStr(rows[0], "reason"); got != reason {
+	if got := validation.ObjStr(rows[0], "reason"); got != reason {
 		t.Errorf("read-back reason = %q, want %q", got, reason)
 	}
 	v, err := c.VerifyLog()
@@ -191,7 +191,7 @@ func TestR40cLegacyRawSeparatorRowReadsLikeTheAuditReader(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if d := objAt(pr, "done"); d.Kind != validation.Bool || !d.B {
+	if d := validation.ObjAt(pr, "done"); d.Kind != validation.Bool || !d.B {
 		t.Errorf("legacy waiver not honoured: %s", validation.PyRepr(pr))
 	}
 }
@@ -308,7 +308,7 @@ func TestR40cRefusedSeparatorWaiveUnwindsByteExact(t *testing.T) {
 	if err != nil {
 		t.Fatalf("the surviving row must still read: %v", err)
 	}
-	if len(rows) != 1 || objStr(rows[0], "reason") != reason {
+	if len(rows) != 1 || validation.ObjStr(rows[0], "reason") != reason {
 		t.Errorf("surviving row = %s, want the one separator reason",
 			validation.PyRepr(validation.VArr(rows...)))
 	}

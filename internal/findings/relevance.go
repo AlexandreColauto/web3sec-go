@@ -121,20 +121,20 @@ func normCapValues(v validation.Value) map[string]struct{} {
 // prose must not count.
 func FindingRelevanceTags(finding validation.Value) map[string][]string {
 	tags := map[string][]string{}
-	root := asDict(objAt(finding, "root_cause"))
-	if cls := normTag(objAt(root, "class")); cls != "" {
+	root := asDict(validation.ObjAt(finding, "root_cause"))
+	if cls := normTag(validation.ObjAt(root, "class")); cls != "" {
 		tags["bug_class"] = []string{cls}
 	}
-	cwe := normTag(objAt(root, "cwe"))
+	cwe := normTag(validation.ObjAt(root, "cwe"))
 	if cwe == "" {
-		cwe = normTag(objAt(finding, "cwe"))
+		cwe = normTag(validation.ObjAt(finding, "cwe"))
 	}
 	if cwe != "" {
 		tags["cwe"] = []string{cwe}
 	}
-	caps := asDict(objAt(finding, "capabilities"))
-	labels := normCapValues(objAt(caps, "granted"))
-	for l := range normCapValues(objAt(caps, "required")) {
+	caps := asDict(validation.ObjAt(finding, "capabilities"))
+	labels := normCapValues(validation.ObjAt(caps, "granted"))
+	for l := range normCapValues(validation.ObjAt(caps, "required")) {
 		labels[l] = struct{}{}
 	}
 	if len(labels) > 0 {
@@ -151,17 +151,17 @@ func FindingRelevanceTags(finding validation.Value) map[string][]string {
 // sides, so no basis is fabricated.
 func MemoryRowRelevanceTags(row validation.Value) map[string][]string {
 	tags := map[string][]string{}
-	if cls := normTag(objAt(row, "bug_class")); cls != "" {
+	if cls := normTag(validation.ObjAt(row, "bug_class")); cls != "" {
 		tags["bug_class"] = []string{cls}
 	}
-	if cwe := normTag(objAt(row, "cwe")); cwe != "" {
+	if cwe := normTag(validation.ObjAt(row, "cwe")); cwe != "" {
 		tags["cwe"] = []string{cwe}
 	}
-	labels := normCapValues(objAt(row, "granted"))
-	for l := range normCapValues(objAt(row, "required")) {
+	labels := normCapValues(validation.ObjAt(row, "granted"))
+	for l := range normCapValues(validation.ObjAt(row, "required")) {
 		labels[l] = struct{}{}
 	}
-	if term := objAt(row, "terminal"); validation.PyTruthy(term) {
+	if term := validation.ObjAt(row, "terminal"); validation.PyTruthy(term) {
 		for l := range normCapValues(validation.VArr(term)) {
 			labels[l] = struct{}{}
 		}
@@ -226,12 +226,12 @@ func MemoryCheckRelevance(finding validation.Value, memoryIDs []string,
 		}
 	}
 	verdict := validation.VObj(
-		validation.KV{K: "overlapping", V: strArr(overlapping)},
-		validation.KV{K: "basis", V: strArr(sortedSetKeys(basis))},
+		validation.KV{K: "overlapping", V: validation.StrArr(overlapping)},
+		validation.KV{K: "basis", V: validation.StrArr(sortedSetKeys(basis))},
 	)
 	if len(discounted) > 0 {
 		verdict.O = append(verdict.O,
-			validation.KV{K: "discounted", V: strArr(sortedSetKeys(discounted))},
+			validation.KV{K: "discounted", V: validation.StrArr(sortedSetKeys(discounted))},
 			validation.KV{K: "rule", V: validation.VStr(CoarseClassRule)})
 	}
 	return verdict
@@ -265,7 +265,7 @@ func LineageTags(finding validation.Value) []string {
 // lineage.
 func IrrelevantReason(relevance validation.Value,
 	memoryIDs []string) (string, string) {
-	discounted := objAt(relevance, "discounted")
+	discounted := validation.ObjAt(relevance, "discounted")
 	if discounted.Kind == validation.Arr && len(discounted.A) > 0 {
 		names := make([]string, 0, len(discounted.A))
 		for _, d := range discounted.A {
@@ -316,7 +316,7 @@ func CorpusRecallGaps(campaign *state.Campaign) (validation.Value, error) {
 	checksTotal, irrelevant, labelOnly, noRows := 0, 0, 0, 0
 	labels := map[string]struct{}{}
 	for _, f := range all {
-		checks := objAt(asDict(objAt(f, "provenance")), "memory_checks")
+		checks := validation.ObjAt(asDict(validation.ObjAt(f, "provenance")), "memory_checks")
 		if checks.Kind != validation.Arr {
 			continue
 		}
@@ -326,24 +326,24 @@ func CorpusRecallGaps(campaign *state.Campaign) (validation.Value, error) {
 				continue
 			}
 			checksTotal++
-			v := objAt(c, "recalled_irrelevant")
+			v := validation.ObjAt(c, "recalled_irrelevant")
 			if v.Kind != validation.Bool || !v.B {
 				continue
 			}
 			bad++
-			disc := objAt(asDict(objAt(c, "relevance")), "discounted")
+			disc := validation.ObjAt(asDict(validation.ObjAt(c, "relevance")), "discounted")
 			if disc.Kind == validation.Arr && len(disc.A) > 0 {
 				labelOnly++
 				for _, d := range disc.A {
 					labels[pyStr(d)] = struct{}{}
 				}
-			} else if !validation.PyTruthy(objAt(c, "memory_ids")) {
+			} else if !validation.PyTruthy(validation.ObjAt(c, "memory_ids")) {
 				noRows++
 			}
 		}
 		if bad > 0 {
 			irrelevant += bad
-			findingsList = append(findingsList, objStr(f, "finding_id"))
+			findingsList = append(findingsList, validation.ObjStr(f, "finding_id"))
 		}
 	}
 	sort.Strings(findingsList)
@@ -359,8 +359,8 @@ func CorpusRecallGaps(campaign *state.Campaign) (validation.Value, error) {
 		validation.KV{K: "no_rows_checks", V: validation.VInt(int64(noRows))},
 		validation.KV{K: "silent_checks",
 			V: validation.VInt(int64(irrelevant - labelOnly - noRows))},
-		validation.KV{K: "discounted", V: strArr(sortedSetKeys(labels))},
-		validation.KV{K: "findings", V: strArr(findingsList)},
+		validation.KV{K: "discounted", V: validation.StrArr(sortedSetKeys(labels))},
+		validation.KV{K: "findings", V: validation.StrArr(findingsList)},
 	), nil
 }
 

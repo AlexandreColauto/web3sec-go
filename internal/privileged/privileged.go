@@ -39,30 +39,9 @@ func blastRank(b string) int {
 	return -1
 }
 
-// objAt is `d.get(key)` for object values.
-func objAt(v validation.Value, key string) validation.Value {
-	if v.Kind != validation.Obj {
-		return validation.VNull()
-	}
-	for _, kv := range v.O {
-		if kv.K == key {
-			return kv.V
-		}
-	}
-	return validation.VNull()
-}
-
-// objStr is `d.get(key)` when the field is a string.
-func objStr(v validation.Value, key string) string {
-	if f := objAt(v, key); f.Kind == validation.Str {
-		return f.S
-	}
-	return ""
-}
-
 // listOf is `d.get(key) or []`.
 func listOf(v validation.Value, key string) validation.Value {
-	if f := objAt(v, key); f.Kind == validation.Arr {
+	if f := validation.ObjAt(v, key); f.Kind == validation.Arr {
 		return f
 	}
 	return validation.VArr()
@@ -72,14 +51,6 @@ func kvOf(k string, v validation.Value) validation.KV {
 	return validation.KV{K: k, V: v}
 }
 
-func strArr(items []string) validation.Value {
-	out := make([]validation.Value, 0, len(items))
-	for _, s := range items {
-		out = append(out, validation.VStr(s))
-	}
-	return validation.VArr(out...)
-}
-
 // PrivilegeEntries is _privilege_entries: the model's privilege table as
 // dict entries only. A hand-edited artifact may hold a non-list `privileges`
 // value or junk entries; malformed shapes are dropped, never raised on.
@@ -87,7 +58,7 @@ func PrivilegeEntries(model validation.Value) []validation.Value {
 	if model.Kind != validation.Obj {
 		return nil
 	}
-	privs := objAt(model, "privileges")
+	privs := validation.ObjAt(model, "privileges")
 	if privs.Kind != validation.Arr {
 		return nil
 	}
@@ -104,7 +75,7 @@ func PrivilegeEntries(model validation.Value) []validation.Value {
 func PrivilegedRoles(model validation.Value) []string {
 	seen := map[string]struct{}{}
 	for _, p := range PrivilegeEntries(model) {
-		if role := objStr(p, "role"); role != "" {
+		if role := validation.ObjStr(p, "role"); role != "" {
 			seen[capabilities.NormalizeLabel(role)] = struct{}{}
 		}
 	}
@@ -164,13 +135,13 @@ func PathConstraints(model validation.Value, role string) []validation.Value {
 	want := capabilities.NormalizeLabel(role)
 	out := []validation.Value{}
 	for _, p := range PrivilegeEntries(model) {
-		r := objStr(p, "role")
+		r := validation.ObjStr(p, "role")
 		if r != "" && capabilities.NormalizeLabel(r) == want {
 			out = append(out, p)
 		}
 	}
 	sort.SliceStable(out, func(i, j int) bool {
-		return objStr(out[i], "capability") < objStr(out[j], "capability")
+		return validation.ObjStr(out[i], "capability") < validation.ObjStr(out[j], "capability")
 	})
 	return out
 }
@@ -179,12 +150,12 @@ func PathConstraints(model validation.Value, role string) []validation.Value {
 // multi-signatory (threshold >= 3) beats unconstrained.
 func ExposureBand(constraints []validation.Value) string {
 	for _, c := range constraints {
-		if v := objAt(c, "timelocked"); v.Kind == validation.Bool && v.B {
+		if v := validation.ObjAt(c, "timelocked"); v.Kind == validation.Bool && v.B {
 			return "timelocked"
 		}
 	}
 	for _, c := range constraints {
-		t := objAt(c, "multisig_threshold")
+		t := validation.ObjAt(c, "multisig_threshold")
 		if t.Kind == validation.Bool {
 			continue
 		}
@@ -214,7 +185,7 @@ func pathBlastRadius(c *state.Campaign, path validation.Value) string {
 		if err != nil {
 			continue
 		}
-		b := objStr(objAt(m, "economic_impact"), "blast_radius")
+		b := validation.ObjStr(validation.ObjAt(m, "economic_impact"), "blast_radius")
 		if blastRank(b) >= 0 && (best == "" || blastRank(b) > blastRank(best)) {
 			best = b
 		}
@@ -234,7 +205,7 @@ func pathExtractable(c *state.Campaign, path validation.Value) float64 {
 		if err != nil {
 			continue
 		}
-		v := objAt(objAt(m, "economic_impact"), "extractable_usd")
+		v := validation.ObjAt(validation.ObjAt(m, "economic_impact"), "extractable_usd")
 		if v.Kind == validation.Bool {
 			continue
 		}
@@ -293,7 +264,7 @@ func blastValue(b string) validation.Value {
 
 // sortRank is -_BLAST_RANK.get(blast, -1): unrecorded sorts last.
 func sortRank(p validation.Value) int {
-	b := objAt(p, "blast_radius")
+	b := validation.ObjAt(p, "blast_radius")
 	if b.Kind != validation.Str {
 		return 1
 	}
@@ -341,18 +312,18 @@ func PrivilegedExposure(c *state.Campaign) (validation.Value, error) {
 		band := ExposureBand(constraints)
 		rolePrivs := []validation.Value{}
 		for _, p := range privs {
-			if capabilities.NormalizeLabel(objStr(p, "role")) == r {
+			if capabilities.NormalizeLabel(validation.ObjStr(p, "role")) == r {
 				rolePrivs = append(rolePrivs, p)
 			}
 		}
 		sort.SliceStable(rolePrivs, func(i, j int) bool {
-			return objStr(rolePrivs[i], "capability") <
-				objStr(rolePrivs[j], "capability")
+			return validation.ObjStr(rolePrivs[i], "capability") <
+				validation.ObjStr(rolePrivs[j], "capability")
 		})
 		roles = append(roles, validation.VObj(
 			kvOf("role", validation.VStr(r)),
 			kvOf("role_label", validation.VStr(capabilities.RoleLabel(r))),
-			kvOf("baseline", strArr(RoleBaseline(r))),
+			kvOf("baseline", validation.StrArr(RoleBaseline(r))),
 			kvOf("privileges", validation.VArr(rolePrivs...)),
 			kvOf("constraints", validation.VArr(constraints...)),
 			kvOf("exposure_band", validation.VStr(band)),

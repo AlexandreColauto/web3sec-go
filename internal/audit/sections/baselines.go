@@ -122,7 +122,7 @@ func baselinesManifest(manPath string, problems *[]validation.Value) map[string]
 	raw := validation.VArr()
 	if man.Kind == validation.Obj {
 		if hasObjKey(man, "baselines") {
-			raw = objAt(man, "baselines")
+			raw = validation.ObjAt(man, "baselines")
 		}
 	}
 	malformed := raw.Kind != validation.Arr
@@ -191,7 +191,7 @@ func baselinesFingerprints(bdir string, names []string,
 			// except turns into "baselines section failed: ...".
 			return fmt.Errorf("'%s' object has no attribute 'get'", pyTypeName(meta))
 		}
-		stored := objAt(meta, "fingerprint_sha256")
+		stored := validation.ObjAt(meta, "fingerprint_sha256")
 		if stored.Kind != validation.Str || stored.S != actual {
 			*problems = append(*problems, validation.VStr(fmt.Sprintf(
 				"baseline %s: fingerprint mismatch (stored %s..., actual "+

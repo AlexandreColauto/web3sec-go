@@ -51,11 +51,11 @@ func r43bProblems(t *testing.T, c *state.Campaign) []string {
 	if err != nil {
 		t.Fatalf("VerifyTrajectory: %v", err)
 	}
-	if objAt(report, "ok").B {
-		t.Fatalf("ok = true, want false; problems %v", objAt(report, "problems"))
+	if validation.ObjAt(report, "ok").B {
+		t.Fatalf("ok = true, want false; problems %v", validation.ObjAt(report, "problems"))
 	}
 	problems := []string{}
-	for _, p := range objAt(report, "problems").A {
+	for _, p := range validation.ObjAt(report, "problems").A {
 		problems = append(problems, scalarText(p))
 	}
 	return problems

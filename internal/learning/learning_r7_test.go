@@ -32,9 +32,9 @@ func TestMemoryApproveErrorsNameThemselves(t *testing.T) {
 func TestStaleBugClassChainGoesLoud(t *testing.T) {
 	c := newCampaign(t, "chain-loud")
 	old := mintFinding(t, c, "logic-error", nil, nil, "Rounding inflation")
-	fid := objStr(old, "finding_id")
+	fid := validation.ObjStr(old, "finding_id")
 	succ := mintFinding(t, c, "access-control", nil, nil, "Same drain framed right")
-	sid := objStr(succ, "finding_id")
+	sid := validation.ObjStr(succ, "finding_id")
 	data := validation.VObj(
 		kv("old", validation.VStr(fid)),
 		kv("new", validation.VStr(sid)),

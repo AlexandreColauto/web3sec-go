@@ -10,6 +10,7 @@ package cli
 import (
 	"strings"
 	"testing"
+	"websec/internal/validation"
 
 	"websec/internal/state"
 )
@@ -112,7 +113,7 @@ func TestSymmetryMatrixJSONAndFamilyScope(t *testing.T) {
 		t.Fatalf("exit %d err %q", code, errS)
 	}
 	m := mustJSON(t, out)
-	stats := objAt(m, "stats")
+	stats := validation.ObjAt(m, "stats")
 	if got := intAtForTest(t, stats, "families"); got != 1 {
 		t.Errorf("families = %d", got)
 	}
@@ -130,7 +131,7 @@ func TestSymmetryMatrixJSONAndFamilyScope(t *testing.T) {
 	if len(divs) != 1 {
 		t.Fatalf("divergences = %d", len(divs))
 	}
-	if got := objStr(divs[0], "kind"); got != "funding-mismatch" {
+	if got := validation.ObjStr(divs[0], "kind"); got != "funding-mismatch" {
 		t.Errorf("kind = %q", got)
 	}
 

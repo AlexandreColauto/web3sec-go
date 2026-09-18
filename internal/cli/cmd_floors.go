@@ -258,8 +258,8 @@ func floorsSet(c *state.Campaign, a *floorsArgs, r *Runner) error {
 		return err
 	}
 	fmt.Fprintf(r.Out, "floor policy set: %s -> %s (actor %s, %s)\n",
-		objStr(entry, "class"), objStr(entry, "floor"),
-		objStr(entry, "actor"), objStr(entry, "at"))
+		validation.ObjStr(entry, "class"), validation.ObjStr(entry, "floor"),
+		validation.ObjStr(entry, "actor"), validation.ObjStr(entry, "at"))
 	if _, known := taxonomy.KnownClasses()[a.class]; !known {
 		// r8: the open-vocabulary law is deliberate — a class may exist
 		// in the taxonomy tomorrow, and refusing unknown names would
@@ -303,8 +303,8 @@ func floorsList(c *state.Campaign, a *floorsArgs, r *Runner) error {
 	rows := t14List(rep, "rows")
 	fmt.Fprintf(r.Out, "effective CONFIRMED floors (%d classes):\n", len(rows.A))
 	for _, row := range rows.A {
-		eff := objAt(row, "effective_floor")
-		def := scalarStr(objAt(row, "default_floor"))
+		eff := validation.ObjAt(row, "effective_floor")
+		def := scalarStr(validation.ObjAt(row, "default_floor"))
 		if def == "" || def == "None" {
 			def = "E5"
 		}
@@ -313,16 +313,16 @@ func floorsList(c *state.Campaign, a *floorsArgs, r *Runner) error {
 			mark = " *"
 		}
 		tag := "default " + def
-		if ov := objAt(row, "override"); ov.Kind == validation.Obj {
+		if ov := validation.ObjAt(row, "override"); ov.Kind == validation.Obj {
 			tag = fmt.Sprintf("OVERRIDE of %s (by %s: %s)", def,
-				objStr(ov, "actor"), t14Truncate(objStr(ov, "reason"), 70))
+				validation.ObjStr(ov, "actor"), t14Truncate(validation.ObjStr(ov, "reason"), 70))
 		}
-		fmt.Fprintf(r.Out, "  %s %s%s  %s\n", t14Pad(objStr(row, "class"), 28),
+		fmt.Fprintf(r.Out, "  %s %s%s  %s\n", t14Pad(validation.ObjStr(row, "class"), 28),
 			scalarStr(eff), mark, tag)
 	}
 	fmt.Fprintln(r.Out, "  * = floor needs a deployment/chain pin and fork "+
 		"RPC — `webv2 brief` shows which are structurally unreachable")
-	fmt.Fprintf(r.Out, "  %s\n", objStr(rep, "default_note"))
+	fmt.Fprintf(r.Out, "  %s\n", validation.ObjStr(rep, "default_note"))
 	return nil
 }
 

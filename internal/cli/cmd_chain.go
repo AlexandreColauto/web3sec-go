@@ -150,11 +150,11 @@ func chainCmd(root string, args []string, r *Runner) error {
 		kind = "unproven chain"
 	}
 	line := fmt.Sprintf("%s: %s materialized from %d members (evidence floor %s)",
-		objStr(doc, "chain_id"), kind, len(members),
-		objStr(doc, "evidence_floor"))
-	if t := objAt(doc, "terminal"); t.Kind == validation.Obj {
-		line += fmt.Sprintf(", terminal %s via %s", objStr(t, "capability"),
-			objStr(t, "via_finding"))
+		validation.ObjStr(doc, "chain_id"), kind, len(members),
+		validation.ObjStr(doc, "evidence_floor"))
+	if t := validation.ObjAt(doc, "terminal"); t.Kind == validation.Obj {
+		line += fmt.Sprintf(", terminal %s via %s", validation.ObjStr(t, "capability"),
+			validation.ObjStr(t, "via_finding"))
 	}
 	if unproven {
 		line += ", no super-finding (hypothesis-level)"

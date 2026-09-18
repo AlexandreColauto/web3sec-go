@@ -142,16 +142,16 @@ func runCorpusSurface(root string, args []string, r *Runner) int {
 				flag = "EXPOSED"
 			}
 			fmt.Fprintf(r.Out, "  [%s] %-24s score=%.3f (w=%s, conf=%s)\n",
-				flag, objStr(row, "bug_class"), floatAtCLI(row, "score"),
-				scalarStr(objAt(row, "corpus_weight")),
-				objStr(row, "confidence"))
+				flag, validation.ObjStr(row, "bug_class"), floatAtCLI(row, "score"),
+				scalarStr(validation.ObjAt(row, "corpus_weight")),
+				validation.ObjStr(row, "confidence"))
 		}
 		if len(matches) > 0 {
 			fmt.Fprint(r.Out, "PoC shape matches (top 5):\n")
 			for _, m := range firstRowsCLI(matches, 5) {
 				fmt.Fprintf(r.Out, "  %s  exact=%d near=%d %s\n",
-					objStr(m, "file"), len(listAtCLI(m, "exact_hits")),
-					len(listAtCLI(m, "near_misses")), objStr(m, "bug_class"))
+					validation.ObjStr(m, "file"), len(listAtCLI(m, "exact_hits")),
+					len(listAtCLI(m, "near_misses")), validation.ObjStr(m, "bug_class"))
 			}
 		}
 		return nil

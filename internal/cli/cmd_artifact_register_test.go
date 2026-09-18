@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"websec/internal/validation"
 )
 
 func TestArtifactRegister(t *testing.T) {
@@ -150,14 +151,14 @@ func TestArtifactRegisterDeduplicatesByResolvedPath(t *testing.T) {
 		t.Fatalf("A PATH HOLDS ONE REGISTRY ROW: %d rows for one file (%s)",
 			len(rows), spellings)
 	}
-	if got := objStr(rows[0], "artifact_id"); got != ids[0] {
+	if got := validation.ObjStr(rows[0], "artifact_id"); got != ids[0] {
 		t.Fatalf("row id = %q, want %s", got, ids[0])
 	}
 	// The row's stored path is the one the FIRST registration wrote (relative
 	// to the campaign root): a re-spelling refreshes the row, it does not
 	// re-key it, so the registry stays stable for every reader that resolves
 	// the stored path against the root.
-	if got := objStr(rows[0], "path"); got != "target/a.sol" {
+	if got := validation.ObjStr(rows[0], "path"); got != "target/a.sol" {
 		t.Fatalf("stored path = %q, want target/a.sol", got)
 	}
 	// One registration, one refresh per later spelling: the count is the row's
@@ -175,7 +176,7 @@ func TestArtifactRegisterDeduplicatesByResolvedPath(t *testing.T) {
 	}
 	registered, refreshed := 0, 0
 	for _, ev := range events {
-		switch objStr(ev, "type") {
+		switch validation.ObjStr(ev, "type") {
 		case "artifact.registered":
 			registered++
 		case "artifact.refreshed":

@@ -136,21 +136,21 @@ func RecordAckScan(c *state.Campaign, findingID string) (bool, error) {
 		return false, err
 	}
 	if hit {
-		if _, ok := fieldAt(objAt(f, "dedup_meta"), "in_code_ack"); !ok {
-			dm := objAt(f, "dedup_meta")
+		if _, ok := fieldAt(validation.ObjAt(f, "dedup_meta"), "in_code_ack"); !ok {
+			dm := validation.ObjAt(f, "dedup_meta")
 			if dm.Kind != validation.Obj {
 				dm = validation.VObj()
 			}
 			dm.O = validation.SetOrAppend(dm.O, "in_code_ack", ack)
 			f.O = validation.SetOrAppend(f.O, "dedup_meta", dm)
 		} else {
-			dm := objAt(f, "dedup_meta")
+			dm := validation.ObjAt(f, "dedup_meta")
 			dm.O = validation.SetOrAppend(dm.O, "in_code_ack", ack)
 			f.O = validation.SetOrAppend(f.O, "dedup_meta", dm)
 		}
-	} else if cur, ok := fieldAt(objAt(f, "dedup_meta"), "in_code_ack"); ok &&
+	} else if cur, ok := fieldAt(validation.ObjAt(f, "dedup_meta"), "in_code_ack"); ok &&
 		cur.Kind != validation.Null {
-		dm := objAt(f, "dedup_meta")
+		dm := validation.ObjAt(f, "dedup_meta")
 		kept := make([]validation.KV, 0, len(dm.O))
 		for _, kv := range dm.O {
 			if kv.K != "in_code_ack" {
@@ -179,7 +179,7 @@ func RecordAckScan(c *state.Campaign, findingID string) (bool, error) {
 // ackSourceRoot resolves the pinned source root for the finding's source
 // snapshot id.
 func ackSourceRoot(c *state.Campaign, f validation.Value) (string, error) {
-	sid := objStr(objAt(f, "snapshot_ids"), "source")
+	sid := validation.ObjStr(validation.ObjAt(f, "snapshot_ids"), "source")
 	if sid == "" || sid == "unpinned" {
 		return "", fmt.Errorf("finding has no source pin")
 	}
@@ -188,7 +188,7 @@ func ackSourceRoot(c *state.Campaign, f validation.Value) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("source pin %s not readable: %v", sid, err)
 	}
-	root := objStr(objAt(snap, "source"), "root")
+	root := validation.ObjStr(validation.ObjAt(snap, "source"), "root")
 	if root == "" {
 		return "", fmt.Errorf("source pin %s has no root", sid)
 	}
@@ -230,23 +230,23 @@ func ackCollectAnchors(c *state.Campaign, f validation.Value,
 			out = append(out, ackAnchor{file: file, line: int(ln)})
 		}
 	}
-	aff := objAt(f, "affected")
+	aff := validation.ObjAt(f, "affected")
 	if aff.Kind == validation.Arr {
 		for _, item := range aff.A {
 			var lines []int64
-			if lv := objAt(item, "lines"); lv.Kind == validation.Arr {
+			if lv := validation.ObjAt(item, "lines"); lv.Kind == validation.Arr {
 				for _, v := range lv.A {
 					lines = append(lines, v.I)
 				}
 			}
-			add(objStr(item, "path"), objStr(item, "function"), lines)
+			add(validation.ObjStr(item, "path"), validation.ObjStr(item, "function"), lines)
 		}
 	}
 	if idx := ackIndexContracts(c); len(idx) > 0 {
-		seq := objAt(f, "exploit_sequence")
+		seq := validation.ObjAt(f, "exploit_sequence")
 		if seq.Kind == validation.Arr {
 			for _, step := range seq.A {
-				calls := objAt(step, "calls")
+				calls := validation.ObjAt(step, "calls")
 				if calls.Kind != validation.Arr {
 					continue
 				}

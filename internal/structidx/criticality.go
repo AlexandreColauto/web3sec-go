@@ -80,24 +80,24 @@ func CriticalityRank(model, index validation.Value) []validation.Value {
 	// State machines name states, not contracts, so the machine NAME is the
 	// primary host signal, backed by every string the machine mentions.
 	smTokens := map[string]bool{}
-	for _, sm := range objList(objAt(model, "state_machines")) {
-		unionInto(smTokens, critTokens(objAt(sm, "name")))
-		for _, s := range objList(objAt(sm, "states")) {
+	for _, sm := range objList(validation.ObjAt(model, "state_machines")) {
+		unionInto(smTokens, critTokens(validation.ObjAt(sm, "name")))
+		for _, s := range objList(validation.ObjAt(sm, "states")) {
 			// States are objects ({id, terminal, ...}), not bare strings —
 			// critTokens is string-only, so tokenize the state's id (the
 			// state name); a bare-string state still works via the fallback.
 			if s.Kind == validation.Obj {
-				unionInto(smTokens, critTokens(objAt(s, "id")))
+				unionInto(smTokens, critTokens(validation.ObjAt(s, "id")))
 			} else {
 				unionInto(smTokens, critTokens(s))
 			}
 		}
-		for _, t := range objList(objAt(sm, "transitions")) {
+		for _, t := range objList(validation.ObjAt(sm, "transitions")) {
 			for _, key := range []string{"contract", "on", "from", "to",
 				"trigger", "actor"} {
-				unionInto(smTokens, critTokens(objAt(t, key)))
+				unionInto(smTokens, critTokens(validation.ObjAt(t, key)))
 			}
-			for _, g := range objList(objAt(t, "guards")) {
+			for _, g := range objList(validation.ObjAt(t, "guards")) {
 				unionInto(smTokens, critTokens(g))
 			}
 		}
@@ -107,7 +107,7 @@ func CriticalityRank(model, index validation.Value) []validation.Value {
 	critical := map[string]bool{}
 	for _, e := range protocolgraph.CriticalEdges(model) {
 		for _, key := range []string{"contract", "from", "to", "via"} {
-			unionInto(critical, critTokens(objAt(e, key)))
+			unionInto(critical, critTokens(validation.ObjAt(e, key)))
 		}
 	}
 
@@ -115,10 +115,10 @@ func CriticalityRank(model, index validation.Value) []validation.Value {
 	// is tokenized individually.
 	oracle := map[string]bool{}
 	for _, o := range protocolgraph.OracleChain(model) {
-		unionInto(oracle, critTokens(objAt(o, "id")))
-		unionInto(oracle, critTokens(objAt(o, "contract")))
-		unionInto(oracle, critTokens(objAt(o, "manipulable_by")))
-		feeds := objAt(o, "feeds")
+		unionInto(oracle, critTokens(validation.ObjAt(o, "id")))
+		unionInto(oracle, critTokens(validation.ObjAt(o, "contract")))
+		unionInto(oracle, critTokens(validation.ObjAt(o, "manipulable_by")))
+		feeds := validation.ObjAt(o, "feeds")
 		if feeds.Kind == validation.Str {
 			unionInto(oracle, critTokens(feeds))
 		} else if feeds.Kind == validation.Arr {
@@ -130,11 +130,11 @@ func CriticalityRank(model, index validation.Value) []validation.Value {
 
 	// Upgrade gap: a contract named in upgrade_paths can change deployed code.
 	upgrades := map[string]bool{}
-	for _, u := range objList(objAt(model, "upgrade_paths")) {
+	for _, u := range objList(validation.ObjAt(model, "upgrade_paths")) {
 		if u.Kind == validation.Obj {
 			for _, key := range []string{"contract", "proxy", "implementation",
 				"target", "admin", "timelock", "initializer", "gap_risk"} {
-				unionInto(upgrades, critTokens(objAt(u, key)))
+				unionInto(upgrades, critTokens(validation.ObjAt(u, key)))
 			}
 		} else {
 			unionInto(upgrades, critTokens(u))
@@ -145,7 +145,7 @@ func CriticalityRank(model, index validation.Value) []validation.Value {
 	drains := map[string]bool{}
 	for _, a := range protocolgraph.WhoCan(model, "can_drain") {
 		if a.Kind == validation.Obj {
-			unionInto(drains, critTokens(objAt(a, "id")))
+			unionInto(drains, critTokens(validation.ObjAt(a, "id")))
 		}
 	}
 
@@ -154,13 +154,13 @@ func CriticalityRank(model, index validation.Value) []validation.Value {
 	ext := map[string]bool{}
 	for _, a := range protocolgraph.ExternalAssets(model) {
 		if a.Kind == validation.Obj {
-			unionInto(ext, critTokens(objAt(a, "asset")))
-			unionInto(ext, critTokens(objAt(a, "contract")))
+			unionInto(ext, critTokens(validation.ObjAt(a, "asset")))
+			unionInto(ext, critTokens(validation.ObjAt(a, "contract")))
 		}
 	}
-	for _, a := range objList(objAt(model, "assets")) {
+	for _, a := range objList(validation.ObjAt(model, "assets")) {
 		if a.Kind == validation.Obj {
-			for _, h := range objList(objAt(a, "held_by")) {
+			for _, h := range objList(validation.ObjAt(a, "held_by")) {
 				unionInto(ext, critTokens(h))
 			}
 		}
@@ -169,10 +169,10 @@ func CriticalityRank(model, index validation.Value) []validation.Value {
 	// Sinks surface function ids ("path#Contract.fn"); tolerate an index with
 	// empty/absent nodes.
 	sinks := map[string]bool{}
-	if len(objList(objAt(index, "nodes"))) > 0 {
+	if len(objList(validation.ObjAt(index, "nodes"))) > 0 {
 		for _, n := range SinkFunctions(index) {
-			unionInto(sinks, critTokens(objAt(n, "contract")))
-			unionInto(sinks, critTokens(objAt(n, "function_id")))
+			unionInto(sinks, critTokens(validation.ObjAt(n, "contract")))
+			unionInto(sinks, critTokens(validation.ObjAt(n, "function_id")))
 		}
 	}
 
@@ -182,10 +182,10 @@ func CriticalityRank(model, index validation.Value) []validation.Value {
 		reasons  []string
 	}
 	rows := []row{}
-	for _, c := range objList(objAt(model, "contracts")) {
-		name := objStr(c, "name")
+	for _, c := range objList(validation.ObjAt(model, "contracts")) {
+		name := validation.ObjStr(c, "name")
 		if name == "" {
-			name = objStr(c, "path")
+			name = validation.ObjStr(c, "path")
 		}
 		if name == "" {
 			name = "?"
@@ -232,7 +232,7 @@ func CriticalityRank(model, index validation.Value) []validation.Value {
 		out = append(out, validation.VObj(
 			validation.KV{K: "contract", V: validation.VStr(r.contract)},
 			validation.KV{K: "tier", V: validation.VStr(r.tier)},
-			validation.KV{K: "reasons", V: strArr(r.reasons)},
+			validation.KV{K: "reasons", V: validation.StrArr(r.reasons)},
 		))
 	}
 	return out

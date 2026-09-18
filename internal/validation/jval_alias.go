@@ -58,3 +58,10 @@ var (
 	SetOrAppend = jval.SetOrAppend
 	SetDefault  = jval.SetDefault
 )
+
+// Value field-accessor aliases (internal/jval/accessors.go).
+var (
+	ObjAt  = jval.ObjAt
+	ObjStr = jval.ObjStr
+	StrArr = jval.StrArr
+)

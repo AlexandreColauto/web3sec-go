@@ -84,7 +84,7 @@ func runPlan(root string, args []string, r *Runner) error {
 	if err != nil {
 		return t14ExitErr(2, "plan failed: %s\n", err)
 	}
-	if objAt(res, "read_only").B {
+	if validation.ObjAt(res, "read_only").B {
 		fmt.Fprint(r.Err, planNote)
 	}
 	return planOutput(c, res, r.Out, r.Err, asJSON)
@@ -115,7 +115,7 @@ func planOutput(c *state.Campaign, res validation.Value, stdout, stderr io.Write
 // priorities as its length, so the two views cannot disagree.
 func planOutputJSON(c *state.Campaign, res, p validation.Value,
 	stdout io.Writer) error {
-	queue := objAt(res, "work_queue")
+	queue := validation.ObjAt(res, "work_queue")
 	res.O = t14SetOrAppend(res.O, "work_queue", queue)
 	res.O = t14SetOrAppend(res.O, "priorities",
 		validation.VInt(int64(t14PyLen(queue))))
@@ -156,16 +156,16 @@ func planOutputText(c *state.Campaign, res, p validation.Value,
 
 // planOutputQueue is the `plan: N queued priorities` block.
 func planOutputQueue(res validation.Value, stdout io.Writer) {
-	queue := objAt(res, "work_queue")
+	queue := validation.ObjAt(res, "work_queue")
 	fmt.Fprintf(stdout, "plan: %d queued priorities\n", t14PyLen(queue))
 	for _, q := range queue.A {
 		// cli.py names the row: q.get('priority_id', '?') — work_queue
 		// always sets priority_id, so the marker is the row's id.
-		qid := objStr(q, "priority_id")
+		qid := validation.ObjStr(q, "priority_id")
 		if qid == "" {
 			qid = "?"
 		}
-		question := objAt(q, "question")
+		question := validation.ObjAt(q, "question")
 		if question.Kind == validation.Null {
 			question = q
 		}
@@ -177,10 +177,10 @@ func planOutputQueue(res validation.Value, stdout io.Writer) {
 // by the grading pointer: the eval join is read-only, so the operator can run
 // a dry join while every finding is still editable (C-12f17fd555 §8c).
 func planOutputReachability(res validation.Value, stdout io.Writer) {
-	reach := objAt(res, "reachability")
-	fmt.Fprintf(stdout, "  reachability: %s\n", objStr(reach, "note"))
+	reach := validation.ObjAt(res, "reachability")
+	fmt.Fprintf(stdout, "  reachability: %s\n", validation.ObjStr(reach, "note"))
 	for _, lvl := range []string{"e5", "e6"} {
-		for _, miss := range objAt(reach, lvl).A {
+		for _, miss := range validation.ObjAt(reach, lvl).A {
 			fmt.Fprintf(stdout, "    %s unreachable: %s\n",
 				strings.ToUpper(lvl), scalarStr(miss))
 		}
@@ -238,17 +238,17 @@ func planOutputTrackedSurfaces(c *state.Campaign, stdout, stderr io.Writer) {
 func planOutputLenses(p validation.Value, stdout io.Writer) {
 	for _, l := range t14List(p, "lenses").A {
 		mark := "x"
-		if objStr(l, "status") == "open" {
+		if validation.ObjStr(l, "status") == "open" {
 			mark = " "
 		}
-		fmt.Fprintf(stdout, "  [%s] %s %s (%s): %s\n", mark, objStr(l, "id"),
-			objStr(l, "lens"), scalarStr(objAt(l, "surface")),
-			objStr(l, "status"))
+		fmt.Fprintf(stdout, "  [%s] %s %s (%s): %s\n", mark, validation.ObjStr(l, "id"),
+			validation.ObjStr(l, "lens"), scalarStr(validation.ObjAt(l, "surface")),
+			validation.ObjStr(l, "status"))
 		fmt.Fprintf(stdout, "    families: %s\n",
 			t14Join(t14List(l, "families")))
 		fmt.Fprintf(stdout, "    attested: %s\n",
 			t14Join(t14List(l, "families_checked")))
-		if rr := objAt(l, "reopen_reason"); t14Truthy(rr) {
+		if rr := validation.ObjAt(l, "reopen_reason"); t14Truthy(rr) {
 			fmt.Fprintf(stdout, "    REOPENED: %s\n", scalarStr(rr))
 		}
 	}
@@ -257,21 +257,21 @@ func planOutputLenses(p validation.Value, stdout io.Writer) {
 // planOutputGate is the divergence gate state and its first five blockers.
 func planOutputGate(div validation.Value, stdout io.Writer) {
 	gateState := "OPEN"
-	if objAt(div, "closed").B {
+	if validation.ObjAt(div, "closed").B {
 		gateState = "CLOSED"
 	}
 	fmt.Fprintf(stdout, "  Divergence gate: %s — %d distinct bug class(es) "+
-		"(min %d)\n", gateState, t14PyLen(objAt(div, "named_classes")),
+		"(min %d)\n", gateState, t14PyLen(validation.ObjAt(div, "named_classes")),
 		planner.MinDistinctClasses)
-	if objAt(div, "closed").B {
+	if validation.ObjAt(div, "closed").B {
 		return
 	}
-	for i, m := range objAt(div, "missing").A {
+	for i, m := range validation.ObjAt(div, "missing").A {
 		if i >= 5 {
 			return
 		}
-		fmt.Fprintf(stdout, "    - %s: %s\n", objStr(m, "subject"),
-			t14Truncate(objStr(m, "what"), 100))
+		fmt.Fprintf(stdout, "    - %s: %s\n", validation.ObjStr(m, "subject"),
+			t14Truncate(validation.ObjStr(m, "what"), 100))
 	}
 }
 

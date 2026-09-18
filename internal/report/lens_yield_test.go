@@ -15,7 +15,7 @@ import (
 func TestReportLensYieldTable(t *testing.T) {
 	camp := clusterCamp(t)
 	f1 := mk(t, camp, "d1", "deposit", "Empty-pool 1:1 mint via deposit")
-	fid1 := objStr(f1, "finding_id")
+	fid1 := validation.ObjStr(f1, "finding_id")
 	traj := "code"
 	if _, err := costs.RecordCost(camp, costs.RecordOpts{Kind: "model",
 		AmountUSD: 30, Trajectory: &traj, Actor: "op",

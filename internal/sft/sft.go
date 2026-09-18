@@ -92,7 +92,7 @@ func LoadStore() (validation.Value, error) {
 		return validation.VNull(), fmt.Errorf(
 			"sft store corrupt or unreadable at %s: %s", p, err)
 	}
-	if data.Kind != validation.Obj || objAt(data, "examples").Kind != validation.Arr {
+	if data.Kind != validation.Obj || validation.ObjAt(data, "examples").Kind != validation.Arr {
 		return validation.VNull(), fmt.Errorf(
 			"sft store has unexpected shape at %s", p)
 	}
@@ -113,8 +113,8 @@ func SaveStore(store validation.Value) error {
 // NextExampleID is next_example_id: the max existing SFT-NNNN + 1.
 func NextExampleID(store validation.Value) string {
 	n := 0
-	for _, e := range objAt(store, "examples").A {
-		m := exampleIDRe.FindStringSubmatch(objStr(e, "id"))
+	for _, e := range validation.ObjAt(store, "examples").A {
+		m := exampleIDRe.FindStringSubmatch(validation.ObjStr(e, "id"))
 		if m == nil {
 			continue
 		}
@@ -130,29 +130,9 @@ var exampleIDRe = regexp.MustCompile(`^SFT-([0-9]+)$`)
 
 // ---- value helpers -------------------------------------------------------
 
-func objAt(v validation.Value, key string) validation.Value {
-	if v.Kind != validation.Obj {
-		return validation.VNull()
-	}
-	for _, kv := range v.O {
-		if kv.K == key {
-			return kv.V
-		}
-	}
-	return validation.VNull()
-}
-
-func objStr(v validation.Value, key string) string {
-	x := objAt(v, key)
-	if x.Kind == validation.Str {
-		return x.S
-	}
-	return ""
-}
-
 // objStrDefault is `v.get(key) or default` for strings.
 func objStrDefault(v validation.Value, key, def string) string {
-	if x := objAt(v, key); x.Kind == validation.Str && x.S != "" {
+	if x := validation.ObjAt(v, key); x.Kind == validation.Str && x.S != "" {
 		return x.S
 	}
 	return def
@@ -183,14 +163,6 @@ func hasKey(v validation.Value, key string) bool {
 		}
 	}
 	return false
-}
-
-func strArr(items []string) validation.Value {
-	out := make([]validation.Value, 0, len(items))
-	for _, s := range items {
-		out = append(out, validation.VStr(s))
-	}
-	return validation.VArr(out...)
 }
 
 func inList(items []string, want string) bool {

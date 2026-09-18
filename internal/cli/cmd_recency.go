@@ -97,18 +97,18 @@ func runRecency(root string, args []string, r *Runner) int {
 			t14PrintJSON(r.Out, rep)
 			return nil
 		}
-		stats := objAt(rep, "stats")
+		stats := validation.ObjAt(rep, "stats")
 		fmt.Fprintf(r.Out, "recency: %d files, %d changed in window\n",
 			objInt(stats, "files"), objInt(stats, "changed_in_window"))
-		for _, row := range firstN(objAt(rep, "hot_files").A, 10) {
+		for _, row := range firstN(validation.ObjAt(rep, "hot_files").A, 10) {
 			days := "never"
-			if d := objAt(row, "days_ago"); d.Kind == validation.Int {
+			if d := validation.ObjAt(row, "days_ago"); d.Kind == validation.Int {
 				days = scalarStr(d) + "d ago"
 			}
 			fmt.Fprintf(r.Out, "  %s w=%s %s  %s\n",
 				pyFixed2(objFlt(row, "score")),
 				t26Fixed1(objFlt(row, "exposure_weight")),
-				pyRight(days, 10), objStr(row, "path"))
+				pyRight(days, 10), validation.ObjStr(row, "path"))
 		}
 		return nil
 	})

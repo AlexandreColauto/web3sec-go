@@ -34,7 +34,7 @@ func rankCliFinding(t *testing.T, c *state.Campaign, title, band,
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	if band == "" && verdict == "" {
 		return fid
 	}
@@ -43,7 +43,7 @@ func rankCliFinding(t *testing.T, c *state.Campaign, title, band,
 		t.Fatal(err)
 	}
 	if band != "" {
-		riskObj := asDictCLI(objAt(vf, "risk"))
+		riskObj := asDictCLI(validation.ObjAt(vf, "risk"))
 		riskObj = setObjFieldCLI(riskObj, "validated", validation.VObj(
 			kvT("score", validation.VFloat(7.5)),
 			kvT("band", validation.VStr(band)),

@@ -100,10 +100,10 @@ func Run(cases []validation.Value, top int) (string, int) {
 	temporalN, nearDupN := 0, 0
 	var problems []string
 	for _, e := range evalstore.PartitionHealthFull(cases).Excluded {
-		if orStr(objAt(e.Case, "partition")) != "held-out" {
+		if orStr(validation.ObjAt(e.Case, "partition")) != "held-out" {
 			continue
 		}
-		excluded[orStr(objAt(e.Case, "case_id"))] = true
+		excluded[orStr(validation.ObjAt(e.Case, "case_id"))] = true
 		switch e.Reason {
 		case evalstore.ReasonTemporal:
 			temporalN++
@@ -118,14 +118,14 @@ func Run(cases []validation.Value, top int) (string, int) {
 	adjudicated, skipped := 0, 0
 	var dev, held []validation.Value
 	for _, c := range cases {
-		if !risk.IsAdjudicated(orStr(objAt(objAt(c, "gold"), "outcome"))) {
+		if !risk.IsAdjudicated(orStr(validation.ObjAt(validation.ObjAt(c, "gold"), "outcome"))) {
 			skipped++
 			continue
 		}
 		adjudicated++
-		switch orStr(objAt(c, "partition")) {
+		switch orStr(validation.ObjAt(c, "partition")) {
 		case "held-out":
-			if excluded[orStr(objAt(c, "case_id"))] {
+			if excluded[orStr(validation.ObjAt(c, "case_id"))] {
 				continue
 			}
 			held = append(held, c)
@@ -170,7 +170,7 @@ func Run(cases []validation.Value, top int) (string, int) {
 	}
 	accepted := 0
 	for _, c := range held {
-		if orStr(objAt(objAt(c, "gold"), "outcome")) ==
+		if orStr(validation.ObjAt(validation.ObjAt(c, "gold"), "outcome")) ==
 			"confirmed-exploitable" {
 			accepted++
 		}
@@ -209,7 +209,7 @@ func Run(cases []validation.Value, top int) (string, int) {
 func bandContrib(held []validation.Value) int {
 	n := 0
 	for _, c := range held {
-		if severityBands[orStr(objAt(objAt(c, "gold"), "severity"))] {
+		if severityBands[orStr(validation.ObjAt(validation.ObjAt(c, "gold"), "severity"))] {
 			n++
 		}
 	}
@@ -228,15 +228,15 @@ func rankHits(held []validation.Value, priors map[string]risk.Prior,
 	}
 	rows := make([]scored, 0, len(held))
 	for _, c := range held {
-		gold := objAt(c, "gold")
+		gold := validation.ObjAt(c, "gold")
 		entry := risk.AcceptanceWithPriors(
-			pseudoFinding(orStr(objAt(gold, "bug_class")),
-				orStr(objAt(gold, "severity"))),
+			pseudoFinding(orStr(validation.ObjAt(gold, "bug_class")),
+				orStr(validation.ObjAt(gold, "severity"))),
 			priors, global)
 		rows = append(rows, scored{
-			id:    orStr(objAt(c, "case_id")),
+			id:    orStr(validation.ObjAt(c, "case_id")),
 			score: entry.Score,
-			accepted: orStr(objAt(gold, "outcome")) ==
+			accepted: orStr(validation.ObjAt(gold, "outcome")) ==
 				"confirmed-exploitable",
 		})
 	}
@@ -276,18 +276,6 @@ func pseudoFinding(class, severity string) validation.Value {
 }
 
 // ---- local Value access (this leaf's own copy; risk's is private) ----
-
-func objAt(v validation.Value, key string) validation.Value {
-	if v.Kind != validation.Obj {
-		return validation.VNull()
-	}
-	for _, kv := range v.O {
-		if kv.K == key {
-			return kv.V
-		}
-	}
-	return validation.VNull()
-}
 
 func orStr(v validation.Value) string {
 	if v.Kind == validation.Str {

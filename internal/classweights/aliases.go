@@ -61,20 +61,20 @@ func LoadAliases() (validation.Value, error) {
 // ids and validates unchanged.
 func checkAliases(doc validation.Value) error {
 	ids := map[string]bool{}
-	for _, s := range listAt(objAt(objAt(doc, "standards"), "owasp")) {
-		ids[objAt(s, "id").S] = true
+	for _, s := range listAt(validation.ObjAt(validation.ObjAt(doc, "standards"), "owasp")) {
+		ids[validation.ObjAt(s, "id").S] = true
 	}
 	swcIDs := map[string]bool{}
-	for _, s := range listAt(objAt(objAt(doc, "standards"), "swc")) {
-		swcIDs[objAt(s, "id").S] = true
+	for _, s := range listAt(validation.ObjAt(validation.ObjAt(doc, "standards"), "swc")) {
+		swcIDs[validation.ObjAt(s, "id").S] = true
 	}
 	known := map[string]bool{}
 	if wdoc, err := Load(); err == nil {
-		for _, kv := range objAt(wdoc, "classes").O {
+		for _, kv := range validation.ObjAt(wdoc, "classes").O {
 			known[kv.K] = true
 		}
 	}
-	for _, kv := range objAt(doc, "classes").O {
+	for _, kv := range validation.ObjAt(doc, "classes").O {
 		if !known[kv.K] {
 			return fmt.Errorf("aliases.json: class %q is not a known taxonomy class",
 				kv.K)
@@ -82,12 +82,12 @@ func checkAliases(doc validation.Value) error {
 		if kv.V.Kind != validation.Obj {
 			return fmt.Errorf("aliases.json: class %q row is not an object", kv.K)
 		}
-		id := objAt(kv.V, "owasp").S
+		id := validation.ObjAt(kv.V, "owasp").S
 		if !ids[id] {
 			return fmt.Errorf("aliases.json: class %q aliases %q, not in the embedded standards list",
 				kv.K, id)
 		}
-		if swc := objAt(kv.V, "swc").S; swc != "" && !swcIDs[swc] {
+		if swc := validation.ObjAt(kv.V, "swc").S; swc != "" && !swcIDs[swc] {
 			return fmt.Errorf("aliases.json: class %q aliases %q, not in the embedded SWC standards list",
 				kv.K, swc)
 		}
@@ -111,11 +111,11 @@ func Alias(class string) (validation.Value, bool) {
 	if err != nil {
 		return validation.VNull(), false
 	}
-	row := objAt(doc, "classes")
+	row := validation.ObjAt(doc, "classes")
 	if row.Kind != validation.Obj {
 		return validation.VNull(), false
 	}
-	got := objAt(row, class)
+	got := validation.ObjAt(row, class)
 	if got.Kind != validation.Obj {
 		return validation.VNull(), false
 	}
@@ -141,10 +141,10 @@ func ClassAliasSuffix(class string) string {
 // suffix when the row carries no id at all.
 func suffixOf(row validation.Value) string {
 	parts := []string{}
-	if id := objAt(row, "owasp").S; id != "" {
+	if id := validation.ObjAt(row, "owasp").S; id != "" {
 		parts = append(parts, "OWASP "+id)
 	}
-	if id := objAt(row, "swc").S; id != "" {
+	if id := validation.ObjAt(row, "swc").S; id != "" {
 		parts = append(parts, id)
 	}
 	if len(parts) == 0 {

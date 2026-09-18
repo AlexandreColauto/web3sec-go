@@ -61,14 +61,14 @@ func zzR29bAudit(t *testing.T, root, cid string) (int, bool, string,
 	if err != nil {
 		t.Fatalf("audit --json did not parse: %v\n%s", err, out)
 	}
-	sect := objAt(objAt(rep, "sections"), "invariant_verification")
-	ok := objAt(sect, "ok")
+	sect := validation.ObjAt(validation.ObjAt(rep, "sections"), "invariant_verification")
+	ok := validation.ObjAt(sect, "ok")
 	joined := ""
-	for _, p := range objAt(sect, "problems").A {
+	for _, p := range validation.ObjAt(sect, "problems").A {
 		joined += p.S
 	}
 	return code, ok.Kind == validation.Bool && ok.B, joined,
-		objAt(sect, "harness_runs")
+		validation.ObjAt(sect, "harness_runs")
 }
 
 // zzR29bHarness is verification.harness for INV-1 read back from the links
@@ -79,7 +79,7 @@ func zzR29bHarness(t *testing.T, c *state.Campaign) validation.Value {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return objAt(objAt(objAt(objAt(links, "invariants"), "INV-1"),
+	return validation.ObjAt(validation.ObjAt(validation.ObjAt(validation.ObjAt(links, "invariants"), "INV-1"),
 		"verification"), "harness")
 }
 
@@ -97,12 +97,12 @@ func zzR29bSetSlotKind(t *testing.T, c *state.Campaign,
 	if err != nil {
 		t.Fatal(err)
 	}
-	reg := objAt(links, "invariants")
-	entry := objAt(reg, "INV-1")
+	reg := validation.ObjAt(links, "invariants")
+	entry := validation.ObjAt(reg, "INV-1")
 	if entry.Kind != validation.Obj {
 		t.Fatal("no INV-1 entry")
 	}
-	h := objAt(objAt(entry, "verification"), "harness")
+	h := validation.ObjAt(validation.ObjAt(entry, "verification"), "harness")
 	if h.Kind != validation.Obj {
 		t.Fatal("no verification.harness to forge")
 	}
@@ -125,13 +125,13 @@ func zzR29bForgeKind(t *testing.T, c *state.Campaign, kind string) {
 	forged := zzR29bSetSlotKind(t, c, kind)
 	data := validation.VObj(
 		kvT("kind", validation.VStr(kind)),
-		kvT("rung", validation.VStr(objStr(forged, "rung"))),
-		kvT("exec", validation.VStr(objStr(forged, "exec"))),
+		kvT("rung", validation.VStr(validation.ObjStr(forged, "rung"))),
+		kvT("exec", validation.VStr(validation.ObjStr(forged, "exec"))),
 		kvT("invariant", validation.VStr("INV-1")),
-		kvT("summary", validation.VStr(objStr(forged, "summary"))),
-		kvT("bounded_k", objAt(forged, "bounded_k")),
+		kvT("summary", validation.VStr(validation.ObjStr(forged, "summary"))),
+		kvT("bounded_k", validation.ObjAt(forged, "bounded_k")),
 		kvT("proof_sha256", validation.VStr(
-			harnessProofDigest(objAt(forged, "proof")))),
+			harnessProofDigest(validation.ObjAt(forged, "proof")))),
 	)
 	ref := "INV-1"
 	if _, err := c.Log("harness_run", &ref, &data); err != nil {
@@ -154,11 +154,11 @@ func zzR29bForgeEventFromLast(t *testing.T, c *state.Campaign, kind string,
 	}
 	last := validation.VNull()
 	for _, ev := range events {
-		if objStr(ev, "type") != "harness_run" {
+		if validation.ObjStr(ev, "type") != "harness_run" {
 			continue
 		}
-		if objStr(objAt(ev, "data"), "invariant") == "INV-1" {
-			last = objAt(ev, "data")
+		if validation.ObjStr(validation.ObjAt(ev, "data"), "invariant") == "INV-1" {
+			last = validation.ObjAt(ev, "data")
 		}
 	}
 	if last.Kind != validation.Obj {
@@ -249,10 +249,10 @@ func zzR29bSetBoundedK(t *testing.T, c *state.Campaign, k int64) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	reg := objAt(links, "invariants")
-	entry := objAt(reg, "INV-1")
-	ver := objAt(entry, "verification")
-	h := objAt(ver, "harness")
+	reg := validation.ObjAt(links, "invariants")
+	entry := validation.ObjAt(reg, "INV-1")
+	ver := validation.ObjAt(entry, "verification")
+	h := validation.ObjAt(ver, "harness")
 	h.O = validation.SetOrAppend(h.O, "bounded_k", validation.VInt(k))
 	ver.O = validation.SetOrAppend(ver.O, "harness", h)
 	entry.O = validation.SetOrAppend(entry.O, "verification", ver)
@@ -371,7 +371,7 @@ func TestZZR29BCappedStdoutBindAndAuditAgree(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	exec := objStr(rec, "exec_id")
+	exec := validation.ObjStr(rec, "exec_id")
 	raw, err := os.ReadFile(filepath.Join(c.ExecsDir, exec, "stdout.log"))
 	if err != nil {
 		t.Fatal(err)
@@ -432,10 +432,10 @@ func TestZZR29BHarnessNamedWorkdirFileMapsNormally(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	exec := objStr(rec, "exec_id")
+	exec := validation.ObjStr(rec, "exec_id")
 	// The record the sandbox really wrote: the file rides under its own name.
-	ih := objAt(rec, "input_hashes")
-	if objStr(ih, "notes-harness.txt") == "" {
+	ih := validation.ObjAt(rec, "input_hashes")
+	if validation.ObjStr(ih, "notes-harness.txt") == "" {
 		t.Fatalf("fixture: input_hashes = %s",
 			validation.CanonCompact(ih))
 	}
@@ -444,7 +444,7 @@ func TestZZR29BHarnessNamedWorkdirFileMapsNormally(t *testing.T) {
 		t.Fatalf("a foreign 'harness'-named input file must map normally, "+
 			"got %q", out)
 	}
-	if got := objStr(zzR29bHarness(t, c), "summary"); got !=
+	if got := validation.ObjStr(zzR29bHarness(t, c), "summary"); got !=
 		"proved bounded (k=4) (unbound: harness file hash not recorded)" {
 		t.Fatalf("summary = %q (no scaffold file was hashed, so the run "+
 			"is unbound)", got)
@@ -467,7 +467,7 @@ func TestZZR29BHarnessNamedWorkdirFileMapsNormally(t *testing.T) {
 		t.Fatalf("a genuine scaffold file with a foreign sha must refuse, "+
 			"got %q", got)
 	}
-	if got := objStr(zzR29bHarness(t, c), "summary"); got !=
+	if got := validation.ObjStr(zzR29bHarness(t, c), "summary"); got !=
 		"scaffold-bound violation: harness file hash differs from stored scaffold" {
 		t.Fatalf("refusal summary = %q", got)
 	}
@@ -511,10 +511,10 @@ func TestZZR29BReportBoundKindStillReDerives(t *testing.T) {
 		t.Fatalf("autoprove exit %d: out=%q err=%q", code, out, errS)
 	}
 	h := zzR29bHarness(t, c)
-	if objStr(h, "kind") != "miniprover" {
+	if validation.ObjStr(h, "kind") != "miniprover" {
 		t.Fatalf("fixture kind = %s", validation.CanonCompact(h))
 	}
-	if !strings.HasPrefix(objStr(h, "exec"), "REPORT-") {
+	if !strings.HasPrefix(validation.ObjStr(h, "exec"), "REPORT-") {
 		t.Fatalf("fixture exec = %s", validation.CanonCompact(h))
 	}
 	if code, ok, joined, runs := zzR29bAudit(t, root, c.CampaignID); code != 0 ||
@@ -570,7 +570,7 @@ func TestZZR29BExecWrappedReportKindIsReDerived(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	exec := objStr(provenance, "exec_id")
+	exec := validation.ObjStr(provenance, "exec_id")
 	rep := zzR29bReport(t, t.TempDir())
 	code, out, errS := run(t, "--root", root, "verify", c.CampaignID,
 		"--autoprove", "INV-1", "--property", "total_never_wraps",
@@ -579,7 +579,7 @@ func TestZZR29BExecWrappedReportKindIsReDerived(t *testing.T) {
 		t.Fatalf("autoprove --exec exit %d: out=%q err=%q", code, out, errS)
 	}
 	h := zzR29bHarness(t, c)
-	if objStr(h, "kind") != "miniprover" || objStr(h, "exec") != exec {
+	if validation.ObjStr(h, "kind") != "miniprover" || validation.ObjStr(h, "exec") != exec {
 		t.Fatalf("fixture = %s", validation.CanonCompact(h))
 	}
 	if code, ok, joined, runs := zzR29bAudit(t, root, c.CampaignID); code != 0 ||

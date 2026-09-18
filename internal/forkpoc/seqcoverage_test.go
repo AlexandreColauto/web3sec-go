@@ -74,7 +74,7 @@ func seqCoverageCampaign(t *testing.T) (*state.Campaign, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	f, err = findings.LoadFinding(c, fid)
 	if err != nil {
 		t.Fatal(err)
@@ -115,7 +115,7 @@ func stageSequence(t *testing.T, rec validation.Value) {
 				kv("target", validation.VStr("0x"+strings.Repeat("cd", 20))),
 				kv("function", validation.VStr("drain()"))))),
 		kv("final_assertions", validation.VArr()))
-	out := filepath.Dir(objStr(rec, "stdout_path"))
+	out := filepath.Dir(validation.ObjStr(rec, "stdout_path"))
 	if err := os.WriteFile(filepath.Join(out, "spec.json"),
 		sequencepoc.CanonicalJSON(spec), 0o644); err != nil {
 		t.Fatal(err)
@@ -214,7 +214,7 @@ func TestForkPocSingleCallStillPassesForNonSequence(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	rec := execRecord(t, c, "EXEC-solo", ForkProfile, fid, "forge test", 0,
 		"PASS: test_single\n")
 	forkEvidence(t, c, fid, rec, "single-call fork PoC")

@@ -185,8 +185,8 @@ func merge(rows [][]validation.Value, keyOf func(validation.Value) string,
 		for _, r := range rowset {
 			k := keyOf(r)
 			if i, ok := index[k]; ok {
-				if preferGlobal && objStr(r, "scope") == "global" &&
-					objStr(out[i], "scope") != "global" {
+				if preferGlobal && validation.ObjStr(r, "scope") == "global" &&
+					validation.ObjStr(out[i], "scope") != "global" {
 					out[i] = r
 				}
 				continue
@@ -224,7 +224,7 @@ func LoadSharedMemory(root string) ([]validation.Value, error) {
 		sets = append(sets, tm)
 	}
 	return merge(sets, func(w validation.Value) string {
-		return objStr(objAt(w, "row"), "memory_id")
+		return validation.ObjStr(validation.ObjAt(w, "row"), "memory_id")
 	}, true), nil
 }
 
@@ -240,11 +240,11 @@ func LoadManifest(root string) ([]validation.Value, error) {
 		merged = append(merged, tm...)
 	}
 	sort.SliceStable(merged, func(i, j int) bool {
-		ai, aj := objStr(merged[i], "at"), objStr(merged[j], "at")
+		ai, aj := validation.ObjStr(merged[i], "at"), validation.ObjStr(merged[j], "at")
 		if ai != aj {
 			return ai < aj
 		}
-		return objStr(merged[i], "record_id") < objStr(merged[j], "record_id")
+		return validation.ObjStr(merged[i], "record_id") < validation.ObjStr(merged[j], "record_id")
 	})
 	return merged, nil
 }
@@ -286,7 +286,7 @@ func StoreView(root string) (validation.Value, error) {
 		_, statErr := os.Stat(d)
 		globalRows := 0
 		for _, r := range append(append([]validation.Value{}, ts...), tm...) {
-			if objStr(r, "scope") == "global" {
+			if validation.ObjStr(r, "scope") == "global" {
 				globalRows++
 			}
 		}
@@ -305,16 +305,16 @@ func StoreView(root string) (validation.Value, error) {
 	}
 	programs := map[string]struct{}{}
 	for _, s := range sigs {
-		programs[objStr(s, "program_key")] = struct{}{}
+		programs[validation.ObjStr(s, "program_key")] = struct{}{}
 	}
 	for _, m := range mems {
-		if k := objStr(m, "program_key"); k != "" {
+		if k := validation.ObjStr(m, "program_key"); k != "" {
 			programs[k] = struct{}{}
 		}
 	}
 	globalRows := 0
 	for _, m := range mems {
-		if objStr(m, "scope") == "global" {
+		if validation.ObjStr(m, "scope") == "global" {
 			globalRows++
 		}
 	}
@@ -329,7 +329,7 @@ func StoreView(root string) (validation.Value, error) {
 		kv("memory_count", validation.VInt(int64(len(mems)))),
 		kv("global_scope_memory_rows", validation.VInt(int64(globalRows))),
 		kv("publish_records", validation.VInt(int64(len(manifest)))),
-		kv("programs", strArr(sortedKeys(programs))),
+		kv("programs", validation.StrArr(sortedKeys(programs))),
 		kv("tiers", validation.VArr(tiers...))), nil
 }
 
@@ -337,13 +337,13 @@ func StoreView(root string) (validation.Value, error) {
 
 // programKey is _program_key.
 func programKey(policy validation.Value) (string, validation.Value, error) {
-	program := strings.TrimSpace(objStr(policy, "program"))
-	platform := strings.TrimSpace(objStr(policy, "platform"))
+	program := strings.TrimSpace(validation.ObjStr(policy, "program"))
+	platform := strings.TrimSpace(validation.ObjStr(policy, "platform"))
 	var platformV validation.Value = validation.VNull()
 	if platform != "" {
 		platformV = validation.VStr(platform)
 	}
-	chains := strList(objAt(policy, "chains"))
+	chains := strList(validation.ObjAt(policy, "chains"))
 	sort.Strings(chains)
 	if program == "" {
 		return "", validation.VNull(), errors.New(
@@ -357,7 +357,7 @@ func programKey(policy validation.Value) (string, validation.Value, error) {
 	return key, validation.VObj(
 		kv("program", validation.VStr(program)),
 		kv("platform", platformV),
-		kv("chains", strArr(chains))), nil
+		kv("chains", validation.StrArr(chains))), nil
 }
 
 // ProgramKeyOf is program_key_of: the campaign's program identity, from its
@@ -367,7 +367,7 @@ func ProgramKeyOf(c *state.Campaign) (string, validation.Value, error) {
 	if err != nil {
 		return "", validation.VNull(), err
 	}
-	policyPath := objStr(st, "policy_path")
+	policyPath := validation.ObjStr(st, "policy_path")
 	if policyPath == "" {
 		return "", validation.VNull(), noPolicyErr(c)
 	}
@@ -409,7 +409,7 @@ func CodeSourced(c *state.Campaign) (map[string]struct{}, error) {
 		return nil, err
 	}
 	for _, f := range all {
-		if s := objStr(f, "status"); s == "DUPLICATE" || s == "OUT_OF_SCOPE" {
+		if s := validation.ObjStr(f, "status"); s == "DUPLICATE" || s == "OUT_OF_SCOPE" {
 			continue
 		}
 		for _, lab := range capabilities.Granted(f) {
@@ -423,14 +423,14 @@ func CodeSourced(c *state.Campaign) (map[string]struct{}, error) {
 // finding/chain, from the EXPLICIT capability lists only.
 func DeriveSignature(f validation.Value, key string, program validation.Value,
 	campaignID string, codeSourced map[string]struct{}) validation.Value {
-	caps := objAt(f, "capabilities")
+	caps := validation.ObjAt(f, "capabilities")
 	if caps.Kind != validation.Obj {
 		caps = validation.VObj()
 	}
 	granted := sortedStrings(capabilities.NormalizeLabels(
-		strList(objAt(caps, "granted"))))
+		strList(validation.ObjAt(caps, "granted"))))
 	required := sortedStrings(capabilities.NormalizeLabels(
-		strList(objAt(caps, "required"))))
+		strList(validation.ObjAt(caps, "required"))))
 	codeSourcedRequired := []string{}
 	for _, r := range required {
 		if _, ok := codeSourced[r]; ok {
@@ -445,8 +445,8 @@ func DeriveSignature(f validation.Value, key string, program validation.Value,
 	csig := findings.TextSignature("sig|" + key + "|" + strings.Join(granted, ",") +
 		"|" + strings.Join(required, ",") + "|" + terminalStr)
 	class := "unknown"
-	if rc := objAt(f, "root_cause"); rc.Kind == validation.Obj {
-		if c := objStr(rc, "class"); c != "" {
+	if rc := validation.ObjAt(f, "root_cause"); rc.Kind == validation.Obj {
+		if c := validation.ObjStr(rc, "class"); c != "" {
 			class = c
 		}
 	}
@@ -454,23 +454,23 @@ func DeriveSignature(f validation.Value, key string, program validation.Value,
 		kv("program_key", validation.VStr(key)),
 		kv("program", program),
 		kv("bug_class", validation.VStr(class)),
-		kv("granted", strArr(granted)),
-		kv("required", strArr(required)),
-		kv("code_sourced_required", strArr(codeSourcedRequired)),
+		kv("granted", validation.StrArr(granted)),
+		kv("required", validation.StrArr(required)),
+		kv("code_sourced_required", validation.StrArr(codeSourcedRequired)),
 		kv("terminal", strOrNull(terminal)),
 		kv("capability_signature", validation.VStr(csig)),
-		kv("title", objAt(f, "title")),
+		kv("title", validation.ObjAt(f, "title")),
 		kv("source", validation.VObj(
 			kv("campaign_id", validation.VStr(campaignID)),
-			kv("finding_id", validation.VStr(objStr(f, "finding_id"))))))
+			kv("finding_id", validation.VStr(validation.ObjStr(f, "finding_id"))))))
 }
 
 // sigKey is _sig_key.
 func sigKey(sig validation.Value) string {
-	src := objAt(sig, "source")
-	return objStr(sig, "program_key") + "\x00" +
-		objStr(sig, "capability_signature") + "\x00" +
-		objStr(src, "campaign_id") + "\x00" + objStr(src, "finding_id")
+	src := validation.ObjAt(sig, "source")
+	return validation.ObjStr(sig, "program_key") + "\x00" +
+		validation.ObjStr(sig, "capability_signature") + "\x00" +
+		validation.ObjStr(src, "campaign_id") + "\x00" + validation.ObjStr(src, "finding_id")
 }
 
 // ---- publish ---------------------------------------------------------------
@@ -533,7 +533,7 @@ func PublishCampaignWith(c *state.Campaign, actor string,
 	}
 	memIDs := map[string]struct{}{}
 	for _, m := range mems {
-		memIDs[objStr(objAt(m, "row"), "memory_id")] = struct{}{}
+		memIDs[validation.ObjStr(validation.ObjAt(m, "row"), "memory_id")] = struct{}{}
 	}
 	cs, err := CodeSourced(c)
 	if err != nil {
@@ -545,7 +545,7 @@ func PublishCampaignWith(c *state.Campaign, actor string,
 		return validation.VNull(), err
 	}
 	for _, f := range all {
-		if !inList(objStr(f, "status"), PublishableStatuses) {
+		if !inList(validation.ObjStr(f, "status"), PublishableStatuses) {
 			continue
 		}
 		publishableFindings++
@@ -571,11 +571,11 @@ func PublishCampaignWith(c *state.Campaign, actor string,
 		return validation.VNull(), err
 	}
 	for _, m := range rows {
-		if !inList(objStr(m, "promotion_status"), ApprovedMemory) {
+		if !inList(validation.ObjStr(m, "promotion_status"), ApprovedMemory) {
 			continue
 		}
 		approvedRows++
-		mid := objStr(m, "memory_id")
+		mid := validation.ObjStr(m, "memory_id")
 		if _, ok := memIDs[mid]; ok {
 			continue
 		}
@@ -590,7 +590,7 @@ func PublishCampaignWith(c *state.Campaign, actor string,
 			continue
 		}
 		// Leakage-partition guard (dataset-ingestion sprint, constraint 4).
-		partition := objStr(m, "partition")
+		partition := validation.ObjStr(m, "partition")
 		if partition == "" {
 			partition = "dev"
 		}
@@ -649,7 +649,7 @@ func PublishCampaignWith(c *state.Campaign, actor string,
 	if err != nil {
 		return validation.VNull(), err
 	}
-	rid := objStr(record, "record_id")
+	rid := validation.ObjStr(record, "record_id")
 	data := validation.VObj(
 		kv("program_key", validation.VStr(key)),
 		kv("signatures_added", validation.VInt(int64(sigsAdded))),
@@ -695,8 +695,8 @@ func PublishCampaignWith(c *state.Campaign, actor string,
 				" --approve MEM-... --by NAME")
 		}
 		noop = validation.VObj(
-			kv("reasons", strArr(reasons)),
-			kv("next", strArr(next)))
+			kv("reasons", validation.StrArr(reasons)),
+			kv("next", validation.StrArr(next)))
 	}
 	return validation.VObj(
 		kv("record_id", validation.VStr(rid)),
@@ -754,7 +754,7 @@ func SetScope(root, scope, actor, programKey string, tier string) (validation.Va
 	}
 	sigsChanged, memsChanged := 0, 0
 	for i := range sigs {
-		if programKey != "" && objStr(sigs[i], "program_key") != programKey {
+		if programKey != "" && validation.ObjStr(sigs[i], "program_key") != programKey {
 			continue
 		}
 		if scopeOf(sigs[i]) == scope {
@@ -767,7 +767,7 @@ func SetScope(root, scope, actor, programKey string, tier string) (validation.Va
 		sigsChanged++
 	}
 	for i := range mems {
-		if programKey != "" && objStr(mems[i], "program_key") != programKey {
+		if programKey != "" && validation.ObjStr(mems[i], "program_key") != programKey {
 			continue
 		}
 		if scopeOf(mems[i]) == scope {
@@ -803,7 +803,7 @@ func SetScope(root, scope, actor, programKey string, tier string) (validation.Va
 		return validation.VNull(), err
 	}
 	return validation.VObj(
-		kv("record_id", validation.VStr(objStr(record, "record_id"))),
+		kv("record_id", validation.VStr(validation.ObjStr(record, "record_id"))),
 		kv("tier", validation.VStr(tier)),
 		kv("scope", validation.VStr(scope)),
 		kv("program_key", validation.VStr(recordKey)),
@@ -814,7 +814,7 @@ func SetScope(root, scope, actor, programKey string, tier string) (validation.Va
 
 // scopeOf is (row.get("scope") or "program").
 func scopeOf(row validation.Value) string {
-	if s := objStr(row, "scope"); s != "" {
+	if s := validation.ObjStr(row, "scope"); s != "" {
 		return s
 	}
 	return "program"
@@ -845,17 +845,17 @@ func applyScope(row validation.Value, scope string) validation.Value {
 
 // candidateProvides is _candidate_provides.
 func candidateProvides(c *state.Campaign, candidate validation.Value) (map[string]struct{}, error) {
-	pin := objStr(objAt(candidate, "snapshot_ids"), "source")
+	pin := validation.ObjStr(validation.ObjAt(candidate, "snapshot_ids"), "source")
 	provides := map[string]struct{}{}
 	all, err := findings.LoadAllFindings(c)
 	if err != nil {
 		return nil, err
 	}
 	for _, f := range all {
-		if s := objStr(f, "status"); s == "DUPLICATE" || s == "OUT_OF_SCOPE" {
+		if s := validation.ObjStr(f, "status"); s == "DUPLICATE" || s == "OUT_OF_SCOPE" {
 			continue
 		}
-		if objStr(objAt(f, "snapshot_ids"), "source") != pin {
+		if validation.ObjStr(validation.ObjAt(f, "snapshot_ids"), "source") != pin {
 			continue
 		}
 		for _, lab := range capabilities.Granted(f) {
@@ -889,7 +889,7 @@ func Recall(c *state.Campaign, candidateID string) (validation.Value, error) {
 	if err != nil {
 		return validation.VNull(), err
 	}
-	candClass := objStr(objAt(cand, "root_cause"), "class")
+	candClass := validation.ObjStr(validation.ObjAt(cand, "root_cause"), "class")
 	candGranted := map[string]struct{}{}
 	for _, lab := range capabilities.Granted(cand) {
 		candGranted[lab] = struct{}{}
@@ -915,13 +915,13 @@ func Recall(c *state.Campaign, candidateID string) (validation.Value, error) {
 	}
 	matches := []validation.Value{}
 	for _, s := range sigs {
-		if objStr(s, "scope") != "global" && !visible(objStr(s, "program_key")) {
+		if validation.ObjStr(s, "scope") != "global" && !visible(validation.ObjStr(s, "program_key")) {
 			continue
 		}
-		if objStr(objAt(s, "source"), "campaign_id") == c.CampaignID {
+		if validation.ObjStr(validation.ObjAt(s, "source"), "campaign_id") == c.CampaignID {
 			continue
 		}
-		sigGranted := strList(objAt(s, "granted"))
+		sigGranted := strList(validation.ObjAt(s, "granted"))
 		var sim validation.Value = validation.VNull()
 		if len(candGranted) > 0 || len(sigGranted) > 0 {
 			overlap, union := 0, 0
@@ -941,14 +941,14 @@ func Recall(c *state.Campaign, candidateID string) (validation.Value, error) {
 					float64(overlap)/float64(union), 3))
 			}
 		}
-		classMatch := candClass == objStr(s, "bug_class")
+		classMatch := candClass == validation.ObjStr(s, "bug_class")
 		if !classMatch && simOf(sim) <= 0 {
 			continue
 		}
 		dependsSet := map[string]struct{}{}
-		source := objAt(s, "code_sourced_required")
+		source := validation.ObjAt(s, "code_sourced_required")
 		if source.Kind != validation.Arr {
-			source = objAt(s, "required")
+			source = validation.ObjAt(s, "required")
 		}
 		for _, lab := range strList(source) {
 			if inList(lab, chainengine.AttackerBaseline) {
@@ -976,7 +976,7 @@ func Recall(c *state.Campaign, candidateID string) (validation.Value, error) {
 			advisory = append(advisory, fmt.Sprintf("the confirmed primitive "+
 				"%s required %s; the candidate's snapshot reality no longer "+
 				"provides %s — a patch may have removed exactly those",
-				objStr(objAt(s, "source"), "finding_id"),
+				validation.ObjStr(validation.ObjAt(s, "source"), "finding_id"),
 				pyReprList(dependsSorted), pyReprList(missing)))
 		} else {
 			advisory = append(advisory, "every capability the confirmed "+
@@ -984,31 +984,31 @@ func Recall(c *state.Campaign, candidateID string) (validation.Value, error) {
 				"snapshot reality — treat the primitive as still live here")
 		}
 		matches = append(matches, validation.VObj(
-			kv("signature_id", objAt(s, "signature_id")),
-			kv("source", objAt(s, "source")),
-			kv("title", objAt(s, "title")),
-			kv("bug_class", objAt(s, "bug_class")),
+			kv("signature_id", validation.ObjAt(s, "signature_id")),
+			kv("source", validation.ObjAt(s, "source")),
+			kv("title", validation.ObjAt(s, "title")),
+			kv("bug_class", validation.ObjAt(s, "bug_class")),
 			kv("class_match", validation.VBool(classMatch)),
 			kv("similarity", sim),
-			kv("primitive_depended_on", strArr(dependsSorted)),
-			kv("still_provided", strArr(stillProvided)),
-			kv("missing", strArr(missing)),
-			kv("terminal", objAt(s, "terminal")),
+			kv("primitive_depended_on", validation.StrArr(dependsSorted)),
+			kv("still_provided", validation.StrArr(stillProvided)),
+			kv("missing", validation.StrArr(missing)),
+			kv("terminal", validation.ObjAt(s, "terminal")),
 			kv("advisory", validation.VStr(strings.Join(advisory, " ")))))
 	}
 	sort.SliceStable(matches, func(i, j int) bool {
-		mi, mj := !objAt(matches[i], "class_match").B,
-			!objAt(matches[j], "class_match").B
+		mi, mj := !validation.ObjAt(matches[i], "class_match").B,
+			!validation.ObjAt(matches[j], "class_match").B
 		if mi != mj {
 			return !mi
 		}
-		si, sj := simOf(objAt(matches[i], "similarity")),
-			simOf(objAt(matches[j], "similarity"))
+		si, sj := simOf(validation.ObjAt(matches[i], "similarity")),
+			simOf(validation.ObjAt(matches[j], "similarity"))
 		if si != sj {
 			return si > sj
 		}
-		return len(objAt(matches[i], "missing").A) <
-			len(objAt(matches[j], "missing").A)
+		return len(validation.ObjAt(matches[i], "missing").A) <
+			len(validation.ObjAt(matches[j], "missing").A)
 	})
 	shared, err := LoadSharedMemory(c.Root)
 	if err != nil {
@@ -1016,29 +1016,29 @@ func Recall(c *state.Campaign, candidateID string) (validation.Value, error) {
 	}
 	memHits := []validation.Value{}
 	for _, w := range shared {
-		if objStr(w, "scope") != "global" && !visible(objStr(w, "program_key")) {
+		if validation.ObjStr(w, "scope") != "global" && !visible(validation.ObjStr(w, "program_key")) {
 			continue
 		}
-		m := objAt(w, "row")
-		if objStr(m, "campaign_id") == c.CampaignID {
+		m := validation.ObjAt(w, "row")
+		if validation.ObjStr(m, "campaign_id") == c.CampaignID {
 			continue
 		}
-		text := candClass + " " + objStr(cand, "title") + " " +
-			objStr(objAt(cand, "root_cause"), "description")
-		bugClass := objStr(m, "bug_class")
+		text := candClass + " " + validation.ObjStr(cand, "title") + " " +
+			validation.ObjStr(validation.ObjAt(cand, "root_cause"), "description")
+		bugClass := validation.ObjStr(m, "bug_class")
 		if (bugClass != "" && bugClass == candClass) ||
-			kwOverlap(objStr(m, "pattern"), text) {
+			kwOverlap(validation.ObjStr(m, "pattern"), text) {
 			memHits = append(memHits, validation.VObj(
-				kv("memory_id", objAt(m, "memory_id")),
-				kv("status", objAt(m, "status")),
-				kv("kind", objAt(m, "kind")),
-				kv("pattern", objAt(m, "pattern")),
-				kv("bug_class", objAt(m, "bug_class")),
-				kv("source_campaign", objAt(m, "campaign_id"))))
+				kv("memory_id", validation.ObjAt(m, "memory_id")),
+				kv("status", validation.ObjAt(m, "status")),
+				kv("kind", validation.ObjAt(m, "kind")),
+				kv("pattern", validation.ObjAt(m, "pattern")),
+				kv("bug_class", validation.ObjAt(m, "bug_class")),
+				kv("source_campaign", validation.ObjAt(m, "campaign_id"))))
 		}
 	}
 	sort.SliceStable(memHits, func(i, j int) bool {
-		return objStr(memHits[i], "memory_id") < objStr(memHits[j], "memory_id")
+		return validation.ObjStr(memHits[i], "memory_id") < validation.ObjStr(memHits[j], "memory_id")
 	})
 	prefix := ""
 	var programKeyV validation.Value = validation.VNull()
@@ -1100,18 +1100,18 @@ func verifyTier(store string) validation.Value {
 			problems = append(problems, fmt.Sprintf("memory[%d]: %s", i, err))
 			continue
 		}
-		if err := validation.Validate(objAt(w, "row"), "memory", 1); err != nil {
+		if err := validation.Validate(validation.ObjAt(w, "row"), "memory", 1); err != nil {
 			problems = append(problems, fmt.Sprintf("memory[%d]: %s", i, err))
 		}
 	}
 	if len(manifest) > 0 {
 		last := manifest[len(manifest)-1]
-		if fileSha256(sigsPath(store)) != objStr(last, "signatures_sha256") {
+		if fileSha256(sigsPath(store)) != validation.ObjStr(last, "signatures_sha256") {
 			problems = append(problems, "signatures.json does not match the "+
 				"last publish record's hash — the store was modified outside "+
 				"`publish`")
 		}
-		if fileSha256(memPath(store)) != objStr(last, "memory_sha256") {
+		if fileSha256(memPath(store)) != validation.ObjStr(last, "memory_sha256") {
 			problems = append(problems, "memory.json does not match the last "+
 				"publish record's hash — the store was modified outside `publish`")
 		}
@@ -1120,19 +1120,19 @@ func verifyTier(store string) validation.Value {
 			if _, ok := fieldAt(r, "record_hash"); !ok {
 				continue // legacy record: readable, not part of the chain
 			}
-			rid := objStr(r, "record_id")
+			rid := validation.ObjStr(r, "record_id")
 			if rid == "" {
 				rid = "?"
 			}
-			if objStr(r, "prev_hash") != expected {
+			if validation.ObjStr(r, "prev_hash") != expected {
 				problems = append(problems, fmt.Sprintf("manifest %s: "+
 					"prev_hash breaks the chain", rid))
 			}
-			if recordHash(r) != objStr(r, "record_hash") {
+			if recordHash(r) != validation.ObjStr(r, "record_hash") {
 				problems = append(problems, fmt.Sprintf("manifest %s: "+
 					"record_hash does not recompute (record edited?)", rid))
 			}
-			expected = objStr(r, "record_hash")
+			expected = validation.ObjStr(r, "record_hash")
 		}
 	} else if len(sigs) > 0 || len(mems) > 0 {
 		problems = append(problems, "data present but no publish record — the "+
@@ -1142,7 +1142,7 @@ func verifyTier(store string) validation.Value {
 		kv("dir", validation.VStr(store)),
 		kv("exists", validation.VBool(true)),
 		kv("ok", validation.VBool(len(problems) == 0)),
-		kv("problems", strArr(problems)),
+		kv("problems", validation.StrArr(problems)),
 		kv("signature_count", validation.VInt(int64(len(sigs)))),
 		kv("memory_count", validation.VInt(int64(len(mems)))),
 		kv("publish_records", validation.VInt(int64(len(manifest)))))
@@ -1157,10 +1157,10 @@ func VerifySharedStore(root string) (validation.Value, error) {
 	for _, d := range StoreDirs(root) {
 		t := verifyTier(d)
 		tiers = append(tiers, t)
-		for _, p := range objAt(t, "problems").A {
+		for _, p := range validation.ObjAt(t, "problems").A {
 			problems = append(problems, d+": "+p.S)
 		}
-		if objAt(t, "exists").B {
+		if validation.ObjAt(t, "exists").B {
 			present = append(present, t)
 		}
 	}
@@ -1179,14 +1179,14 @@ func VerifySharedStore(root string) (validation.Value, error) {
 	total := func(field string) int64 {
 		var n int64
 		for _, t := range present {
-			n += objAt(t, field).I
+			n += validation.ObjAt(t, field).I
 		}
 		return n
 	}
 	return validation.VObj(
 		kv("exists", validation.VBool(true)),
 		kv("ok", validation.VBool(len(problems) == 0)),
-		kv("problems", strArr(problems)),
+		kv("problems", validation.StrArr(problems)),
 		kv("signature_count", validation.VInt(total("signature_count"))),
 		kv("memory_count", validation.VInt(total("memory_count"))),
 		kv("publish_records", validation.VInt(total("publish_records"))),
@@ -1214,7 +1214,7 @@ func MigrateStripField(root, field, actor, reason string) (validation.Value, err
 		for _, w := range wrappers {
 			row := validation.VObj()
 			had := false
-			for _, item := range objAt(w, "row").O {
+			for _, item := range validation.ObjAt(w, "row").O {
 				if item.K == field {
 					had = true
 					continue
@@ -1269,15 +1269,6 @@ func MigrateStripField(root, field, actor, reason string) (validation.Value, err
 
 // ---- helpers ---------------------------------------------------------------
 
-func objAt(v validation.Value, key string) validation.Value {
-	for _, kv := range v.O {
-		if kv.K == key {
-			return kv.V
-		}
-	}
-	return validation.VNull()
-}
-
 func fieldAt(v validation.Value, key string) (validation.Value, bool) {
 	for _, kv := range v.O {
 		if kv.K == key {
@@ -1287,24 +1278,8 @@ func fieldAt(v validation.Value, key string) (validation.Value, bool) {
 	return validation.VNull(), false
 }
 
-func objStr(v validation.Value, key string) string {
-	f := objAt(v, key)
-	if f.Kind == validation.Str {
-		return f.S
-	}
-	return ""
-}
-
 func kv(k string, v validation.Value) validation.KV {
 	return validation.KV{K: k, V: v}
-}
-
-func strArr(items []string) validation.Value {
-	out := make([]validation.Value, 0, len(items))
-	for _, s := range items {
-		out = append(out, validation.VStr(s))
-	}
-	return validation.VArr(out...)
 }
 
 func strList(v validation.Value) []string {
@@ -1394,17 +1369,17 @@ func idTail(n int) string {
 // shared tier collapses.
 func patternInStore(mems []validation.Value, programKey string,
 	m validation.Value) bool {
-	kind, pat := objStr(m, "kind"), normPattern(objStr(m, "pattern"))
+	kind, pat := validation.ObjStr(m, "kind"), normPattern(validation.ObjStr(m, "pattern"))
 	if pat == "" {
 		return false
 	}
 	for _, w := range mems {
-		if objStr(w, "program_key") != programKey {
+		if validation.ObjStr(w, "program_key") != programKey {
 			continue
 		}
-		row := objAt(w, "row")
-		if objStr(row, "kind") == kind &&
-			normPattern(objStr(row, "pattern")) == pat {
+		row := validation.ObjAt(w, "row")
+		if validation.ObjStr(row, "kind") == kind &&
+			normPattern(validation.ObjStr(row, "pattern")) == pat {
 			return true
 		}
 	}

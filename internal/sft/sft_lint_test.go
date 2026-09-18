@@ -172,7 +172,7 @@ func TestSFTLintSystemPromptDriftRejected(t *testing.T) {
 	ex := lintEx(t, lintOpts{})
 	msgs := atPath(ex, "messages").A
 	msgs[0] = setKey(msgs[0], "content",
-		validation.VStr(objStr(msgs[0], "content")+"\n# extra instruction\n"))
+		validation.VStr(validation.ObjStr(msgs[0], "content")+"\n# extra instruction\n"))
 	ex = setAt(ex, validation.VArr(msgs...), "messages")
 	if !hasPrefixReason(LintExample(ex, nil, "draft"), "system-prompt drift") {
 		t.Fatal("drift not rejected")
@@ -329,7 +329,7 @@ func TestSFTLintLintGateWired(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(objAt(store, "examples").A) != 0 {
+	if len(validation.ObjAt(store, "examples").A) != 0 {
 		t.Fatal("partial write")
 	}
 }
@@ -422,18 +422,18 @@ func TestSFTLintDedupAdversaryRenameStillCollides(t *testing.T) {
 		t.Fatal(err)
 	}
 	var seed validation.Value
-	for _, e := range objAt(store, "examples").A {
-		if objStr(e, "id") == "SFT-0001" {
+	for _, e := range validation.ObjAt(store, "examples").A {
+		if validation.ObjStr(e, "id") == "SFT-0001" {
 			seed = e
 		}
 	}
-	if !strings.Contains(objStr(atPath(seed, "structured"), "claim"), "attacker") {
+	if !strings.Contains(validation.ObjStr(atPath(seed, "structured"), "claim"), "attacker") {
 		t.Fatal("seed claim missing 'attacker'")
 	}
 	modified := cloneValue(seed)
 	modified = setKey(modified, "id", validation.VStr("SFT-9009"))
 	modified = setAt(modified, validation.VStr(strings.Replace(
-		objStr(atPath(seed, "structured"), "claim"), "attacker", "adversary", 1)),
+		validation.ObjStr(atPath(seed, "structured"), "claim"), "attacker", "adversary", 1)),
 		"structured", "claim")
 	reasons := LintExample(modified, []validation.Value{seed}, "curated")
 	if !hasPrefixReason(reasons, "dedup:") {

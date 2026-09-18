@@ -78,18 +78,18 @@ func artifactReconcileCmd(root string, args []string, r *Runner) error {
 	if dry {
 		verb = "would refresh"
 	}
-	ids := objAt(res, "refreshed").A
-	checked := objAt(res, "checked").I
-	unchanged := objAt(res, "unchanged").I
-	missing := objAt(res, "missing").A
+	ids := validation.ObjAt(res, "refreshed").A
+	checked := validation.ObjAt(res, "checked").I
+	unchanged := validation.ObjAt(res, "unchanged").I
+	missing := validation.ObjAt(res, "missing").A
 	fmt.Fprintf(r.Out, "artifact reconcile: %d checked, %d %s, %d unchanged, "+
 		"%d missing\n", checked, len(ids), verb, unchanged, len(missing))
 	for _, id := range ids {
 		fmt.Fprintf(r.Out, "  %s\n", idText(id))
 	}
 	for _, m := range missing {
-		fmt.Fprintf(r.Out, "  missing %s  %s\n", objStr(m, "artifact_id"),
-			objStr(m, "path"))
+		fmt.Fprintf(r.Out, "  missing %s  %s\n", validation.ObjStr(m, "artifact_id"),
+			validation.ObjStr(m, "path"))
 	}
 	// T3: name model.json↔ledger invariant-status drift. The gate reads the
 	// ledger registry, which records the model's claimed status as DATA and

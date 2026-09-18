@@ -57,18 +57,18 @@ func TestRegisterOrRefreshPrunesGhostRows(t *testing.T) {
 		t.Fatalf("surviving row: %q want the newest (%q)", got, live)
 	}
 	st := mustState(t, c)
-	arts := objAt(st, "artifacts")
+	arts := validation.ObjAt(st, "artifacts")
 	if len(arts.A) != 1 {
 		t.Fatalf("rows after reconcile: %d want 1", len(arts.A))
 	}
 	row := arts.A[0]
-	if got := objStr(row, "artifact_id"); got != live {
+	if got := validation.ObjStr(row, "artifact_id"); got != live {
 		t.Errorf("surviving row: %q want %q", got, live)
 	}
-	if got := objStr(row, "kind"); got != "report" {
+	if got := validation.ObjStr(row, "kind"); got != "report" {
 		t.Errorf("surviving kind: %q", got)
 	}
-	if got := objStr(row, "sha256"); got != validation.Sha256Hex([]byte("r2")) {
+	if got := validation.ObjStr(row, "sha256"); got != validation.Sha256Hex([]byte("r2")) {
 		t.Errorf("surviving sha256 is stale: %q", got)
 	}
 	// The retired row is recoverable from the log: artifact.pruned carries its
@@ -80,14 +80,14 @@ func TestRegisterOrRefreshPrunesGhostRows(t *testing.T) {
 	}
 	pruned := 0
 	for _, ev := range events {
-		if objStr(ev, "type") != "artifact.pruned" {
+		if validation.ObjStr(ev, "type") != "artifact.pruned" {
 			continue
 		}
 		pruned++
-		if subj := objStr(ev, "ref"); subj != ghost {
+		if subj := validation.ObjStr(ev, "ref"); subj != ghost {
 			t.Errorf("pruned subject: %q want %q", subj, ghost)
 		}
-		if got := objStr(objAt(ev, "data"), "reason"); got !=
+		if got := validation.ObjStr(validation.ObjAt(ev, "data"), "reason"); got !=
 			"superseded: same path re-registered as kind report" {
 			t.Errorf("prune reason: %q", got)
 		}
@@ -126,11 +126,11 @@ func TestRegisterOrRefreshSamePathRepeatedlyStaysOneRow(t *testing.T) {
 		}
 	}
 	st := mustState(t, c)
-	arts := objAt(st, "artifacts")
+	arts := validation.ObjAt(st, "artifacts")
 	if len(arts.A) != 1 {
 		t.Fatalf("rows: %d want 1", len(arts.A))
 	}
-	if got := objStr(arts.A[0], "sha256"); got != validation.Sha256Hex([]byte("d")) {
+	if got := validation.ObjStr(arts.A[0], "sha256"); got != validation.Sha256Hex([]byte("d")) {
 		t.Errorf("sha256: %q", got)
 	}
 }
@@ -167,7 +167,7 @@ func TestReconcileArtifacts(t *testing.T) {
 	}
 	before := int64(0)
 	if st := mustState(t, c); true {
-		before = int64(len(objAt(st, "artifacts").A))
+		before = int64(len(validation.ObjAt(st, "artifacts").A))
 	}
 	// dry: reports the same finding, writes nothing.
 	res, err := c.ReconcileArtifacts(true)
@@ -187,13 +187,13 @@ func TestReconcileArtifacts(t *testing.T) {
 		t.Errorf("dry unchanged: %d want 1", got)
 	}
 	miss := listAt(res, "missing")
-	if len(miss) != 1 || objStr(miss[0], "artifact_id") != goneID {
+	if len(miss) != 1 || validation.ObjStr(miss[0], "artifact_id") != goneID {
 		t.Fatalf("dry missing: %+v", miss)
 	}
-	if got := objAt(res, "dry"); got.Kind != validation.Bool || !got.B {
+	if got := validation.ObjAt(res, "dry"); got.Kind != validation.Bool || !got.B {
 		t.Errorf("dry flag: %+v", got)
 	}
-	if got := objStr(mustArtifact(t, c, changedID), "sha256"); got !=
+	if got := validation.ObjStr(mustArtifact(t, c, changedID), "sha256"); got !=
 		validation.Sha256Hex([]byte("one")) {
 		t.Errorf("dry run refreshed the row: %q", got)
 	}
@@ -205,11 +205,11 @@ func TestReconcileArtifacts(t *testing.T) {
 	if got := intAt(res, "unchanged"); got != 1 {
 		t.Errorf("live unchanged: %d want 1", got)
 	}
-	if got := objStr(mustArtifact(t, c, changedID), "sha256"); got !=
+	if got := validation.ObjStr(mustArtifact(t, c, changedID), "sha256"); got !=
 		validation.Sha256Hex([]byte("one+")) {
 		t.Errorf("live refresh did not take: %q", got)
 	}
-	if got := objStr(mustArtifact(t, c, stableID), "sha256"); got !=
+	if got := validation.ObjStr(mustArtifact(t, c, stableID), "sha256"); got !=
 		validation.Sha256Hex([]byte("two")) {
 		t.Errorf("stable row changed: %q", got)
 	}
@@ -219,9 +219,9 @@ func TestReconcileArtifacts(t *testing.T) {
 	}
 	refreshed := 0
 	for _, ev := range events {
-		if objStr(ev, "type") == "artifact.refreshed" {
+		if validation.ObjStr(ev, "type") == "artifact.refreshed" {
 			refreshed++
-			if got := objStr(objAt(ev, "data"), "reason"); got !=
+			if got := validation.ObjStr(validation.ObjAt(ev, "data"), "reason"); got !=
 				"reconcile after external rewrite" {
 				t.Errorf("refresh reason: %q", got)
 			}
@@ -246,9 +246,9 @@ func backdateArtifact(t *testing.T, c *Campaign, id, stamp string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	arts := objAt(doc, "artifacts")
+	arts := validation.ObjAt(doc, "artifacts")
 	for i, a := range arts.A {
-		if objStr(a, "artifact_id") == id {
+		if validation.ObjStr(a, "artifact_id") == id {
 			a.O = validation.SetOrAppend(a.O, "registered_at", validation.VStr(stamp))
 			arts.A[i] = a
 		}
@@ -271,7 +271,7 @@ func mustArtifact(t *testing.T, c *Campaign, id string) validation.Value {
 // intAt/listAt live in the audit/validation helpers; the state tests keep a
 // local pair so the assertions above read the same way as the CLI's.
 func intAt(v validation.Value, key string) int64 {
-	x := objAt(v, key)
+	x := validation.ObjAt(v, key)
 	if x.Kind == validation.Int {
 		return x.I
 	}
@@ -279,5 +279,5 @@ func intAt(v validation.Value, key string) int64 {
 }
 
 func listAt(v validation.Value, key string) []validation.Value {
-	return objAt(v, key).A
+	return validation.ObjAt(v, key).A
 }

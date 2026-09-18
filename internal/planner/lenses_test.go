@@ -18,8 +18,8 @@ func TestLensFamiliesOracle(t *testing.T) {
 	}
 	seeds := at(t, root, "seed_lenses")
 	models := map[string]validation.Value{
-		"lens_model": objAt(seeds.A[0], "model"),
-		"exh_model":  objAt(seeds.A[2], "model"),
+		"lens_model": validation.ObjAt(seeds.A[0], "model"),
+		"exh_model":  validation.ObjAt(seeds.A[2], "model"),
 		"rich_model": rich,
 		"empty":      validation.VObj(),
 	}
@@ -37,9 +37,9 @@ func TestLensFamiliesOracle(t *testing.T) {
 // to ["protocol"] and primitive-symmetry needs two contracts per verb.
 func TestLensFamiliesEmptyModel(t *testing.T) {
 	fams := LensFamilies(validation.VObj())
-	requireJSON(t, "empty/liveness", objAt(fams, "liveness"),
+	requireJSON(t, "empty/liveness", validation.ObjAt(fams, "liveness"),
 		jsonValue(t, `["protocol"]`))
-	requireJSON(t, "empty/primitive-symmetry", objAt(fams,
+	requireJSON(t, "empty/primitive-symmetry", validation.ObjAt(fams,
 		"primitive-symmetry"), jsonValue(t, `["protocol"]`))
 }
 
@@ -49,13 +49,13 @@ func TestLensFamiliesSymmetryVerbs(t *testing.T) {
 	model := jsonValue(t, `{"contracts":[
 		{"name":"A","entry_points":["deposit","mint"]},
 		{"name":"B","entry_points":["withdraw","deposit"]}]}`)
-	fams := objAt(LensFamilies(model), "primitive-symmetry")
+	fams := validation.ObjAt(LensFamilies(model), "primitive-symmetry")
 	requireJSON(t, "symmetry", fams, jsonValue(t, `["deposit"]`))
 	// withdraw is on B only, mint on A only: neither is a sibling family.
 	all := listOf(LensFamilies(model), "primitive-symmetry")
 	if len(all) != 1 {
 		t.Fatalf("expected exactly the deposit family, got %s",
-			validation.CanonCompact(objAt(LensFamilies(model),
+			validation.CanonCompact(validation.ObjAt(LensFamilies(model),
 				"primitive-symmetry")))
 	}
 }
@@ -96,10 +96,10 @@ func TestFamiliesForFindingOracle(t *testing.T) {
 			want = append(want, pyStr(s))
 		}
 		sort.Strings(want)
-		got := sortedKeys(FamiliesForFinding(objAt(c, "model"),
-			objAt(c, "finding")))
-		requireJSON(t, "families_for_finding/"+itoa(i), strArr(got),
-			strArr(want))
+		got := sortedKeys(FamiliesForFinding(validation.ObjAt(c, "model"),
+			validation.ObjAt(c, "finding")))
+		requireJSON(t, "families_for_finding/"+itoa(i), validation.StrArr(got),
+			validation.StrArr(want))
 	}
 }
 
@@ -129,11 +129,11 @@ func TestSeedLensesOracle(t *testing.T) {
 		t.Fatalf("expected 4 seed cases")
 	}
 	for _, c := range cases.A {
-		name := objStr(c, "name")
-		added, plan := SeedLenses(objAt(c, "plan_before"), objAt(c, "model"))
+		name := validation.ObjStr(c, "name")
+		added, plan := SeedLenses(validation.ObjAt(c, "plan_before"), validation.ObjAt(c, "model"))
 		requireJSON(t, name+"/added", validation.VArr(added...),
-			objAt(c, "added"))
-		requireJSON(t, name+"/plan", plan, objAt(c, "plan_after"))
+			validation.ObjAt(c, "added"))
+		requireJSON(t, name+"/plan", plan, validation.ObjAt(c, "plan_after"))
 	}
 }
 
@@ -150,7 +150,7 @@ func TestSeedLensesIdempotent(t *testing.T) {
 	closed := jsonValue(t, `{"lenses":[{"id":"L-01","lens":"liveness",
 		"status":"answered"}]}`)
 	_, sealed := SeedLenses(closed, model)
-	requireJSON(t, "grandfathered lens untouched", objAt(listOf(sealed,
+	requireJSON(t, "grandfathered lens untouched", validation.ObjAt(listOf(sealed,
 		"lenses")[0], "families"), validation.VNull())
 }
 
@@ -158,10 +158,10 @@ func TestSeedLensesIdempotent(t *testing.T) {
 // unknown id, symmetry attestation and families_checked.
 func TestMarkLensOracle(t *testing.T) {
 	root := oracles(t)
-	model := objAt(at(t, root, "seed_lenses").A[0], "model")
+	model := validation.ObjAt(at(t, root, "seed_lenses").A[0], "model")
 	// close
 	c := atIdx(t, root, 0, "mark_lens")
-	camp := lensCampaign(t, objStr(atIdx(t, root, 0, "mark_lens"), "name"))
+	camp := lensCampaign(t, validation.ObjStr(atIdx(t, root, 0, "mark_lens"), "name"))
 	plan, err := DefaultPlanFromModel(camp, model)
 	if err != nil {
 		t.Fatalf("default plan: %v", err)
@@ -174,21 +174,21 @@ func TestMarkLensOracle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("mark_lens close: %v", err)
 	}
-	requireJSON(t, "close", plan, objAt(c, "plan"))
+	requireJSON(t, "close", plan, validation.ObjAt(c, "plan"))
 	// reopen
 	c = atIdx(t, root, 1, "mark_lens")
 	plan, err = MarkLens(camp, plan, "L-01", "open", LensOpts{Actor: "pytest"})
 	if err != nil {
 		t.Fatalf("mark_lens reopen: %v", err)
 	}
-	requireJSON(t, "reopen", plan, objAt(c, "plan"))
+	requireJSON(t, "reopen", plan, validation.ObjAt(c, "plan"))
 	// unknown
 	c = atIdx(t, root, 2, "mark_lens")
 	if _, err := MarkLens(camp, plan, "L-99", "answered", LensOpts{Reason: &reason,
 		Actor: "a"}); err == nil {
 		t.Fatalf("mark_lens unknown: expected KeyError")
 	} else {
-		requireErr(t, "unknown", err, objAt(c, "error"))
+		requireErr(t, "unknown", err, validation.ObjAt(c, "error"))
 	}
 	// symmetry
 	c = atIdx(t, root, 3, "mark_lens")
@@ -208,7 +208,7 @@ func TestMarkLensOracle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("mark_lens symmetry: %v", err)
 	}
-	requireJSON(t, "symmetry", plan, objAt(c, "plan"))
+	requireJSON(t, "symmetry", plan, validation.ObjAt(c, "plan"))
 	// families_checked
 	c = atIdx(t, root, 4, "mark_lens")
 	plan, err = DefaultPlanFromModel(camp, model)
@@ -222,7 +222,7 @@ func TestMarkLensOracle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("mark_lens families_checked: %v", err)
 	}
-	requireJSON(t, "families_checked", plan, objAt(c, "plan"))
+	requireJSON(t, "families_checked", plan, validation.ObjAt(c, "plan"))
 }
 
 // lensCampaign is a campaign whose id matches the oracle plan's campaign_id so
@@ -257,7 +257,7 @@ func TestMarkLensReasonEmptyString(t *testing.T) {
 		t.Fatalf("mark_lens: %v", err)
 	}
 	l := listOf(got, "lenses")[0]
-	requireJSON(t, "empty reason recorded", objAt(l, "closed_reason"),
+	requireJSON(t, "empty reason recorded", validation.ObjAt(l, "closed_reason"),
 		validation.VStr(""))
 	got2, err := MarkLens(camp, fresh(), "L-01", "answered", LensOpts{Actor: "a"})
 	if err != nil {
@@ -290,8 +290,8 @@ func TestRowShapeShaFakeMatchesPython(t *testing.T) {
 	}
 	n := 0
 	for _, row := range listOf(surface, "rows") {
-		rid := objStr(row, "row_id")
-		want := objStr(shapes, rid)
+		rid := validation.ObjStr(row, "row_id")
+		want := validation.ObjStr(shapes, rid)
 		if want == "" {
 			continue
 		}

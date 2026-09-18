@@ -286,8 +286,8 @@ func sftAddCmd(args []string, r *Runner) error {
 	if err != nil {
 		return t14ExitErr(2, "sft add failed: %s\n", err)
 	}
-	fmt.Fprintf(r.Out, "added %s (status=%s)\n", objStr(added, "id"),
-		objStr(added, "status"))
+	fmt.Fprintf(r.Out, "added %s (status=%s)\n", validation.ObjStr(added, "id"),
+		validation.ObjStr(added, "status"))
 	return nil
 }
 
@@ -305,11 +305,11 @@ func sftListCmd(args []string, r *Runner) error {
 		return err
 	}
 	for _, e := range rows {
-		fmt.Fprintf(r.Out, "%s  %s  %s  %s  %s\n", objStr(e, "id"),
-			pyPad(objStr(e, "status"), 8),
-			pyPad(pyOr(objStr(e, "taxonomy"), "-"), 32),
-			pyPad(pyOr(objStr(e, "partition"), "-"), 9),
-			objStr(objAt(e, "source"), "ref"))
+		fmt.Fprintf(r.Out, "%s  %s  %s  %s  %s\n", validation.ObjStr(e, "id"),
+			pyPad(validation.ObjStr(e, "status"), 8),
+			pyPad(pyOr(validation.ObjStr(e, "taxonomy"), "-"), 32),
+			pyPad(pyOr(validation.ObjStr(e, "partition"), "-"), 9),
+			validation.ObjStr(validation.ObjAt(e, "source"), "ref"))
 	}
 	return nil
 }
@@ -331,11 +331,11 @@ func sftSplitCmd(args []string, r *Runner) error {
 		return err
 	}
 	fmt.Fprintf(r.Out, "split: training=%d held-out=%d (%s%%) "+
-		"unsplit_drafts=%d clusters=%d/%d\n", objAt(stats, "training").I,
-		objAt(stats, "held-out").I, sftNumText(objAt(stats, "held_out_pct")),
-		objAt(stats, "unsplit_drafts").I,
-		objAt(objAt(stats, "clusters"), "training").I,
-		objAt(objAt(stats, "clusters"), "held-out").I)
+		"unsplit_drafts=%d clusters=%d/%d\n", validation.ObjAt(stats, "training").I,
+		validation.ObjAt(stats, "held-out").I, sftNumText(validation.ObjAt(stats, "held_out_pct")),
+		validation.ObjAt(stats, "unsplit_drafts").I,
+		validation.ObjAt(validation.ObjAt(stats, "clusters"), "training").I,
+		validation.ObjAt(validation.ObjAt(stats, "clusters"), "held-out").I)
 	return nil
 }
 
@@ -350,22 +350,22 @@ func sftReportCmd(args []string, r *Runner) error {
 		return err
 	}
 	fmt.Fprintln(r.Out, "taxonomy mix (target in parens):")
-	for _, kv := range objAt(rep, "taxonomy_mix").O {
+	for _, kv := range validation.ObjAt(rep, "taxonomy_mix").O {
 		row := kv.V
 		fmt.Fprintf(r.Out, "  %s %s  %s%%  (target %s%%, gap %s)\n",
-			pyPad(kv.K, 34), pyPadLeft(objAt(row, "count"), 4),
-			pyPadLeft(objAt(row, "pct"), 5),
-			fmtFloat(objAt(row, "target_pct"), 0), fmtSigned(objAt(row, "gap")))
+			pyPad(kv.K, 34), pyPadLeft(validation.ObjAt(row, "count"), 4),
+			pyPadLeft(validation.ObjAt(row, "pct"), 5),
+			fmtFloat(validation.ObjAt(row, "target_pct"), 0), fmtSigned(validation.ObjAt(row, "gap")))
 	}
 	fmt.Fprintf(r.Out, "pivot share: %s%% (target ~%s%%)\n",
-		sftNumText(objAt(rep, "pivot_share_pct")),
-		fmtFloat(objAt(rep, "pivot_target_pct"), 0))
-	fmt.Fprintf(r.Out, "source mix: %s\n", pyDictRepr(objAt(rep, "source_mix")))
+		sftNumText(validation.ObjAt(rep, "pivot_share_pct")),
+		fmtFloat(validation.ObjAt(rep, "pivot_target_pct"), 0))
+	fmt.Fprintf(r.Out, "source mix: %s\n", pyDictRepr(validation.ObjAt(rep, "source_mix")))
 	fmt.Fprintf(r.Out, "partitions: %s\n",
-		pyDictRepr(objAt(rep, "partition_counts")))
+		pyDictRepr(validation.ObjAt(rep, "partition_counts")))
 	fmt.Fprintf(r.Out, "dedup collisions (curated): %d\n",
-		objAt(rep, "dedup_collisions").I)
-	for _, w := range objAt(rep, "warnings").A {
+		validation.ObjAt(rep, "dedup_collisions").I)
+	for _, w := range validation.ObjAt(rep, "warnings").A {
 		fmt.Fprintf(r.Out, "warn: %s\n", w.S)
 	}
 	return nil
@@ -436,8 +436,8 @@ func sftCurated() ([]validation.Value, error) {
 		return nil, err
 	}
 	out := []validation.Value{}
-	for _, e := range objAt(store, "examples").A {
-		if objStr(e, "status") == "curated" {
+	for _, e := range validation.ObjAt(store, "examples").A {
+		if validation.ObjStr(e, "status") == "curated" {
 			out = append(out, e)
 		}
 	}
@@ -445,7 +445,7 @@ func sftCurated() ([]validation.Value, error) {
 }
 
 func sftDefaultStatus(ex validation.Value) string {
-	if s := objStr(ex, "status"); s != "" {
+	if s := validation.ObjStr(ex, "status"); s != "" {
 		return s
 	}
 	return "draft"

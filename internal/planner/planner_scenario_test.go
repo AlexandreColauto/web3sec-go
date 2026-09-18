@@ -204,8 +204,8 @@ func scnEvidenceItem(rec validation.Value, level, typ, desc,
 		kv("level", validation.VStr(level)),
 		kv("type", validation.VStr(typ)),
 		kv("description", validation.VStr(desc)),
-		kv("sandbox_profile", objAt(rec, "profile")),
-		kv("artifact_id", objAt(rec, "exec_id")),
+		kv("sandbox_profile", validation.ObjAt(rec, "profile")),
+		kv("artifact_id", validation.ObjAt(rec, "exec_id")),
 	)
 }
 
@@ -256,7 +256,7 @@ func scnReconfirm(t *testing.T, camp *state.Campaign, fid string) {
 func scnAnchors(plan validation.Value, fid string) []validation.Value {
 	out := []validation.Value{}
 	for _, q := range listOf(plan, "priorities") {
-		if objStr(q, "anchor_of") == fid {
+		if validation.ObjStr(q, "anchor_of") == fid {
 			out = append(out, q)
 		}
 	}
@@ -290,7 +290,7 @@ func scnConfirmedFinding(t *testing.T, camp *state.Campaign,
 	if err != nil {
 		t.Fatalf("ingest_hypothesis: %v", err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	if _, err := findings.Transition(camp, fid, "POSSIBLE",
 		"triage (anchor-rescan fixture)", "", "", false); err != nil {
 		t.Fatalf("transition POSSIBLE: %v", err)
@@ -315,7 +315,7 @@ func scnConfirmedFinding(t *testing.T, camp *state.Campaign,
 	if err != nil {
 		t.Fatalf("load finding: %v", err)
 	}
-	ver := objAt(got, "verification")
+	ver := validation.ObjAt(got, "verification")
 	if ver.Kind != validation.Obj {
 		ver = validation.VObj()
 	}
@@ -349,9 +349,9 @@ func TestAnchorAddedOnConfirmedHigh(t *testing.T) {
 	}
 	f := scnConfirmedFinding(t, camp, scnOpts{
 		title: "commitBatch never validates prevStateRoot", severity: "high"})
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	requireJSON(t, "finding_id", validation.VStr(fid),
-		objAt(want, "finding_id"))
+		validation.ObjAt(want, "finding_id"))
 	scnSetAnchorShape(t, camp, fid, "commitBatch", "logic-error",
 		"prevStateRoot unvalidated")
 	if _, err := findings.Transition(camp, fid, "CONFIRMED",
@@ -363,15 +363,15 @@ func TestAnchorAddedOnConfirmedHigh(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load_plan_readonly: %v", err)
 	}
-	requireJSON(t, "plan", plan2, objAt(want, "plan"))
+	requireJSON(t, "plan", plan2, validation.ObjAt(want, "plan"))
 	anchors := scnAnchors(plan2, fid)
 	if len(anchors) != 1 {
 		t.Fatalf("expected 1 anchor priority, got %d", len(anchors))
 	}
-	requireJSON(t, "anchors", validation.VArr(anchors...), objAt(want, "anchors"))
-	requireJSON(t, "anchor status", objAt(anchors[0], "status"),
+	requireJSON(t, "anchors", validation.VArr(anchors...), validation.ObjAt(want, "anchors"))
+	requireJSON(t, "anchor status", validation.ObjAt(anchors[0], "status"),
 		validation.VStr("open"))
-	requireJSON(t, "anchor bug_class", objAt(anchors[0], "bug_class"),
+	requireJSON(t, "anchor bug_class", validation.ObjAt(anchors[0], "bug_class"),
 		validation.VStr("logic-error"))
 }
 
@@ -391,8 +391,8 @@ func TestAnchorIsIdempotentAndSeverityGated(t *testing.T) {
 	// low severity: no anchor
 	f := scnConfirmedFinding(t, camp, scnOpts{title: "low-sev stub",
 		severity: "low"})
-	fid := objStr(f, "finding_id")
-	requireJSON(t, "fid_low", validation.VStr(fid), objAt(want, "fid_low"))
+	fid := validation.ObjStr(f, "finding_id")
+	requireJSON(t, "fid_low", validation.VStr(fid), validation.ObjAt(want, "fid_low"))
 	if _, err := findings.Transition(camp, fid, "CONFIRMED",
 		"sandbox repro of the stub path", "pytest", "", false); err != nil {
 		t.Fatalf("transition CONFIRMED low: %v", err)
@@ -401,19 +401,19 @@ func TestAnchorIsIdempotentAndSeverityGated(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load_plan_readonly: %v", err)
 	}
-	requireJSON(t, "plan_after_low", plan2, objAt(want, "plan_after_low"))
+	requireJSON(t, "plan_after_low", plan2, validation.ObjAt(want, "plan_after_low"))
 	low := scnAnchors(plan2, fid)
 	if len(low) != 0 {
 		t.Fatalf("low severity added an anchor: %v", low)
 	}
 	requireJSON(t, "anchors_low", validation.VArr(low...),
-		objAt(want, "anchors_low"))
+		validation.ObjAt(want, "anchors_low"))
 	// high severity, confirmed twice via re-save: still one anchor
 	f2 := scnConfirmedFinding(t, camp, scnOpts{
 		title: "high-sev finalization finding", severity: "high",
 		fn: "finalizeBatch"})
-	fid2 := objStr(f2, "finding_id")
-	requireJSON(t, "fid_high", validation.VStr(fid2), objAt(want, "fid_high"))
+	fid2 := validation.ObjStr(f2, "finding_id")
+	requireJSON(t, "fid_high", validation.VStr(fid2), validation.ObjAt(want, "fid_high"))
 	scnSetAnchorShape(t, camp, fid2, "finalizeBatch", "logic-error",
 		"finalization stuck without challenge")
 	if _, err := findings.Transition(camp, fid2, "CONFIRMED",
@@ -425,14 +425,14 @@ func TestAnchorIsIdempotentAndSeverityGated(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load_plan_readonly: %v", err)
 	}
-	requireJSON(t, "plan", plan3, objAt(want, "plan"))
+	requireJSON(t, "plan", plan3, validation.ObjAt(want, "plan"))
 	high := scnAnchors(plan3, fid2)
 	if len(high) != 1 {
 		t.Fatalf("re-confirmed finding must keep exactly 1 anchor, got %d",
 			len(high))
 	}
 	requireJSON(t, "anchors_high", validation.VArr(high...),
-		objAt(want, "anchors_high"))
+		validation.ObjAt(want, "anchors_high"))
 }
 
 // TestAnchorDropsNonCanonicalBugClass is
@@ -458,9 +458,9 @@ func TestAnchorDropsNonCanonicalBugClass(t *testing.T) {
 	f := scnConfirmedFinding(t, camp, scnOpts{
 		title: "stale price oracle over-mints shares", severity: "high",
 		class: "price-oracle-stale"})
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	requireJSON(t, "finding_id", validation.VStr(fid),
-		objAt(want, "finding_id"))
+		validation.ObjAt(want, "finding_id"))
 	scnSetAnchorShape(t, camp, fid, "commitBatch", "price-oracle-stale",
 		"price feed never re-read")
 	if _, err := findings.Transition(camp, fid, "CONFIRMED",
@@ -474,25 +474,25 @@ func TestAnchorDropsNonCanonicalBugClass(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load finding: %v", err)
 	}
-	requireJSON(t, "status", objAt(reloaded, "status"),
-		objAt(want, "status"))
+	requireJSON(t, "status", validation.ObjAt(reloaded, "status"),
+		validation.ObjAt(want, "status"))
 	plan2, err := LoadPlanReadonly(camp)
 	if err != nil {
 		t.Fatalf("load_plan_readonly: %v", err)
 	}
-	requireJSON(t, "plan", plan2, objAt(want, "plan"))
+	requireJSON(t, "plan", plan2, validation.ObjAt(want, "plan"))
 	anchors := scnAnchors(plan2, fid)
 	if len(anchors) != 1 {
 		t.Fatalf("expected 1 anchor priority, got %d", len(anchors))
 	}
-	requireJSON(t, "anchors", validation.VArr(anchors...), objAt(want, "anchors"))
+	requireJSON(t, "anchors", validation.VArr(anchors...), validation.ObjAt(want, "anchors"))
 	// the advisory class rides in the question text, never in bug_class
 	if hasKey(anchors[0], "bug_class") {
 		t.Fatalf("non-canonical class leaked into bug_class")
 	}
-	if !strings.Contains(objStr(anchors[0], "question"), "price-oracle-stale") {
+	if !strings.Contains(validation.ObjStr(anchors[0], "question"), "price-oracle-stale") {
 		t.Fatalf("question misses the advisory class: %q",
-			objStr(anchors[0], "question"))
+			validation.ObjStr(anchors[0], "question"))
 	}
 }
 
@@ -512,11 +512,11 @@ func TestDivergenceCountsAReasonlessAnswerAsOpen(t *testing.T) {
 	lenses[0].O = validation.SetOrAppend(lenses[0].O, "status", validation.VStr("answered"))
 	plan.O = validation.SetOrAppend(plan.O, "lenses", validation.VArr(lenses...))
 	div := DivergenceStatus(plan, DivergenceOpts{})
-	requireJSON(t, "div", div, objAt(want, "div"))
-	requireJSON(t, "closed", objAt(div, "closed"), validation.VBool(false))
+	requireJSON(t, "div", div, validation.ObjAt(want, "div"))
+	requireJSON(t, "closed", validation.ObjAt(div, "closed"), validation.VBool(false))
 	subjects := []string{}
 	for _, m := range listOf(div, "missing") {
-		subjects = append(subjects, objStr(m, "subject"))
+		subjects = append(subjects, validation.ObjStr(m, "subject"))
 	}
 	if !inList("L-01", subjects) {
 		t.Fatalf("a reasonless answer must count as open: %v", subjects)
@@ -553,16 +553,16 @@ func TestDivergenceStatusClosedPlan(t *testing.T) {
 			kv("question", validation.VStr(fmt.Sprintf(
 				"shape %d: canonical bug class named", i+1))),
 			kv("risk", validation.VFloat(0.5)),
-			kv("trajectories", strArr([]string{"code"})),
+			kv("trajectories", validation.StrArr([]string{"code"})),
 			kv("status", validation.VStr("open")),
 			kv("bug_class", validation.VStr(cls))))
 		plan.O = validation.SetOrAppend(plan.O, "priorities", validation.VArr(prios...))
 	}
 	div := DivergenceStatus(plan, DivergenceOpts{})
-	requireJSON(t, "div", div, objAt(want, "div"))
-	requireJSON(t, "plan", plan, objAt(want, "plan"))
-	requireJSON(t, "closed", objAt(div, "closed"), validation.VBool(true))
-	requireJSON(t, "named_classes", objAt(div, "named_classes"), jsonValue(t,
+	requireJSON(t, "div", div, validation.ObjAt(want, "div"))
+	requireJSON(t, "plan", plan, validation.ObjAt(want, "plan"))
+	requireJSON(t, "closed", validation.ObjAt(div, "closed"), validation.VBool(true))
+	requireJSON(t, "named_classes", validation.ObjAt(div, "named_classes"), jsonValue(t,
 		`["access-control","logic-error","oracle-manipulation","reentrancy"]`))
 }
 
@@ -577,18 +577,18 @@ func TestDivergenceStatusOpenPlan(t *testing.T) {
 		t.Fatalf("default plan: %v", err)
 	}
 	div := DivergenceStatus(plan, DivergenceOpts{})
-	requireJSON(t, "div", div, objAt(want, "div"))
-	requireJSON(t, "closed", objAt(div, "closed"), validation.VBool(false))
+	requireJSON(t, "div", div, validation.ObjAt(want, "div"))
+	requireJSON(t, "closed", validation.ObjAt(div, "closed"), validation.VBool(false))
 	subjects := map[string]struct{}{}
 	for _, m := range listOf(div, "missing") {
-		subjects[objStr(m, "subject")] = struct{}{}
+		subjects[validation.ObjStr(m, "subject")] = struct{}{}
 	}
 	for _, lid := range []string{"L-01", "L-02", "L-03", "L-04", "diversity"} {
 		if _, ok := subjects[lid]; !ok {
 			t.Fatalf("missing[] must name %s: %v", lid, subjects)
 		}
 	}
-	requireJSON(t, "named_classes", objAt(div, "named_classes"),
+	requireJSON(t, "named_classes", validation.ObjAt(div, "named_classes"),
 		validation.VArr())
 }
 
@@ -631,15 +631,15 @@ func scnReopenPlan(t *testing.T, camp *state.Campaign) validation.Value {
 			kv("surface", validation.VStr("protocol")),
 			kv("question", validation.VStr(strings.Repeat("q", 20))),
 			kv("status", validation.VStr("answered")),
-			kv("families", strArr([]string{"withdraw", "mint"})),
-			kv("families_checked", strArr([]string{"withdraw", "mint"})),
+			kv("families", validation.StrArr([]string{"withdraw", "mint"})),
+			kv("families_checked", validation.StrArr([]string{"withdraw", "mint"})),
 			kv("closed_reason", validation.VStr("compared both")),
 			kv("closed_by", validation.VStr("tester"))))),
 		kv("priorities", validation.VArr(validation.VObj(
 			kv("id", validation.VStr("Q-001")),
 			kv("question", validation.VStr(strings.Repeat("q", 20))),
 			kv("risk", validation.VFloat(0.5)),
-			kv("trajectories", strArr([]string{"code"})),
+			kv("trajectories", validation.StrArr([]string{"code"})),
 			kv("bug_class", validation.VStr("logic-error"))))),
 	)
 }
@@ -658,9 +658,9 @@ func TestConfirmedFindingReopensTheLensWhoseFamilyItHit(t *testing.T) {
 		title: "gateway withdraw drains the escrow", severity: "high",
 		contract: "L1ERC20Gateway", class: "logic-error",
 		fn: "finalizeWithdrawal"})
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	requireJSON(t, "finding_id", validation.VStr(fid),
-		objAt(want, "finding_id"))
+		validation.ObjAt(want, "finding_id"))
 	scnRewrite(t, camp, fid, "affected",
 		`[{"path":"contracts/L1ERC20Gateway.sol","contract":"L1ERC20Gateway",
 		   "function":"finalizeWithdrawal"},
@@ -675,22 +675,22 @@ func TestConfirmedFindingReopensTheLensWhoseFamilyItHit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load_plan_readonly: %v", err)
 	}
-	requireJSON(t, "plan", planAfter, objAt(want, "plan"))
+	requireJSON(t, "plan", planAfter, validation.ObjAt(want, "plan"))
 	reopened := validation.VNull()
 	for _, l := range listOf(planAfter, "lenses") {
-		if objStr(l, "id") == "L-04" {
+		if validation.ObjStr(l, "id") == "L-04" {
 			reopened = l
 		}
 	}
 	if reopened.Kind != validation.Obj {
 		t.Fatalf("L-04 missing from the plan")
 	}
-	requireJSON(t, "reopened", reopened, objAt(want, "reopened"))
-	requireJSON(t, "status", objAt(reopened, "status"),
+	requireJSON(t, "reopened", reopened, validation.ObjAt(want, "reopened"))
+	requireJSON(t, "status", validation.ObjAt(reopened, "status"),
 		validation.VStr("open"))
-	if !strings.Contains(objStr(reopened, "reopen_reason"), "withdraw") {
+	if !strings.Contains(validation.ObjStr(reopened, "reopen_reason"), "withdraw") {
 		t.Fatalf("reopen_reason misses the family: %q",
-			objStr(reopened, "reopen_reason"))
+			validation.ObjStr(reopened, "reopen_reason"))
 	}
 }
 
@@ -777,8 +777,8 @@ func TestNotApplicableIsAValidStatus(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load_plan_readonly: %v", err)
 	}
-	q := objStr(listOf(plan, "priorities")[0], "id")
-	requireJSON(t, "qid", validation.VStr(q), objAt(want, "qid"))
+	q := validation.ObjStr(listOf(plan, "priorities")[0], "id")
+	requireJSON(t, "qid", validation.VStr(q), validation.ObjAt(want, "qid"))
 	reason := "target has no bridge; cross-chain replay cannot apply"
 	plan, err = MarkAnswered(camp, plan, q, "not-applicable", AnsweredOpts{
 		Reason: &reason, Actor: "cli"})
@@ -786,7 +786,7 @@ func TestNotApplicableIsAValidStatus(t *testing.T) {
 		t.Fatalf("mark_answered: %v", err)
 	}
 	p := probePriority(t, plan, q)
-	requireJSON(t, "priority", p, objAt(want, "priority"))
+	requireJSON(t, "priority", p, validation.ObjAt(want, "priority"))
 	if n := len(listOf(plan, "priorities")); n != int(at(t, want,
 		"priorities").I) {
 		t.Fatalf("priorities = %d, want %d", n, at(t, want, "priorities").I)
@@ -797,5 +797,5 @@ func TestNotApplicableIsAValidStatus(t *testing.T) {
 		t.Fatalf("load_plan_readonly (disk): %v", err)
 	}
 	requireJSON(t, "on-disk priority", probePriority(t, onDisk, q),
-		objAt(want, "on_disk_priority"))
+		validation.ObjAt(want, "on_disk_priority"))
 }

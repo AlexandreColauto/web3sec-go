@@ -161,7 +161,7 @@ func readResult(t *testing.T, wd string) validation.Value {
 // stepsOf is result["steps"] as a slice.
 func stepsOf(t *testing.T, result validation.Value) []validation.Value {
 	t.Helper()
-	steps := objAt(result, "steps")
+	steps := validation.ObjAt(result, "steps")
 	if steps.Kind != validation.Arr {
 		t.Fatalf("result steps is %v", steps.Kind)
 	}
@@ -169,4 +169,4 @@ func stepsOf(t *testing.T, result validation.Value) []validation.Value {
 }
 
 // assertStep is one step record's (status, tx_hash, revert_reason).
-func stepStatus(s validation.Value) string { return objStr(s, "status") }
+func stepStatus(s validation.Value) string { return validation.ObjStr(s, "status") }

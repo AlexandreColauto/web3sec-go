@@ -19,9 +19,9 @@ import (
 // (sectionProblems in this package takes a section name).
 func artifactProblems(t *testing.T, report validation.Value) []string {
 	t.Helper()
-	sec := objAt(objAt(report, "sections"), "artifacts")
+	sec := validation.ObjAt(validation.ObjAt(report, "sections"), "artifacts")
 	var out []string
-	for _, p := range objAt(sec, "problems").A {
+	for _, p := range validation.ObjAt(sec, "problems").A {
 		out = append(out, p.S)
 	}
 	return out
@@ -104,7 +104,7 @@ func TestAuditArtifactsReconcileSweepCoversExternalRewrite(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := len(objAt(res, "refreshed").A); got != 1 {
+	if got := len(validation.ObjAt(res, "refreshed").A); got != 1 {
 		t.Fatalf("dry refreshed: %d", got)
 	}
 	report, err = AuditCampaign(c)
@@ -122,7 +122,7 @@ func TestAuditArtifactsReconcileSweepCoversExternalRewrite(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(a, "sha256"); got != validation.Sha256Hex([]byte("v2 by someone else")) {
+	if got := validation.ObjStr(a, "sha256"); got != validation.Sha256Hex([]byte("v2 by someone else")) {
 		t.Errorf("sha256 after reconcile: %q", got)
 	}
 	report, err = AuditCampaign(c)

@@ -37,7 +37,7 @@ func lastEvent(t *testing.T, c *Campaign) validation.Value {
 // in both twins — values are asserted from the log, key order from here).
 func lastStateEvent(t *testing.T, c *Campaign) validation.Value {
 	t.Helper()
-	evs := objAt(mustState(t, c), "events")
+	evs := validation.ObjAt(mustState(t, c), "events")
 	if len(evs.A) == 0 {
 		t.Fatal("no state events")
 	}
@@ -69,7 +69,7 @@ func TestStageStatusPending(t *testing.T) {
 	if got, want := keyNames(v), []string{"status"}; len(got) != 1 || got[0] != want[0] {
 		t.Errorf("keys: %v", got)
 	}
-	if got := objStr(v, "status"); got != "pending" {
+	if got := validation.ObjStr(v, "status"); got != "pending" {
 		t.Errorf("status: %q", got)
 	}
 }
@@ -92,13 +92,13 @@ func TestStageLedgerAttempts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(entry, "status"); got != "done" {
+	if got := validation.ObjStr(entry, "status"); got != "done" {
 		t.Errorf("status: %q", got)
 	}
-	if got := objAt(entry, "attempts").I; got != 2 {
+	if got := validation.ObjAt(entry, "attempts").I; got != 2 {
 		t.Errorf("attempts: %d", got)
 	}
-	if got := objStr(entry, "executor"); got != "deterministic" {
+	if got := validation.ObjStr(entry, "executor"); got != "deterministic" {
 		t.Errorf("executor: %q", got)
 	}
 	want := []string{"status", "attempts", "last_run_at", "note", "executor"}
@@ -131,10 +131,10 @@ func TestStageLedgerNoteExecutorRetention(t *testing.T) {
 		t.Fatal(err)
 	}
 	entry, _ := c.StageStatus("s")
-	if got := objStr(entry, "note"); got != "first note" {
+	if got := validation.ObjStr(entry, "note"); got != "first note" {
 		t.Errorf("note must be kept: %q", got)
 	}
-	if got := objAt(entry, "attempts").I; got != 0 {
+	if got := validation.ObjAt(entry, "attempts").I; got != 0 {
 		t.Errorf("attempts after ready: %d", got)
 	}
 	exec := "det"
@@ -142,7 +142,7 @@ func TestStageLedgerNoteExecutorRetention(t *testing.T) {
 		t.Fatal(err)
 	}
 	entry, _ = c.StageStatus("s")
-	if got := objStr(entry, "executor"); got != "det" {
+	if got := validation.ObjStr(entry, "executor"); got != "det" {
 		t.Errorf("executor: %q", got)
 	}
 	// executor nil again: keep old.
@@ -150,7 +150,7 @@ func TestStageLedgerNoteExecutorRetention(t *testing.T) {
 		t.Fatal(err)
 	}
 	entry, _ = c.StageStatus("s")
-	if got := objStr(entry, "executor"); got != "det" {
+	if got := validation.ObjStr(entry, "executor"); got != "det" {
 		t.Errorf("executor must be kept: %q", got)
 	}
 	// skipped: still no increment.
@@ -158,7 +158,7 @@ func TestStageLedgerNoteExecutorRetention(t *testing.T) {
 		t.Fatal(err)
 	}
 	entry, _ = c.StageStatus("s")
-	if got := objAt(entry, "attempts").I; got != 0 {
+	if got := validation.ObjAt(entry, "attempts").I; got != 0 {
 		t.Errorf("attempts after skipped: %d", got)
 	}
 	// needs-model increments.
@@ -166,10 +166,10 @@ func TestStageLedgerNoteExecutorRetention(t *testing.T) {
 		t.Fatal(err)
 	}
 	entry, _ = c.StageStatus("s")
-	if got := objAt(entry, "attempts").I; got != 1 {
+	if got := validation.ObjAt(entry, "attempts").I; got != 1 {
 		t.Errorf("attempts after needs-model: %d", got)
 	}
-	if got := objStr(entry, "note"); got != "second note" {
+	if got := validation.ObjStr(entry, "note"); got != "second note" {
 		t.Errorf("note overwrite: %q", got)
 	}
 }
@@ -191,7 +191,7 @@ func TestStageNoteCapped(t *testing.T) {
 	// body to NOTE_CAP and then append the marker, so its own output was
 	// always over the cap — doctor's "is this note oversized?" test was
 	// then permanently true and its repair never converged.
-	got := objStr(entry, "note")
+	got := validation.ObjStr(entry, "note")
 	if len([]rune(got)) > NOTE_CAP {
 		t.Errorf("capped note is %d runes, over the %d cap",
 			len([]rune(got)), NOTE_CAP)
@@ -208,7 +208,7 @@ func TestStageNoteCapped(t *testing.T) {
 		t.Fatal(err)
 	}
 	entry, _ = c.StageStatus("s")
-	if got := objStr(entry, "note"); got != exact {
+	if got := validation.ObjStr(entry, "note"); got != exact {
 		t.Errorf("at-cap note must pass through (len %d)", len(got))
 	}
 }
@@ -243,7 +243,7 @@ func TestArtifactRegistrationHashesContent(t *testing.T) {
 		t.Fatal(err)
 	}
 	wantSha := validation.Sha256Hex([]byte("{}"))
-	if got := objStr(a, "sha256"); got != wantSha {
+	if got := validation.ObjStr(a, "sha256"); got != wantSha {
 		t.Errorf("sha256: got %q want %q", got, wantSha)
 	}
 	wantKeys := []string{"artifact_id", "kind", "path", "registered_at",
@@ -257,28 +257,28 @@ func TestArtifactRegistrationHashesContent(t *testing.T) {
 			t.Errorf("record key %d: got %q want %q", i, gotKeys[i], wantKeys[i])
 		}
 	}
-	if got := objStr(a, "path"); got != "artifact.json" {
+	if got := validation.ObjStr(a, "path"); got != "artifact.json" {
 		t.Errorf("stored path (inside root, relative): %q", got)
 	}
-	if got := objAt(a, "snapshot_id").Kind; got != validation.Null {
-		t.Errorf("snapshot_id default: %+v", objAt(a, "snapshot_id"))
+	if got := validation.ObjAt(a, "snapshot_id").Kind; got != validation.Null {
+		t.Errorf("snapshot_id default: %+v", validation.ObjAt(a, "snapshot_id"))
 	}
-	if got := objStr(a, "note"); got != "x" {
+	if got := validation.ObjStr(a, "note"); got != "x" {
 		t.Errorf("note: %q", got)
 	}
 	// the event: ref = id, data {kind, path} with the ORIGINAL path.
 	ev := lastEvent(t, c)
-	if got := objStr(ev, "type"); got != "artifact.registered" {
+	if got := validation.ObjStr(ev, "type"); got != "artifact.registered" {
 		t.Errorf("event type: %q", got)
 	}
-	if got := objStr(ev, "ref"); got != id {
+	if got := validation.ObjStr(ev, "ref"); got != id {
 		t.Errorf("event ref: %q", got)
 	}
-	data := objAt(lastStateEvent(t, c), "data")
+	data := validation.ObjAt(lastStateEvent(t, c), "data")
 	if got := keyNames(data); len(got) != 2 || got[0] != "kind" || got[1] != "path" {
 		t.Errorf("data keys: %v", got)
 	}
-	if got := objStr(data, "path"); got != fp {
+	if got := validation.ObjStr(data, "path"); got != fp {
 		t.Errorf("log path must be the original argument: %q", got)
 	}
 	// missing file: the error text is the path itself (FileNotFoundError(p)).
@@ -358,7 +358,7 @@ func TestArtifactSnapshotID(t *testing.T) {
 		t.Fatal(err)
 	}
 	a, _ := c.Artifact(id)
-	if got := objStr(a, "snapshot_id"); got != "SNP-1" {
+	if got := validation.ObjStr(a, "snapshot_id"); got != "SNP-1" {
 		t.Errorf("snapshot_id: %q", got)
 	}
 }
@@ -384,11 +384,11 @@ func TestArtifactStoredPathOutsideRoot(t *testing.T) {
 	}
 	a, _ := c.Artifact(id)
 	want := resolvePath(filepath.Join(other, rel))
-	if got := objStr(a, "path"); got != want {
+	if got := validation.ObjStr(a, "path"); got != want {
 		t.Errorf("stored path outside root:\n got %q\nwant %q", got, want)
 	}
 	ev := lastEvent(t, c)
-	if got := objStr(objAt(ev, "data"), "path"); got != rel {
+	if got := validation.ObjStr(validation.ObjAt(ev, "data"), "path"); got != rel {
 		t.Errorf("log path must be the original relative arg: %q", got)
 	}
 }
@@ -458,38 +458,38 @@ func TestPruneArtifact(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(rec, "artifact_id"); got != id1 {
+	if got := validation.ObjStr(rec, "artifact_id"); got != id1 {
 		t.Errorf("returned record: %q", got)
 	}
-	if got := objStr(rec, "path"); got != "a.json" {
+	if got := validation.ObjStr(rec, "path"); got != "a.json" {
 		t.Errorf("returned path: %q", got)
 	}
 	st := mustState(t, c)
-	arts := objAt(st, "artifacts")
+	arts := validation.ObjAt(st, "artifacts")
 	if len(arts.A) != 1 {
 		t.Fatalf("artifacts after prune: %d", len(arts.A))
 	}
-	if got := objStr(arts.A[0], "artifact_id"); got != id2 {
+	if got := validation.ObjStr(arts.A[0], "artifact_id"); got != id2 {
 		t.Errorf("survivor: %q", got)
 	}
 	ev := lastEvent(t, c)
-	if got := objStr(ev, "type"); got != "artifact.pruned" {
+	if got := validation.ObjStr(ev, "type"); got != "artifact.pruned" {
 		t.Errorf("event type: %q", got)
 	}
-	if got := objStr(ev, "ref"); got != id1 {
+	if got := validation.ObjStr(ev, "ref"); got != id1 {
 		t.Errorf("event ref: %q", got)
 	}
-	data := objAt(lastStateEvent(t, c), "data")
+	data := validation.ObjAt(lastStateEvent(t, c), "data")
 	if got := keyNames(data); len(got) != 3 || got[0] != "kind" || got[1] != "path" || got[2] != "reason" {
 		t.Errorf("data keys: %v", got)
 	}
-	if got := objStr(data, "kind"); got != "recon" {
+	if got := validation.ObjStr(data, "kind"); got != "recon" {
 		t.Errorf("data.kind: %q", got)
 	}
-	if got := objStr(data, "path"); got != "a.json" {
+	if got := validation.ObjStr(data, "path"); got != "a.json" {
 		t.Errorf("data.path: %q", got)
 	}
-	if got := objStr(data, "reason"); got != "superseded" {
+	if got := validation.ObjStr(data, "reason"); got != "superseded" {
 		t.Errorf("data.reason: %q", got)
 	}
 	if _, err := c.PruneArtifact("ART-nope1234", ""); err == nil {
@@ -524,16 +524,16 @@ func TestRefreshArtifact(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(rec, "sha256"); got != newSha {
+	if got := validation.ObjStr(rec, "sha256"); got != newSha {
 		t.Errorf("sha256: %q", got)
 	}
-	if got := objAt(rec, "refresh_count").I; got != 1 {
+	if got := validation.ObjAt(rec, "refresh_count").I; got != 1 {
 		t.Errorf("refresh_count: %d", got)
 	}
-	if got := objStr(rec, "refresh_reason"); got != "report regenerated" {
+	if got := validation.ObjStr(rec, "refresh_reason"); got != "report regenerated" {
 		t.Errorf("refresh_reason: %q", got)
 	}
-	if got := objStr(rec, "refreshed_at"); got == "" {
+	if got := validation.ObjStr(rec, "refreshed_at"); got == "" {
 		t.Error("refreshed_at empty")
 	}
 	wantKeys := []string{"artifact_id", "kind", "path", "registered_at",
@@ -549,28 +549,28 @@ func TestRefreshArtifact(t *testing.T) {
 		}
 	}
 	ev := lastEvent(t, c)
-	if got := objStr(ev, "type"); got != "artifact.refreshed" {
+	if got := validation.ObjStr(ev, "type"); got != "artifact.refreshed" {
 		t.Errorf("event type: %q", got)
 	}
-	if got := objStr(ev, "ref"); got != id {
+	if got := validation.ObjStr(ev, "ref"); got != id {
 		t.Errorf("event ref: %q", got)
 	}
-	data := objAt(lastStateEvent(t, c), "data")
+	data := validation.ObjAt(lastStateEvent(t, c), "data")
 	if got := keyNames(data); len(got) != 6 || got[0] != "kind" || got[1] != "actor" ||
 		got[2] != "reason" || got[3] != "old_sha256" || got[4] != "new_sha256" ||
 		got[5] != "refresh_count" {
 		t.Errorf("data keys: %v", got)
 	}
-	if got := objStr(data, "actor"); got != "op" {
+	if got := validation.ObjStr(data, "actor"); got != "op" {
 		t.Errorf("data.actor: %q", got)
 	}
-	if got := objStr(data, "old_sha256"); got != oldSha {
+	if got := validation.ObjStr(data, "old_sha256"); got != oldSha {
 		t.Errorf("data.old_sha256: %q", got)
 	}
-	if got := objStr(data, "new_sha256"); got != newSha {
+	if got := validation.ObjStr(data, "new_sha256"); got != newSha {
 		t.Errorf("data.new_sha256: %q", got)
 	}
-	if got := objAt(data, "refresh_count").I; got != 1 {
+	if got := validation.ObjAt(data, "refresh_count").I; got != 1 {
 		t.Errorf("data.refresh_count: %d", got)
 	}
 	// second refresh increments to 2.
@@ -578,7 +578,7 @@ func TestRefreshArtifact(t *testing.T) {
 		t.Fatal(err)
 	}
 	st := mustState(t, c)
-	if got := objAt(objAt(st, "artifacts").A[0], "refresh_count").I; got != 2 {
+	if got := validation.ObjAt(validation.ObjAt(st, "artifacts").A[0], "refresh_count").I; got != 2 {
 		t.Errorf("refresh_count: %d", got)
 	}
 	// empty / whitespace reason.
@@ -648,21 +648,21 @@ func TestRegisterOrRefresh(t *testing.T) {
 		t.Fatalf("expected refresh of %s, got new id %s", id1, id2)
 	}
 	st := mustState(t, c)
-	arts := objAt(st, "artifacts")
+	arts := validation.ObjAt(st, "artifacts")
 	if len(arts.A) != 1 {
 		t.Fatalf("rows after same-path re-register: %d", len(arts.A))
 	}
-	if got := objAt(arts.A[0], "refresh_count").I; got != 1 {
+	if got := validation.ObjAt(arts.A[0], "refresh_count").I; got != 1 {
 		t.Errorf("refresh_count: %d", got)
 	}
-	if got := objStr(arts.A[0], "sha256"); got != validation.Sha256Hex([]byte("v2")) {
+	if got := validation.ObjStr(arts.A[0], "sha256"); got != validation.Sha256Hex([]byte("v2")) {
 		t.Errorf("sha256: %q", got)
 	}
 	ev := lastEvent(t, c)
-	if got := objStr(ev, "type"); got != "artifact.refreshed" {
+	if got := validation.ObjStr(ev, "type"); got != "artifact.refreshed" {
 		t.Errorf("event type: %q", got)
 	}
-	if got := objStr(objAt(ev, "data"), "reason"); got != defReason {
+	if got := validation.ObjStr(validation.ObjAt(ev, "data"), "reason"); got != defReason {
 		t.Errorf("refresh reason: %q", got)
 	}
 	// different path -> new row.
@@ -686,22 +686,22 @@ func TestRegisterOrRefresh(t *testing.T) {
 		t.Fatalf("expected the same row to be migrated, got %s", id4)
 	}
 	st = mustState(t, c)
-	arts = objAt(st, "artifacts")
+	arts = validation.ObjAt(st, "artifacts")
 	if len(arts.A) != 2 {
 		t.Fatalf("rows: %d want 2 (one per path)", len(arts.A))
 	}
 	row := arts.A[0]
-	if got := objStr(row, "kind"); got != "report" {
+	if got := validation.ObjStr(row, "kind"); got != "report" {
 		t.Errorf("migrated kind: %q", got)
 	}
-	if got := objStr(row, "sha256"); got != validation.Sha256Hex([]byte("v3")) {
+	if got := validation.ObjStr(row, "sha256"); got != validation.Sha256Hex([]byte("v3")) {
 		t.Errorf("migrated row sha256: %q", got)
 	}
 	ev = lastEvent(t, c)
-	if got := objStr(ev, "type"); got != "artifact.refreshed" {
+	if got := validation.ObjStr(ev, "type"); got != "artifact.refreshed" {
 		t.Errorf("event type: %q", got)
 	}
-	if got := objStr(objAt(ev, "data"), "kind_migrated"); got != "plan→report" {
+	if got := validation.ObjStr(validation.ObjAt(ev, "data"), "kind_migrated"); got != "plan→report" {
 		t.Errorf("kind_migrated: %q", got)
 	}
 	// missing file: the error text is the path itself.

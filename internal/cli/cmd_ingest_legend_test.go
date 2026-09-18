@@ -58,7 +58,7 @@ func t14bPlan(t *testing.T, c *state.Campaign) validation.Value {
 
 func t14bPriorities(t *testing.T, plan validation.Value) []validation.Value {
 	t.Helper()
-	prio := objAt(plan, "priorities")
+	prio := validation.ObjAt(plan, "priorities")
 	if prio.Kind != validation.Arr || len(prio.A) == 0 {
 		t.Fatalf("the fixture plan must queue priorities: %+v", prio)
 	}
@@ -73,7 +73,7 @@ func t14bEventTypes(t *testing.T, c *state.Campaign) []string {
 	}
 	out := make([]string, 0, len(evs))
 	for _, e := range evs {
-		out = append(out, objStr(e, "type"))
+		out = append(out, validation.ObjStr(e, "type"))
 	}
 	return out
 }
@@ -121,7 +121,7 @@ func TestAnswersPriorityClosesTheQuestion(t *testing.T) {
 		"deprioritized"} {
 		t.Run(outcome, func(t *testing.T) {
 			c, root, cid := t14bPlannedCampaign(t)
-			qid := objStr(t14bPriorities(t, t14bPlan(t, c))[0], "id")
+			qid := validation.ObjStr(t14bPriorities(t, t14bPlan(t, c))[0], "id")
 			code, out, errS := run(t, "--root", root, "ingest", cid,
 				"--json-file", t14bPayloadFile(t, root),
 				"--answers-priority", qid, "--priority-outcome", outcome)
@@ -130,12 +130,12 @@ func TestAnswersPriorityClosesTheQuestion(t *testing.T) {
 			}
 			fid := strings.Fields(out)[1]
 			prio := nextPriority(t, t14bPlan(t, c), qid)
-			if objStr(prio, "status") != outcome {
-				t.Fatalf("status = %q, want %q", objStr(prio, "status"),
+			if validation.ObjStr(prio, "status") != outcome {
+				t.Fatalf("status = %q, want %q", validation.ObjStr(prio, "status"),
 					outcome)
 			}
-			if objStr(prio, "closed_ref") != fid {
-				t.Fatalf("closed_ref = %q, want %q", objStr(prio,
+			if validation.ObjStr(prio, "closed_ref") != fid {
+				t.Fatalf("closed_ref = %q, want %q", validation.ObjStr(prio,
 					"closed_ref"), fid)
 			}
 			for _, typ := range t14bEventTypes(t, c) {
@@ -149,8 +149,8 @@ func TestAnswersPriorityClosesTheQuestion(t *testing.T) {
 
 func nextPriority(t *testing.T, plan validation.Value, id string) validation.Value {
 	t.Helper()
-	for _, p := range objAt(plan, "priorities").A {
-		if objStr(p, "id") == id {
+	for _, p := range validation.ObjAt(plan, "priorities").A {
+		if validation.ObjStr(p, "id") == id {
 			return p
 		}
 	}
@@ -161,7 +161,7 @@ func nextPriority(t *testing.T, plan validation.Value, id string) validation.Val
 // Port of test_invalid_priority_outcome_exits_2_naming_the_values.
 func TestInvalidPriorityOutcomeExits2NamingTheValues(t *testing.T) {
 	c, root, cid := t14bPlannedCampaign(t)
-	qid := objStr(t14bPriorities(t, t14bPlan(t, c))[0], "id")
+	qid := validation.ObjStr(t14bPriorities(t, t14bPlan(t, c))[0], "id")
 	code, out, errS := run(t, "--root", root, "ingest", cid,
 		"--json-file", t14bPayloadFile(t, root),
 		"--answers-priority", qid, "--priority-outcome", "bogus")
@@ -189,8 +189,8 @@ func t14bProbePriority(t *testing.T, c *state.Campaign, plan validation.Value,
 	t.Helper()
 	prios := []validation.Value{}
 	var stamped validation.Value
-	for _, p := range objAt(plan, "priorities").A {
-		if objStr(p, "id") == priorityID {
+	for _, p := range validation.ObjAt(plan, "priorities").A {
+		if validation.ObjStr(p, "id") == priorityID {
 			p = setObjFieldCLI(p, "probe", validation.VObj(
 				kvT("row_id", validation.VStr(rowID)),
 				kvT("probe_id", validation.VStr(probeID)),
@@ -216,7 +216,7 @@ func t14bProbePriority(t *testing.T, c *state.Campaign, plan validation.Value,
 func TestProbeRowRefusalEmitsAnExecutableCommand(t *testing.T) {
 	c, root, cid := t14bPlannedCampaign(t)
 	plan := t14bPlan(t, c)
-	pid := objStr(t14bPriorities(t, plan)[0], "id")
+	pid := validation.ObjStr(t14bPriorities(t, plan)[0], "id")
 	t14bProbePriority(t, c, plan, pid, "trust-assumption", "0123456789")
 	// campaign_surface reads this artifact raw: a minimal row is enough for
 	// the anchor validation to fire. The probes module is unported (P3), so
@@ -263,11 +263,11 @@ func TestProbeRowRefusalEmitsAnExecutableCommand(t *testing.T) {
 		t.Fatal(err)
 	}
 	closed := nextPriority(t, saved, pid)
-	if objStr(closed, "status") != "answered" {
-		t.Fatalf("status = %q", objStr(closed, "status"))
+	if validation.ObjStr(closed, "status") != "answered" {
+		t.Fatalf("status = %q", validation.ObjStr(closed, "status"))
 	}
-	anchor := objAt(objAt(closed, "probe"), "anchor")
-	if objStr(anchor, "field") != "actor" {
+	anchor := validation.ObjAt(validation.ObjAt(closed, "probe"), "anchor")
+	if validation.ObjStr(anchor, "field") != "actor" {
 		t.Fatalf("probe anchor = %+v", anchor)
 	}
 }
@@ -276,7 +276,7 @@ func TestProbeRowRefusalEmitsAnExecutableCommand(t *testing.T) {
 func TestProbeRowPriorityExits2BeforeTheIngest(t *testing.T) {
 	c, root, cid := t14bPlannedCampaign(t)
 	plan := t14bPlan(t, c)
-	pid := objStr(t14bPriorities(t, plan)[0], "id")
+	pid := validation.ObjStr(t14bPriorities(t, plan)[0], "id")
 	t14bProbePriority(t, c, plan, pid, "reentrancy", "0123456789")
 	before := dirNames(t, c.FindingsDir)
 	code, out, errS := run(t, "--root", root, "ingest", cid,
@@ -350,17 +350,17 @@ func TestUnknownPriorityWithoutAPlanKeepsTheOrphanLog(t *testing.T) {
 	}
 	orphans := []validation.Value{}
 	for _, e := range evs {
-		if objStr(e, "type") == "plan.answer_orphaned" {
+		if validation.ObjStr(e, "type") == "plan.answer_orphaned" {
 			orphans = append(orphans, e)
 		}
 	}
 	if len(orphans) != 1 {
 		t.Fatalf("orphan events = %d, want 1", len(orphans))
 	}
-	if objStr(orphans[0], "ref") != "Q-999" {
-		t.Fatalf("ref = %q", objStr(orphans[0], "ref"))
+	if validation.ObjStr(orphans[0], "ref") != "Q-999" {
+		t.Fatalf("ref = %q", validation.ObjStr(orphans[0], "ref"))
 	}
-	if objStr(objAt(orphans[0], "data"), "finding") !=
+	if validation.ObjStr(validation.ObjAt(orphans[0], "data"), "finding") !=
 		strings.Fields(out)[1] {
 		t.Fatalf("orphan data = %+v", orphans[0])
 	}
@@ -415,15 +415,15 @@ func TestFlagsAbsentLeaveTheAPIDefaultsAlone(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(f, "status") != "HYPOTHESIS" {
-		t.Fatalf("library status = %q", objStr(f, "status"))
+	if validation.ObjStr(f, "status") != "HYPOTHESIS" {
+		t.Fatalf("library status = %q", validation.ObjStr(f, "status"))
 	}
-	loaded, err := findings.LoadFinding(c2, objStr(f, "finding_id"))
+	loaded, err := findings.LoadFinding(c2, validation.ObjStr(f, "finding_id"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(loaded, "status") != "HYPOTHESIS" {
-		t.Fatalf("on-disk status = %q", objStr(loaded, "status"))
+	if validation.ObjStr(loaded, "status") != "HYPOTHESIS" {
+		t.Fatalf("on-disk status = %q", validation.ObjStr(loaded, "status"))
 	}
 }
 
@@ -460,11 +460,11 @@ func t14bWithProbes(t *testing.T, surface validation.Value) {
 		},
 		RowAnchorValue: func(row validation.Value,
 			anchor string) (validation.Value, error) {
-			return objAt(row, anchor), nil
+			return validation.ObjAt(row, anchor), nil
 		},
 		AnchorRef: func(row validation.Value, anchor string,
 			index *validation.Value) (string, error) {
-			return "probe_surface.json#" + objStr(row, "row_id") + "#" +
+			return "probe_surface.json#" + validation.ObjStr(row, "row_id") + "#" +
 				anchor, nil
 		},
 		RowShapeSha: func(validation.Value) string {

@@ -46,7 +46,7 @@ func zzR39bCutFixture(t *testing.T) *state.Campaign {
 	if err != nil {
 		t.Fatal(err)
 	}
-	evs := objAt(st, "events")
+	evs := validation.ObjAt(st, "events")
 	if len(evs.A) != 10 {
 		t.Fatalf("fixture: mirror must hold 10, got %d", len(evs.A))
 	}
@@ -85,17 +85,17 @@ func TestR39bStateHealthDeltaDisclosesTheLoss(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !objAt(res, "events_mirror_rebuilt").B {
+	if !validation.ObjAt(res, "events_mirror_rebuilt").B {
 		t.Fatalf("fixture must rebuild the mirror: %s", validation.PyRepr(res))
 	}
-	d := objAt(res, "events_mirror_delta")
+	d := validation.ObjAt(res, "events_mirror_delta")
 	for k, want := range map[string]int64{
 		"kept":                    0,
 		"changed":                 5,
 		"dropped_from_projection": 3,
 		"added_from_log":          0,
 	} {
-		if got := objAt(d, k); got.Kind != validation.Int || got.I != want {
+		if got := validation.ObjAt(d, k); got.Kind != validation.Int || got.I != want {
 			t.Errorf("delta.%s = %s, want %d", k, validation.PyRepr(got), want)
 		}
 	}
@@ -104,7 +104,7 @@ func TestR39bStateHealthDeltaDisclosesTheLoss(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := len(objAt(st, "events").A); got != 5 {
+	if got := len(validation.ObjAt(st, "events").A); got != 5 {
 		t.Errorf("mirror after rebuild holds %d events, want 5", got)
 	}
 }

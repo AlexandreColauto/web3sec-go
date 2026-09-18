@@ -62,7 +62,7 @@ func r41Disposition(t *testing.T, c *state.Campaign, fid string) string {
 	if err != nil {
 		t.Fatalf("parse ladder: %v", err)
 	}
-	return objStr(asObj(objAt(lad, "disposition")), "state")
+	return validation.ObjStr(asObj(validation.ObjAt(lad, "disposition")), "state")
 }
 
 // r41MaximalRung is the ladder doc's maximal_rung_id ("" when null).
@@ -76,7 +76,7 @@ func r41MaximalRung(t *testing.T, c *state.Campaign, fid string) string {
 	if err != nil {
 		t.Fatalf("parse ladder: %v", err)
 	}
-	return objStr(lad, "maximal_rung_id")
+	return validation.ObjStr(lad, "maximal_rung_id")
 }
 
 // r41FindingMaximalRung is finding.maximization.maximal_rung_id, "" when the
@@ -87,7 +87,7 @@ func r41FindingMaximalRung(t *testing.T, c *state.Campaign, fid string) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return objStr(asObj(objAt(f, "maximization")), "maximal_rung_id")
+	return validation.ObjStr(asObj(validation.ObjAt(f, "maximization")), "maximal_rung_id")
 }
 
 // r41FindingDisposition is finding.maximization.disposition ("" when absent).
@@ -97,7 +97,7 @@ func r41FindingDisposition(t *testing.T, c *state.Campaign, fid string) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return objStr(asObj(objAt(f, "maximization")), "disposition")
+	return validation.ObjStr(asObj(validation.ObjAt(f, "maximization")), "disposition")
 }
 
 // r41Events counts one event type in the ledger.
@@ -151,7 +151,7 @@ func r41Repairable(t *testing.T, c *state.Campaign) []byte {
 // was closed by a recorded waiver, so `reopen` has real work to do.
 func r41WaivedLadder(t *testing.T, c *state.Campaign, title string) string {
 	t.Helper()
-	fid := objStr(confirmedFinding(t, c, title), "finding_id")
+	fid := validation.ObjStr(confirmedFinding(t, c, title), "finding_id")
 	if _, err := StartLadder(c, fid); err != nil {
 		t.Fatal(err)
 	}
@@ -169,7 +169,7 @@ func r41WaivedLadder(t *testing.T, c *state.Campaign, title string) string {
 // added rung was reproduced against a real sandboxed exec record.
 func r41ReproducedRung(t *testing.T, c *state.Campaign, title string) (string, string) {
 	t.Helper()
-	fid := objStr(confirmedFinding(t, c, title), "finding_id")
+	fid := validation.ObjStr(confirmedFinding(t, c, title), "finding_id")
 	if _, err := StartLadder(c, fid); err != nil {
 		t.Fatal(err)
 	}
@@ -179,9 +179,9 @@ func r41ReproducedRung(t *testing.T, c *state.Campaign, title string) (string, s
 	if err != nil {
 		t.Fatal(err)
 	}
-	rungID := objStr(rung, "rung_id")
+	rungID := validation.ObjStr(rung, "rung_id")
 	rec := registerExec(t, c, fid)
-	if _, err := ReproduceRung(c, fid, rungID, objStr(rec, "exec_id"), nil); err != nil {
+	if _, err := ReproduceRung(c, fid, rungID, validation.ObjStr(rec, "exec_id"), nil); err != nil {
 		t.Fatal(err)
 	}
 	if got := r41Disposition(t, c, fid); got != "open" {
@@ -474,7 +474,7 @@ func r41EvidenceCount(t *testing.T, c *state.Campaign, fid string) int {
 	if err != nil {
 		t.Fatalf("load finding: %v", err)
 	}
-	ev := objAt(f, "evidence")
+	ev := validation.ObjAt(f, "evidence")
 	if ev.Kind != validation.Arr {
 		return 0
 	}
@@ -493,8 +493,8 @@ func r41RungStatus(t *testing.T, c *state.Campaign, fid, rungID string) string {
 		t.Fatalf("parse ladder: %v", err)
 	}
 	for _, r := range listOf(lad, "variants").A {
-		if objStr(r, "rung_id") == rungID {
-			return objStr(r, "status")
+		if validation.ObjStr(r, "rung_id") == rungID {
+			return validation.ObjStr(r, "status")
 		}
 	}
 	return ""
@@ -511,7 +511,7 @@ func r41AxisNoted(t *testing.T, c *state.Campaign, fid, axis string) bool {
 	if err != nil {
 		t.Fatalf("parse ladder: %v", err)
 	}
-	return objStr(asObj(objAt(lad, "axis_notes")), axis) != ""
+	return validation.ObjStr(asObj(validation.ObjAt(lad, "axis_notes")), axis) != ""
 }
 
 // r41FreshReproducibleRung is the fixture the mint burn needs: an open ladder
@@ -521,7 +521,7 @@ func r41AxisNoted(t *testing.T, c *state.Campaign, fid, axis string) bool {
 func r41FreshReproducibleRung(t *testing.T, c *state.Campaign,
 	title string) (string, string, string) {
 	t.Helper()
-	fid := objStr(confirmedFinding(t, c, title), "finding_id")
+	fid := validation.ObjStr(confirmedFinding(t, c, title), "finding_id")
 	if _, err := StartLadder(c, fid); err != nil {
 		t.Fatal(err)
 	}
@@ -531,7 +531,7 @@ func r41FreshReproducibleRung(t *testing.T, c *state.Campaign,
 		t.Fatal(err)
 	}
 	rec := registerExec(t, c, fid)
-	return fid, objStr(rung, "rung_id"), objStr(rec, "exec_id")
+	return fid, validation.ObjStr(rung, "rung_id"), validation.ObjStr(rec, "exec_id")
 }
 
 // r41CompletableLadder is the fixture complete_ladder needs to reach

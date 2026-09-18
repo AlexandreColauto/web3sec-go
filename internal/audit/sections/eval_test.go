@@ -62,7 +62,7 @@ func evalCampaign(t *testing.T, program string, live []validation.Value) *state.
 // evalLines reads the section's pinned markdown lines.
 func evalLines(t *testing.T, sec validation.Value) []string {
 	t.Helper()
-	lv := objAt(sec, "lines")
+	lv := validation.ObjAt(sec, "lines")
 	if lv.Kind != validation.Arr {
 		t.Fatalf("no lines array: %s", validation.DumpIndented(sec))
 	}
@@ -110,11 +110,11 @@ func TestEvalRendersPinnedLines(t *testing.T) {
 	if got := evalLines(t, sec); !reflect.DeepEqual(got, want) {
 		t.Fatalf("lines = %q\nwant %q", got, want)
 	}
-	if ok := objAt(sec, "ok"); ok.Kind != validation.Bool || !ok.B {
+	if ok := validation.ObjAt(sec, "ok"); ok.Kind != validation.Bool || !ok.B {
 		t.Errorf("eval section must stay ok=true (informational): %s",
 			validation.DumpIndented(sec))
 	}
-	if n := len(objAt(sec, "problems").A); n != 0 {
+	if n := len(validation.ObjAt(sec, "problems").A); n != 0 {
 		t.Errorf("problems = %d, want 0", n)
 	}
 }
@@ -204,12 +204,12 @@ func TestEvalRendersPartitionProblemsWhenPresent(t *testing.T) {
 	if !reflect.DeepEqual(got[9:], wantClasses) {
 		t.Fatalf("class block = %q\nwant %q", got[9:], wantClasses)
 	}
-	probs := objAt(sec, "problems")
+	probs := validation.ObjAt(sec, "problems")
 	if probs.Kind != validation.Arr || len(probs.A) != 1 ||
 		probs.A[0].S != "unparseable-deployed_at CASE-0000000000h1" {
 		t.Fatalf("problems value = %s", validation.CanonCompact(probs))
 	}
-	if ok := objAt(sec, "ok"); ok.Kind != validation.Bool || !ok.B {
+	if ok := validation.ObjAt(sec, "ok"); ok.Kind != validation.Bool || !ok.B {
 		t.Errorf("a store-side partition problem must not fail the campaign: %s",
 			validation.DumpIndented(sec))
 	}
@@ -246,7 +246,7 @@ func TestEvalOmitsProblemBlockWhenClean(t *testing.T) {
 	if got := evalLines(t, sec); !reflect.DeepEqual(got, want) {
 		t.Fatalf("lines = %q\nwant %q", got, want)
 	}
-	if n := len(objAt(sec, "problems").A); n != 0 {
+	if n := len(validation.ObjAt(sec, "problems").A); n != 0 {
 		t.Fatalf("problems = %d, want 0", n)
 	}
 }
@@ -334,43 +334,43 @@ func TestEvalRendersBandBlockAfterFPLine(t *testing.T) {
 		t.Fatalf("lines = %q\nwant %q", got, want)
 	}
 	// The value keys carry the same numbers for machine consumers.
-	bands := objAt(sec, "bands")
+	bands := validation.ObjAt(sec, "bands")
 	if bands.Kind != validation.Arr || len(bands.A) != 2 {
 		t.Fatalf("bands = %s, want two rows", validation.CanonCompact(bands))
 	}
 	row := bands.A[0]
-	if lo := objAt(row, "lo"); lo.Kind != validation.Flt || lo.F != 0 {
+	if lo := validation.ObjAt(row, "lo"); lo.Kind != validation.Flt || lo.F != 0 {
 		t.Fatalf("first row lo = %s, want 0", validation.CanonCompact(lo))
 	}
-	if hi := objAt(row, "hi"); hi.Kind != validation.Flt || hi.F != 1 {
+	if hi := validation.ObjAt(row, "hi"); hi.Kind != validation.Flt || hi.F != 1 {
 		t.Fatalf("first row hi = %s, want 1", validation.CanonCompact(hi))
 	}
-	if n := objAt(row, "anchored"); n.Kind != validation.Int || n.I != 1 {
+	if n := validation.ObjAt(row, "anchored"); n.Kind != validation.Int || n.I != 1 {
 		t.Fatalf("first row anchored = %s, want 1", validation.CanonCompact(n))
 	}
-	if n := objAt(row, "total"); n.Kind != validation.Int || n.I != 2 {
+	if n := validation.ObjAt(row, "total"); n.Kind != validation.Int || n.I != 2 {
 		t.Fatalf("first row total = %s, want 2", validation.CanonCompact(n))
 	}
-	if l := objStr(row, "line"); l != "precision: 1/2 (95% CI 9.5–90.5%)" {
+	if l := validation.ObjStr(row, "line"); l != "precision: 1/2 (95% CI 9.5–90.5%)" {
 		t.Fatalf("first row line = %q", l)
 	}
 	// The last row's upper edge is +Inf. The ordered-JSON writer has no
 	// Infinity token (encoding/json rejects it), so `hi` is ABSENT there
 	// rather than unparseable: absence IS the open upper edge.
-	if hi := objAt(bands.A[1], "hi"); hi.Kind != validation.Null {
+	if hi := validation.ObjAt(bands.A[1], "hi"); hi.Kind != validation.Null {
 		t.Fatalf("last row hi = %s, want absent (open +Inf edge)",
 			validation.CanonCompact(hi))
 	}
-	if fab := objAt(sec, "fabricated"); fab.Kind != validation.Int || fab.I != 1 {
+	if fab := validation.ObjAt(sec, "fabricated"); fab.Kind != validation.Int || fab.I != 1 {
 		t.Fatalf("fabricated = %s, want 1", validation.CanonCompact(fab))
 	}
-	fabBands := objAt(sec, "fabrication_bands")
+	fabBands := validation.ObjAt(sec, "fabrication_bands")
 	if fabBands.Kind != validation.Arr || len(fabBands.A) != 4 ||
 		fabBands.A[0].I != 1 || fabBands.A[3].I != 0 {
 		t.Fatalf("fabrication_bands = %s, want [1 0 0 0]",
 			validation.CanonCompact(fabBands))
 	}
-	if u := objAt(sec, "unscorable"); u.Kind != validation.Null {
+	if u := validation.ObjAt(sec, "unscorable"); u.Kind != validation.Null {
 		t.Fatalf("unscorable = %s, want absent when zero",
 			validation.CanonCompact(u))
 	}
@@ -397,12 +397,12 @@ func TestEvalBandBlockAbsentWithZeroLiveFindings(t *testing.T) {
 	}
 	for _, key := range []string{"bands", "unscorable", "fabricated",
 		"fabrication_bands", "classes"} {
-		if v := objAt(sec, key); v.Kind != validation.Null {
+		if v := validation.ObjAt(sec, key); v.Kind != validation.Null {
 			t.Errorf("%s = %s, want absent when the gate is closed",
 				key, validation.CanonCompact(v))
 		}
 	}
-	if ok := objAt(sec, "ok"); ok.Kind != validation.Bool || !ok.B {
+	if ok := validation.ObjAt(sec, "ok"); ok.Kind != validation.Bool || !ok.B {
 		t.Errorf("eval section must stay ok=true: %s", validation.DumpIndented(sec))
 	}
 }
@@ -462,34 +462,34 @@ func TestEvalClassesValueAndUnmappedBucket(t *testing.T) {
 	if got := evalLines(t, sec); !reflect.DeepEqual(got, want) {
 		t.Fatalf("lines = %q\nwant %q", got, want)
 	}
-	classes := objAt(sec, "classes")
+	classes := validation.ObjAt(sec, "classes")
 	if classes.Kind != validation.Arr || len(classes.A) != 2 {
 		t.Fatalf("classes = %s, want two rows",
 			validation.CanonCompact(classes))
 	}
 	unmapped := classes.A[1]
-	if got := objStr(unmapped, "class"); got != "unmapped" {
+	if got := validation.ObjStr(unmapped, "class"); got != "unmapped" {
 		t.Fatalf("second class row = %q, want unmapped", got)
 	}
-	if n := objAt(unmapped, "cases"); n.Kind != validation.Int || n.I != 0 {
+	if n := validation.ObjAt(unmapped, "cases"); n.Kind != validation.Int || n.I != 0 {
 		t.Fatalf("unmapped cases = %s, want 0",
 			validation.CanonCompact(n))
 	}
-	if n := objAt(unmapped, "live"); n.Kind != validation.Int || n.I != 1 {
+	if n := validation.ObjAt(unmapped, "live"); n.Kind != validation.Int || n.I != 1 {
 		t.Fatalf("unmapped live = %s, want 1",
 			validation.CanonCompact(n))
 	}
-	if n := objAt(unmapped, "anchored"); n.Kind != validation.Int || n.I != 0 {
+	if n := validation.ObjAt(unmapped, "anchored"); n.Kind != validation.Int || n.I != 0 {
 		t.Fatalf("unmapped anchored = %s, want 0",
 			validation.CanonCompact(n))
 	}
-	if p := objStr(unmapped, "precision"); p != "precision: 0/1 (95% CI 0.0–79.3%)" {
+	if p := validation.ObjStr(unmapped, "precision"); p != "precision: 0/1 (95% CI 0.0–79.3%)" {
 		t.Fatalf("unmapped precision = %q", p)
 	}
-	if r := objStr(unmapped, "recall"); r != "recall: 0/0 (95% CI n/a)" {
+	if r := validation.ObjStr(unmapped, "recall"); r != "recall: 0/0 (95% CI n/a)" {
 		t.Fatalf("unmapped recall = %q", r)
 	}
-	if r := objStr(classes.A[0], "class"); r != "reentrancy" {
+	if r := validation.ObjStr(classes.A[0], "class"); r != "reentrancy" {
 		t.Fatalf("first class row = %q, want reentrancy (sorted by Class)", r)
 	}
 }
@@ -565,51 +565,51 @@ func TestEvalRendersAdjudicationBlock(t *testing.T) {
 	if got := evalLines(t, sec); !reflect.DeepEqual(got, want) {
 		t.Fatalf("lines = %q\nwant %q", got, want)
 	}
-	rows := objAt(sec, "adjudications")
+	rows := validation.ObjAt(sec, "adjudications")
 	if rows.Kind != validation.Arr || len(rows.A) != 1 {
 		t.Fatalf("adjudications = %s, want one row",
 			validation.CanonCompact(rows))
 	}
 	row := rows.A[0]
-	if got := objStr(row, "finding"); got != "F-bbbbbbbbbbbb" {
+	if got := validation.ObjStr(row, "finding"); got != "F-bbbbbbbbbbbb" {
 		t.Fatalf("row finding = %q", got)
 	}
-	if got := objStr(row, "verdict"); got != "additional-true-positive" {
+	if got := validation.ObjStr(row, "verdict"); got != "additional-true-positive" {
 		t.Fatalf("row verdict = %q", got)
 	}
-	if got := objStr(row, "severity"); got != "tbd" {
+	if got := validation.ObjStr(row, "severity"); got != "tbd" {
 		t.Fatalf("row severity = %q", got)
 	}
-	if got := objStr(row, "basis"); got != "author-review" {
+	if got := validation.ObjStr(row, "basis"); got != "author-review" {
 		t.Fatalf("row basis = %q", got)
 	}
-	if got := objStr(row, "actor"); got != "alice" {
+	if got := validation.ObjStr(row, "actor"); got != "alice" {
 		t.Fatalf("row actor = %q", got)
 	}
-	if got := objStr(row, "reason"); got !=
+	if got := validation.ObjStr(row, "reason"); got !=
 		"the oracle spot price is never validated" {
 		t.Fatalf("row reason = %q", got)
 	}
 	// Optional row keys are ABSENT, not empty.
-	if v := objAt(row, "assumption"); v.Kind != validation.Null {
+	if v := validation.ObjAt(row, "assumption"); v.Kind != validation.Null {
 		t.Errorf("row assumption = %s, want absent",
 			validation.CanonCompact(v))
 	}
-	if v := objAt(row, "exec"); v.Kind != validation.Null {
+	if v := validation.ObjAt(row, "exec"); v.Kind != validation.Null {
 		t.Errorf("row exec = %s, want absent", validation.CanonCompact(v))
 	}
-	if got := objStr(sec, "adjusted_precision"); got !=
+	if got := validation.ObjStr(sec, "adjusted_precision"); got !=
 		"precision: 1/1 (95% CI 20.7–100.0%)" {
 		t.Fatalf("adjusted_precision = %q", got)
 	}
-	if n := objAt(sec, "unadjudicated"); n.Kind != validation.Int || n.I != 0 {
+	if n := validation.ObjAt(sec, "unadjudicated"); n.Kind != validation.Int || n.I != 0 {
 		t.Fatalf("unadjudicated = %s, want 0", validation.CanonCompact(n))
 	}
-	if v := objAt(sec, "stale_adjudications"); v.Kind != validation.Null {
+	if v := validation.ObjAt(sec, "stale_adjudications"); v.Kind != validation.Null {
 		t.Fatalf("stale_adjudications = %s, want absent when zero",
 			validation.CanonCompact(v))
 	}
-	if ok := objAt(sec, "ok"); ok.Kind != validation.Bool || !ok.B {
+	if ok := validation.ObjAt(sec, "ok"); ok.Kind != validation.Bool || !ok.B {
 		t.Errorf("a recorded adjudication must not fail the campaign: %s",
 			validation.DumpIndented(sec))
 	}
@@ -638,11 +638,11 @@ func TestEvalRendersStaleAdjudicationLine(t *testing.T) {
 	if got := evalLines(t, sec); !reflect.DeepEqual(got, want) {
 		t.Fatalf("lines = %q\nwant %q", got, want)
 	}
-	if n := objAt(sec, "stale_adjudications"); n.Kind != validation.Int || n.I != 1 {
+	if n := validation.ObjAt(sec, "stale_adjudications"); n.Kind != validation.Int || n.I != 1 {
 		t.Fatalf("stale_adjudications = %s, want 1",
 			validation.CanonCompact(n))
 	}
-	if n := objAt(sec, "unadjudicated"); n.Kind != validation.Int || n.I != 1 {
+	if n := validation.ObjAt(sec, "unadjudicated"); n.Kind != validation.Int || n.I != 1 {
 		t.Fatalf("unadjudicated = %s, want 1", validation.CanonCompact(n))
 	}
 }
@@ -668,7 +668,7 @@ func TestEvalAdjudicationBlockAbsentWithZeroRows(t *testing.T) {
 	}
 	for _, key := range []string{"adjudications", "adjusted_precision",
 		"unadjudicated", "stale_adjudications"} {
-		if v := objAt(sec, key); v.Kind != validation.Null {
+		if v := validation.ObjAt(sec, key); v.Kind != validation.Null {
 			t.Errorf("%s = %s, want absent with zero rows",
 				key, validation.CanonCompact(v))
 		}

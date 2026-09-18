@@ -144,7 +144,7 @@ func TestSFTCLILintFailExit1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assumptions := objAt(objAt(ex, "structured"), "assumptions").A
+	assumptions := validation.ObjAt(validation.ObjAt(ex, "structured"), "assumptions").A
 	assumptions[0] = setKv(assumptions[0], "reason", validation.VStr("nope"))
 	ex = setAtKv(ex, validation.VArr(assumptions...), "structured", "assumptions")
 	if err := os.WriteFile(f, []byte(validation.DumpIndented(ex)+"\n"),
@@ -209,7 +209,7 @@ func TestSFTCLIAddLintFailureExit2(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assumptions := objAt(objAt(ex, "structured"), "assumptions").A
+	assumptions := validation.ObjAt(validation.ObjAt(ex, "structured"), "assumptions").A
 	assumptions[0] = setKv(assumptions[0], "reason", validation.VStr("nope"))
 	ex = setAtKv(ex, validation.VArr(assumptions...), "structured", "assumptions")
 	if err := os.WriteFile(f, []byte(validation.DumpIndented(ex)+"\n"),
@@ -276,7 +276,7 @@ func TestSFTCLIBackfillWritesDraftFile(t *testing.T) {
 	}
 	out := filepath.Join(t.TempDir(), "draft.json")
 	code, stdout, errOut := runSFTCLI(t, "--root", root, "sft", "backfill",
-		c.CampaignID, objStr(f, "finding_id"), "-o", out)
+		c.CampaignID, validation.ObjStr(f, "finding_id"), "-o", out)
 	if code != 0 {
 		t.Fatalf("code = %d err = %q", code, errOut)
 	}
@@ -291,8 +291,8 @@ func TestSFTCLIBackfillWritesDraftFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(draft, "status") != "draft" ||
-		objAt(draft, "taxonomy").Kind != validation.Null {
+	if validation.ObjStr(draft, "status") != "draft" ||
+		validation.ObjAt(draft, "taxonomy").Kind != validation.Null {
 		t.Fatalf("draft = %s", validation.CanonCompact(draft))
 	}
 }
@@ -342,7 +342,7 @@ func setAtKv(v, val validation.Value, path ...string) validation.Value {
 	if len(path) == 1 {
 		return setKv(v, path[0], val)
 	}
-	return setKv(v, path[0], setAtKv(objAt(v, path[0]), val, path[1:]...))
+	return setKv(v, path[0], setAtKv(validation.ObjAt(v, path[0]), val, path[1:]...))
 }
 
 func dropKey(v validation.Value, key string) validation.Value {

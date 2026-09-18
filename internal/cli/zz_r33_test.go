@@ -67,11 +67,11 @@ func r33LastEvent(t *testing.T, c *state.Campaign, iid string) validation.Value 
 	}
 	last := validation.VNull()
 	for _, ev := range events {
-		if objStr(ev, "type") != "harness_run" {
+		if validation.ObjStr(ev, "type") != "harness_run" {
 			continue
 		}
-		if objStr(objAt(ev, "data"), "invariant") == iid {
-			last = objAt(ev, "data")
+		if validation.ObjStr(validation.ObjAt(ev, "data"), "invariant") == iid {
+			last = validation.ObjAt(ev, "data")
 		}
 	}
 	if last.Kind != validation.Obj {
@@ -107,7 +107,7 @@ func r33Slot(t *testing.T, c *state.Campaign, iid string) validation.Value {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return objAt(objAt(objAt(objAt(links, "invariants"), iid),
+	return validation.ObjAt(validation.ObjAt(validation.ObjAt(validation.ObjAt(links, "invariants"), iid),
 		"verification"), "harness")
 }
 
@@ -118,12 +118,12 @@ func r33SetSlot(t *testing.T, c *state.Campaign, iid, key, val string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	reg := objAt(links, "invariants")
-	e := objAt(reg, iid)
+	reg := validation.ObjAt(links, "invariants")
+	e := validation.ObjAt(reg, iid)
 	if e.Kind != validation.Obj {
 		t.Fatalf("fixture: no %s in links", iid)
 	}
-	h := objAt(objAt(e, "verification"), "harness")
+	h := validation.ObjAt(validation.ObjAt(e, "verification"), "harness")
 	if h.Kind != validation.Obj {
 		t.Fatalf("fixture: no verification.harness on %s", iid)
 	}
@@ -148,8 +148,8 @@ func r33CopyRow(t *testing.T, c *state.Campaign, from, to string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	reg := objAt(links, "invariants")
-	e := objAt(reg, to)
+	reg := validation.ObjAt(links, "invariants")
+	e := validation.ObjAt(reg, to)
 	if e.Kind != validation.Obj {
 		t.Fatalf("fixture: no %s in links", to)
 	}
@@ -429,8 +429,8 @@ func TestR33CrossPinDuplicateBurns(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("second bind: exit %d out=%q err=%q", code, out, errS)
 	}
-	shaB := objStr(r33LastEvent(t, c, "INV-2"), "report_sha256")
-	if shaB == objStr(r33LastEvent(t, c, "INV-1"), "report_sha256") {
+	shaB := validation.ObjStr(r33LastEvent(t, c, "INV-2"), "report_sha256")
+	if shaB == validation.ObjStr(r33LastEvent(t, c, "INV-1"), "report_sha256") {
 		t.Fatal("fixture drift: the two reports must have different pins")
 	}
 	// Half one: the verb refuses the cross-pin duplicate of p1 for INV-2.
@@ -538,9 +538,9 @@ func TestR33ReportExecProvenanceBurnsAndVerbRefuses(t *testing.T) {
 	})
 	t.Run("label that does not name the pin", func(t *testing.T) {
 		c, root := r33ReportCampaign(t, "r33-f4-label")
-		sha := objStr(r33LastEvent(t, c, "INV-1"), "report_sha256")
+		sha := validation.ObjStr(r33LastEvent(t, c, "INV-1"), "report_sha256")
 		honest := "REPORT-" + sha[:12]
-		if got := objStr(r33Slot(t, c, "INV-1"), "exec"); got != honest {
+		if got := validation.ObjStr(r33Slot(t, c, "INV-1"), "exec"); got != honest {
 			t.Fatalf("fixture drift: honest label = %q", got)
 		}
 		// The bind's own rule, from the bind's own function.
@@ -564,12 +564,12 @@ func TestR33ReportExecProvenanceBurnsAndVerbRefuses(t *testing.T) {
 // this repro, so the burn can only come from the pairing.
 func TestR33ReportRungWearingAnExecKindBurns(t *testing.T) {
 	c, root := r33ReportCampaign(t, "r33-f5-kind")
-	if got := objStr(r33Slot(t, c, "INV-1"), "kind"); got !=
+	if got := validation.ObjStr(r33Slot(t, c, "INV-1"), "kind"); got !=
 		string(harness.ReportKind) {
 		t.Fatalf("the verb must write %q, found %q",
 			string(harness.ReportKind), got)
 	}
-	if got := objStr(r33LastEvent(t, c, "INV-1"), "kind"); got !=
+	if got := validation.ObjStr(r33LastEvent(t, c, "INV-1"), "kind"); got !=
 		string(harness.ReportKind) {
 		t.Fatalf("the verb's event must carry %q, found %q",
 			string(harness.ReportKind), got)

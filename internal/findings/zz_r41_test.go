@@ -47,7 +47,7 @@ func r41RecordedChecks(t *testing.T, c *state.Campaign, fid string) int {
 	if err != nil {
 		t.Fatalf("load finding: %v", err)
 	}
-	return len(objAt(asDict(objAt(f, "provenance")), "memory_checks").A)
+	return len(validation.ObjAt(asDict(validation.ObjAt(f, "provenance")), "memory_checks").A)
 }
 
 // TestR41RefusedMemoryCheckRestoresFindingBytesAndFailsTheGate pins the
@@ -61,7 +61,7 @@ func TestR41RefusedMemoryCheckRestoresFindingBytesAndFailsTheGate(t *testing.T) 
 	c := ingestCamp(t)
 	installMemoryStore(t, globalMemoryRow())
 	f := mintFinding(t, c, "logic-error")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	path := FindingPath(c, fid)
 	raw := r40bCutLedger(t, c)
 	before := r40bSha(t, path)
@@ -109,8 +109,8 @@ func TestR41RefusedMemoryCheckRestoresFindingBytesAndFailsTheGate(t *testing.T) 
 	if got := r41RecordedChecks(t, c, fid); got != 1 {
 		t.Fatalf("recorded memory_checks = %d, want 1", got)
 	}
-	entry := objAt(asDict(objAt(out, "provenance")), "memory_checks").A[0]
-	if got := objStr(entry, "row_digest"); got == "" {
+	entry := validation.ObjAt(asDict(validation.ObjAt(out, "provenance")), "memory_checks").A[0]
+	if got := validation.ObjStr(entry, "row_digest"); got == "" {
 		t.Fatal("the recorded check carries no row_digest stamp")
 	}
 	if got := r40bEventCount(t, c, "finding.memory_checked"); got != 1 {
@@ -153,7 +153,7 @@ func TestR41RefusedMemoryCheckLeavesLedgerAlone(t *testing.T) {
 	c := ingestCamp(t)
 	installMemoryStore(t, globalMemoryRow())
 	f := mintFinding(t, c, "logic-error")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	raw := r40bCutLedger(t, c)
 	ledgerBefore := r40bSha(t, c.EventsPath)
 	eventsBefore := r40bEventCount(t, c, "finding.memory_checked")

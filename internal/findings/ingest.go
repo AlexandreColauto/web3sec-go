@@ -103,8 +103,8 @@ func validateEvidenceItem(item validation.Value) error {
 // by BOTH add_evidence and ingest_hypothesis.
 func checkExecGate(campaign *state.Campaign, findingID string,
 	item validation.Value, atIngest bool) error {
-	level := objStr(item, "level")
-	if level == "E7" && !validation.PyTruthy(objAt(item, "artifact_id")) {
+	level := validation.ObjStr(item, "level")
+	if level == "E7" && !validation.PyTruthy(validation.ObjAt(item, "artifact_id")) {
 		return fmt.Errorf("E7 (economic impact quantified) must reference " +
 			"the artifact that carries the quantification (artifact_id)")
 	}
@@ -120,13 +120,13 @@ func checkExecGate(campaign *state.Campaign, findingID string,
 			"is EXECUTION evidence — execution evidence must be attached "+
 			"via add_evidence after an EXEC record exists in this campaign "+
 			"(run the artifact through sandbox.Sandbox with finding_id set "+
-			"and cite the exec)", pyStr(objAt(item, "evidence_id")), level)
+			"and cite the exec)", pyStr(validation.ObjAt(item, "evidence_id")), level)
 	}
-	profile := objStr(item, "sandbox_profile")
+	profile := validation.ObjStr(item, "sandbox_profile")
 	if !validation.PyTruthy(validation.VStr(profile)) {
 		return fmt.Errorf("evidence %s at %s must name the sandbox_profile "+
 			"it was produced under (see sandbox.py)",
-			pyStr(objAt(item, "evidence_id")), level)
+			pyStr(validation.ObjAt(item, "evidence_id")), level)
 	}
 	if _, ok := sandbox.E4_PROFILES[profile]; !ok {
 		names := make([]string, 0, len(sandbox.E4_PROFILES))
@@ -145,7 +145,7 @@ func checkExecGate(campaign *state.Campaign, findingID string,
 // a real EXEC record under the claimed profile.
 func verifyExecReference(campaign *state.Campaign, item validation.Value,
 	profile, findingID string) error {
-	artifact := objStr(item, "artifact_id")
+	artifact := validation.ObjStr(item, "artifact_id")
 	if strings.HasPrefix(artifact, "EXEC-") {
 		recPath := filepath.Join(campaign.ExecsDir, artifact, "exec_record.json")
 		if _, err := os.Stat(recPath); err != nil {
@@ -156,18 +156,18 @@ func verifyExecReference(campaign *state.Campaign, item validation.Value,
 		if err != nil {
 			return err
 		}
-		if objStr(rec, "profile") != profile {
+		if validation.ObjStr(rec, "profile") != profile {
 			return fmt.Errorf("evidence claims profile %s but exec %s ran "+
 				"under %s", validation.PyReprStr(profile), artifact,
-				validation.PyRepr(objAt(rec, "profile")))
+				validation.PyRepr(validation.ObjAt(rec, "profile")))
 		}
 		if !execFindingMatch(rec, findingID) {
 			return fmt.Errorf("exec %s was recorded for finding %s, not %s "+
 				"— its output cannot back this finding's evidence",
-				artifact, validation.PyRepr(objAt(rec, "finding_id")),
+				artifact, validation.PyRepr(validation.ObjAt(rec, "finding_id")),
 				validation.PyReprStr(findingID))
 		}
-		exit := objAt(rec, "exit_status")
+		exit := validation.ObjAt(rec, "exit_status")
 		if !isZero(exit) {
 			return fmt.Errorf("exec %s exited with status %s; E4+ evidence "+
 				"must cite a run that succeeded", artifact,
@@ -202,18 +202,18 @@ func verifyExecReference(campaign *state.Campaign, item validation.Value,
 		if err != nil {
 			return err
 		}
-		if objStr(rec, "profile") == profile && execFindingMatch(rec, findingID) {
+		if validation.ObjStr(rec, "profile") == profile && execFindingMatch(rec, findingID) {
 			matching = append(matching, rec)
 		}
 	}
-	eid := pyStr(objAt(item, "evidence_id"))
+	eid := pyStr(validation.ObjAt(item, "evidence_id"))
 	if len(matching) > 0 {
 		return fmt.Errorf("E4+ evidence must cite its EXEC record "+
 			"(artifact_id): evidence %s names no run, so its profile, exit "+
 			"status, and output cannot be checked — an exec matching profile "+
 			"%s exists (e.g. %s); set artifact_id to the exec that backed "+
 			"the claim", eid, validation.PyReprStr(profile),
-			objStr(matching[0], "exec_id"))
+			validation.ObjStr(matching[0], "exec_id"))
 	}
 	return fmt.Errorf("no EXEC record under profile %s for this finding "+
 		"exists in this campaign; sandbox_profile %s on evidence %s is "+
@@ -281,7 +281,7 @@ func LintHypothesis(campaign *state.Campaign, payload validation.Value,
 func ingestHypothesis(campaign *state.Campaign, payload validation.Value,
 	trajectory, stage, model string, lint bool) (validation.Value, error) {
 	fid := NewFindingID()
-	ts := nowIso()
+	ts := state.NowIso()
 	p := validation.Value{Kind: validation.Obj,
 		O: append([]validation.KV(nil), payload.O...)}
 	p.O = validation.SetOrAppend(p.O, "finding_id", validation.VStr(fid))
@@ -314,7 +314,7 @@ func ingestHypothesis(campaign *state.Campaign, payload validation.Value,
 		validation.KV{K: "actor", V: validation.VStr(actor)},
 	)))
 
-	rootClassV, hasClass := fieldAt(objAt(p, "root_cause"), "class")
+	rootClassV, hasClass := fieldAt(validation.ObjAt(p, "root_cause"), "class")
 	var rootClass *string
 	if !hasClass {
 		u := "unclassified"
@@ -323,13 +323,13 @@ func ingestHypothesis(campaign *state.Campaign, payload validation.Value,
 		rootClass = &rootClassV.S
 	}
 	first := validation.VObj()
-	if aff := objAt(p, "affected"); aff.Kind == validation.Arr &&
+	if aff := validation.ObjAt(p, "affected"); aff.Kind == validation.Arr &&
 		len(aff.A) > 0 {
 		first = aff.A[0]
 	}
 	sig := TechnicalSignature(classSig(rootClass), sigPath(first),
-		sigOpt(first, "function"), sigOpt(objAt(p, "invariant"), "id"))
-	dedup := objAt(p, "dedup")
+		sigOpt(first, "function"), sigOpt(validation.ObjAt(p, "invariant"), "id"))
+	dedup := validation.ObjAt(p, "dedup")
 	dedup.O = validation.SetOrAppend(dedup.O, "technical_signature", validation.VStr(sig))
 	p.O = validation.SetOrAppend(p.O, "dedup", dedup)
 
@@ -341,8 +341,8 @@ func ingestHypothesis(campaign *state.Campaign, payload validation.Value,
 	// snapshot and flows unflagged into report.md — refuse it at intake,
 	// where the vocabulary is still the author's mistake, not the ledger's
 	// lie. Schema keeps the shape rule out of RE2's no-lookahead reach.
-	for i, aff := range objAt(p, "affected").A {
-		if v := objAt(aff, "path"); v.Kind == validation.Str {
+	for i, aff := range validation.ObjAt(p, "affected").A {
+		if v := validation.ObjAt(aff, "path"); v.Kind == validation.Str {
 			if err := checkAffectedPath(i, v.S); err != nil {
 				return validation.VNull(), err
 			}
@@ -357,10 +357,10 @@ func ingestHypothesis(campaign *state.Campaign, payload validation.Value,
 	//    (same gate, same shape — see exec_evidence.go).
 	// 3. GATE MATH: the shared exec gate for items that did NOT come from
 	//    exec_ref, then the rise guardrail and the discovery slot below.
-	items := append([]validation.Value(nil), objAt(p, "evidence").A...)
+	items := append([]validation.Value(nil), validation.ObjAt(p, "evidence").A...)
 	fromExecRef := map[int]bool{}
 	for i := range items {
-		if objStr(items[i], "exec_ref") == "" {
+		if validation.ObjStr(items[i], "exec_ref") == "" {
 			continue
 		}
 		item, err := IngestExecRefEvidence(campaign, fid, p, items[i])
@@ -510,7 +510,7 @@ func rootClassValue(rootClass *string) validation.Value {
 // rootClassPtr is (payload.get("root_cause") or {}).get("class") — the
 // NO-DEFAULT flavor intake_checkpoint uses (missing -> nil, i.e. None).
 func rootClassPtr(payload validation.Value) *string {
-	v, ok := fieldAt(objAt(payload, "root_cause"), "class")
+	v, ok := fieldAt(validation.ObjAt(payload, "root_cause"), "class")
 	if !ok || v.Kind != validation.Str {
 		return nil
 	}
@@ -563,10 +563,10 @@ func AddEvidence(campaign *state.Campaign, findingID string,
 	if err != nil {
 		return validation.VNull(), err
 	}
-	if inSet(TERMINAL, objStr(finding, "status")) {
+	if inSet(TERMINAL, validation.ObjStr(finding, "status")) {
 		return validation.VNull(), fmt.Errorf("finding %s is terminal (%s); "+
 			"record post-mortem notes via learning.reflection_entry instead",
-			findingID, objStr(finding, "status"))
+			findingID, validation.ObjStr(finding, "status"))
 	}
 	if a, ok := fieldAt(item, "artifact_id"); ok &&
 		a.Kind != validation.Null && a.Kind != validation.Str {
@@ -577,12 +577,12 @@ func AddEvidence(campaign *state.Campaign, findingID string,
 		O: append([]validation.KV(nil), item.O...)}
 	if pa, ok := fieldAt(it, "produced_at"); !ok ||
 		pa.Kind == validation.Null {
-		it.O = validation.SetOrAppend(it.O, "produced_at", validation.VStr(nowIso()))
+		it.O = validation.SetOrAppend(it.O, "produced_at", validation.VStr(state.NowIso()))
 	}
 	if err := validateEvidenceItem(it); err != nil {
 		return validation.VNull(), err
 	}
-	level := objStr(it, "level")
+	level := validation.ObjStr(it, "level")
 	if err := checkExecGate(campaign, findingID, it, false); err != nil {
 		return validation.VNull(), err
 	}
@@ -608,16 +608,16 @@ func AddEvidence(campaign *state.Campaign, findingID string,
 			return validation.VNull(), err
 		}
 	}
-	ev := objAt(finding, "evidence")
+	ev := validation.ObjAt(finding, "evidence")
 	ev.A = append(ev.A, it)
 	finding.O = validation.SetOrAppend(finding.O, "evidence", ev)
 	if err := SaveFinding(campaign, &finding); err != nil {
 		return validation.VNull(), err
 	}
 	data := validation.VObj(
-		validation.KV{K: "evidence_id", V: objAt(it, "evidence_id")},
+		validation.KV{K: "evidence_id", V: validation.ObjAt(it, "evidence_id")},
 		validation.KV{K: "level", V: validation.VStr(level)},
-		validation.KV{K: "type", V: objAt(it, "type")},
+		validation.KV{K: "type", V: validation.ObjAt(it, "type")},
 	)
 	if _, err := campaign.Log("finding.evidence_added", &findingID,
 		&data); err != nil {
@@ -640,7 +640,7 @@ func IntakeCheckpoint(payload validation.Value, trajectory,
 		warnings = append(warnings, adv)
 	}
 	if trajectory == "economic" &&
-		!validation.PyTruthy(objAt(objAt(payload, "risk"), "economic")) {
+		!validation.PyTruthy(validation.ObjAt(validation.ObjAt(payload, "risk"), "economic")) {
 		warnings = append(warnings,
 			"trajectory 'economic' but no risk.economic block recorded yet — "+
 				"the CONFIRMED gate for economic classes requires an E7 "+
@@ -667,12 +667,12 @@ var (
 // ClaimDriftProblems is claim_drift_problems: the claim-vs-measurement
 // check (C).
 func ClaimDriftProblems(finding validation.Value) ([]string, error) {
-	ratio, ok := pyFloat(objAt(objAt(finding, "economic_impact"),
+	ratio, ok := pyFloat(validation.ObjAt(validation.ObjAt(finding, "economic_impact"),
 		"extraction_ratio"))
 	if !ok || !(ratio > 0 && ratio <= 1) {
 		return nil, nil
 	}
-	titleV := objAt(finding, "title")
+	titleV := validation.ObjAt(finding, "title")
 	if titleV.Kind != validation.Str {
 		return nil, nil
 	}

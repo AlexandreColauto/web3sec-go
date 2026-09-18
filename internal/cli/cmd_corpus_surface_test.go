@@ -101,8 +101,8 @@ func TestCorpusSurfaceWritesAndRegisters(t *testing.T) {
 	if err != nil {
 		t.Fatalf("artifact missing: %v", err)
 	}
-	if objStr(doc, "campaign_id") != cid {
-		t.Fatalf("campaign_id = %q, want %q", objStr(doc, "campaign_id"), cid)
+	if validation.ObjStr(doc, "campaign_id") != cid {
+		t.Fatalf("campaign_id = %q, want %q", validation.ObjStr(doc, "campaign_id"), cid)
 	}
 	if len(listAtCLI(doc, "class_exposure")) == 0 {
 		t.Fatal("artifact carries no class exposure")
@@ -115,7 +115,7 @@ func TestCorpusSurfaceWritesAndRegisters(t *testing.T) {
 	}
 	registered := false
 	for _, row := range listAtCLI(mustState(t, c), "artifacts") {
-		if objStr(row, "kind") == "corpus-surface" {
+		if validation.ObjStr(row, "kind") == "corpus-surface" {
 			registered = true
 		}
 	}

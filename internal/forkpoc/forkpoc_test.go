@@ -97,8 +97,8 @@ func evidenceItem(rec validation.Value, level, typ, desc, eid string) validation
 		kv("level", validation.VStr(level)),
 		kv("type", validation.VStr(typ)),
 		kv("description", validation.VStr(desc)),
-		kv("sandbox_profile", objAt(rec, "profile")),
-		kv("artifact_id", objAt(rec, "exec_id")),
+		kv("sandbox_profile", validation.ObjAt(rec, "profile")),
+		kv("artifact_id", validation.ObjAt(rec, "exec_id")),
 	)
 }
 
@@ -163,7 +163,7 @@ func confirmUnitOnly(t *testing.T, c *state.Campaign) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	if _, err := findings.Transition(c, fid, "POSSIBLE", "triage", "triage",
 		"", false); err != nil {
 		t.Fatal(err)
@@ -189,7 +189,7 @@ func confirmUnitOnly(t *testing.T, c *state.Campaign) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ver := objAt(vf, "verification")
+	ver := validation.ObjAt(vf, "verification")
 	if ver.Kind != validation.Obj {
 		ver = validation.VObj()
 	}
@@ -244,11 +244,11 @@ func TestProofVacuouslyTrueWithoutConfirmed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objAt(proof, "done").Kind != validation.Bool ||
-		!objAt(proof, "done").B {
-		t.Fatalf("done = %s, want true", validation.PyRepr(objAt(proof, "done")))
+	if validation.ObjAt(proof, "done").Kind != validation.Bool ||
+		!validation.ObjAt(proof, "done").B {
+		t.Fatalf("done = %s, want true", validation.PyRepr(validation.ObjAt(proof, "done")))
 	}
-	if note := objStr(proof, "note"); !strings.Contains(note, "vacuously") {
+	if note := validation.ObjStr(proof, "note"); !strings.Contains(note, "vacuously") {
 		t.Fatalf("note = %q, want 'vacuously'", note)
 	}
 }
@@ -262,10 +262,10 @@ func TestConfirmedUnitOnlyLacksForkProof(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objAt(proof, "done").Kind != validation.Bool ||
-		objAt(proof, "done").B {
+	if validation.ObjAt(proof, "done").Kind != validation.Bool ||
+		validation.ObjAt(proof, "done").B {
 		t.Fatalf("done = %s, want false",
-			validation.PyRepr(objAt(proof, "done")))
+			validation.PyRepr(validation.ObjAt(proof, "done")))
 	}
 	found := false
 	for _, m := range listAt(proof, "missing") {
@@ -275,7 +275,7 @@ func TestConfirmedUnitOnlyLacksForkProof(t *testing.T) {
 	}
 	if !found {
 		t.Fatalf("missing does not name %s: %s", fid,
-			validation.PyRepr(objAt(proof, "missing")))
+			validation.PyRepr(validation.ObjAt(proof, "missing")))
 	}
 	ok, why, err := ForkPocStatus(c, fid)
 	if err != nil {
@@ -310,18 +310,18 @@ func TestForkRunnerExecProvesThePoc(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !ok || !strings.Contains(why, objStr(rec, "exec_id")) {
+	if !ok || !strings.Contains(why, validation.ObjStr(rec, "exec_id")) {
 		t.Fatalf("status = %v %q, want proven and naming %s", ok, why,
-			objStr(rec, "exec_id"))
+			validation.ObjStr(rec, "exec_id"))
 	}
 	proof, err := completion.ProofStatus(c, "mainnet-fork-poc")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objAt(proof, "done").Kind != validation.Bool ||
-		!objAt(proof, "done").B {
+	if validation.ObjAt(proof, "done").Kind != validation.Bool ||
+		!validation.ObjAt(proof, "done").B {
 		t.Fatalf("done = %s, want true",
-			validation.PyRepr(objAt(proof, "done")))
+			validation.PyRepr(validation.ObjAt(proof, "done")))
 	}
 	gaps, err := ForkPocGaps(c)
 	if err != nil {
@@ -351,7 +351,7 @@ func TestForgedForkProfileIsRejected(t *testing.T) {
 			kv("type", validation.VStr("fork-test")),
 			kv("description", validation.VStr("claims mainnet fork repro")),
 			kv("sandbox_profile", validation.VStr("fork-runner")),
-			kv("artifact_id", objAt(rec, "exec_id"))))...))
+			kv("artifact_id", validation.ObjAt(rec, "exec_id"))))...))
 	if err := findings.SaveFinding(c, &f); err != nil {
 		t.Fatal(err)
 	}
@@ -386,7 +386,7 @@ func TestFailedForkRunProvesNothing(t *testing.T) {
 			kv("type", validation.VStr("fork-test")),
 			kv("description", validation.VStr("claims mainnet fork repro")),
 			kv("sandbox_profile", validation.VStr("fork-runner")),
-			kv("artifact_id", objAt(rec, "exec_id"))))...))
+			kv("artifact_id", validation.ObjAt(rec, "exec_id"))))...))
 	if err := findings.SaveFinding(c, &f); err != nil {
 		t.Fatal(err)
 	}

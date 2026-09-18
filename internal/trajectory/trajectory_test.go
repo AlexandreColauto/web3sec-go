@@ -169,7 +169,7 @@ func fullRoundtrip(t *testing.T, c *state.Campaign) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	ev1(t, c, fid)
 	if _, err := boundary.ApplyCriticVerdict(c, fid, validCriticVerdict(fid),
 		""); err != nil {
@@ -193,7 +193,7 @@ func trajTypes(t *testing.T, c *state.Campaign) []string {
 	}
 	out := []string{}
 	for _, e := range traj {
-		out = append(out, objStr(e, "type"))
+		out = append(out, validation.ObjStr(e, "type"))
 	}
 	return out
 }
@@ -210,7 +210,7 @@ func TestRecordModelEventRoundtrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	resp := validation.VObj(
 		kv("role", validation.VStr("proposer")),
 		kv("response_schema", validation.VStr("hypothesis")),
@@ -230,32 +230,32 @@ func TestRecordModelEventRoundtrip(t *testing.T) {
 		t.Fatalf("types = %v, want %v", got, want)
 	}
 	req, plan, rsp := traj[0], traj[1], traj[2]
-	if objStr(req, "role") != "proposer" || objAt(req, "ref").Kind != validation.Null {
+	if validation.ObjStr(req, "role") != "proposer" || validation.ObjAt(req, "ref").Kind != validation.Null {
 		t.Errorf("req role/ref = %v", req)
 	}
-	rd := objAt(req, "data")
-	if got := objStr(rd, "prompt_version"); got != "0123456789abcdef" {
+	rd := validation.ObjAt(req, "data")
+	if got := validation.ObjStr(rd, "prompt_version"); got != "0123456789abcdef" {
 		t.Errorf("prompt_version = %s", got)
 	}
-	if got := objStr(rd, "context_hash"); got != strings.Repeat("0", 64) {
+	if got := validation.ObjStr(rd, "context_hash"); got != strings.Repeat("0", 64) {
 		t.Errorf("context_hash = %s", got)
 	}
-	if objAt(plan, "role").Kind != validation.Null {
+	if validation.ObjAt(plan, "role").Kind != validation.Null {
 		t.Error("plan role should be null")
 	}
-	if got := objStr(plan, "ref"); got != fid {
+	if got := validation.ObjStr(plan, "ref"); got != fid {
 		t.Errorf("plan ref = %s", got)
 	}
-	if got := objAt(plan, "data"); !objEq(got, jsonV(`{"steps":2,"tools":["balance-delta","callgraph"]}`)) {
+	if got := validation.ObjAt(plan, "data"); !objEq(got, jsonV(`{"steps":2,"tools":["balance-delta","callgraph"]}`)) {
 		t.Errorf("plan data = %s", validation.CanonCompact(got))
 	}
-	if objStr(rsp, "role") != "proposer" || objStr(rsp, "ref") != fid {
+	if validation.ObjStr(rsp, "role") != "proposer" || validation.ObjStr(rsp, "ref") != fid {
 		t.Error("response role/ref wrong")
 	}
-	if got := objStr(objAt(rsp, "data"), "applied_ref"); got != fid {
+	if got := validation.ObjStr(validation.ObjAt(rsp, "data"), "applied_ref"); got != fid {
 		t.Errorf("applied_ref = %s", got)
 	}
-	if objStr(rsp, "event_hash") != objStr(ev, "event_hash") {
+	if validation.ObjStr(rsp, "event_hash") != validation.ObjStr(ev, "event_hash") {
 		t.Error("event_hash mismatch")
 	}
 	seqs := []int64{}
@@ -325,20 +325,20 @@ func TestRecordModelEventRequestSuccessPath(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(ev, "type"); got != "model.request" {
+	if got := validation.ObjStr(ev, "type"); got != "model.request" {
 		t.Errorf("type = %s", got)
 	}
-	if got := objAt(ev, "data"); !objEq(got, data) {
+	if got := validation.ObjAt(ev, "data"); !objEq(got, data) {
 		t.Errorf("data = %s", validation.CanonCompact(got))
 	}
 	traj, _ := ModelTrajectory(c)
-	if len(traj) != 1 || objStr(traj[0], "type") != "model.request" {
+	if len(traj) != 1 || validation.ObjStr(traj[0], "type") != "model.request" {
 		t.Fatalf("trajectory = %v", traj)
 	}
-	if got := objStr(traj[0], "role"); got != "proposer" {
+	if got := validation.ObjStr(traj[0], "role"); got != "proposer" {
 		t.Errorf("role = %s", got)
 	}
-	if got := objAt(traj[0], "data"); !objEq(got, data) {
+	if got := validation.ObjAt(traj[0], "data"); !objEq(got, data) {
 		t.Errorf("data = %s", validation.CanonCompact(got))
 	}
 }
@@ -354,10 +354,10 @@ func TestVerifyTrajectoryOkOnBoundaryRoundtrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objAt(report, "ok").Kind != validation.Bool || !objAt(report, "ok").B {
-		t.Errorf("ok = %v", objAt(report, "ok"))
+	if validation.ObjAt(report, "ok").Kind != validation.Bool || !validation.ObjAt(report, "ok").B {
+		t.Errorf("ok = %v", validation.ObjAt(report, "ok"))
 	}
-	if problems := objAt(report, "problems"); problems.Kind != validation.Arr ||
+	if problems := validation.ObjAt(report, "problems"); problems.Kind != validation.Arr ||
 		len(problems.A) != 0 {
 		t.Errorf("problems = %v", problems)
 	}
@@ -371,10 +371,10 @@ func TestVerifyTrajectoryOkOnBoundaryRoundtrip(t *testing.T) {
 	}
 	traj, _ := ModelTrajectory(c)
 	last := traj[len(traj)-1]
-	if got := objStr(last, "ref"); got != fid {
+	if got := validation.ObjStr(last, "ref"); got != fid {
 		t.Errorf("last ref = %s", got)
 	}
-	if got := objStr(objAt(last, "data"), "request_sha256"); !regexp.MustCompile(
+	if got := validation.ObjStr(validation.ObjAt(last, "data"), "request_sha256"); !regexp.MustCompile(
 		`^[0-9a-f]{64}$`).MatchString(got) {
 		t.Errorf("request_sha256 = %s", got)
 	}
@@ -403,10 +403,10 @@ func TestHandWrittenMalformedEventFlagged(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objAt(report, "ok").B {
+	if validation.ObjAt(report, "ok").B {
 		t.Error("ok = true, want false")
 	}
-	problems := objAt(report, "problems")
+	problems := validation.ObjAt(report, "problems")
 	if len(problems.A) == 0 {
 		t.Error("no problems reported")
 	}
@@ -438,17 +438,17 @@ func TestDanglingRefFlagged(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objAt(report, "ok").B {
+	if validation.ObjAt(report, "ok").B {
 		t.Error("ok = true, want false")
 	}
 	found := false
-	for _, p := range objAt(report, "problems").A {
+	for _, p := range validation.ObjAt(report, "problems").A {
 		if strings.Contains(scalarText(p), "F-000000000000") {
 			found = true
 		}
 	}
 	if !found {
-		t.Errorf("no dangling-ref problem in %v", objAt(report, "problems"))
+		t.Errorf("no dangling-ref problem in %v", validation.ObjAt(report, "problems"))
 	}
 }
 
@@ -468,18 +468,18 @@ func TestDanglingDataFindingIDFlagged(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objAt(report, "ok").B {
+	if validation.ObjAt(report, "ok").B {
 		t.Error("ok = true, want false")
 	}
 	found := false
-	for _, p := range objAt(report, "problems").A {
+	for _, p := range validation.ObjAt(report, "problems").A {
 		s := scalarText(p)
 		if strings.Contains(s, "data.finding_id") && strings.Contains(s, bad) {
 			found = true
 		}
 	}
 	if !found {
-		t.Errorf("no data.finding_id problem in %v", objAt(report, "problems"))
+		t.Errorf("no data.finding_id problem in %v", validation.ObjAt(report, "problems"))
 	}
 }
 
@@ -502,10 +502,10 @@ func TestVerifyTrajectorySurvivesTornLog(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objAt(report, "ok").B {
+	if validation.ObjAt(report, "ok").B {
 		t.Error("ok = true, want false")
 	}
-	if len(objAt(report, "problems").A) == 0 {
+	if len(validation.ObjAt(report, "problems").A) == 0 {
 		t.Error("no problems")
 	}
 	if got := objInt(report, "events"); got != 0 {
@@ -521,7 +521,7 @@ func TestVerifyTrajectoryReportsCorruptFindingJSON(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	ev1(t, c, fid)
 	if _, err := RecordModelEvent(c, "model.response", validation.VObj(
 		kv("role", validation.VStr("proposer")),
@@ -543,18 +543,18 @@ func TestVerifyTrajectoryReportsCorruptFindingJSON(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objAt(report, "ok").B {
+	if validation.ObjAt(report, "ok").B {
 		t.Error("ok = true, want false")
 	}
 	found := false
-	for _, p := range objAt(report, "problems").A {
+	for _, p := range validation.ObjAt(report, "problems").A {
 		s := scalarText(p)
 		if strings.Contains(s, fid) && strings.Contains(s, "not readable JSON") {
 			found = true
 		}
 	}
 	if !found {
-		t.Errorf("no corrupt-finding problem in %v", objAt(report, "problems"))
+		t.Errorf("no corrupt-finding problem in %v", validation.ObjAt(report, "problems"))
 	}
 }
 
@@ -571,7 +571,7 @@ func TestModelTrajectoryExcludesNonModelEvents(t *testing.T) {
 	}
 	allTypes := []string{}
 	for _, e := range events {
-		allTypes = append(allTypes, objStr(e, "type"))
+		allTypes = append(allTypes, validation.ObjStr(e, "type"))
 	}
 	if !containsStr(allTypes, "finding.ingested") ||
 		!containsStr(allTypes, "snapshot.pinned") {
@@ -602,7 +602,7 @@ func TestModelTrajectoryOnEmptyCampaign(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !objAt(report, "ok").B {
+	if !validation.ObjAt(report, "ok").B {
 		t.Error("ok = false")
 	}
 	if got := objInt(report, "events"); got != 0 {
@@ -797,7 +797,7 @@ func disprovedFinding(t *testing.T, c *state.Campaign) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	if _, err := findings.Transition(c, fid, "NEEDS_RESEARCH", "triage", "",
 		"", false); err != nil {
 		t.Fatal(err)
@@ -815,7 +815,7 @@ func trainingOf(t *testing.T, c *state.Campaign) validation.Value {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return objAt(objAt(traj[len(traj)-1], "data"), "training")
+	return validation.ObjAt(validation.ObjAt(traj[len(traj)-1], "data"), "training")
 }
 
 func TestOutcomeEventRoundtrip(t *testing.T) {
@@ -826,49 +826,49 @@ func TestOutcomeEventRoundtrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(ev, "type"); got != "outcome" {
+	if got := validation.ObjStr(ev, "type"); got != "outcome" {
 		t.Errorf("type = %s", got)
 	}
-	if got := objStr(ev, "ref"); got != fid {
+	if got := validation.ObjStr(ev, "ref"); got != fid {
 		t.Errorf("ref = %s", got)
 	}
-	data := objAt(ev, "data")
-	if got := objStr(data, "campaign_id"); got != c.CampaignID {
+	data := validation.ObjAt(ev, "data")
+	if got := validation.ObjStr(data, "campaign_id"); got != c.CampaignID {
 		t.Errorf("campaign_id = %s", got)
 	}
-	if got := objStr(data, "outcome"); got != "disproved" {
+	if got := validation.ObjStr(data, "outcome"); got != "disproved" {
 		t.Errorf("outcome = %s", got)
 	}
-	if got := objStr(data, "final_status"); got != "DISPROVED" {
+	if got := validation.ObjStr(data, "final_status"); got != "DISPROVED" {
 		t.Errorf("final_status = %s", got)
 	}
-	if got := objStr(data, "final_evidence_tier"); got != "E2" {
+	if got := validation.ObjStr(data, "final_evidence_tier"); got != "E2" {
 		t.Errorf("final_evidence_tier = %s", got)
 	}
-	if got := objStr(data, "finding_id"); got != fid {
+	if got := validation.ObjStr(data, "finding_id"); got != fid {
 		t.Errorf("finding_id = %s", got)
 	}
-	if objAt(data, "case_id").Kind != validation.Null {
+	if validation.ObjAt(data, "case_id").Kind != validation.Null {
 		t.Error("case_id should be null")
 	}
-	if got := objAt(data, "training"); !objEq(got, jsonV(`{"visibility":"visible","excluded":false,"exclude_reason":null}`)) {
+	if got := validation.ObjAt(data, "training"); !objEq(got, jsonV(`{"visibility":"visible","excluded":false,"exclude_reason":null}`)) {
 		t.Errorf("training = %s", validation.CanonCompact(got))
 	}
-	if objStr(data, "at") == "" {
+	if validation.ObjStr(data, "at") == "" {
 		t.Error("at missing")
 	}
 	traj, _ := ModelTrajectory(c)
 	last := traj[len(traj)-1]
-	if objStr(last, "type") != "outcome" {
-		t.Errorf("last type = %s", objStr(last, "type"))
+	if validation.ObjStr(last, "type") != "outcome" {
+		t.Errorf("last type = %s", validation.ObjStr(last, "type"))
 	}
-	if objAt(last, "role").Kind != validation.Null {
+	if validation.ObjAt(last, "role").Kind != validation.Null {
 		t.Error("role should be null")
 	}
-	if got := objStr(last, "ref"); got != fid {
+	if got := validation.ObjStr(last, "ref"); got != fid {
 		t.Errorf("ref = %s", got)
 	}
-	if !objEq(objAt(last, "data"), data) {
+	if !objEq(validation.ObjAt(last, "data"), data) {
 		t.Error("projection data differs")
 	}
 	if v, _ := c.VerifyLog(); !v.OK {
@@ -878,7 +878,7 @@ func TestOutcomeEventRoundtrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !objAt(report, "ok").B || len(objAt(report, "problems").A) != 0 ||
+	if !validation.ObjAt(report, "ok").B || len(validation.ObjAt(report, "problems").A) != 0 ||
 		objInt(report, "events") != 1 {
 		t.Errorf("report = %v", report)
 	}
@@ -893,11 +893,11 @@ func TestOutcomeEventConfirmedExploitableViaCaseIDVisible(t *testing.T) {
 		t.Fatal(err)
 	}
 	traj, _ := ModelTrajectory(c)
-	data := objAt(traj[len(traj)-1], "data")
-	if got := objStr(data, "outcome"); got != "confirmed-exploitable" {
+	data := validation.ObjAt(traj[len(traj)-1], "data")
+	if got := validation.ObjStr(data, "outcome"); got != "confirmed-exploitable" {
 		t.Errorf("outcome = %s", got)
 	}
-	if got := objStr(data, "case_id"); got != caseID {
+	if got := validation.ObjStr(data, "case_id"); got != caseID {
 		t.Errorf("case_id = %s", got)
 	}
 }
@@ -980,9 +980,9 @@ func TestCaseAbsentFromStoreFailsClosed(t *testing.T) {
 		t.Fatal(err)
 	}
 	tr := trainingOf(t, c)
-	if objStr(tr, "visibility") != "hidden" ||
-		objAt(tr, "excluded").Kind != validation.Bool || !objAt(tr, "excluded").B ||
-		objStr(tr, "exclude_reason") != "case partition unreadable (fail closed)" {
+	if validation.ObjStr(tr, "visibility") != "hidden" ||
+		validation.ObjAt(tr, "excluded").Kind != validation.Bool || !validation.ObjAt(tr, "excluded").B ||
+		validation.ObjStr(tr, "exclude_reason") != "case partition unreadable (fail closed)" {
 		t.Errorf("training = %v", tr)
 	}
 }
@@ -1013,9 +1013,9 @@ func TestUnrecognizedPartitionFailsClosed(t *testing.T) {
 		t.Fatal(err)
 	}
 	tr := trainingOf(t, c)
-	if objStr(tr, "visibility") != "hidden" ||
-		objAt(tr, "excluded").Kind != validation.Bool || !objAt(tr, "excluded").B ||
-		!strings.Contains(objStr(tr, "exclude_reason"), "unrecognized") {
+	if validation.ObjStr(tr, "visibility") != "hidden" ||
+		validation.ObjAt(tr, "excluded").Kind != validation.Bool || !validation.ObjAt(tr, "excluded").B ||
+		!strings.Contains(validation.ObjStr(tr, "exclude_reason"), "unrecognized") {
 		t.Errorf("training = %v", tr)
 	}
 }
@@ -1133,7 +1133,7 @@ func TestHandWrittenOutcomeEventFlaggedByVerify(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objAt(report, "ok").B {
+	if validation.ObjAt(report, "ok").B {
 		t.Error("ok = true, want false")
 	}
 	if got := objInt(report, "events"); got != 2 {
@@ -1143,15 +1143,8 @@ func TestHandWrittenOutcomeEventFlaggedByVerify(t *testing.T) {
 
 // ---- test-local helpers ---------------------------------------------------
 
-func objStr(v validation.Value, key string) string {
-	if x := objAt(v, key); x.Kind == validation.Str {
-		return x.S
-	}
-	return ""
-}
-
 func objInt(v validation.Value, key string) int64 {
-	if x := objAt(v, key); x.Kind == validation.Int {
+	if x := validation.ObjAt(v, key); x.Kind == validation.Int {
 		return x.I
 	}
 	return 0
@@ -1210,7 +1203,7 @@ func objEq(a, b validation.Value) bool {
 			return false
 		}
 		for _, pair := range a.O {
-			other := objAt(b, pair.K)
+			other := validation.ObjAt(b, pair.K)
 			if other.Kind == validation.Null && pair.V.Kind != validation.Null {
 				return false
 			}

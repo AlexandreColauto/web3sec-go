@@ -36,7 +36,7 @@ func storageVarNames(index validation.Value) map[string]string {
 	out := map[string]string{}
 	names := []string{}
 	for _, n := range nodesOf(index, "state-variable") {
-		names = append(names, objStr(n, "name"))
+		names = append(names, validation.ObjStr(n, "name"))
 	}
 	sort.Strings(names)
 	for _, name := range names {
@@ -58,10 +58,10 @@ func storageVarNames(index validation.Value) map[string]string {
 func statementWriters(vars map[string]string, n validation.Value) []string {
 	keys := []string{}
 	for _, u := range usesOf(n) {
-		if objStr(u, "kind") != "write" {
+		if validation.ObjStr(u, "kind") != "write" {
 			continue
 		}
-		key := conceptKeyOf(maxKeyText(strList(objAt(u, "concept_keys"))))
+		key := conceptKeyOf(maxKeyText(strList(validation.ObjAt(u, "concept_keys"))))
 		if _, ok := vars[key]; ok {
 			keys = append(keys, key)
 		}
@@ -97,7 +97,7 @@ func maxKeyText(keys []string) string {
 func WritersOf(index, n validation.Value) []string {
 	out := []string{}
 	seen := map[string]bool{}
-	for _, name := range strList(objAt(n, "writes_storage")) {
+	for _, name := range strList(validation.ObjAt(n, "writes_storage")) {
 		if !seen[name] {
 			seen[name] = true
 			out = append(out, name)
@@ -118,7 +118,7 @@ func WritersOf(index, n validation.Value) []string {
 func ReadsWritesOf(index, n validation.Value) []string {
 	seen := map[string]bool{}
 	out := []string{}
-	for _, name := range strList(objAt(n, "reads_storage")) {
+	for _, name := range strList(validation.ObjAt(n, "reads_storage")) {
 		if !seen[name] {
 			seen[name] = true
 			out = append(out, name)
@@ -143,7 +143,7 @@ func EffectiveWriters(index validation.Value, varName string) []string {
 	seen := map[string]bool{}
 	out := []string{}
 	for _, n := range nodesOf(index, "function") {
-		hit := listHas(objAt(n, "writes_storage"), varName)
+		hit := listHas(validation.ObjAt(n, "writes_storage"), varName)
 		if !hit && key != "" {
 			if name, ok := vars[key]; ok {
 				for _, w := range statementWriters(vars, n) {
@@ -155,7 +155,7 @@ func EffectiveWriters(index validation.Value, varName string) []string {
 			}
 		}
 		if hit {
-			if id := objStr(n, "id"); !seen[id] {
+			if id := validation.ObjStr(n, "id"); !seen[id] {
 				seen[id] = true
 				out = append(out, id)
 			}

@@ -264,16 +264,16 @@ func StageConfig(stage string) (budgetClass, prompt string, err error) {
 	if err != nil {
 		return "", "", err
 	}
-	entry := objAt(ov, stage)
+	entry := validation.ObjAt(ov, stage)
 	if entry.Kind != validation.Obj {
 		return budgetClass, prompt, nil
 	}
-	if v := objAt(entry, "budget_class"); v.Kind == validation.Str {
+	if v := validation.ObjAt(entry, "budget_class"); v.Kind == validation.Str {
 		budgetClass = v.S
 	}
-	if v := objAt(entry, "prompt"); v.Kind == validation.Str {
+	if v := validation.ObjAt(entry, "prompt"); v.Kind == validation.Str {
 		prompt = v.S
-	} else if v := objAt(entry, "prompt"); v.Kind == validation.Null {
+	} else if v := validation.ObjAt(entry, "prompt"); v.Kind == validation.Null {
 		prompt = ""
 	}
 	return budgetClass, prompt, nil
@@ -314,7 +314,7 @@ func LoadRouting(c *state.Campaign) (validation.Value, error) {
 	for _, kv := range data.O {
 		val := kv.V
 		if val.Kind == validation.Obj {
-			val = objAt(val, "budget_class")
+			val = validation.ObjAt(val, "budget_class")
 		}
 		if val.Kind != validation.Null && val.Kind != validation.Str {
 			return validation.VNull(), fmt.Errorf(
@@ -344,7 +344,7 @@ func Route(c *state.Campaign, stage string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	cls := objAt(routing, stage)
+	cls := validation.ObjAt(routing, stage)
 	if cls.Kind != validation.Str {
 		return "", fmt.Errorf("stage %s routed to unknown budget class %s; "+
 			"known: %s", validation.PyReprStr(stage), validation.PyRepr(cls),
@@ -624,10 +624,10 @@ func addArtifactBlocks(c *state.Campaign, bb *blockBuilder) error {
 // operator's extra paths.
 func gatherContextBlocks(c *state.Campaign, st validation.Value, stage string,
 	extraPaths []string, bb *blockBuilder) error {
-	phase := objAt(st, "phase")
-	program := objAt(st, "program")
-	activeSnapshot := objAt(st, "active_snapshot_id")
-	pass := objAt(objAt(st, "budget"), "pass")
+	phase := validation.ObjAt(st, "phase")
+	program := validation.ObjAt(st, "program")
+	activeSnapshot := validation.ObjAt(st, "active_snapshot_id")
+	pass := validation.ObjAt(validation.ObjAt(st, "budget"), "pass")
 	bb.add("campaign", fmt.Sprintf("campaign_id: %s\nprogram: %s\nphase: %s\n"+
 		"active_snapshot: %s\npass: %s", c.CampaignID, scalarStr(program),
 		scalarStr(phase), scalarStr(activeSnapshot), scalarStr(pass)))
@@ -648,7 +648,7 @@ func gatherContextBlocks(c *state.Campaign, st validation.Value, stage string,
 			return err
 		}
 		bb.add("structural_index_stats",
-			validation.DumpsOrdered(objAt(ix, "stats"), true))
+			validation.DumpsOrdered(validation.ObjAt(ix, "stats"), true))
 	}
 	if err := addArtifactBlocks(c, bb); err != nil {
 		return err
@@ -686,15 +686,15 @@ func gatherContextBlocks(c *state.Campaign, st validation.Value, stage string,
 // findingIndexLine is one finding_index JSON line (Python json.dumps).
 func findingIndexLine(f validation.Value) string {
 	levels := validation.VArr()
-	for _, e := range objAt(f, "evidence").A {
-		levels.A = append(levels.A, objAt(e, "level"))
+	for _, e := range validation.ObjAt(f, "evidence").A {
+		levels.A = append(levels.A, validation.ObjAt(e, "level"))
 	}
 	line := validation.VObj(
-		validation.KV{K: "finding_id", V: objAt(f, "finding_id")},
-		validation.KV{K: "title", V: objAt(f, "title")},
-		validation.KV{K: "status", V: objAt(f, "status")},
-		validation.KV{K: "trajectory", V: objAt(f, "trajectory")},
-		validation.KV{K: "bug_class", V: objAt(objAt(f, "root_cause"), "class")},
+		validation.KV{K: "finding_id", V: validation.ObjAt(f, "finding_id")},
+		validation.KV{K: "title", V: validation.ObjAt(f, "title")},
+		validation.KV{K: "status", V: validation.ObjAt(f, "status")},
+		validation.KV{K: "trajectory", V: validation.ObjAt(f, "trajectory")},
+		validation.KV{K: "bug_class", V: validation.ObjAt(validation.ObjAt(f, "root_cause"), "class")},
 		validation.KV{K: "evidence_levels", V: levels},
 	)
 	return validation.DumpsOrdered(line, true)
@@ -737,18 +737,6 @@ func nullableStr(s string) validation.Value {
 		return validation.VNull()
 	}
 	return validation.VStr(s)
-}
-
-func objAt(v validation.Value, key string) validation.Value {
-	if v.Kind != validation.Obj {
-		return validation.VNull()
-	}
-	for _, kv := range v.O {
-		if kv.K == key {
-			return kv.V
-		}
-	}
-	return validation.VNull()
 }
 
 func setObj(v validation.Value, key string, val validation.Value) {

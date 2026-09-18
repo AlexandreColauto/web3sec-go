@@ -106,50 +106,29 @@ func AuditCampaign(c *state.Campaign) (validation.Value, error) {
 // proper object with ok=true; a missing section is "not ok", safe).
 func sectionOK(sec validation.Value) bool {
 	return sec.Kind == validation.Obj &&
-		objAt(sec, "ok").Kind == validation.Bool &&
-		objAt(sec, "ok").B
+		validation.ObjAt(sec, "ok").Kind == validation.Bool &&
+		validation.ObjAt(sec, "ok").B
 }
 
 // AuditSummaryLine is audit_summary_line: "audit {PASS|FAIL}: {name}={n}
 // problem(s), ..." over the report sections in report order.
 func AuditSummaryLine(report validation.Value) string {
-	ok := objAt(report, "ok").Kind == validation.Bool && objAt(report, "ok").B
+	ok := validation.ObjAt(report, "ok").Kind == validation.Bool && validation.ObjAt(report, "ok").B
 	verdict := "FAIL"
 	if ok {
 		verdict = "PASS"
 	}
 	parts := []string{}
-	sections := objAt(report, "sections")
+	sections := validation.ObjAt(report, "sections")
 	for _, kv := range sections.O {
 		n := 0
-		probs := objAt(kv.V, "problems")
+		probs := validation.ObjAt(kv.V, "problems")
 		if probs.Kind == validation.Arr {
 			n = len(probs.A)
 		}
 		parts = append(parts, kv.K+"="+strconv.Itoa(n)+" problem(s)")
 	}
 	return "audit " + verdict + ": " + strings.Join(parts, ", ")
-}
-
-// objAt is the object field lookup for validation.Value (Null when
-// absent/non-object). Audit is its own package; state's objAt is private.
-func objAt(v validation.Value, key string) validation.Value {
-	for _, kv := range v.O {
-		if kv.K == key {
-			return kv.V
-		}
-	}
-	return validation.VNull()
-}
-
-// objStr is the string field lookup ("" when absent/non-string).
-func objStr(v validation.Value, key string) string {
-	for _, kv := range v.O {
-		if kv.K == key && kv.V.Kind == validation.Str {
-			return kv.V.S
-		}
-	}
-	return ""
 }
 
 // sortStrs sorts and returns a copy (Python sorted()).

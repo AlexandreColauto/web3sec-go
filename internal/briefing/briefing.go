@@ -62,9 +62,9 @@ func Materializable(campaign *state.Campaign) ([]validation.Value, error) {
 	byID := map[string]validation.Value{}
 	superIDs := map[string]bool{}
 	for _, f := range all {
-		byID[objStr(f, "finding_id")] = f
-		if objStr(f, "status") == "CHAIN" {
-			superIDs[objStr(f, "finding_id")] = true
+		byID[validation.ObjStr(f, "finding_id")] = f
+		if validation.ObjStr(f, "status") == "CHAIN" {
+			superIDs[validation.ObjStr(f, "finding_id")] = true
 		}
 	}
 	memberSets := [][]string{}
@@ -83,7 +83,7 @@ func Materializable(campaign *state.Campaign) ([]validation.Value, error) {
 		if err != nil {
 			return nil, err
 		}
-		memberSets = append(memberSets, strListOf(objAt(doc, "members")))
+		memberSets = append(memberSets, strListOf(validation.ObjAt(doc, "members")))
 	}
 	props, err := chainengine.FindChains(campaign, 2)
 	if err != nil {
@@ -91,7 +91,7 @@ func Materializable(campaign *state.Campaign) ([]validation.Value, error) {
 	}
 	out := []validation.Value{}
 	for _, prop := range props {
-		members := strListOf(objAt(prop, "members"))
+		members := strListOf(validation.ObjAt(prop, "members"))
 		skip := false
 		for _, m := range members {
 			if superIDs[m] {
@@ -114,7 +114,7 @@ func Materializable(campaign *state.Campaign) ([]validation.Value, error) {
 		ok := true
 		for _, m := range members {
 			f, found := byID[m]
-			if !found || !confirmedStatuses[objStr(f, "status")] {
+			if !found || !confirmedStatuses[validation.ObjStr(f, "status")] {
 				ok = false
 				break
 			}
@@ -123,8 +123,8 @@ func Materializable(campaign *state.Campaign) ([]validation.Value, error) {
 			continue
 		}
 		out = append(out, validation.VObj(
-			kv("members", strArr(members)),
-			kv("capabilities", objAt(prop, "capabilities")),
+			kv("members", validation.StrArr(members)),
+			kv("capabilities", validation.ObjAt(prop, "capabilities")),
 			kv("action", validation.VStr("materialize_chain("+
 				pyListRepr(members)+")"))))
 	}
@@ -145,7 +145,7 @@ func GateDeficits(campaign *state.Campaign) ([]validation.Value, error) {
 	}
 	rows := []pair{}
 	for _, f := range all {
-		st := objStr(f, "status")
+		st := validation.ObjStr(f, "status")
 		if confirmedStatuses[st] || junkStatuses[st] {
 			continue
 		}
@@ -162,9 +162,9 @@ func GateDeficits(campaign *state.Campaign) ([]validation.Value, error) {
 			return nil, err
 		}
 		rows = append(rows, pair{key, validation.VObj(
-			kv("finding_id", objAt(f, "finding_id")),
-			kv("title", objAt(f, "title")),
-			kv("status", objAt(f, "status")),
+			kv("finding_id", validation.ObjAt(f, "finding_id")),
+			kv("title", validation.ObjAt(f, "title")),
+			kv("status", validation.ObjAt(f, "status")),
 			kv("level", validation.VStr(level)),
 			kv("deficit", validation.VStr(*deficit)))})
 	}
@@ -191,11 +191,11 @@ func Reachability(campaign *state.Campaign) ([]validation.Value, error) {
 	}
 	rows := []pair{}
 	for _, f := range all {
-		st := objStr(f, "status")
+		st := validation.ObjStr(f, "status")
 		if junkStatuses[st] {
 			continue
 		}
-		classVal := objAt(objAt(f, "root_cause"), "class")
+		classVal := validation.ObjAt(validation.ObjAt(f, "root_cause"), "class")
 		class := ""
 		if classVal.Kind == validation.Str {
 			class = classVal.S
@@ -242,13 +242,13 @@ func Reachability(campaign *state.Campaign) ([]validation.Value, error) {
 			classOut = validation.VNull()
 		}
 		rows = append(rows, pair{key, validation.VObj(
-			kv("finding_id", objAt(f, "finding_id")),
-			kv("title", objAt(f, "title")),
-			kv("status", objAt(f, "status")),
+			kv("finding_id", validation.ObjAt(f, "finding_id")),
+			kv("title", validation.ObjAt(f, "title")),
+			kv("status", validation.ObjAt(f, "status")),
 			kv("bug_class", classOut),
 			kv("floor", validation.VStr(floor)),
 			kv("level", validation.VStr(level)),
-			kv("missing", strArr(diag)))})
+			kv("missing", validation.StrArr(diag)))})
 	}
 	sort.SliceStable(rows, func(i, j int) bool {
 		return rows[i].key.Less(rows[j].key)
@@ -273,15 +273,15 @@ func MemoryRecallHints(campaign *state.Campaign) ([]string, error) {
 	}
 	rows := []pair{}
 	for _, f := range all {
-		st := objStr(f, "status")
+		st := validation.ObjStr(f, "status")
 		if st != "POSSIBLE" && st != "PROVISIONALLY_VALID" {
 			continue
 		}
-		v := asObj(objAt(f, "verification"))
-		if objStr(v, "critic_verdict") != "confirmed" {
+		v := asObj(validation.ObjAt(f, "verification"))
+		if validation.ObjStr(v, "critic_verdict") != "confirmed" {
 			continue
 		}
-		if objStr(objAt(v, "reproduction"), "status") != "reproduced" {
+		if validation.ObjStr(validation.ObjAt(v, "reproduction"), "status") != "reproduced" {
 			continue
 		}
 		level, err := findings.FindingLevel(f)
@@ -296,7 +296,7 @@ func MemoryRecallHints(campaign *state.Campaign) ([]string, error) {
 		if li < e4 {
 			continue
 		}
-		id := objStr(f, "finding_id")
+		id := validation.ObjStr(f, "finding_id")
 		fail, err := findings.MemoryCheckFails(campaign, id)
 		if err != nil {
 			return nil, err
@@ -399,7 +399,7 @@ func freshOrNone(campaign *state.Campaign, data validation.Value) bool {
 	if err != nil {
 		return false
 	}
-	return nullableStrEqual(objAt(data, "snapshot_id"), active)
+	return nullableStrEqual(validation.ObjAt(data, "snapshot_id"), active)
 }
 
 func note(problems *[]string, msg string) {
@@ -423,13 +423,13 @@ func ChPrescreen(campaign *state.Campaign,
 	if !freshOrNone(campaign, *raw) {
 		return nil, nil
 	}
-	results := objAt(*raw, "results")
+	results := validation.ObjAt(*raw, "results")
 	if results.Kind != validation.Arr {
 		note(problems, "archetype_prescreen.json malformed ('results' is "+
 			"not a list) — section omitted")
 		return nil, nil
 	}
-	matched := objAt(*raw, "matched_ids")
+	matched := validation.ObjAt(*raw, "matched_ids")
 	if matched.Kind != validation.Arr {
 		note(problems, "archetype_prescreen.json malformed ('matched_ids' "+
 			"is not a list) — section omitted")
@@ -441,13 +441,13 @@ func ChPrescreen(campaign *state.Campaign,
 		if r.Kind != validation.Obj {
 			continue
 		}
-		if pyTruthyInt64Only(objAt(r, "forced")) {
-			forced = append(forced, objAt(r, "id"))
+		if pyTruthyInt64Only(validation.ObjAt(r, "forced")) {
+			forced = append(forced, validation.ObjAt(r, "id"))
 		}
-		if !pyTruthyInt64Only(objAt(r, "match")) &&
-			pyTruthyInt64Only(objAt(r, "near_matches")) {
-			near = append(near, validation.KV{K: objStr(r, "id"),
-				V: objAt(r, "near_matches")})
+		if !pyTruthyInt64Only(validation.ObjAt(r, "match")) &&
+			pyTruthyInt64Only(validation.ObjAt(r, "near_matches")) {
+			near = append(near, validation.KV{K: validation.ObjStr(r, "id"),
+				V: validation.ObjAt(r, "near_matches")})
 		}
 	}
 	out := validation.VObj(
@@ -472,7 +472,7 @@ func ChForkdiff(campaign *state.Campaign,
 	if !freshOrNone(campaign, *raw) {
 		return nil, nil
 	}
-	extra := objAt(*raw, "extra_selectors")
+	extra := validation.ObjAt(*raw, "extra_selectors")
 	if extra.Kind != validation.Arr {
 		note(problems, "fork_diff.json malformed ('extra_selectors' is not "+
 			"a list) — section omitted")
@@ -482,8 +482,8 @@ func ChForkdiff(campaign *state.Campaign,
 		extra.A = extra.A[:10]
 	}
 	out := validation.VObj(
-		kv("matched_baseline", objAt(*raw, "matched_baseline")),
-		kv("summary", objAt(*raw, "diff_summary")),
+		kv("matched_baseline", validation.ObjAt(*raw, "matched_baseline")),
+		kv("summary", validation.ObjAt(*raw, "diff_summary")),
 		kv("extra_selectors", extra))
 	return &out, nil
 }
@@ -503,7 +503,7 @@ func ChRecency(campaign *state.Campaign,
 	if !freshOrNone(campaign, *raw) {
 		return []validation.Value{}, nil
 	}
-	hot := objAt(*raw, "hot_files")
+	hot := validation.ObjAt(*raw, "hot_files")
 	if hot.Kind == validation.Null {
 		return []validation.Value{}, nil
 	}
@@ -523,8 +523,8 @@ func ChRecency(campaign *state.Campaign,
 			skipped++
 			continue
 		}
-		path := objAt(r, "path")
-		score := objAt(r, "score")
+		path := validation.ObjAt(r, "path")
+		score := validation.ObjAt(r, "score")
 		pathOut := validation.VStr("?")
 		if path.Kind == validation.Str {
 			pathOut = path
@@ -536,7 +536,7 @@ func ChRecency(campaign *state.Campaign,
 		}
 		out = append(out, validation.VObj(
 			kv("path", pathOut), kv("score", scoreOut),
-			kv("days_ago", objAt(r, "days_ago"))))
+			kv("days_ago", validation.ObjAt(r, "days_ago"))))
 		if path.Kind == validation.Null || score.Kind == validation.Null {
 			skipped++
 		}
@@ -611,7 +611,7 @@ func ChAmplifiers(campaign *state.Campaign, problems *[]string,
 		if len(hit) > 0 {
 			boosted = append(boosted, validation.VObj(
 				kv("bug_class", validation.VStr(cls)),
-				kv("amplifiers", strArr(hit))))
+				kv("amplifiers", validation.StrArr(hit))))
 		}
 	}
 	counts := []validation.KV{}
@@ -648,7 +648,7 @@ func ChToolFlags(campaign *state.Campaign, problems *[]string) validation.Value 
 	}
 	tooled := []validation.Value{}
 	for _, f := range all {
-		if len(listAt(objAt(f, "provenance"), "sast_tools")) > 0 {
+		if len(listAt(validation.ObjAt(f, "provenance"), "sast_tools")) > 0 {
 			tooled = append(tooled, f)
 		}
 	}
@@ -665,7 +665,7 @@ func ChToolFlags(campaign *state.Campaign, problems *[]string) validation.Value 
 	}
 	counts := map[string]int{}
 	for _, f := range tooled {
-		counts[bucketOf(objStr(objAt(f, "verification"), "critic_verdict"))]++
+		counts[bucketOf(validation.ObjStr(validation.ObjAt(f, "verification"), "critic_verdict"))]++
 	}
 	buckets := []validation.KV{}
 	for _, v := range toolFlagVerdicts {
@@ -676,7 +676,7 @@ func ChToolFlags(campaign *state.Campaign, problems *[]string) validation.Value 
 	seen := map[string]bool{}
 	corroborated := []string{}
 	for _, f := range all {
-		by := objStr(objAt(f, "dedup_meta"), "corroborated_by")
+		by := validation.ObjStr(validation.ObjAt(f, "dedup_meta"), "corroborated_by")
 		if by != "" && !seen[by] {
 			seen[by] = true
 			corroborated = append(corroborated, by)
@@ -686,7 +686,7 @@ func ChToolFlags(campaign *state.Campaign, problems *[]string) validation.Value 
 	return validation.VObj(
 		kv("total", validation.VInt(int64(len(tooled)))),
 		kv("by_verdict", validation.VObj(buckets...)),
-		kv("corroborated", strArr(corroborated)))
+		kv("corroborated", validation.StrArr(corroborated)))
 }
 
 // ChInvariants is _ch_invariants.
@@ -703,7 +703,7 @@ func ChInvariants(campaign *state.Campaign,
 			"invariant section omitted", err))
 		return degraded()
 	}
-	reg := objAt(links, "invariants")
+	reg := validation.ObjAt(links, "invariants")
 	if reg.Kind == validation.Null && !hasKey(links, "invariants") {
 		reg = validation.VObj()
 	}
@@ -719,7 +719,7 @@ func ChInvariants(campaign *state.Campaign,
 		if e.V.Kind != validation.Obj {
 			continue
 		}
-		st := objStr(e.V, "status")
+		st := validation.ObjStr(e.V, "status")
 		if st == "" {
 			st = "UNVERIFIED"
 		}
@@ -734,9 +734,9 @@ func ChInvariants(campaign *state.Campaign,
 		// CONTRADICTED = the invariant is falsified by code, i.e. the attack
 		// works — the strongest confirmation). Only model invariants with a
 		// NON-confirming status are "unverified" and owed a check.
-		if objStr(e.V, "source") == "model" &&
-			objStr(e.V, "status") != "CHECKED_AGAINST_CODE" &&
-			objStr(e.V, "status") != "CONTRADICTED" {
+		if validation.ObjStr(e.V, "source") == "model" &&
+			validation.ObjStr(e.V, "status") != "CHECKED_AGAINST_CODE" &&
+			validation.ObjStr(e.V, "status") != "CONTRADICTED" {
 			unverified = append(unverified, e.K)
 		}
 	}
@@ -744,7 +744,7 @@ func ChInvariants(campaign *state.Campaign,
 	return validation.VObj(
 		kv("total", validation.VInt(int64(len(reg.O)))),
 		kv("by_verification_status", validation.VObj(byStatus...)),
-		kv("unverified_model", strArr(unverified)))
+		kv("unverified_model", validation.StrArr(unverified)))
 }
 
 // ---- attention ledger (B4/D7) ----------------------------------------------
@@ -854,37 +854,37 @@ func firstStamp(candidates ...string) *string {
 }
 
 func invariantsRankKey(item validation.Value) (bool, int64, string) {
-	return !pyTruthyInt64Only(objAt(item, "high_consequence")),
-		ageSortKey(intPtr(objAt(item, "age_seconds"))),
-		objStr(item, "invariant_id")
+	return !pyTruthyInt64Only(validation.ObjAt(item, "high_consequence")),
+		ageSortKey(intPtr(validation.ObjAt(item, "age_seconds"))),
+		validation.ObjStr(item, "invariant_id")
 }
 
 func leadRankKey(item validation.Value) (int, int64, string) {
-	high := pyTruthyInt64Only(objAt(item, "high_consequence"))
-	kind := objStr(item, "kind")
+	high := pyTruthyInt64Only(validation.ObjAt(item, "high_consequence"))
+	kind := validation.ObjStr(item, "kind")
 	cls := 2
 	if kind == "queue" && high {
 		cls = 0
 	} else if kind == "invariant" && high {
 		cls = 1
 	}
-	ident := objStr(item, "priority_id")
+	ident := validation.ObjStr(item, "priority_id")
 	if ident == "" {
-		ident = objStr(item, "invariant_id")
+		ident = validation.ObjStr(item, "invariant_id")
 	}
 	if ident == "" {
 		ident = "?"
 	}
-	return cls, ageSortKey(intPtr(objAt(item, "age_seconds"))), ident
+	return cls, ageSortKey(intPtr(validation.ObjAt(item, "age_seconds"))), ident
 }
 
 func entryTimestamp(entry validation.Value) *string {
-	ts := objStr(entry, "updated_at")
+	ts := validation.ObjStr(entry, "updated_at")
 	if ParseISO(ts) != nil {
 		out := ts
 		return &out
 	}
-	m := isoInTextRe.FindString(objStr(entry, "modified_by"))
+	m := isoInTextRe.FindString(validation.ObjStr(entry, "modified_by"))
 	if m == "" {
 		return nil
 	}
@@ -918,13 +918,13 @@ func priorityInvariant(priority, reg validation.Value) (string, *string, bool) {
 			key = k
 			entry = norm[normID]
 		}
-		sevV := objAt(entry, "severity_if_broken")
+		sevV := validation.ObjAt(entry, "severity_if_broken")
 		var sev *string
 		if sevV.Kind == validation.Str {
 			s := sevV.S
 			sev = &s
 		}
-		kind := objStr(entry, "kind")
+		kind := validation.ObjStr(entry, "kind")
 		high := (sev != nil && *sev == "critical") || kind == "liveness"
 		rank := [2]any{!high, key}
 		if bestRank == nil || rankLess(rank, *bestRank) {
@@ -954,7 +954,7 @@ func regOrEmpty(campaign *state.Campaign) validation.Value {
 	if err != nil {
 		return validation.VObj()
 	}
-	reg := objAt(links, "invariants")
+	reg := validation.ObjAt(links, "invariants")
 	if reg.Kind != validation.Obj {
 		return validation.VObj()
 	}
@@ -1003,7 +1003,7 @@ func AttentionLedger(campaign *state.Campaign, now string,
 		}
 		untouched := []validation.Value{}
 		for _, p := range priorities {
-			st := objStr(p, "status")
+			st := validation.ObjStr(p, "status")
 			dispositioned := false
 			for _, d := range planner.ProbeRowDispositioned {
 				if st == d {
@@ -1020,9 +1020,9 @@ func AttentionLedger(campaign *state.Campaign, now string,
 			int64(len(priorities)-len(untouched))))
 		setKey(&queue, "untouched", validation.VInt(int64(len(untouched))))
 		if len(untouched) > 0 {
-			planT0 := objStr(plan, "created_at")
+			planT0 := validation.ObjStr(plan, "created_at")
 			if planT0 == "" {
-				planT0 = objStr(plan, "generated_at")
+				planT0 = validation.ObjStr(plan, "generated_at")
 			}
 			type row struct {
 				secs *int64
@@ -1033,9 +1033,9 @@ func AttentionLedger(campaign *state.Campaign, now string,
 			rows := []row{}
 			for _, p := range untouched {
 				secs, ageTxt := age(*nowDT, deref(firstStamp(
-					objStr(p, "created_at"), objStr(p, "generated_at"),
-					objStr(p, "opened_at"), planT0)))
-				pid := objStr(p, "id")
+					validation.ObjStr(p, "created_at"), validation.ObjStr(p, "generated_at"),
+					validation.ObjStr(p, "opened_at"), planT0)))
+				pid := validation.ObjStr(p, "id")
 				if pid == "" {
 					pid = "?"
 				}
@@ -1063,7 +1063,7 @@ func AttentionLedger(campaign *state.Campaign, now string,
 			}
 			command := fmt.Sprintf("webv2 answered %s %s answered "+
 				"--reason R --actor A", cid, r.pid)
-			if pyTruthyInt64Only(objAt(r.p, "probe")) {
+			if pyTruthyInt64Only(validation.ObjAt(r.p, "probe")) {
 				command += " --anchor FIELD"
 			}
 			line := fmt.Sprintf("questions worked %d/%d — oldest untouched: "+
@@ -1098,7 +1098,7 @@ func AttentionLedger(campaign *state.Campaign, now string,
 					"untouched question %s (%s%s): %s", r.pid, ageTxt,
 					suffix, command))))
 			setKey(&queue, "oldest", oldest)
-			setKey(&queue, "line", objAt(oldest, "line"))
+			setKey(&queue, "line", validation.ObjAt(oldest, "line"))
 		}
 	}
 
@@ -1107,21 +1107,21 @@ func AttentionLedger(campaign *state.Campaign, now string,
 	if err != nil {
 		return validation.VNull(), err
 	}
-	campaignStart := objStr(st, "created_at")
+	campaignStart := validation.ObjStr(st, "created_at")
 	items := []validation.Value{}
 	for _, e := range reg.O {
 		if e.V.Kind != validation.Obj {
 			continue
 		}
-		status := objStr(e.V, "status")
+		status := validation.ObjStr(e.V, "status")
 		if status == "" {
 			status = "UNVERIFIED"
 		}
 		if status != "UNVERIFIED" {
 			continue
 		}
-		sevV := objAt(e.V, "severity_if_broken")
-		kindV := objAt(e.V, "kind")
+		sevV := validation.ObjAt(e.V, "severity_if_broken")
+		kindV := validation.ObjAt(e.V, "kind")
 		ts := deref(entryTimestamp(e.V))
 		if ts == "" {
 			ts = campaignStart
@@ -1172,7 +1172,7 @@ func AttentionLedger(campaign *state.Campaign, now string,
 	}
 	highCount := int64(0)
 	for _, it := range items {
-		if pyTruthyInt64Only(objAt(it, "high_consequence")) {
+		if pyTruthyInt64Only(validation.ObjAt(it, "high_consequence")) {
 			highCount++
 		}
 	}
@@ -1185,8 +1185,8 @@ func AttentionLedger(campaign *state.Campaign, now string,
 		setKey(&invariantsBlock, "line", validation.VStr(fmt.Sprintf(
 			"invariants: %d UNVERIFIED (liveness/critical first, with age) — "+
 				"verify %s (unverified %s): %s", len(items),
-			objStr(top, "invariant_id"), objStr(top, "age"),
-			objStr(top, "command"))))
+			validation.ObjStr(top, "invariant_id"), validation.ObjStr(top, "age"),
+			validation.ObjStr(top, "command"))))
 	}
 
 	// -- the ordering list
@@ -1194,19 +1194,19 @@ func AttentionLedger(campaign *state.Campaign, now string,
 	for _, it := range items {
 		ranked = append(ranked, it)
 	}
-	if objAt(queue, "oldest").Kind == validation.Obj {
-		oldest := objAt(queue, "oldest")
+	if validation.ObjAt(queue, "oldest").Kind == validation.Obj {
+		oldest := validation.ObjAt(queue, "oldest")
 		ranked = append(ranked, validation.VObj(
 			kv("kind", validation.VStr("queue")),
-			kv("priority_id", objAt(oldest, "priority_id")),
-			kv("age", objAt(oldest, "age")),
-			kv("age_seconds", objAt(oldest, "age_seconds")),
-			kv("invariant_id", objAt(oldest, "invariant_id")),
-			kv("severity_if_broken", objAt(oldest, "severity")),
-			kv("high_consequence", objAt(oldest, "high_consequence")),
-			kv("command", objAt(oldest, "command")),
-			kv("line", objAt(oldest, "line")),
-			kv("action", objAt(oldest, "action"))))
+			kv("priority_id", validation.ObjAt(oldest, "priority_id")),
+			kv("age", validation.ObjAt(oldest, "age")),
+			kv("age_seconds", validation.ObjAt(oldest, "age_seconds")),
+			kv("invariant_id", validation.ObjAt(oldest, "invariant_id")),
+			kv("severity_if_broken", validation.ObjAt(oldest, "severity")),
+			kv("high_consequence", validation.ObjAt(oldest, "high_consequence")),
+			kv("command", validation.ObjAt(oldest, "command")),
+			kv("line", validation.ObjAt(oldest, "line")),
+			kv("action", validation.ObjAt(oldest, "action"))))
 	}
 	sort.SliceStable(ranked, func(i, j int) bool {
 		ci, ki, ii := leadRankKey(ranked[i])
@@ -1223,23 +1223,23 @@ func AttentionLedger(campaign *state.Campaign, now string,
 
 	// -- printable block
 	lines := []string{}
-	if objAt(queue, "line").Kind == validation.Str {
-		lines = append(lines, objAt(queue, "line").S)
+	if validation.ObjAt(queue, "line").Kind == validation.Str {
+		lines = append(lines, validation.ObjAt(queue, "line").S)
 	}
-	if objAt(invariantsBlock, "line").Kind == validation.Str {
-		lines = append(lines, objAt(invariantsBlock, "line").S)
+	if validation.ObjAt(invariantsBlock, "line").Kind == validation.Str {
+		lines = append(lines, validation.ObjAt(invariantsBlock, "line").S)
 		named := ""
 		if len(items) > 0 {
-			named = objStr(items[0], "invariant_id")
+			named = validation.ObjStr(items[0], "invariant_id")
 		}
 		for _, it := range items {
-			if pyTruthyInt64Only(objAt(it, "high_consequence")) &&
-				objStr(it, "invariant_id") != named {
-				lines = append(lines, objStr(it, "line"))
+			if pyTruthyInt64Only(validation.ObjAt(it, "high_consequence")) &&
+				validation.ObjStr(it, "invariant_id") != named {
+				lines = append(lines, validation.ObjStr(it, "line"))
 			}
 		}
 	}
-	setKey(&ledger, "lines", strArr(lines))
+	setKey(&ledger, "lines", validation.StrArr(lines))
 
 	if closed {
 		suppressDebt(&ledger)
@@ -1252,16 +1252,16 @@ func suppressDebt(ledger *validation.Value) {
 		"decision — no debt nagging (closed-cockpit discipline)"))
 	setKey(ledger, "lines", validation.VArr())
 	setKey(ledger, "ranked", validation.VArr())
-	queue := objAt(*ledger, "queue")
+	queue := validation.ObjAt(*ledger, "queue")
 	setKey(&queue, "line", validation.VNull())
-	oldest := objAt(queue, "oldest")
+	oldest := validation.ObjAt(queue, "oldest")
 	if oldest.Kind == validation.Obj {
 		setKey(&oldest, "line", validation.VNull())
 		setKey(&oldest, "action", validation.VNull())
 		setKey(&queue, "oldest", oldest)
 	}
 	setKey(ledger, "queue", queue)
-	invariantsBlock := objAt(*ledger, "invariants")
+	invariantsBlock := validation.ObjAt(*ledger, "invariants")
 	setKey(&invariantsBlock, "line", validation.VNull())
 	items := listAt(invariantsBlock, "items")
 	for i := range items {
@@ -1281,7 +1281,7 @@ func Bounty(campaign *state.Campaign) (validation.Value, error) {
 	if err != nil {
 		return validation.VNull(), err
 	}
-	policyPath := objStr(st, "policy_path")
+	policyPath := validation.ObjStr(st, "policy_path")
 	if policyPath == "" {
 		return validation.VObj(kv("policy", validation.VNull()),
 			kv("evaluated", validation.VArr())), nil
@@ -1312,11 +1312,11 @@ func Bounty(campaign *state.Campaign) (validation.Value, error) {
 	}
 	rows := []pair{}
 	for _, f := range all {
-		if !confirmedStatuses[objStr(f, "status")] {
+		if !confirmedStatuses[validation.ObjStr(f, "status")] {
 			continue
 		}
 		res, err := bounty.EvaluateBountyGate(campaign,
-			objStr(f, "finding_id"), policy, false)
+			validation.ObjStr(f, "finding_id"), policy, false)
 		if err != nil {
 			return validation.VNull(), err
 		}
@@ -1329,10 +1329,10 @@ func Bounty(campaign *state.Campaign) (validation.Value, error) {
 			return validation.VNull(), err
 		}
 		rows = append(rows, pair{key, validation.VObj(
-			kv("finding_id", objAt(f, "finding_id")),
-			kv("title", objAt(f, "title")),
-			kv("eligible", objAt(res, "eligible")),
-			kv("submission_ready", objAt(res, "submission_ready")),
+			kv("finding_id", validation.ObjAt(f, "finding_id")),
+			kv("title", validation.ObjAt(f, "title")),
+			kv("eligible", validation.ObjAt(res, "eligible")),
+			kv("submission_ready", validation.ObjAt(res, "submission_ready")),
 			kv("blocking_reasons", validation.VArr(blocking...)))})
 	}
 	sort.SliceStable(rows, func(i, j int) bool {
@@ -1447,7 +1447,7 @@ func BuildBrief(campaign *state.Campaign, deepAudit bool,
 	counts := []validation.KV{}
 	index := map[string]int{}
 	for _, f := range all {
-		s := objStr(f, "status")
+		s := validation.ObjStr(f, "status")
 		if i, ok := index[s]; ok {
 			counts[i].V = validation.VInt(counts[i].V.I + 1)
 		} else {
@@ -1464,7 +1464,7 @@ func BuildBrief(campaign *state.Campaign, deepAudit bool,
 	}
 	byID := map[string]validation.Value{}
 	for _, f := range all {
-		byID[objStr(f, "finding_id")] = f
+		byID[validation.ObjStr(f, "finding_id")] = f
 	}
 	e6List := append([]validation.Value{}, e6.A...)
 	type e6key struct {
@@ -1473,15 +1473,15 @@ func BuildBrief(campaign *state.Campaign, deepAudit bool,
 	}
 	keys := make([]e6key, len(e6List))
 	for i, q := range e6List {
-		f, ok := byID[objStr(q, "finding_id")]
+		f, ok := byID[validation.ObjStr(q, "finding_id")]
 		if !ok {
-			f = validation.VObj(kv("finding_id", objAt(q, "finding_id")))
+			f = validation.VObj(kv("finding_id", validation.ObjAt(q, "finding_id")))
 		}
 		k, err := risk.WorkOrderKeyFor(f)
 		if err != nil {
 			return validation.VNull(), err
 		}
-		keys[i] = e6key{pyTruthyInt64Only(objAt(q, "mandatory")), k}
+		keys[i] = e6key{pyTruthyInt64Only(validation.ObjAt(q, "mandatory")), k}
 	}
 	sort.SliceStable(e6List, func(i, j int) bool {
 		if keys[i].mandatory != keys[j].mandatory {
@@ -1565,15 +1565,15 @@ func BuildBrief(campaign *state.Campaign, deepAudit bool,
 	for _, id := range pipeline.StageIDs {
 		topLevel[id] = true
 	}
-	stages := asObj(objAt(st, "stages"))
+	stages := asObj(validation.ObjAt(st, "stages"))
 	stagesDone := int64(0)
 	for _, s := range stages.O {
-		if topLevel[s.K] && objStr(s.V, "status") == "done" {
+		if topLevel[s.K] && validation.ObjStr(s.V, "status") == "done" {
 			stagesDone++
 		}
 	}
 	var elapsedOut validation.Value = validation.VNull()
-	if created := objStr(st, "created_at"); created != "" {
+	if created := validation.ObjStr(st, "created_at"); created != "" {
 		if t0 := ParseISO(created); t0 != nil {
 			elapsedOut = validation.VFloat(validation.PythonRound(
 				time.Since(*t0).Seconds()/3600, 1))
@@ -1583,12 +1583,12 @@ func BuildBrief(campaign *state.Campaign, deepAudit bool,
 	problems := []string{}
 	liveFindings := []validation.Value{}
 	for _, f := range all {
-		if !junkStatuses[objStr(f, "status")] {
+		if !junkStatuses[validation.ObjStr(f, "status")] {
 			liveFindings = append(liveFindings, f)
 		}
 	}
 	if len(liveFindings) > 0 && intField(relView, "edge_count") == 0 &&
-		objStr(st, "phase") != "COMPLETE" {
+		validation.ObjStr(st, "phase") != "COMPLETE" {
 		problems = append(problems, "the graph was never written — mint its "+
 			"deterministic edges: webv2 relations "+
 			campaign.CampaignID+" --rebuild")
@@ -1622,21 +1622,21 @@ func BuildBrief(campaign *state.Campaign, deepAudit bool,
 	terminals := []validation.Value{}
 	for _, p := range listAt(terminal, "shortest_by_terminal") {
 		terminals = append(terminals, validation.VObj(
-			kv("path", objAt(p, "path")),
-			kv("terminal_capability", objAt(p, "terminal_capability")),
-			kv("capital_usd", objAt(p, "total_capital_required_usd"))))
+			kv("path", validation.ObjAt(p, "path")),
+			kv("terminal_capability", validation.ObjAt(p, "terminal_capability")),
+			kv("capital_usd", validation.ObjAt(p, "total_capital_required_usd"))))
 	}
 	pmOut := []validation.Value{}
 	for _, m := range pendingMem {
 		pmOut = append(pmOut, validation.VObj(
-			kv("memory_id", objAt(m, "memory_id")),
-			kv("kind", objAt(m, "kind")),
-			kv("status", objAt(m, "status")),
-			kv("pattern", objAt(m, "pattern")),
-			kv("finding_id", objAt(m, "finding_id"))))
+			kv("memory_id", validation.ObjAt(m, "memory_id")),
+			kv("kind", validation.ObjAt(m, "kind")),
+			kv("status", validation.ObjAt(m, "status")),
+			kv("pattern", validation.ObjAt(m, "pattern")),
+			kv("finding_id", validation.ObjAt(m, "finding_id"))))
 	}
 	byKind := []validation.KV{}
-	for _, k := range asObj(objAt(relView, "by_kind")).O {
+	for _, k := range asObj(validation.ObjAt(relView, "by_kind")).O {
 		n := 0
 		if k.V.Kind == validation.Arr {
 			n = len(k.V.A)
@@ -1649,15 +1649,15 @@ func BuildBrief(campaign *state.Campaign, deepAudit bool,
 	}
 	campaignBlock := validation.VObj(
 		kv("campaign_id", validation.VStr(campaign.CampaignID)),
-		kv("program", objAt(st, "program")),
-		kv("phase", objAt(st, "phase")),
-		kv("closed", validation.VBool(objStr(st, "phase") == "COMPLETE")),
-		kv("completed_by", objAt(st, "completed_by")),
-		kv("completed_reason", objAt(st, "completed_reason")),
-		kv("pass", objAt(objAt(st, "budget"), "pass")),
+		kv("program", validation.ObjAt(st, "program")),
+		kv("phase", validation.ObjAt(st, "phase")),
+		kv("closed", validation.VBool(validation.ObjStr(st, "phase") == "COMPLETE")),
+		kv("completed_by", validation.ObjAt(st, "completed_by")),
+		kv("completed_reason", validation.ObjAt(st, "completed_reason")),
+		kv("pass", validation.ObjAt(validation.ObjAt(st, "budget"), "pass")),
 		kv("discovery_slots_left", validation.VInt(
-			intField(objAt(st, "budget"), "max_discovery_findings")-
-				intField(objAt(st, "budget"), "discovery_findings_so_far"))),
+			intField(validation.ObjAt(st, "budget"), "max_discovery_findings")-
+				intField(validation.ObjAt(st, "budget"), "discovery_findings_so_far"))),
 		kv("active_snapshot", snapshotOut),
 		kv("stages_done", validation.VInt(stagesDone)),
 		kv("stages_total", validation.VInt(int64(len(pipeline.StageIDs)))),
@@ -1669,7 +1669,7 @@ func BuildBrief(campaign *state.Campaign, deepAudit bool,
 		kv("materializable_chains", validation.VArr(chains...)),
 		kv("gate_deficits", validation.VArr(deficits...)),
 		kv("structurally_unreachable", validation.VArr(reach...)),
-		kv("memory_recall_pending", strArr(memPending)))
+		kv("memory_recall_pending", validation.StrArr(memPending)))
 
 	// G1 tool flags: the advisory block is attached only when it has
 	// content (validation.Null means no finding carries detector
@@ -1682,7 +1682,7 @@ func BuildBrief(campaign *state.Campaign, deepAudit bool,
 		kv("amplifiers", amplifiers),
 		kv("invariant_verification", invSection),
 		kv("stale_artifacts", validation.VArr(stale...)),
-		kv("problems", strArr(huntProblems)))
+		kv("problems", validation.StrArr(huntProblems)))
 	if toolFlags.Kind != validation.Null {
 		setKey(&huntBlock, "tool_flags", toolFlags)
 	}
@@ -1697,12 +1697,12 @@ func BuildBrief(campaign *state.Campaign, deepAudit bool,
 		kv("bounty", bountyView),
 		kv("pending_memory", validation.VArr(pmOut...)),
 		kv("relations", validation.VObj(
-			kv("edge_count", objAt(relView, "edge_count")),
+			kv("edge_count", validation.ObjAt(relView, "edge_count")),
 			kv("by_kind", validation.VObj(byKind...)),
-			kv("drift_problems", objAt(relCheck, "problems")))),
-		kv("problems", strArr(problems)),
+			kv("drift_problems", validation.ObjAt(relCheck, "problems")))),
+		kv("problems", validation.StrArr(problems)),
 		kv("economics", validation.VObj(
-			kv("totals", objAt(yieldRep, "totals")),
+			kv("totals", validation.ObjAt(yieldRep, "totals")),
 			kv("budget", budget),
 			kv("allocation_advice", validation.VArr(advice...)),
 			kv("note", validation.VStr("advisory only — never gates a "+
@@ -1716,7 +1716,7 @@ func BuildBrief(campaign *state.Campaign, deepAudit bool,
 	if lensYield, err := costs.LensYield(campaign); err != nil {
 		return validation.VNull(), err
 	} else if len(lensYield) > 0 {
-		econ := objAt(brief, "economics")
+		econ := validation.ObjAt(brief, "economics")
 		setKey(&econ, "lens_yield", validation.VArr(lensYield...))
 		setKey(&brief, "economics", econ)
 	}
@@ -1734,19 +1734,19 @@ func BuildBrief(campaign *state.Campaign, deepAudit bool,
 			return validation.VNull(), err
 		}
 		integProblems := []validation.KV{}
-		for _, sec := range asObj(objAt(report, "sections")).O {
-			if pyTruthyInt64Only(objAt(sec.V, "problems")) {
+		for _, sec := range asObj(validation.ObjAt(report, "sections")).O {
+			if pyTruthyInt64Only(validation.ObjAt(sec.V, "problems")) {
 				integProblems = append(integProblems, validation.KV{K: sec.K,
-					V: objAt(sec.V, "problems")})
+					V: validation.ObjAt(sec.V, "problems")})
 			}
 		}
-		if pyTruthyInt64Only(objAt(shared, "problems")) {
+		if pyTruthyInt64Only(validation.ObjAt(shared, "problems")) {
 			integProblems = append(integProblems, validation.KV{
-				K: "shared_store", V: objAt(shared, "problems")})
+				K: "shared_store", V: validation.ObjAt(shared, "problems")})
 		}
 		setKey(&brief, "integrity", validation.VObj(
-			kv("ok", validation.VBool(pyTruthyInt64Only(objAt(report, "ok")) &&
-				pyTruthyInt64Only(objAt(shared, "ok")))),
+			kv("ok", validation.VBool(pyTruthyInt64Only(validation.ObjAt(report, "ok")) &&
+				pyTruthyInt64Only(validation.ObjAt(shared, "ok")))),
 			kv("summary", validation.VStr(audit.AuditSummaryLine(report))),
 			kv("problems", validation.VObj(integProblems...)),
 			kv("shared_store", shared)))
@@ -1796,7 +1796,7 @@ func BuildBrief(campaign *state.Campaign, deepAudit bool,
 	// (the additive convention): a campaign whose model carries no
 	// components gains no key at all.
 	if surfaces := TrackedSurfaces(campaign); len(surfaces) > 0 {
-		setKey(&brief, "tracked_surfaces", strArr(surfaces))
+		setKey(&brief, "tracked_surfaces", validation.StrArr(surfaces))
 	}
 
 	// G10 assumption table (Task 4): the model's per-hop declared table
@@ -1804,7 +1804,7 @@ func BuildBrief(campaign *state.Campaign, deepAudit bool,
 	// gated (the additive convention): a chains-only legacy campaign
 	// gains no key at all.
 	if lines := ChainAssumptions(campaign); len(lines) > 0 {
-		setKey(&brief, "chain_assumption_lines", strArr(lines))
+		setKey(&brief, "chain_assumption_lines", validation.StrArr(lines))
 	}
 
 	// B4 disposition review: high-risk rows (tier 0 / gap >= 3) dismissed
@@ -1843,19 +1843,19 @@ func BuildBrief(campaign *state.Campaign, deepAudit bool,
 	if critErr != nil {
 		return validation.VNull(), critErr
 	}
-	if msg := objStr(crit, "unreadable"); msg != "" {
+	if msg := validation.ObjStr(crit, "unreadable"); msg != "" {
 		problems = noteProblem(problems, msg)
 		// The problems key was captured when `brief` was built, above; this
 		// disclosure is discovered after that, so the block is re-set (key
 		// position kept — the key already exists) rather than lost.
-		setKey(&brief, "problems", strArr(problems))
+		setKey(&brief, "problems", validation.StrArr(problems))
 	}
 	if critOK {
 		setKey(&brief, "criticality", crit)
 	}
 
 	att, err := AttentionLedger(campaign, generatedAt, &campaign.CampaignID,
-		pyTruthyInt64Only(objAt(campaignBlock, "closed")))
+		pyTruthyInt64Only(validation.ObjAt(campaignBlock, "closed")))
 	if err != nil {
 		return validation.VNull(), err
 	}
@@ -1865,7 +1865,7 @@ func BuildBrief(campaign *state.Campaign, deepAudit bool,
 	if err != nil {
 		return validation.VNull(), err
 	}
-	setKey(&brief, "next_actions", strArr(actions))
+	setKey(&brief, "next_actions", validation.StrArr(actions))
 	return brief, nil
 }
 
@@ -1934,8 +1934,8 @@ func criticalityBlock(campaign *state.Campaign, all []validation.Value,
 			if a.Kind != validation.Obj {
 				continue
 			}
-			findingBlobs = append(findingBlobs, objStr(a, "contract"))
-			findingBlobs = append(findingBlobs, objStr(a, "path"))
+			findingBlobs = append(findingBlobs, validation.ObjStr(a, "contract"))
+			findingBlobs = append(findingBlobs, validation.ObjStr(a, "path"))
 		}
 	}
 	execBlobs := []string{}
@@ -1958,7 +1958,7 @@ func criticalityBlock(campaign *state.Campaign, all []validation.Value,
 			}
 			for _, key := range []string{"command", "workdir", "finding_id",
 				"artifact_id"} {
-				v := objAt(rec, key)
+				v := validation.ObjAt(rec, key)
 				if v.Kind == validation.Str {
 					execBlobs = append(execBlobs, v.S)
 				} else {
@@ -1971,7 +1971,7 @@ func criticalityBlock(campaign *state.Campaign, all []validation.Value,
 	uncovered := []validation.Value{}
 	seen := map[string]bool{}
 	for _, r := range ranked {
-		name := objStr(r, "contract")
+		name := validation.ObjStr(r, "contract")
 		if !seen[name] {
 			seen[name] = true
 			covered := false
@@ -1985,7 +1985,7 @@ func criticalityBlock(campaign *state.Campaign, all []validation.Value,
 			}
 			coverage = append(coverage, validation.KV{K: name,
 				V: validation.VBool(covered)})
-			if objStr(r, "tier") == "consensus-critical" && !covered {
+			if validation.ObjStr(r, "tier") == "consensus-critical" && !covered {
 				uncovered = append(uncovered, validation.VStr(name))
 			}
 		}
@@ -2016,7 +2016,7 @@ func hitName(name, blob string) bool {
 // ---- next actions ----------------------------------------------------------
 
 func integrityDetail(integ validation.Value) string {
-	probs := objAt(integ, "problems")
+	probs := validation.ObjAt(integ, "problems")
 	if probs.Kind == validation.Obj {
 		parts := []string{}
 		for _, kvp := range probs.O {
@@ -2093,10 +2093,10 @@ func openFindingClasses(campaign *state.Campaign) ([]string, error) {
 	seen := map[string]bool{}
 	classes := []string{}
 	for _, f := range all {
-		if findings.IsTerminal(objStr(f, "status")) {
+		if findings.IsTerminal(validation.ObjStr(f, "status")) {
 			continue
 		}
-		cls := objStr(objAt(f, "root_cause"), "class")
+		cls := validation.ObjStr(validation.ObjAt(f, "root_cause"), "class")
 		if cls == "" || seen[cls] {
 			continue
 		}
@@ -2141,11 +2141,11 @@ func ReachabilityLine(classes []string, cap string) string {
 // NextActions is _next_actions: the prioritized, concrete work list.
 func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, error) {
 	actions := []string{}
-	cb := asObj(objAt(brief, "campaign"))
-	integ := asObj(objAt(brief, "integrity"))
+	cb := asObj(validation.ObjAt(brief, "campaign"))
+	integ := asObj(validation.ObjAt(brief, "integrity"))
 	if objBool(cb, "closed") {
 		cid := campaign.CampaignID
-		if objAt(integ, "ok").Kind == validation.Bool && !objAt(integ, "ok").B {
+		if validation.ObjAt(integ, "ok").Kind == validation.Bool && !validation.ObjAt(integ, "ok").B {
 			actions = append(actions, webv2Action("webv2 doctor "+cid,
 				"FIX INTEGRITY FIRST — trust issue, fix even though the "+
 					"pass is closed: "+integrityDetail(integ)))
@@ -2154,11 +2154,11 @@ func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, er
 		if err != nil {
 			return nil, err
 		}
-		who := objStr(st, "completed_by")
+		who := validation.ObjStr(st, "completed_by")
 		if who == "" {
 			who = "operator"
 		}
-		why := objStr(st, "completed_reason")
+		why := validation.ObjStr(st, "completed_reason")
 		if why == "" {
 			why = "no reason recorded"
 		}
@@ -2204,7 +2204,7 @@ func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, er
 	// no `probes run --emit` on record is working an unprobed surface. The
 	// line is standing and advisory: it names the exact command and clears
 	// the moment the emit is on record. It gates nothing.
-	if campaign != nil && objStr(cb, "phase") == "DISCOVERY" {
+	if campaign != nil && validation.ObjStr(cb, "phase") == "DISCOVERY" {
 		if emitted, err := probes.Emitted(campaign); err == nil && !emitted {
 			actions = append(actions, webv2Action(
 				"webv2 probes "+cid+" run --emit",
@@ -2230,30 +2230,30 @@ func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, er
 	}
 
 	// probe surface: the ranked open rows lead
-	if ps := objAt(brief, "probe_surface"); ps.Kind == validation.Obj {
+	if ps := validation.ObjAt(brief, "probe_surface"); ps.Kind == validation.Obj {
 		rows := listAt(ps, "open_rows")
 		sorted := append([]validation.Value{}, rows...)
 		sort.SliceStable(sorted, func(i, j int) bool {
 			return probes.RankKeyOf(sorted[i]).Less(probes.RankKeyOf(sorted[j]))
 		})
 		for _, r := range sorted {
-			rid := objStr(r, "row_id")
-			where := orQuestion(objStr(r, "lens")) + " " +
-				orQuestion(objStr(r, "axis"))
-			name := objStr(r, "name")
+			rid := validation.ObjStr(r, "row_id")
+			where := orQuestion(validation.ObjStr(r, "lens")) + " " +
+				orQuestion(validation.ObjStr(r, "axis"))
+			name := validation.ObjStr(r, "name")
 			if name == "" {
-				name = objStr(r, "probe")
+				name = validation.ObjStr(r, "probe")
 			}
-			if objAt(r, "priority_id").Kind == validation.Str &&
-				objAt(r, "priority_id").S != "" {
-				why := strings.Join(strings.Fields(objStr(r, "why")), " ")
+			if validation.ObjAt(r, "priority_id").Kind == validation.Str &&
+				validation.ObjAt(r, "priority_id").S != "" {
+				why := strings.Join(strings.Fields(validation.ObjStr(r, "why")), " ")
 				if len([]rune(why)) > 80 {
 					why = string([]rune(why)[:77]) + "…"
 				}
 				// a promoted row IS a plan priority: the attention queue
 				// works its oldest untouched question with the same verb
 				actions = append(actions, webv2Action("webv2 answered "+cid+
-					" "+objStr(r, "priority_id")+
+					" "+validation.ObjStr(r, "priority_id")+
 					" answered --reason <reason> --actor <actor>",
 					fmt.Sprintf("work probe row %s — %s: %s — %s",
 						rid, where, name, why)))
@@ -2274,20 +2274,20 @@ func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, er
 	// zero dispositions gets one routing line to the table that reads the
 	// structural index directly (no surface needed). L-02 has no table
 	// verb — its trust rows are already listed per-row above.
-	if div := objAt(brief, "divergence"); div.Kind == validation.Obj {
+	if div := validation.ObjAt(brief, "divergence"); div.Kind == validation.Obj {
 		for _, l := range listAt(div, "lenses") {
-			lid := objStr(l, "id")
+			lid := validation.ObjStr(l, "id")
 			table, ok := lensMechanicalTable[lid]
-			if !ok || lensDispositioned(objStr(l, "status")) {
+			if !ok || lensDispositioned(validation.ObjStr(l, "status")) {
 				continue
 			}
-			probe := objAt(l, "probe")
+			probe := validation.ObjAt(l, "probe")
 			if probe.Kind != validation.Obj {
 				// A surface exists but carries none of this lens's
 				// axes — the reduced-quota shape. The --emit refresh is
 				// already named by the divergence missing entries;
 				// route to the table instead.
-				if ps := objAt(brief, "probe_surface"); ps.Kind == validation.Obj {
+				if ps := validation.ObjAt(brief, "probe_surface"); ps.Kind == validation.Obj {
 					actions = append(actions, webv2Action(
 						fmt.Sprintf(table, cid),
 						lid+" has no probe surface for its axes — "+
@@ -2323,7 +2323,7 @@ func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, er
 	}
 
 	// criticality coverage
-	if crit := objAt(brief, "criticality"); crit.Kind == validation.Obj {
+	if crit := validation.ObjAt(brief, "criticality"); crit.Kind == validation.Obj {
 		for _, name := range listAt(crit, "uncovered_consensus_critical") {
 			actions = append(actions, webv2Action("webv2 run "+cid,
 				fmt.Sprintf("open %s — consensus-critical, untouched by "+
@@ -2350,12 +2350,12 @@ func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, er
 			// its rank. `status` is the clear condition: answering the
 			// priority closes it, and the line goes with it.
 			for _, p := range listAt(plan, "priorities") {
-				text := objStr(p, "question")
-				if objStr(p, "status") != "open" ||
+				text := validation.ObjStr(p, "question")
+				if validation.ObjStr(p, "status") != "open" ||
 					!strings.HasPrefix(text, "resolve open question ") {
 					continue
 				}
-				if id := objStr(p, "id"); id != "" &&
+				if id := validation.ObjStr(p, "id"); id != "" &&
 					!strings.Contains(text, id) {
 					text = "resolve open question " + id + ": " + text
 				}
@@ -2363,17 +2363,17 @@ func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, er
 					"webv2 plan "+cid+" --json", text))
 			}
 			for _, p := range listAt(plan, "priorities") {
-				if objStr(p, "status") == "open" &&
-					objStr(p, "sibling_of") != "" {
-					pid := objStr(p, "id")
+				if validation.ObjStr(p, "status") == "open" &&
+					validation.ObjStr(p, "sibling_of") != "" {
+					pid := validation.ObjStr(p, "id")
 					cmd := "webv2 run " + cid
 					if pid != "" {
 						cmd = "webv2 answered " + cid + " " + pid +
 							" answered --reason <reason> --actor <actor>"
 					}
 					actions = append(actions, webv2Action(cmd, fmt.Sprintf(
-						"work sibling of %s: %s", objStr(p, "sibling_of"),
-						objStr(p, "question"))))
+						"work sibling of %s: %s", validation.ObjStr(p, "sibling_of"),
+						validation.ObjStr(p, "question"))))
 				}
 			}
 		}
@@ -2385,28 +2385,28 @@ func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, er
 	// count them as "something else to do" (they carry no `# reason` — the
 	// ledger block already renders the prose beside the command)
 	attentionLines := map[string]bool{}
-	if att := objAt(brief, "attention"); att.Kind == validation.Obj {
+	if att := validation.ObjAt(brief, "attention"); att.Kind == validation.Obj {
 		ranked := listAt(att, "ranked")
 		lead := ranked
 		if len(lead) > 2 {
 			lead = lead[:2]
 		}
 		for _, item := range lead {
-			if cmd := objStr(item, "command"); cmd != "" {
+			if cmd := validation.ObjStr(item, "command"); cmd != "" {
 				actions = append(actions, cmd)
 				attentionLines[cmd] = true
 			}
-			ident := objStr(item, "priority_id")
+			ident := validation.ObjStr(item, "priority_id")
 			if ident == "" {
-				ident = objStr(item, "invariant_id")
+				ident = validation.ObjStr(item, "invariant_id")
 			}
 			attentionLead[ident] = true
 		}
 		for _, item := range ranked[minInt(2, len(ranked)):] {
-			if objStr(item, "kind") == "queue" &&
-				objStr(item, "command") != "" &&
-				!attentionLead[objStr(item, "priority_id")] {
-				cmd := objStr(item, "command")
+			if validation.ObjStr(item, "kind") == "queue" &&
+				validation.ObjStr(item, "command") != "" &&
+				!attentionLead[validation.ObjStr(item, "priority_id")] {
+				cmd := validation.ObjStr(item, "command")
 				actions = append(actions, cmd)
 				attentionLines[cmd] = true
 			}
@@ -2414,32 +2414,32 @@ func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, er
 	}
 
 	// the divergence gate
-	if div := objAt(brief, "divergence"); div.Kind == validation.Obj &&
+	if div := validation.ObjAt(brief, "divergence"); div.Kind == validation.Obj &&
 		!objBool(div, "closed") {
 		missing := listAt(div, "missing")
 		if len(missing) > 3 {
 			missing = missing[:3]
 		}
 		for _, m := range missing {
-			what := []rune(objStr(m, "what"))
+			what := []rune(validation.ObjStr(m, "what"))
 			if len(what) > 80 {
 				what = what[:80]
 			}
 			actions = append(actions, webv2Action(
 				"webv2 probes "+cid+" run --emit",
 				fmt.Sprintf("divergence gate open — %s: %s",
-					objStr(m, "subject"), string(what))))
+					validation.ObjStr(m, "subject"), string(what))))
 		}
 	}
 
 	// remaining high-consequence invariant debt
-	if att := objAt(brief, "attention"); att.Kind == validation.Obj {
-		items := listAt(asObj(objAt(att, "invariants")), "items")
+	if att := validation.ObjAt(brief, "attention"); att.Kind == validation.Obj {
+		items := listAt(asObj(validation.ObjAt(att, "invariants")), "items")
 		for _, item := range items {
 			if objBool(item, "high_consequence") &&
-				objStr(item, "command") != "" &&
-				!attentionLead[objStr(item, "invariant_id")] {
-				cmd := objStr(item, "command")
+				validation.ObjStr(item, "command") != "" &&
+				!attentionLead[validation.ObjStr(item, "invariant_id")] {
+				cmd := validation.ObjStr(item, "command")
 				actions = append(actions, cmd)
 				attentionLines[cmd] = true
 			}
@@ -2447,16 +2447,16 @@ func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, er
 	}
 
 	// integrity, if not checked deep
-	if objAt(integ, "ok").Kind == validation.Bool && !objAt(integ, "ok").B {
+	if validation.ObjAt(integ, "ok").Kind == validation.Bool && !validation.ObjAt(integ, "ok").B {
 		actions = append(actions, webv2Action("webv2 doctor "+cid,
 			"FIX INTEGRITY FIRST: "+integrityDetail(integ)))
 	}
 
 	// cost ceiling
-	if econ := objAt(brief, "economics"); econ.Kind == validation.Obj {
-		b := asObj(objAt(econ, "budget"))
-		spent := objAt(b, "spent_usd")
-		limit := objAt(b, "max_total_cost_usd")
+	if econ := validation.ObjAt(brief, "economics"); econ.Kind == validation.Obj {
+		b := asObj(validation.ObjAt(econ, "budget"))
+		spent := validation.ObjAt(b, "spent_usd")
+		limit := validation.ObjAt(b, "max_total_cost_usd")
 		if spent.Kind != validation.Null && limit.Kind != validation.Null &&
 			floatOf(spent) > floatOf(limit) {
 			actions = append(actions, webv2Action(
@@ -2470,8 +2470,8 @@ func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, er
 	}
 
 	// chains ready to materialize
-	for _, ch := range listAt(objAt(brief, "findings"), "materializable_chains") {
-		members := strListOf(objAt(ch, "members"))
+	for _, ch := range listAt(validation.ObjAt(brief, "findings"), "materializable_chains") {
+		members := strListOf(validation.ObjAt(ch, "members"))
 		cmd := "webv2 run " + cid
 		if len(members) >= 2 {
 			cmd = "webv2 chain " + cid + " " + strings.Join(members, " ")
@@ -2483,7 +2483,7 @@ func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, er
 	// the E6 queue
 	for _, q := range listAt(brief, "independent_verification_queue") {
 		need := "E6"
-		if v := objAt(q, "effective_floor"); v.Kind == validation.Str {
+		if v := validation.ObjAt(q, "effective_floor"); v.Kind == validation.Str {
 			need = v.S
 		} else if v.Kind == validation.Null {
 			need = "None"
@@ -2492,16 +2492,16 @@ func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, er
 		if objBool(q, "mandatory") {
 			tag = "MANDATORY, effective floor " + need
 		}
-		fid := objStr(q, "finding_id")
+		fid := validation.ObjStr(q, "finding_id")
 		actions = append(actions, webv2Action("webv2 verify "+cid+
 			" --finding "+fid+" --exec <EXEC-id> --verifier <verifier>"+
 			" --description <description>",
 			fmt.Sprintf("independently verify %s at %s, needs %s — %s",
-				fid, objStr(q, "evidence_level"), need, tag)))
+				fid, validation.ObjStr(q, "evidence_level"), need, tag)))
 	}
 
 	// memory recall
-	for _, fid := range listAt(objAt(brief, "findings"), "memory_recall_pending") {
+	for _, fid := range listAt(validation.ObjAt(brief, "findings"), "memory_recall_pending") {
 		actions = append(actions, webv2Action("webv2 recall "+cid+
 			" --finding "+valueText(fid),
 			"memory recall pending — critic + repro already in place"))
@@ -2509,10 +2509,10 @@ func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, er
 
 	// corpus recall (B3/D2): a recorded check that cites no structurally-
 	// overlapping row still closes the gate clause, so the operator is told.
-	cr := objAt(brief, "corpus_recall")
+	cr := validation.ObjAt(brief, "corpus_recall")
 	if cr.Kind == validation.Obj && objInt(cr, "irrelevant_checks") != 0 {
 		n := objInt(cr, "irrelevant_checks")
-		fids := strListOf(objAt(cr, "findings"))
+		fids := strListOf(validation.ObjAt(cr, "findings"))
 		first := "?"
 		if len(fids) > 0 {
 			first = fids[0]
@@ -2525,7 +2525,7 @@ func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, er
 		labelOnly := objInt(cr, "label_only_checks")
 		if labelOnly != 0 {
 			labels := strings.Join(aliasSuffixLabels(
-				strListOf(objAt(cr, "discounted"))), ", ")
+				strListOf(validation.ObjAt(cr, "discounted"))), ", ")
 			if labels == "" {
 				labels = "-"
 			}
@@ -2548,8 +2548,8 @@ func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, er
 	}
 
 	// structurally unreachable findings
-	for _, r := range listAt(objAt(brief, "findings"), "structurally_unreachable") {
-		floor := objStr(r, "floor")
+	for _, r := range listAt(validation.ObjAt(brief, "findings"), "structurally_unreachable") {
+		floor := validation.ObjStr(r, "floor")
 		floorArg := floor
 		if floorArg == "" || floorArg == "None" {
 			floorArg = "<E4-E7>"
@@ -2558,15 +2558,15 @@ func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, er
 			" set --actor <actor> --reason <reason> <class_> "+floorArg,
 			fmt.Sprintf("%s is structurally stuck at %s, effective floor %s"+
 				": %s — pin the target or record the decision",
-				objStr(r, "finding_id"), objStr(r, "level"),
+				validation.ObjStr(r, "finding_id"), validation.ObjStr(r, "level"),
 				orQuestion(floor),
-				strings.Join(strListOf(objAt(r, "missing")), "; "))))
+				strings.Join(strListOf(validation.ObjAt(r, "missing")), "; "))))
 	}
 
 	// bounty gate
-	if bv := objAt(brief, "bounty"); bv.Kind == validation.Obj {
+	if bv := validation.ObjAt(brief, "bounty"); bv.Kind == validation.Obj {
 		for _, x := range listAt(bv, "evaluated") {
-			fid := objStr(x, "finding_id")
+			fid := validation.ObjStr(x, "finding_id")
 			if objBool(x, "submission_ready") {
 				// submission itself happens off-CLI; the report is the
 				// command step that precedes it
@@ -2577,31 +2577,31 @@ func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, er
 			if objBool(x, "eligible") {
 				actions = append(actions, webv2Action("webv2 run "+cid,
 					fmt.Sprintf("finish %s for submission: %s", fid,
-						strings.Join(strListOf(objAt(x, "blocking_reasons")),
+						strings.Join(strListOf(validation.ObjAt(x, "blocking_reasons")),
 							"; "))))
 			}
 		}
 	}
 
 	// gate deficits
-	for _, d := range listAt(objAt(brief, "findings"), "gate_deficits") {
+	for _, d := range listAt(validation.ObjAt(brief, "findings"), "gate_deficits") {
 		actions = append(actions, webv2Action("webv2 run "+cid, fmt.Sprintf(
-			"advance %s — %s, %s: %s", objStr(d, "finding_id"),
-			objStr(d, "status"), objStr(d, "level"), objStr(d, "deficit"))))
+			"advance %s — %s, %s: %s", validation.ObjStr(d, "finding_id"),
+			validation.ObjStr(d, "status"), validation.ObjStr(d, "level"), validation.ObjStr(d, "deficit"))))
 	}
 
 	// pending memory promotion
 	for _, m := range listAt(brief, "pending_memory") {
 		actions = append(actions, webv2Action("webv2 memory "+cid+
-			" --approve "+objStr(m, "memory_id"),
+			" --approve "+validation.ObjStr(m, "memory_id"),
 			fmt.Sprintf("human decision on %s — %s/%s: approve or reject",
-				objStr(m, "memory_id"), objStr(m, "kind"),
-				objStr(m, "status"))))
+				validation.ObjStr(m, "memory_id"), validation.ObjStr(m, "kind"),
+				validation.ObjStr(m, "status"))))
 	}
 
 	// terminal states
 	for _, t := range listAt(brief, "terminals") {
-		path := strListOf(objAt(t, "path"))
+		path := strListOf(validation.ObjAt(t, "path"))
 		cmd := "webv2 terminals " + cid
 		if len(path) > 0 {
 			// the work command: demonstrate the terminal capability on the
@@ -2610,8 +2610,8 @@ func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, er
 		}
 		actions = append(actions, webv2Action(cmd, fmt.Sprintf(
 			"terminal state reachable: -> %s via %s — capital $%s",
-			objStr(t, "terminal_capability"), strings.Join(path, " -> "),
-			pyCommaFloat(floatOf(objAt(t, "capital_usd")), 0))))
+			validation.ObjStr(t, "terminal_capability"), strings.Join(path, " -> "),
+			pyCommaFloat(floatOf(validation.ObjAt(t, "capital_usd")), 0))))
 	}
 
 	generic := []string{}
@@ -2637,7 +2637,7 @@ func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, er
 			generic = append(generic, a)
 		}
 	}
-	surfacePresent := objAt(brief, "probe_surface").Kind != validation.Null
+	surfacePresent := validation.ObjAt(brief, "probe_surface").Kind != validation.Null
 	if len(generic) == 0 &&
 		(len(actions) == 0 || surfacePresent) {
 		extra, err := orchestrator.NextActions(campaign)
@@ -2661,9 +2661,9 @@ func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, er
 	// suppress or reorder the standing actions. Renders only — gates
 	// nothing.
 	if bounty.AutoTuneForCampaign(campaign) {
-		if econ := objAt(brief, "economics"); econ.Kind == validation.Obj {
+		if econ := validation.ObjAt(brief, "economics"); econ.Kind == validation.Obj {
 			for _, r := range listAt(econ, "lens_yield") {
-				lens := objStr(r, "lens")
+				lens := validation.ObjStr(r, "lens")
 				if lens == "" || lens == "unattributed" {
 					continue
 				}
@@ -2720,7 +2720,7 @@ func lensActionCampaign(brief validation.Value, campaign *state.Campaign) string
 	if campaign != nil && campaign.CampaignID != "" {
 		return campaign.CampaignID
 	}
-	if id := objStr(objAt(brief, "campaign"), "campaign_id"); id != "" {
+	if id := validation.ObjStr(validation.ObjAt(brief, "campaign"), "campaign_id"); id != "" {
 		return id
 	}
 	return "<campaign>"
@@ -2736,7 +2736,7 @@ func skewAction(brief validation.Value, campaign *state.Campaign) string {
 		return ""
 	}
 	running := version.Commit()
-	sid := objStr(objAt(brief, "campaign"), "active_snapshot")
+	sid := validation.ObjStr(validation.ObjAt(brief, "campaign"), "active_snapshot")
 	if sid == "" {
 		return ""
 	}
@@ -2758,10 +2758,10 @@ func pinBuild(campaign *state.Campaign, sid string) string {
 		return ""
 	}
 	for _, e := range events {
-		if objStr(e, "type") != "snapshot.pinned" || objStr(e, "ref") != sid {
+		if validation.ObjStr(e, "type") != "snapshot.pinned" || validation.ObjStr(e, "ref") != sid {
 			continue
 		}
-		if b := objStr(objAt(e, "data"), "framework_build"); b != "" {
+		if b := validation.ObjStr(validation.ObjAt(e, "data"), "framework_build"); b != "" {
 			return b
 		}
 	}

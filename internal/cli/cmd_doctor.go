@@ -178,30 +178,30 @@ func printDoctor(r *Runner, rep validation.Value) {
 	// state_validation precedent). The wording carries neither "snapshot"
 	// nor "state:", the two substrings the --state-only / --snapshot-only
 	// surface pins forbid leaking into each other's view.
-	if lv := objAt(rep, "log_validation"); lv.Kind == validation.Obj &&
-		objAt(lv, "ok").Kind == validation.Bool && !objAt(lv, "ok").B {
+	if lv := validation.ObjAt(rep, "log_validation"); lv.Kind == validation.Obj &&
+		validation.ObjAt(lv, "ok").Kind == validation.Bool && !validation.ObjAt(lv, "ok").B {
 		fmt.Fprintf(r.Out, "  WARNING: the event ledger is NOT certifiable — "+
 			"%s\n  doctor does not repair the ledger (no verb rewrites the "+
-			"log by design); this bill is NOT clean\n", objStr(lv, "error"))
+			"log by design); this bill is NOT clean\n", validation.ObjStr(lv, "error"))
 	}
-	if st := objAt(rep, "state"); st.Kind == validation.Obj {
-		if sv := objAt(st, "state_validation"); sv.Kind == validation.Obj &&
-			!objAt(sv, "ok").B {
+	if st := validation.ObjAt(rep, "state"); st.Kind == validation.Obj {
+		if sv := validation.ObjAt(st, "state_validation"); sv.Kind == validation.Obj &&
+			!validation.ObjAt(sv, "ok").B {
 			// r37b (F6): a schema-dead state may not bill as green. This
 			// line precedes the size bill so the run never reads clean.
 			fmt.Fprintf(r.Out, "  WARNING: campaign_state.json cannot be "+
 				"parsed/validated (%s) — this bill is NOT clean: the "+
 				"note-cap repair ran against raw bytes and every "+
 				"schema-gated check was NOT performed; no other verb "+
-				"can load this state\n", objStr(sv, "error"))
+				"can load this state\n", validation.ObjStr(sv, "error"))
 		}
 		fmt.Fprintf(r.Out, "state: %s -> %s (freed %s)\n",
 			mb(objFlt(st, "size_before")), mb(objFlt(st, "size_after")),
 			mb(objFlt(st, "bytes_freed")))
-		if objAt(st, "events_mirror_rebuilt").B {
+		if validation.ObjAt(st, "events_mirror_rebuilt").B {
 			msg := "  rebuilt the events mirror from events.jsonl (the " +
 				"ledger is the truth; the projection was stale)"
-			if d := objAt(st, "events_mirror_delta"); d.Kind == validation.Obj {
+			if d := validation.ObjAt(st, "events_mirror_delta"); d.Kind == validation.Obj {
 				ch := objInt(d, "changed")
 				dp := objInt(d, "dropped_from_projection")
 				ad := objInt(d, "added_from_log")
@@ -275,16 +275,16 @@ func printDoctor(r *Runner, rep validation.Value) {
 			}
 			fmt.Fprintln(r.Out, msg)
 		}
-		if ref := objAt(st, "events_mirror_refused"); ref.Kind == validation.Str {
+		if ref := validation.ObjAt(st, "events_mirror_refused"); ref.Kind == validation.Str {
 			fmt.Fprintf(r.Out, "  events mirror NOT rebuilt: %s\n"+
 				"  fix the ledger damage through sanctioned verbs; "+
 				"verify will keep naming it — do not hand-edit "+
 				"events.jsonl\n", ref.S)
 		}
-		notes := objAt(st, "notes_truncated").A
+		notes := validation.ObjAt(st, "notes_truncated").A
 		for _, t := range notes {
 			fmt.Fprintf(r.Out, "  truncated note on stage %s: %s -> %s "+
-				"chars\n", validation.PyReprStr(objStr(t, "stage")),
+				"chars\n", validation.PyReprStr(validation.ObjStr(t, "stage")),
 				pyThousands(objInt(t, "before")),
 				pyThousands(objInt(t, "after")))
 		}
@@ -292,10 +292,10 @@ func printDoctor(r *Runner, rep validation.Value) {
 			fmt.Fprintln(r.Out, "  all stage notes within the cap")
 		}
 	}
-	if snap := objAt(rep, "snapshot"); snap.Kind == validation.Obj {
-		if objAt(snap, "active_snapshot").Kind == validation.Null {
-			fmt.Fprintln(r.Out, "snapshot: "+objStr(snap, "note"))
-		} else if ex := objAt(snap, "exists"); ex.Kind == validation.Bool && !ex.B {
+	if snap := validation.ObjAt(rep, "snapshot"); snap.Kind == validation.Obj {
+		if validation.ObjAt(snap, "active_snapshot").Kind == validation.Null {
+			fmt.Fprintln(r.Out, "snapshot: "+validation.ObjStr(snap, "note"))
+		} else if ex := validation.ObjAt(snap, "exists"); ex.Kind == validation.Bool && !ex.B {
 			// r37b (F2): a MISSING ground-truth pin used to render as
 			// "snapshot <id>: None files, 0.0 MB" — an empty-but-present
 			// snapshot — because this branch had no exists/note case and
@@ -303,16 +303,16 @@ func printDoctor(r *Runner, rep validation.Value) {
 			// JSON honestly says exists:false + note; the human line
 			// carries the same fact now.
 			fmt.Fprintf(r.Out, "snapshot %s: MISSING — %s\n",
-				objStr(snap, "active_snapshot"), objStr(snap, "note"))
+				validation.ObjStr(snap, "active_snapshot"), validation.ObjStr(snap, "note"))
 		} else {
 			fmt.Fprintf(r.Out, "snapshot %s: %s files, %s\n",
-				objStr(snap, "active_snapshot"),
-				scalarStr(objAt(snap, "files")),
+				validation.ObjStr(snap, "active_snapshot"),
+				scalarStr(validation.ObjAt(snap, "files")),
 				mb(objFlt(snap, "bytes")))
-			if w := objStr(snap, "file_count_warning"); w != "" {
+			if w := validation.ObjStr(snap, "file_count_warning"); w != "" {
 				fmt.Fprintf(r.Out, "  WARNING: %s\n", w)
 			}
-			for _, d := range firstN(objAt(snap, "top_directories").A, 5) {
+			for _, d := range firstN(validation.ObjAt(snap, "top_directories").A, 5) {
 				// Each entry is [name, count] (Python's list of pairs).
 				if len(d.A) != 2 {
 					continue
@@ -322,17 +322,17 @@ func printDoctor(r *Runner, rep validation.Value) {
 			}
 		}
 	}
-	if pre := objAt(rep, "preflight"); pre.Kind == validation.Obj {
+	if pre := validation.ObjAt(rep, "preflight"); pre.Kind == validation.Obj {
 		fmt.Fprintln(r.Out, "preflight (sandbox readiness):")
 		tags := map[string]string{"ok": "ok  ", "warn": "WARN", "fail": "FAIL",
 			"na": "n/a "}
 		for _, name := range []string{"docker", "image", "solc", "workdir"} {
-			chk := objAt(objAt(pre, "checks"), name)
+			chk := validation.ObjAt(validation.ObjAt(pre, "checks"), name)
 			fmt.Fprintf(r.Out, "  %s %s — %s\n", pyLeft(name, 7),
-				tags[objStr(chk, "status")], objStr(chk, "detail"))
-			if fix := objStr(chk, "fix"); fix != "" &&
-				(objStr(chk, "status") == "fail" ||
-					objStr(chk, "status") == "warn") {
+				tags[validation.ObjStr(chk, "status")], validation.ObjStr(chk, "detail"))
+			if fix := validation.ObjStr(chk, "fix"); fix != "" &&
+				(validation.ObjStr(chk, "status") == "fail" ||
+					validation.ObjStr(chk, "status") == "warn") {
 				fmt.Fprintf(r.Out, "            fix: %s\n", fix)
 			}
 		}

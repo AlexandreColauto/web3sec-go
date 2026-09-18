@@ -179,7 +179,7 @@ func immConfirm(t *testing.T, c *state.Campaign, title string) (string, string) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	local, err := sandbox.RegisterExec(c, sandbox.RegisterOpts{
 		Profile: "docker-networkless",
 		Command: "forge test --match-test test_exploit", FindingID: &fid,
@@ -200,8 +200,8 @@ func immConfirm(t *testing.T, c *state.Campaign, title string) (string, string) 
 		kv("level", validation.VStr("E4")),
 		kv("type", validation.VStr("foundry-test")),
 		kv("description", validation.VStr("local harness repro")),
-		kv("sandbox_profile", objAt(local, "profile")),
-		kv("artifact_id", objAt(local, "exec_id")))); err != nil {
+		kv("sandbox_profile", validation.ObjAt(local, "profile")),
+		kv("artifact_id", validation.ObjAt(local, "exec_id")))); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := findings.AddEvidence(c, fid, validation.VObj(
@@ -209,8 +209,8 @@ func immConfirm(t *testing.T, c *state.Campaign, title string) (string, string) 
 		kv("level", validation.VStr("E5")),
 		kv("type", validation.VStr("fork-test")),
 		kv("description", validation.VStr("fork repro extracts 1.5M")),
-		kv("sandbox_profile", objAt(fork, "profile")),
-		kv("artifact_id", objAt(fork, "exec_id")),
+		kv("sandbox_profile", validation.ObjAt(fork, "profile")),
+		kv("artifact_id", validation.ObjAt(fork, "exec_id")),
 		kv("reruns", validation.VStr("3/3")),
 		kv("fork_stale", validation.VStr("12 blocks old")))); err != nil {
 		t.Fatal(err)
@@ -220,7 +220,7 @@ func immConfirm(t *testing.T, c *state.Campaign, title string) (string, string) 
 		t.Fatal(err)
 	}
 	f.O = validation.SetOrAppend(f.O, "status", validation.VStr("CONFIRMED"))
-	ver := objAt(f, "verification")
+	ver := validation.ObjAt(f, "verification")
 	if ver.Kind != validation.Obj {
 		ver = validation.VObj()
 	}
@@ -238,7 +238,7 @@ func immConfirm(t *testing.T, c *state.Campaign, title string) (string, string) 
 	if _, err := findings.SetExploitability(c, fid, true, immExploitArg); err != nil {
 		t.Fatal(err)
 	}
-	return fid, pyStr(objAt(fork, "exec_id"))
+	return fid, pyStr(validation.ObjAt(fork, "exec_id"))
 }
 
 // immMarkReady hand-stamps the stored gate output (no policy: the export
@@ -351,7 +351,7 @@ func TestImmunefiMissingChecklist(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	immMarkReady(t, c, fid)
 	paths, err := GenerateImmunefi(c)
 	if err != nil {
@@ -415,7 +415,7 @@ func TestImmunefiMultiFindingOrdering(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		fid := objStr(f, "finding_id")
+		fid := validation.ObjStr(f, "finding_id")
 		immMarkReady(t, c, fid)
 		fids = append(fids, fid)
 	}
@@ -435,7 +435,7 @@ func TestImmunefiMultiFindingOrdering(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	otherID := objStr(other, "finding_id")
+	otherID := validation.ObjStr(other, "finding_id")
 	paths, err := GenerateImmunefi(c)
 	if err != nil {
 		t.Fatal(err)
@@ -510,7 +510,7 @@ func TestImmunefiLeavesDefaultAlone(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	immMarkReady(t, c, objStr(f, "finding_id"))
+	immMarkReady(t, c, validation.ObjStr(f, "finding_id"))
 	mdPath, err := Generate(c)
 	if err != nil {
 		t.Fatal(err)

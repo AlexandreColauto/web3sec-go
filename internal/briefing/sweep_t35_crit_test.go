@@ -68,7 +68,7 @@ func TestBriefFlagsUntouchedConsensusCritical(t *testing.T) {
 		[]validation.Value{t35StateMachine("rollup")}, nil)
 	b := build(t, c, false)
 	found := false
-	for _, a := range objAt(b, "next_actions").A {
+	for _, a := range validation.ObjAt(b, "next_actions").A {
 		if strings.Contains(a.S, "consensus-critical") &&
 			strings.Contains(a.S, "Rollup") {
 			found = true
@@ -76,7 +76,7 @@ func TestBriefFlagsUntouchedConsensusCritical(t *testing.T) {
 	}
 	if !found {
 		t.Errorf("no untouched consensus-critical line in %v",
-			objAt(b, "next_actions"))
+			validation.ObjAt(b, "next_actions"))
 	}
 }
 
@@ -109,20 +109,20 @@ func TestBriefCoverageVaultNotCoveredByVaultProxy(t *testing.T) {
 		t.Fatal(err)
 	}
 	b := build(t, c, false)
-	crit := objAt(b, "criticality")
-	if cov := objAt(crit, "coverage"); objAt(cov, "Vault").Kind != validation.Bool ||
-		objAt(cov, "Vault").B {
-		t.Errorf("coverage[Vault] = %v, want false", objAt(cov, "Vault"))
+	crit := validation.ObjAt(b, "criticality")
+	if cov := validation.ObjAt(crit, "coverage"); validation.ObjAt(cov, "Vault").Kind != validation.Bool ||
+		validation.ObjAt(cov, "Vault").B {
+		t.Errorf("coverage[Vault] = %v, want false", validation.ObjAt(cov, "Vault"))
 	}
 	uncovered := false
-	for _, u := range objAt(crit, "uncovered_consensus_critical").A {
+	for _, u := range validation.ObjAt(crit, "uncovered_consensus_critical").A {
 		if u.S == "Vault" {
 			uncovered = true
 		}
 	}
 	if !uncovered {
 		t.Errorf("Vault missing from uncovered_consensus_critical: %v",
-			objAt(crit, "uncovered_consensus_critical"))
+			validation.ObjAt(crit, "uncovered_consensus_critical"))
 	}
 
 	// regression guard: divergence gate OPEN and Rollup untouched — both
@@ -160,7 +160,7 @@ func TestBriefCoverageVaultNotCoveredByVaultProxy(t *testing.T) {
 		t.Fatal(err)
 	}
 	b2 := build(t, c2, false)
-	acts := objAt(b2, "next_actions")
+	acts := validation.ObjAt(b2, "next_actions")
 	critI, divI := -1, -1
 	for i, a := range acts.A {
 		if strings.Contains(a.S, "consensus-critical") &&
@@ -220,13 +220,13 @@ func TestBriefNextActionNamesUnattestedFamily(t *testing.T) {
 	}
 	b := build(t, c, false)
 	divLines := []string{}
-	for _, a := range objAt(b, "next_actions").A {
+	for _, a := range validation.ObjAt(b, "next_actions").A {
 		if strings.Contains(a.S, "divergence") {
 			divLines = append(divLines, a.S)
 		}
 	}
 	if len(divLines) == 0 {
-		t.Fatalf("no divergence line in %v", objAt(b, "next_actions"))
+		t.Fatalf("no divergence line in %v", validation.ObjAt(b, "next_actions"))
 	}
 	named := false
 	for _, l := range divLines {

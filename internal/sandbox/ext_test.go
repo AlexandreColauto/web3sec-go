@@ -55,9 +55,9 @@ func TestPolicyCheckDeniesEgressTools(t *testing.T) {
 	if boolAt(v, "allowed") {
 		t.Error("allowed = true, want false")
 	}
-	if !containsStrValue(objAt(v, "violations"), "network-egress-tool") {
+	if !containsStrValue(validation.ObjAt(v, "violations"), "network-egress-tool") {
 		t.Errorf("violations = %s, want network-egress-tool",
-			validation.CanonCompact(objAt(v, "violations")))
+			validation.CanonCompact(validation.ObjAt(v, "violations")))
 	}
 }
 
@@ -70,9 +70,9 @@ func TestPolicyCheckDeniesSecretAccess(t *testing.T) {
 	if boolAt(v, "allowed") {
 		t.Error("allowed = true, want false")
 	}
-	if !containsStrValue(objAt(v, "violations"), "secret-access") {
+	if !containsStrValue(validation.ObjAt(v, "violations"), "secret-access") {
 		t.Errorf("violations = %s, want secret-access",
-			validation.CanonCompact(objAt(v, "violations")))
+			validation.CanonCompact(validation.ObjAt(v, "violations")))
 	}
 }
 
@@ -84,7 +84,7 @@ func TestPolicyCheckAllowsForgeTest(t *testing.T) {
 	}
 	if !boolAt(v, "allowed") {
 		t.Errorf("allowed = false (violations %s), want true",
-			validation.CanonCompact(objAt(v, "violations")))
+			validation.CanonCompact(validation.ObjAt(v, "violations")))
 	}
 }
 
@@ -95,7 +95,7 @@ func TestPolicyCheckRuleTable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rules := objAt(v, "checked_rules")
+	rules := validation.ObjAt(v, "checked_rules")
 	want := []string{"network-egress-tool", "privilege-escalation",
 		"destructive-path", "secret-access", "external-publish", "system-write"}
 	if len(rules.A) != len(want) {
@@ -117,9 +117,9 @@ func TestPolicyCheckRuleTable(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !containsStrValue(objAt(v, "violations"), tc.rule) {
+		if !containsStrValue(validation.ObjAt(v, "violations"), tc.rule) {
 			t.Errorf("%q violations = %s, want %s", tc.cmd,
-				validation.CanonCompact(objAt(v, "violations")), tc.rule)
+				validation.CanonCompact(validation.ObjAt(v, "violations")), tc.rule)
 		}
 	}
 	// Python's `rm -rf /(?!tmp)` exempts /tmp.
@@ -127,7 +127,7 @@ func TestPolicyCheckRuleTable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if containsStrValue(objAt(v2, "violations"), "destructive-path") {
+	if containsStrValue(validation.ObjAt(v2, "violations"), "destructive-path") {
 		t.Error("rm -rf /tmp/x must not trip destructive-path")
 	}
 }
@@ -157,7 +157,7 @@ func TestSandboxRunRecordsExecution(t *testing.T) {
 	if got := intAt(rec, "exit_status"); got != 0 {
 		t.Errorf("exit_status = %d, want 0", got)
 	}
-	if !boolAt(objAt(rec, "policy_verdict"), "allowed") {
+	if !boolAt(validation.ObjAt(rec, "policy_verdict"), "allowed") {
 		t.Error("policy_verdict.allowed = false, want true")
 	}
 	loaded, err := LoadExec(c, strAt(rec, "exec_id"))
@@ -189,7 +189,7 @@ func TestSandboxRefusesAndRecords(t *testing.T) {
 	if len(execs) != 1 {
 		t.Fatalf("exec records = %d, want 1", len(execs))
 	}
-	if boolAt(objAt(execs[0], "policy_verdict"), "allowed") {
+	if boolAt(validation.ObjAt(execs[0], "policy_verdict"), "allowed") {
 		t.Error("recorded policy_verdict.allowed = true, want false")
 	}
 }
@@ -223,7 +223,7 @@ func TestPreviewContainerNoDaemon(t *testing.T) {
 	if strAt(pv, "workdir_mode") != "tmpfs" {
 		t.Errorf("workdir_mode = %q, want tmpfs", strAt(pv, "workdir_mode"))
 	}
-	argv := strList(objAt(pv, "argv"))
+	argv := strList(validation.ObjAt(pv, "argv"))
 	if len(argv) == 0 || argv[0] != "docker" {
 		t.Fatalf("argv = %v", argv)
 	}
@@ -261,19 +261,19 @@ func TestPreviewForkRunnerEnvDefault(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !containsStrValue(objAt(pv, "env_keys"), "FORK_RPC_URL") {
+	if !containsStrValue(validation.ObjAt(pv, "env_keys"), "FORK_RPC_URL") {
 		t.Errorf("env_keys = %s, want FORK_RPC_URL",
-			validation.CanonCompact(objAt(pv, "env_keys")))
+			validation.CanonCompact(validation.ObjAt(pv, "env_keys")))
 	}
 	found := false
-	for _, a := range strList(objAt(pv, "argv")) {
+	for _, a := range strList(validation.ObjAt(pv, "argv")) {
 		if strings.Contains(a, "host.docker.internal") {
 			found = true
 		}
 	}
 	if !found {
 		t.Errorf("argv = %v, want a host.docker.internal entry",
-			strList(objAt(pv, "argv")))
+			strList(validation.ObjAt(pv, "argv")))
 	}
 }
 
@@ -308,7 +308,7 @@ func TestForkRunnerInheritsOperatorForkRPCURL(t *testing.T) {
 	if !containsStrValue(strValueArr(argv), "FORK_RPC_URL=http://operator-fork:9545") {
 		t.Errorf("argv = %v, want the operator FORK_RPC_URL", argv)
 	}
-	if !containsStrValue(objAt(objAt(rec, "container"), "env_keys"), "FORK_RPC_URL") {
+	if !containsStrValue(validation.ObjAt(validation.ObjAt(rec, "container"), "env_keys"), "FORK_RPC_URL") {
 		t.Error("container.env_keys must name FORK_RPC_URL")
 	}
 }
@@ -321,7 +321,7 @@ func TestForkRunnerDefaultWithoutOperatorEnv(t *testing.T) {
 	if !containsStrValue(strValueArr(argv), want) {
 		t.Errorf("argv = %v, want %s", argv, want)
 	}
-	if !containsStrValue(objAt(objAt(rec, "container"), "env_keys"), "FORK_RPC_URL") {
+	if !containsStrValue(validation.ObjAt(validation.ObjAt(rec, "container"), "env_keys"), "FORK_RPC_URL") {
 		t.Error("container.env_keys must name FORK_RPC_URL")
 	}
 }
@@ -337,7 +337,7 @@ func TestForkRunnerExplicitEnvBeatsOperatorEnv(t *testing.T) {
 	if containsStrValue(strValueArr(argv), "FORK_RPC_URL=http://operator-fork:9545") {
 		t.Errorf("argv = %v must not carry the operator value", argv)
 	}
-	if !containsStrValue(objAt(objAt(rec, "container"), "env_keys"), "FORK_RPC_URL") {
+	if !containsStrValue(validation.ObjAt(validation.ObjAt(rec, "container"), "env_keys"), "FORK_RPC_URL") {
 		t.Error("container.env_keys must name FORK_RPC_URL")
 	}
 }
@@ -364,9 +364,9 @@ func TestRegisterExecAndAllExecs(t *testing.T) {
 	if got := ExecOutput(rec); got != "PASS: test_exploit\n" {
 		t.Errorf("exec output = %q", got)
 	}
-	if strAt(objAt(rec, "environment"), "network_access") != "none" {
+	if strAt(validation.ObjAt(rec, "environment"), "network_access") != "none" {
 		t.Errorf("network_access = %q",
-			strAt(objAt(rec, "environment"), "network_access"))
+			strAt(validation.ObjAt(rec, "environment"), "network_access"))
 	}
 	execs, err := AllExecs(c)
 	if err != nil {
@@ -427,7 +427,7 @@ func strList(v validation.Value) []string {
 }
 
 func intAt(v validation.Value, key string) int64 {
-	f := objAt(v, key)
+	f := validation.ObjAt(v, key)
 	if f.Kind == validation.Int {
 		return f.I
 	}

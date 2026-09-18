@@ -211,7 +211,7 @@ func (g gateResult) value() validation.Value {
 	}
 	return validation.VObj(
 		validation.KV{K: "modifier", V: validation.VStr(g.modifier)},
-		validation.KV{K: "tokens", V: strArr(g.tokens)},
+		validation.KV{K: "tokens", V: validation.StrArr(g.tokens)},
 		validation.KV{K: "actor", V: actor},
 		validation.KV{K: "trust", V: trust},
 		validation.KV{K: "mechanism", V: validation.VStr(g.mechanism)},

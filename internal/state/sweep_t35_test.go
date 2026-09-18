@@ -37,7 +37,7 @@ func TestSetDiscoveryBudgetUpdatesAndLogs(t *testing.T) {
 	}
 	var found int
 	for _, e := range events {
-		if objStr(e, "type") != "budget.discovery_set" {
+		if validation.ObjStr(e, "type") != "budget.discovery_set" {
 			continue
 		}
 		found++
@@ -90,7 +90,7 @@ func TestSetDiscoveryBudgetRejectsNonpositive(t *testing.T) {
 	}
 	events, _ := c.Events()
 	for _, e := range events {
-		if objStr(e, "type") == "budget.discovery_set" {
+		if validation.ObjStr(e, "type") == "budget.discovery_set" {
 			t.Error("rejected set must not log")
 		}
 	}
@@ -116,7 +116,7 @@ func TestCeilingChangeIsLogged(t *testing.T) {
 	}
 	var got []validation.Value
 	for _, e := range events {
-		if objStr(e, "type") == "budget.limit_set" {
+		if validation.ObjStr(e, "type") == "budget.limit_set" {
 			got = append(got, objVal(e, "data"))
 		}
 	}

@@ -60,20 +60,20 @@ func runYields(root string, args []string, r *Runner) int {
 		if err != nil {
 			return err
 		}
-		for _, row := range objAt(rep, "trajectories").A {
-			y := objAt(row, "yield_usd_per_usd")
+		for _, row := range validation.ObjAt(rep, "trajectories").A {
+			y := validation.ObjAt(row, "yield_usd_per_usd")
 			ys := "n/a"
 			if y.Kind != validation.Null {
 				ys = t26Fixed1(objFlt(row, "yield_usd_per_usd")) + "x"
 			}
 			fmt.Fprintf(r.Out, "%s cost=$%s confirmed=%d value=$%s  "+
-				"yield=%s\n", pyLeft(objStr(row, "trajectory"), 20),
+				"yield=%s\n", pyLeft(validation.ObjStr(row, "trajectory"), 20),
 				pyRight(pyFixed2(objFlt(row, "total_cost_usd")), 9),
 				objInt(row, "confirmed_findings"),
 				pyRight(pyFixed2(objFlt(row, "confirmed_value_usd")), 12), ys)
 		}
-		t := objAt(rep, "totals")
-		ty := objAt(t, "yield_usd_per_usd")
+		t := validation.ObjAt(rep, "totals")
+		ty := validation.ObjAt(t, "yield_usd_per_usd")
 		tys := "n/a"
 		if ty.Kind != validation.Null {
 			tys = t26Fixed1(objFlt(t, "yield_usd_per_usd")) + "x"
@@ -89,8 +89,8 @@ func runYields(root string, args []string, r *Runner) int {
 		}
 		for _, a := range advice {
 			fmt.Fprintf(r.Out, "  advice #%d: %s — %s\n",
-				objInt(a, "rank"), objStr(a, "trajectory"),
-				objStr(a, "advice"))
+				objInt(a, "rank"), validation.ObjStr(a, "trajectory"),
+				validation.ObjStr(a, "advice"))
 		}
 		return nil
 	})

@@ -36,7 +36,7 @@ func TestLedgerRefusalUndoesTheCeiling(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ceil := objAt(objAt(st, "budget"), "max_total_cost_usd")
+	ceil := validation.ObjAt(validation.ObjAt(st, "budget"), "max_total_cost_usd")
 	if ceil.Kind != validation.Flt || ceil.F != 42.0 {
 		t.Fatalf("refused set left the ceiling half-landed at %v — "+
 			"the unwind must restore 42.0", ceil)
@@ -71,8 +71,8 @@ func TestUnwindOnStageAndArtifact(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	arts := objAt(st, "artifacts").A
-	if len(arts) != 1 || objStr(arts[0], "note") != "initial" {
+	arts := validation.ObjAt(st, "artifacts").A
+	if len(arts) != 1 || validation.ObjStr(arts[0], "note") != "initial" {
 		t.Fatalf("refused register mutated the projection: %d rows (%v)",
 			len(arts), arts)
 	}
@@ -110,7 +110,7 @@ func TestLedgerRefusalUndoesTheRefresh(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	row := objAt(objAt(st, "artifacts").A[0], "sha256")
+	row := validation.ObjAt(validation.ObjAt(st, "artifacts").A[0], "sha256")
 	wantOld, _ := validation.Sha256File(art)
 	_ = wantOld
 	if row.Kind != validation.Str || row.S == "" {
@@ -118,7 +118,7 @@ func TestLedgerRefusalUndoesTheRefresh(t *testing.T) {
 	}
 	// The registration sha was for v:1 — after unwind the row must NOT
 	// carry a refreshed_at/refresh_count (the projection is v:1-era):
-	if rc := objAt(objAt(st, "artifacts").A[0], "refresh_count"); rc.Kind == validation.Int && rc.I > 0 {
+	if rc := validation.ObjAt(validation.ObjAt(st, "artifacts").A[0], "refresh_count"); rc.Kind == validation.Int && rc.I > 0 {
 		t.Fatalf("half-landed refresh survived the unwind: %v", rc)
 	}
 }

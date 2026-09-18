@@ -72,7 +72,7 @@ func dgEventsOfType(t *testing.T, root, cid, typ string) []validation.Value {
 	}
 	var out []validation.Value
 	for _, e := range evts {
-		if objStr(e, "type") == typ {
+		if validation.ObjStr(e, "type") == typ {
 			out = append(out, e)
 		}
 	}
@@ -96,7 +96,7 @@ func dgSeedSentinelSurface(t *testing.T, root, cid string) {
 	found := false
 	rows := t14List(surface, "rows").A
 	for i, r := range rows {
-		if objStr(r, "row_id") != "81dfad6492" {
+		if validation.ObjStr(r, "row_id") != "81dfad6492" {
 			continue
 		}
 		found = true
@@ -127,7 +127,7 @@ func dgStoredPriority(t *testing.T, root, cid, pid string) validation.Value {
 		t.Fatal(err)
 	}
 	for _, p := range t14List(plan, "priorities").A {
-		if objStr(p, "id") == pid {
+		if validation.ObjStr(p, "id") == pid {
 			return p
 		}
 	}
@@ -173,11 +173,11 @@ func TestAnsweredCLISentinelPassesFlag(t *testing.T) {
 	}
 	// the refusal is a decision that did not happen: the priority is untouched
 	p := dgStoredPriority(t, root, cid, "Q-005")
-	if got := objStr(p, "status"); got != "open" {
+	if got := validation.ObjStr(p, "status"); got != "open" {
 		t.Fatalf("refused closure changed the status to %q", got)
 	}
-	if objAt(p, "passes").Kind != validation.Null {
-		t.Fatalf("refused closure recorded passes = %q", objStr(p, "passes"))
+	if validation.ObjAt(p, "passes").Kind != validation.Null {
+		t.Fatalf("refused closure recorded passes = %q", validation.ObjStr(p, "passes"))
 	}
 
 	// (2) accept: the same closure with the value that passes the check
@@ -189,10 +189,10 @@ func TestAnsweredCLISentinelPassesFlag(t *testing.T) {
 		t.Fatalf("exit %d: %q", code, errS)
 	}
 	p = dgStoredPriority(t, root, cid, "Q-005")
-	if got := objStr(p, "status"); got != "answered" {
+	if got := validation.ObjStr(p, "status"); got != "answered" {
 		t.Errorf("status = %q, want answered", got)
 	}
-	if got := objStr(p, "passes"); got != passes {
+	if got := validation.ObjStr(p, "passes"); got != passes {
 		t.Errorf("passes = %q, want %q", got, passes)
 	}
 
@@ -210,7 +210,7 @@ func TestAnsweredCLISentinelPassesFlag(t *testing.T) {
 	}
 	// negative control: the refusal is a decision that did not happen
 	p = dgStoredPriority(t, root, cid, "Q-005")
-	if got := objStr(p, "passes"); got != passes {
+	if got := validation.ObjStr(p, "passes"); got != passes {
 		t.Fatalf("junk refusal changed passes to %q, want %q", got, passes)
 	}
 	// the literal shape rides the same flag through the CLI and is recorded
@@ -221,7 +221,7 @@ func TestAnsweredCLISentinelPassesFlag(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("literal --passes exit %d: %q", code, errS)
 	}
-	if got := objStr(dgStoredPriority(t, root, cid, "Q-005"), "passes"); got != passes {
+	if got := validation.ObjStr(dgStoredPriority(t, root, cid, "Q-005"), "passes"); got != passes {
 		t.Errorf("passes = %q, want %q", got, passes)
 	}
 
@@ -302,9 +302,9 @@ func TestAnsweredDismissalGateRejects(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, p := range t14List(plan, "priorities").A {
-		if objStr(p, "id") == "Q-005" && objStr(p, "status") != "open" {
+		if validation.ObjStr(p, "id") == "Q-005" && validation.ObjStr(p, "status") != "open" {
 			t.Fatalf("rejected closure changed the plan status to %q",
-				objStr(p, "status"))
+				validation.ObjStr(p, "status"))
 		}
 	}
 }
@@ -330,7 +330,7 @@ func TestAnsweredDismissalGateExecBacked(t *testing.T) {
 	if len(evts) != 1 {
 		t.Fatalf("plan.priority_status events = %d, want 1", len(evts))
 	}
-	if got := objStr(objAt(evts[0], "data"), "ref"); got != "EXEC-abcdef1234" {
+	if got := validation.ObjStr(validation.ObjAt(evts[0], "data"), "ref"); got != "EXEC-abcdef1234" {
 		t.Errorf("event ref = %q, want EXEC-abcdef1234", got)
 	}
 }
@@ -371,18 +371,18 @@ func TestAnsweredDismissalGateOverride(t *testing.T) {
 	if len(evts) != 1 {
 		t.Fatalf("probe.dismissal_overridden events = %d, want 1", len(evts))
 	}
-	data := objAt(evts[0], "data")
-	if got := objStr(data, "row_id"); got != "81dfad6492" {
+	data := validation.ObjAt(evts[0], "data")
+	if got := validation.ObjStr(data, "row_id"); got != "81dfad6492" {
 		t.Errorf("row_id = %q", got)
 	}
-	if got := objStr(data, "actor"); got != "operator" {
+	if got := validation.ObjStr(data, "actor"); got != "operator" {
 		t.Errorf("actor = %q, want operator", got)
 	}
-	if got := objStr(data, "override_reason"); got !=
+	if got := validation.ObjStr(data, "override_reason"); got !=
 		"the owner confirmed the intended behavior in the spec" {
 		t.Errorf("override_reason = %q", got)
 	}
-	if got := objStr(data, "closed_reason"); got != "liveness-only" {
+	if got := validation.ObjStr(data, "closed_reason"); got != "liveness-only" {
 		t.Errorf("closed_reason = %q", got)
 	}
 	// the = spelling parses identically
@@ -431,11 +431,11 @@ func TestAnsweredSentinelOverrideNeedsReason(t *testing.T) {
 		t.Fatalf("stderr = %q, want the override-reason refusal", errS)
 	}
 	p := dgStoredPriority(t, root, cid, "Q-005")
-	if got := objStr(p, "status"); got != "open" {
+	if got := validation.ObjStr(p, "status"); got != "open" {
 		t.Fatalf("refused closure changed the status to %q", got)
 	}
-	if objAt(p, "passes").Kind != validation.Null {
-		t.Fatalf("refused closure recorded passes = %q", objStr(p, "passes"))
+	if validation.ObjAt(p, "passes").Kind != validation.Null {
+		t.Fatalf("refused closure recorded passes = %q", validation.ObjStr(p, "passes"))
 	}
 
 	// (2) override with a reason: closes, announces, one event
@@ -457,24 +457,24 @@ func TestAnsweredSentinelOverrideNeedsReason(t *testing.T) {
 	if len(evts) != 1 {
 		t.Fatalf("probe.dismissal_overridden events = %d, want 1", len(evts))
 	}
-	data := objAt(evts[0], "data")
-	if got := objStr(data, "row_id"); got != "81dfad6492" {
+	data := validation.ObjAt(evts[0], "data")
+	if got := validation.ObjStr(data, "row_id"); got != "81dfad6492" {
 		t.Errorf("row_id = %q", got)
 	}
-	if got := objAt(data, "tier").I; got != 0 {
+	if got := validation.ObjAt(data, "tier").I; got != 0 {
 		t.Errorf("tier = %d, want 0", got)
 	}
-	if got := objAt(data, "assertion_gap").I; got != 4 {
+	if got := validation.ObjAt(data, "assertion_gap").I; got != 4 {
 		t.Errorf("assertion_gap = %d, want 4", got)
 	}
-	if got := objStr(data, "actor"); got != "operator" {
+	if got := validation.ObjStr(data, "actor"); got != "operator" {
 		t.Errorf("actor = %q, want operator", got)
 	}
-	if got := objStr(data, "override_reason"); got !=
+	if got := validation.ObjStr(data, "override_reason"); got !=
 		"the operator accepts the risk in writing for this run" {
 		t.Errorf("override_reason = %q", got)
 	}
-	if got := objStr(data, "closed_reason"); got != "liveness-only" {
+	if got := validation.ObjStr(data, "closed_reason"); got != "liveness-only" {
 		t.Errorf("closed_reason = %q", got)
 	}
 }
@@ -509,7 +509,7 @@ func dgSeedLowSurface(t *testing.T, root, cid string) {
 	found := false
 	rows := t14List(surface, "rows").A
 	for i, r := range rows {
-		if objStr(r, "row_id") != "81dfad6492" {
+		if validation.ObjStr(r, "row_id") != "81dfad6492" {
 			continue
 		}
 		found = true
@@ -554,7 +554,7 @@ func TestAnsweredCLIDeferredConsequenceGate(t *testing.T) {
 	}
 	// the refusal is a decision that did not happen
 	p := dgStoredPriority(t, root, cid, "Q-005")
-	if got := objStr(p, "status"); got != "open" {
+	if got := validation.ObjStr(p, "status"); got != "open" {
 		t.Fatalf("refused closure changed the status to %q", got)
 	}
 
@@ -573,7 +573,7 @@ func TestAnsweredCLIDeferredConsequenceGate(t *testing.T) {
 		t.Fatalf("interim stdout = %q", out)
 	}
 	p = dgStoredPriority(t, root, cid, "Q-005")
-	if got := objStr(p, "interim"); got != interim {
+	if got := validation.ObjStr(p, "interim"); got != interim {
 		t.Errorf("interim = %q, want %q", got, interim)
 	}
 
@@ -591,7 +591,7 @@ func TestAnsweredCLIDeferredConsequenceGate(t *testing.T) {
 		t.Fatalf("finding exit %d: %q", code, errS)
 	}
 	p = dgStoredPriority(t, root2, cid2, "Q-005")
-	if got := objStr(p, "interim_finding"); got != "F-1a2b3c4d5e6f" {
+	if got := validation.ObjStr(p, "interim_finding"); got != "F-1a2b3c4d5e6f" {
 		t.Errorf("interim_finding = %q", got)
 	}
 
@@ -679,7 +679,7 @@ func TestAnsweredCLIDeferredFlagsArgparse(t *testing.T) {
 		t.Fatalf("= spelling exit %d: %q", code, errS)
 	}
 	p := dgStoredPriority(t, root, cid, "Q-005")
-	if got := objStr(p, "interim"); got != "until finalizeBatch asserts "+
+	if got := validation.ObjStr(p, "interim"); got != "until finalizeBatch asserts "+
 		"prev:state, commitBatch accepts a stale root" {
 		t.Errorf("interim = %q", got)
 	}
@@ -712,7 +712,7 @@ func TestAnsweredCLIDeferredOverride(t *testing.T) {
 		t.Fatalf("stderr = %q, want the override-reason refusal", errS)
 	}
 	p := dgStoredPriority(t, root, cid, "Q-005")
-	if got := objStr(p, "status"); got != "open" {
+	if got := validation.ObjStr(p, "status"); got != "open" {
 		t.Fatalf("refused closure changed the status to %q", got)
 	}
 
@@ -744,14 +744,14 @@ func TestAnsweredCLIDeferredOverride(t *testing.T) {
 			t.Fatalf("case %d: probe.dismissal_overridden events = %d, "+
 				"want exactly 1", i, len(evts))
 		}
-		data := objAt(evts[0], "data")
-		if got := objStr(data, "row_id"); got != "81dfad6492" {
+		data := validation.ObjAt(evts[0], "data")
+		if got := validation.ObjStr(data, "row_id"); got != "81dfad6492" {
 			t.Errorf("case %d: row_id = %q", i, got)
 		}
-		if got := objStr(data, "actor"); got != "operator" {
+		if got := validation.ObjStr(data, "actor"); got != "operator" {
 			t.Errorf("case %d: actor = %q", i, got)
 		}
-		if got := objStr(data, "override_reason"); got !=
+		if got := validation.ObjStr(data, "override_reason"); got !=
 			"the operator accepts the interim window in writing for this run" {
 			t.Errorf("case %d: override_reason = %q", i, got)
 		}
@@ -784,7 +784,7 @@ func TestAnsweredCLILowRiskOverrideLogged(t *testing.T) {
 		t.Fatalf("stderr = %q, want the override-reason refusal", errS)
 	}
 	p := dgStoredPriority(t, root, cid, "Q-005")
-	if got := objStr(p, "status"); got != "open" {
+	if got := validation.ObjStr(p, "status"); got != "open" {
 		t.Fatalf("refused closure changed the status to %q", got)
 	}
 
@@ -805,20 +805,20 @@ func TestAnsweredCLILowRiskOverrideLogged(t *testing.T) {
 	if len(evts) != 1 {
 		t.Fatalf("probe.dismissal_overridden events = %d, want 1", len(evts))
 	}
-	data := objAt(evts[0], "data")
-	if got := objStr(data, "row_id"); got != "81dfad6492" {
+	data := validation.ObjAt(evts[0], "data")
+	if got := validation.ObjStr(data, "row_id"); got != "81dfad6492" {
 		t.Errorf("row_id = %q", got)
 	}
-	if got := objAt(data, "tier").I; got != 2 {
+	if got := validation.ObjAt(data, "tier").I; got != 2 {
 		t.Errorf("tier = %d, want 2", got)
 	}
-	if got := objAt(data, "assertion_gap").I; got != 1 {
+	if got := validation.ObjAt(data, "assertion_gap").I; got != 1 {
 		t.Errorf("assertion_gap = %d, want 1", got)
 	}
-	if got := objStr(data, "actor"); got != "operator" {
+	if got := validation.ObjStr(data, "actor"); got != "operator" {
 		t.Errorf("actor = %q, want operator", got)
 	}
-	if got := objStr(data, "override_reason"); got !=
+	if got := validation.ObjStr(data, "override_reason"); got !=
 		"the operator accepts the risk in writing for this run" {
 		t.Errorf("override_reason = %q", got)
 	}
@@ -887,7 +887,7 @@ func TestAnsweredCLIFindingMustBeLive(t *testing.T) {
 		t.Fatalf("stdout = %q", out)
 	}
 	p := dgStoredPriority(t, root, cid, "Q-001")
-	if got := objStr(p, "interim_finding"); got != "F-1a2b3c4d5e6f" {
+	if got := validation.ObjStr(p, "interim_finding"); got != "F-1a2b3c4d5e6f" {
 		t.Errorf("interim_finding = %q", got)
 	}
 }

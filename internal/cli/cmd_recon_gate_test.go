@@ -64,7 +64,7 @@ func TestReconGateRefusesWithoutRecon(t *testing.T) {
 	// the refusal is a decision that did not happen: the lens stays open and
 	// the event log is silent
 	l := rcStoredLens(t, root, cid, "L-04")
-	if got := objStr(l, "status"); got != "open" {
+	if got := validation.ObjStr(l, "status"); got != "open" {
 		t.Fatalf("refused attestation changed the status to %q", got)
 	}
 	if evts := dgEventsOfType(t, root, cid, "plan.lens_status"); len(evts) != 0 {
@@ -133,10 +133,10 @@ func TestReconGatePassesAfterRealRecon(t *testing.T) {
 	}
 	// the sinks stamp is on record and names the tree it ran over
 	stamp := rgReconStamp(t, root, cid)
-	if objStr(stamp, "src") != tree {
-		t.Fatalf("recon.sinks.src = %q, want %q", objStr(stamp, "src"), tree)
+	if validation.ObjStr(stamp, "src") != tree {
+		t.Fatalf("recon.sinks.src = %q, want %q", validation.ObjStr(stamp, "src"), tree)
 	}
-	if objStr(stamp, "at") == "" {
+	if validation.ObjStr(stamp, "at") == "" {
 		t.Fatal("recon.sinks.at is empty")
 	}
 	// the gate passes: the L-04 attestation lands
@@ -145,7 +145,7 @@ func TestReconGatePassesAfterRealRecon(t *testing.T) {
 		t.Fatalf("attested closure refused: %q", errS)
 	}
 	l := rcStoredLens(t, root, cid, "L-04")
-	if got := objStr(l, "status"); got != "answered" {
+	if got := validation.ObjStr(l, "status"); got != "answered" {
 		t.Fatalf("status = %q", got)
 	}
 }
@@ -169,21 +169,21 @@ func TestSinksStampIsIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	recon := objAt(st, "recon")
+	recon := validation.ObjAt(st, "recon")
 	if recon.Kind != validation.Obj {
 		t.Fatalf("state.recon = %s", validation.CanonCompact(recon))
 	}
 	if len(recon.O) != 1 || recon.O[0].K != "sinks" {
 		t.Fatalf("recon keys = %s", validation.CanonCompact(recon))
 	}
-	stamp := objAt(recon, "sinks")
-	if len(stamp.O) != 3 || objStr(stamp, "src") != tree ||
-		objStr(stamp, "at") == "" ||
-		objStr(stamp, "campaign_id") != cid {
+	stamp := validation.ObjAt(recon, "sinks")
+	if len(stamp.O) != 3 || validation.ObjStr(stamp, "src") != tree ||
+		validation.ObjStr(stamp, "at") == "" ||
+		validation.ObjStr(stamp, "campaign_id") != cid {
 		t.Fatalf("sinks stamp = %s", validation.CanonCompact(stamp))
 	}
 	// and the gate helper reads the same row
-	if got := objStr(rgReconStamp(t, root, cid), "src"); got != tree {
+	if got := validation.ObjStr(rgReconStamp(t, root, cid), "src"); got != tree {
 		t.Fatalf("ReconStamp src = %q", got)
 	}
 }

@@ -282,7 +282,7 @@ func FailingCheckIDs(clauses []Clause) []string {
 // in gate_requirements, the same live logic the gate uses).
 func EconomicClausePresent(campaign *state.Campaign, finding validation.Value) bool {
 	cls := ""
-	if v := objAt(asDict(objAt(finding, "root_cause")), "class"); v.Kind ==
+	if v := validation.ObjAt(asDict(validation.ObjAt(finding, "root_cause")), "class"); v.Kind ==
 		validation.Str {
 		cls = v.S
 	}
@@ -385,8 +385,8 @@ func ReachabilityDiagnostic(campaign *state.Campaign, minLevel string,
 	}
 	hasDep, hasChain := false, false
 	if present {
-		hasDep = validation.PyTruthy(objAt(pin, "deployment"))
-		hasChain = validation.PyTruthy(objAt(pin, "chain"))
+		hasDep = validation.PyTruthy(validation.ObjAt(pin, "deployment"))
+		hasChain = validation.PyTruthy(validation.ObjAt(pin, "chain"))
 	}
 	if !(hasDep || hasChain) {
 		missing = append(missing,
@@ -417,11 +417,11 @@ func ReachabilityDiagnostic(campaign *state.Campaign, minLevel string,
 // match the registry regardless of spelling.
 func invariantIDs(finding validation.Value) []string {
 	var ids []string
-	if iid := objAt(asDict(objAt(finding, "invariant")), "id"); validation.PyTruthy(iid) &&
+	if iid := validation.ObjAt(asDict(validation.ObjAt(finding, "invariant")), "id"); validation.PyTruthy(iid) &&
 		iid.Kind == validation.Str {
 		ids = append(ids, normalizeInvIDFunc(iid.S))
 	}
-	sec := objAt(finding, "security_invariants")
+	sec := validation.ObjAt(finding, "security_invariants")
 	if !validation.PyTruthy(sec) || sec.Kind != validation.Arr {
 		return ids
 	}
@@ -429,7 +429,7 @@ func invariantIDs(finding validation.Value) []string {
 		if s.Kind != validation.Obj {
 			continue
 		}
-		id := objAt(s, "id")
+		id := validation.ObjAt(s, "id")
 		if !validation.PyTruthy(id) || id.Kind != validation.Str {
 			continue
 		}
@@ -492,8 +492,8 @@ func indexOfStr(items []string, want string) int {
 func ConfirmationGateClauses(campaign *state.Campaign,
 	finding validation.Value) ([]Clause, error) {
 	g := &gateRun{campaign: campaign, finding: finding, out: []Clause{}}
-	ver := asDict(objAt(finding, "verification"))
-	repro := asDict(objAt(ver, "reproduction"))
+	ver := asDict(validation.ObjAt(finding, "verification"))
+	repro := asDict(validation.ObjAt(ver, "reproduction"))
 	g.criticVerdict(ver)
 	if err := g.memoryCheck(finding); err != nil {
 		return nil, err
@@ -566,7 +566,7 @@ func (g *gateRun) satisfied(checkID string, subject *string) {
 }
 
 func (g *gateRun) criticVerdict(ver validation.Value) {
-	v := objAt(ver, "critic_verdict")
+	v := validation.ObjAt(ver, "critic_verdict")
 	if v.Kind != validation.Str || v.S != "confirmed" {
 		g.fail("critic-verdict", "hostile critic verdict is "+
 			validation.PyRepr(v)+", need 'confirmed'", nil)
@@ -576,7 +576,7 @@ func (g *gateRun) criticVerdict(ver validation.Value) {
 }
 
 func (g *gateRun) memoryCheck(finding validation.Value) error {
-	msg, err := MemoryCheckFails(g.campaign, objStr(finding, "finding_id"))
+	msg, err := MemoryCheckFails(g.campaign, validation.ObjStr(finding, "finding_id"))
 	if err != nil {
 		return err
 	}
@@ -589,7 +589,7 @@ func (g *gateRun) memoryCheck(finding validation.Value) error {
 }
 
 func (g *gateRun) reproduction(repro validation.Value) {
-	if s := objAt(repro, "status"); s.Kind != validation.Str ||
+	if s := validation.ObjAt(repro, "status"); s.Kind != validation.Str ||
 		s.S != "reproduced" {
 		g.fail("reproduction-reproduced", "reproduction status is "+
 			validation.PyRepr(s)+", need 'reproduced'", nil)
@@ -601,7 +601,7 @@ func (g *gateRun) reproduction(repro validation.Value) {
 // evidenceFloor appends evidence-floor (and the unreachable diagnostic) and
 // returns the class floor the later tier check keys on.
 func (g *gateRun) evidenceFloor(finding validation.Value) (string, error) {
-	classV := objAt(asDict(objAt(finding, "root_cause")), "class")
+	classV := validation.ObjAt(asDict(validation.ObjAt(finding, "root_cause")), "class")
 	bugClass := ""
 	if classV.Kind == validation.Str {
 		bugClass = classV.S
@@ -644,7 +644,7 @@ func (g *gateRun) reproductionTier(repro validation.Value, floor string) {
 	if fi < e5 {
 		return
 	}
-	tier := objAt(repro, "tier_reached")
+	tier := validation.ObjAt(repro, "tier_reached")
 	if _, ok := fieldAt(repro, "tier_reached"); !ok {
 		tier = validation.VStr("none")
 	}
@@ -677,11 +677,11 @@ func (g *gateRun) sequenceCoverage(repro validation.Value) error {
 	}
 	byID := make(map[string]validation.Value, len(execs))
 	for _, r := range execs {
-		if id := objStr(r, "exec_id"); id != "" {
+		if id := validation.ObjStr(r, "exec_id"); id != "" {
 			byID[id] = r
 		}
 	}
-	attempts := objAt(repro, "attempts")
+	attempts := validation.ObjAt(repro, "attempts")
 	if attempts.Kind != validation.Arr {
 		attempts = validation.VArr()
 	}
@@ -689,7 +689,7 @@ func (g *gateRun) sequenceCoverage(repro validation.Value) error {
 		if a.Kind != validation.Obj {
 			continue
 		}
-		rec, ok := byID[objStr(a, "artifact_id")]
+		rec, ok := byID[validation.ObjStr(a, "artifact_id")]
 		if !ok {
 			continue
 		}
@@ -717,7 +717,7 @@ func (g *gateRun) snapshotCompatible() {
 }
 
 func (g *gateRun) shield(ver validation.Value) error {
-	iid := objAt(asDict(objAt(g.finding, "invariant")), "id")
+	iid := validation.ObjAt(asDict(validation.ObjAt(g.finding, "invariant")), "id")
 	if !validation.PyTruthy(iid) || iid.Kind != validation.Str {
 		return nil
 	}
@@ -729,13 +729,13 @@ func (g *gateRun) shield(ver validation.Value) error {
 	if !ok || !validation.PyTruthy(claim) {
 		return nil
 	}
-	if validation.PyTruthy(objAt(ver, "shield_adjudication")) {
+	if validation.PyTruthy(validation.ObjAt(ver, "shield_adjudication")) {
 		g.satisfied("shield-adjudication", nil)
 		return nil
 	}
 	g.fail("shield-adjudication", fmt.Sprintf("invariant %s is documented as "+
 		"intended (%s) — record the extraction adjudication before CONFIRMED",
-		iid.S, firstRunes(objStr(claim, "intent_line"), 100)), nil)
+		iid.S, firstRunes(validation.ObjStr(claim, "intent_line"), 100)), nil)
 	return nil
 }
 
@@ -744,7 +744,7 @@ func (g *gateRun) invariants(finding validation.Value) error {
 	if err != nil {
 		return err
 	}
-	reg := asDict(objAt(links, "invariants"))
+	reg := asDict(validation.ObjAt(links, "invariants"))
 	normReg := make(map[string]validation.Value, len(reg.O))
 	for _, kv := range reg.O {
 		if kv.V.Kind == validation.Obj {
@@ -767,14 +767,14 @@ func (g *gateRun) invariants(finding validation.Value) error {
 				" not in registry — seed it or correct the id", &subj)
 			continue
 		}
-		if _, isDoc := doc[iid]; isDoc || objStr(e, "source") == "documented" {
+		if _, isDoc := doc[iid]; isDoc || validation.ObjStr(e, "source") == "documented" {
 			g.satisfied("invariant-unverified", &subj)
 			continue
 		}
 		if !invariantVerifiedFunc(e, g.campaign, iid, events) {
 			g.fail("invariant-unverified", fmt.Sprintf("invariant %s has "+
 				"status %s — verify it against code before CONFIRMED", iid,
-				validation.PyRepr(objAt(e, "status"))), &subj)
+				validation.PyRepr(validation.ObjAt(e, "status"))), &subj)
 			continue
 		}
 		g.satisfied("invariant-unverified", &subj)

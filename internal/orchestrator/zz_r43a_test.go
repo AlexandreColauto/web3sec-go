@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"websec/internal/validation"
 
 	"websec/internal/state"
 )
@@ -55,7 +56,7 @@ func TestR43aDefaultChainReportMissingStoreIsEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatalf("an absent chain store is an empty campaign: %v", err)
 	}
-	if n := len(objAt(got, "materialized").A); n != 0 {
+	if n := len(validation.ObjAt(got, "materialized").A); n != 0 {
 		t.Fatalf("materialized = %d, want 0", n)
 	}
 }

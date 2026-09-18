@@ -290,12 +290,12 @@ func GateRequirements(status, bugClass string, campaign *state.Campaign) []GateR
 // finding.unpriceable log event, so this read stays as cheap as
 // floors.floor_override.
 func UnpriceableDecision(finding validation.Value) *validation.Value {
-	imp := asDict(objAt(finding, "economic_impact"))
-	p := objAt(imp, "priceable")
+	imp := asDict(validation.ObjAt(finding, "economic_impact"))
+	p := validation.ObjAt(imp, "priceable")
 	if p.Kind != validation.Bool || p.B {
 		return nil
 	}
-	ceiling := objAt(imp, "ceiling")
+	ceiling := validation.ObjAt(imp, "ceiling")
 	if ceiling.Kind != validation.Str || strings.TrimSpace(ceiling.S) == "" {
 		return nil
 	}
@@ -322,8 +322,8 @@ func ClauseMet(finding validation.Value, clause GateRequirement) bool {
 	if err != nil {
 		return false
 	}
-	for _, e := range objAt(finding, "evidence").A {
-		lvl, err := LevelIndex(objStr(e, "level"))
+	for _, e := range validation.ObjAt(finding, "evidence").A {
+		lvl, err := LevelIndex(validation.ObjStr(e, "level"))
 		if err != nil {
 			continue
 		}
@@ -333,7 +333,7 @@ func ClauseMet(finding validation.Value, clause GateRequirement) bool {
 		if clause.Types == nil {
 			return true
 		}
-		if _, ok := clause.Types[objStr(e, "type")]; ok {
+		if _, ok := clause.Types[validation.ObjStr(e, "type")]; ok {
 			return true
 		}
 	}
@@ -344,8 +344,8 @@ func ClauseMet(finding validation.Value, clause GateRequirement) bool {
 // the finding holds no (parseable) evidence.
 func FindingLevel(finding validation.Value) (string, error) {
 	best := 0
-	for _, e := range objAt(finding, "evidence").A {
-		lvl, err := LevelIndex(objStr(e, "level"))
+	for _, e := range validation.ObjAt(finding, "evidence").A {
+		lvl, err := LevelIndex(validation.ObjStr(e, "level"))
 		if err != nil {
 			continue
 		}
@@ -375,7 +375,7 @@ func IsExecutionLevel(level string) (bool, error) {
 // which gate clauses are unmet for *status*, or nil when the whole gate is
 // met.
 func EvidenceDeficit(finding validation.Value, status string, campaign *state.Campaign) *string {
-	bugClass := objStr(objAt(finding, "root_cause"), "class")
+	bugClass := validation.ObjStr(validation.ObjAt(finding, "root_cause"), "class")
 	clauses := GateRequirements(status, bugClass, campaign)
 	if len(clauses) == 1 && clauses[0].Types == nil {
 		have, err := FindingLevel(finding)
@@ -490,36 +490,12 @@ func listRepr(names []string) string {
 	return "[" + strings.Join(parts, ", ") + "]"
 }
 
-// objAt is the findings-local dict lookup: the value for key, or Null when
-// the key is absent (or the receiver is not an object).
-func objAt(v validation.Value, key string) validation.Value {
-	if v.Kind != validation.Obj {
-		return validation.VNull()
-	}
-	for _, kv := range v.O {
-		if kv.K == key {
-			return kv.V
-		}
-	}
-	return validation.VNull()
-}
-
 // objBool is the boolean flavor of objAt: true only for a present JSON true
 // (absent, null, and every other kind are false — the Python .get(k) truth
 // test on a bool-or-missing field).
 func objBool(v validation.Value, key string) bool {
-	got := objAt(v, key)
+	got := validation.ObjAt(v, key)
 	return got.Kind == validation.Bool && got.B
-}
-
-// objStr is the string flavor of objAt ("" when absent or not a string).
-func objStr(v validation.Value, key string) string {
-	for _, kv := range v.O {
-		if kv.K == key {
-			return kv.V.S
-		}
-	}
-	return ""
 }
 
 // IsTerminal reports the absorbing lifecycle states: rows that can no
@@ -556,12 +532,12 @@ func unpriceableAgreesWithLog(campaign *state.Campaign,
 	if err != nil {
 		return false
 	}
-	fid := objStr(finding, "finding_id")
+	fid := validation.ObjStr(finding, "finding_id")
 	var last *validation.Value
 	for i, e := range events {
-		switch objStr(e, "type") {
+		switch validation.ObjStr(e, "type") {
 		case "finding.unpriceable", "finding.impact_recorded":
-			if objStr(e, "ref") == fid {
+			if validation.ObjStr(e, "ref") == fid {
 				last = &events[i]
 			}
 		}
@@ -572,11 +548,11 @@ func unpriceableAgreesWithLog(campaign *state.Campaign,
 		// decision. Same law.
 		return false
 	}
-	if objStr(*last, "type") != "finding.unpriceable" {
+	if validation.ObjStr(*last, "type") != "finding.unpriceable" {
 		return false // retracted by a later priced impact
 	}
-	recorded := objAt(objAt(*last, "data"), "ceiling")
-	proj := objAt(asDict(objAt(finding, "economic_impact")), "ceiling")
+	recorded := validation.ObjAt(validation.ObjAt(*last, "data"), "ceiling")
+	proj := validation.ObjAt(asDict(validation.ObjAt(finding, "economic_impact")), "ceiling")
 	// Both sides are strings by law (UnpriceableDecision only trusts a
 	// non-blank string ceiling; RecordUnpriceable logs the same value).
 	if recorded.Kind != validation.Str || proj.Kind != validation.Str {

@@ -25,11 +25,11 @@ func citFinding(paths ...string) validation.Value {
 
 // citOf reads affected[i].citations.<key>.
 func citOf(f validation.Value, i int, key string) validation.Value {
-	aff := objAt(f, "affected")
+	aff := validation.ObjAt(f, "affected")
 	if aff.Kind != validation.Arr || i >= len(aff.A) {
 		return validation.VNull()
 	}
-	return objAt(objAt(aff.A[i], CitationsKey), key)
+	return validation.ObjAt(validation.ObjAt(aff.A[i], CitationsKey), key)
 }
 
 func TestCitationStampPicksTheCitedEntry(t *testing.T) {
@@ -43,7 +43,7 @@ func TestCitationStampPicksTheCitedEntry(t *testing.T) {
 		t.Errorf("affected[0] must stay uncited, got %v", got)
 	}
 	// The entries that were not cited keep their exact key set.
-	if aff := objAt(f, "affected"); len(aff.A[0].O) != 1 {
+	if aff := validation.ObjAt(f, "affected"); len(aff.A[0].O) != 1 {
 		t.Errorf("affected[0] gained keys: %v", aff.A[0].O)
 	}
 }
@@ -119,7 +119,7 @@ func TestCitationClearRemovesOnlyTheMirror(t *testing.T) {
 	if v := citOf(got, 0, ComponentCitationKey).S; v != "bbbbbbbbbbbb" {
 		t.Errorf("entry 0 component channel = %q", v)
 	}
-	aff := objAt(got, "affected")
+	aff := validation.ObjAt(got, "affected")
 	for _, kv := range aff.A[1].O {
 		if kv.K == CitationsKey {
 			t.Error("entry 1 kept an empty citations object")
@@ -152,11 +152,11 @@ func TestMitigationCitationMirrorsTheStoredRecord(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	stored, err := LoadFinding(c, objStr(f, "finding_id"))
+	stored, err := LoadFinding(c, validation.ObjStr(f, "finding_id"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	mp := objAt(objAt(stored, "dedup_meta"), "mitigation_present")
+	mp := validation.ObjAt(validation.ObjAt(stored, "dedup_meta"), "mitigation_present")
 	if mp.Kind != validation.Str {
 		t.Fatalf("mitigation_present = %v, want the stringly record", mp)
 	}

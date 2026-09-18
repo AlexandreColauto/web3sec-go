@@ -42,7 +42,7 @@ func TestIngestTrajectoryLetterEndToEnd(t *testing.T) {
 		t.Fatalf("ingest exit %d: %q", code, errS)
 	}
 	f := storedFinding(t, root, cid)
-	if got := validation.PyRepr(objAt(f, "trajectory")); got != "'lifecycle'" {
+	if got := validation.PyRepr(validation.ObjAt(f, "trajectory")); got != "'lifecycle'" {
 		t.Fatalf("stored trajectory = %s, want 'lifecycle'", got)
 	}
 }

@@ -54,7 +54,7 @@ func gateCampaign(t *testing.T, program string, n int) *state.Campaign {
 }
 
 func hasSection(report validation.Value, name string) bool {
-	for _, kv := range objAt(report, "sections").O {
+	for _, kv := range validation.ObjAt(report, "sections").O {
 		if kv.K == name {
 			return true
 		}
@@ -91,13 +91,13 @@ func TestEvalPresentWithMatch(t *testing.T) {
 		t.Fatal("report lacks the eval section for a matched campaign")
 	}
 	var sec validation.Value
-	for _, kv := range objAt(report, "sections").O {
+	for _, kv := range validation.ObjAt(report, "sections").O {
 		if kv.K == "eval" {
 			sec = kv.V
 		}
 	}
 	var lines []string
-	for _, l := range objAt(sec, "lines").A {
+	for _, l := range validation.ObjAt(sec, "lines").A {
 		lines = append(lines, l.S)
 	}
 	// The ingested hypothesis carries no risk/evidence fields, so it scores

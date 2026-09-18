@@ -238,10 +238,10 @@ func TestExactHitOnMatchingSignature(t *testing.T) {
 	e := listAt(out[0], "exact_hits")
 	deposit, mint := false, false
 	for _, h := range e {
-		if objStr(h, "callee") == "deposit" && objStr(h, "param_types") == "uint256" {
+		if validation.ObjStr(h, "callee") == "deposit" && validation.ObjStr(h, "param_types") == "uint256" {
 			deposit = true
 		}
-		if objStr(h, "callee") == "mint" {
+		if validation.ObjStr(h, "callee") == "mint" {
 			mint = true
 		}
 	}
@@ -259,7 +259,7 @@ func TestNoExactHitOnWrongParamTypes(t *testing.T) {
 		exact = listAt(out[0], "exact_hits")
 	}
 	for _, h := range exact {
-		if objStr(h, "callee") == "deposit" {
+		if validation.ObjStr(h, "callee") == "deposit" {
 			t.Fatal("wrong param types must not produce an exact hit")
 		}
 	}
@@ -280,13 +280,13 @@ func TestNearMissUsesThreshold(t *testing.T) {
 		if floatAt(nm, "score") < NEAR_MISS_THRESHOLD {
 			t.Fatalf("score = %v, below the threshold", floatAt(nm, "score"))
 		}
-		target := objStr(nm, "nearest_target")
+		target := validation.ObjStr(nm, "nearest_target")
 		if validation.PythonRound(archetypes.Jaccard("depositX", target), 4) !=
 			floatAt(nm, "score") {
 			t.Fatalf("score %v != jaccard(depositX, %q)", floatAt(nm, "score"), target)
 		}
 	}
-	if len(near) > 0 && objStr(near[0], "callee") != "depositX" {
+	if len(near) > 0 && validation.ObjStr(near[0], "callee") != "depositX" {
 		t.Fatalf("near = %v, want depositX", near)
 	}
 }

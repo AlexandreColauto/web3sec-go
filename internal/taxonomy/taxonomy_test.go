@@ -110,28 +110,28 @@ func TestKnownClassesIsCompleteAndStable(t *testing.T) {
 
 func TestClassReportForKnown(t *testing.T) {
 	r := ClassReport(ptr("reentrancy"))
-	if !objAt(r, "known").B {
+	if !validation.ObjAt(r, "known").B {
 		t.Error("reentrancy report known = false, want true")
 	}
-	if got := objStr(r, "floor"); got != "E4" {
+	if got := validation.ObjStr(r, "floor"); got != "E4" {
 		t.Errorf("reentrancy report floor = %q, want E4", got)
 	}
 }
 
 func TestClassReportForUnknownSuggestsMatches(t *testing.T) {
 	r := ClassReport(ptr("reentrancyy")) // typo
-	if objAt(r, "known").B {
+	if validation.ObjAt(r, "known").B {
 		t.Error("reentrancyy report known = true, want false")
 	}
 	found := false
-	for _, s := range objAt(r, "suggestions").A {
+	for _, s := range validation.ObjAt(r, "suggestions").A {
 		if s.S == "reentrancy" {
 			found = true
 		}
 	}
 	if !found {
 		t.Errorf("suggestions = %v, want reentrancy among them",
-			validation.CanonCompact(objAt(r, "suggestions")))
+			validation.CanonCompact(validation.ObjAt(r, "suggestions")))
 	}
 }
 
@@ -378,7 +378,7 @@ func TestExplicitUnmappedAliasIsARecordedDecision(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if v := objAt(objAt(maps, "aliases"), "front-running"); v.S != UNMAPPED {
+	if v := validation.ObjAt(validation.ObjAt(maps, "aliases"), "front-running"); v.S != UNMAPPED {
 		t.Errorf("taxonomy_map.yaml front-running = %s, want \"unmapped\"",
 			validation.CanonCompact(v))
 	}
@@ -456,10 +456,10 @@ func TestMissingDatasetFileIsANormalMiss(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(maps, "default"); got != UNMAPPED {
+	if got := validation.ObjStr(maps, "default"); got != UNMAPPED {
 		t.Errorf("default = %q, want unmapped", got)
 	}
-	if len(objAt(maps, "aliases").O) == 0 {
+	if len(validation.ObjAt(maps, "aliases").O) == 0 {
 		t.Error("the common map is still merged in")
 	}
 	got, mapped, err := NormalizeClass(ptr("reentrancy"), &maps)
@@ -625,7 +625,7 @@ func TestExampleUsesACanonicalClass(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cls := objStr(objAt(payload, "root_cause"), "class")
+	cls := validation.ObjStr(validation.ObjAt(payload, "root_cause"), "class")
 	if cls == "" {
 		t.Fatal("example payload must carry a root_cause.class")
 	}
@@ -744,7 +744,7 @@ func TestClassReportVectors(t *testing.T) {
 			t.Errorf("class_report(%s) = %s\n want %s",
 				pyReprPtr(v.Label), got, v.ReportJSON)
 		}
-		if objAt(report, "known").B {
+		if validation.ObjAt(report, "known").B {
 			known++
 		}
 	}

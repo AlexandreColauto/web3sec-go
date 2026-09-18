@@ -33,8 +33,8 @@ func (o *Orchestrator) TriageAll() (validation.Value, error) {
 		out = append(out, row)
 	}
 	sort.SliceStable(out, func(i, j int) bool {
-		return numAt(objAt(out[i], "prior"), "score") >
-			numAt(objAt(out[j], "prior"), "score")
+		return numAt(validation.ObjAt(out[i], "prior"), "score") >
+			numAt(validation.ObjAt(out[j], "prior"), "score")
 	})
 	if err := o.C.SetStage("hypothesis-triage", "done", validation.VNull(),
 		ptr("deterministic")); err != nil {
@@ -46,28 +46,28 @@ func (o *Orchestrator) TriageAll() (validation.Value, error) {
 // triageRow is one finding's deterministic triage row.
 func triageRow(f validation.Value) (validation.Value, error) {
 	class := "unclassified"
-	if rc := objAt(asDict(objAt(f, "root_cause")), "class"); rc.Kind == validation.Str {
+	if rc := validation.ObjAt(asDict(validation.ObjAt(f, "root_cause")), "class"); rc.Kind == validation.Str {
 		class = rc.S
 	}
-	att := asDict(objAt(f, "attacker"))
+	att := asDict(validation.ObjAt(f, "attacker"))
 	// A recorded memory consultation that names at least one memory row is
 	// the historical-analog signal (the graph-memory successor of the
 	// retired corpus lookup).
-	checks := listAt(asDict(objAt(f, "provenance")), "memory_checks")
+	checks := listAt(asDict(validation.ObjAt(f, "provenance")), "memory_checks")
 	historical := false
 	for _, c := range checks {
-		if c.Kind == validation.Obj && pyTruthyBigNonEmpty(objAt(c, "memory_ids")) {
+		if c.Kind == validation.Obj && pyTruthyBigNonEmpty(validation.ObjAt(c, "memory_ids")) {
 			historical = true
 			break
 		}
 	}
 	var invariantID *string
-	if inv := objAt(asDict(objAt(f, "invariant")), "id"); inv.Kind == validation.Str {
+	if inv := validation.ObjAt(asDict(validation.ObjAt(f, "invariant")), "id"); inv.Kind == validation.Str {
 		id := inv.S
 		invariantID = &id
 	}
 	var capital *float64
-	switch cap := objAt(att, "required_capital_usd"); cap.Kind {
+	switch cap := validation.ObjAt(att, "required_capital_usd"); cap.Kind {
 	case validation.Flt:
 		v := cap.F
 		capital = &v
@@ -75,12 +75,12 @@ func triageRow(f validation.Value) (validation.Value, error) {
 		v := numAt(att, "required_capital_usd")
 		capital = &v
 	}
-	prior := risk.PriorRisk(class, !pyTruthyBigNonEmpty(objAt(att, "required_privileges")),
+	prior := risk.PriorRisk(class, !pyTruthyBigNonEmpty(validation.ObjAt(att, "required_privileges")),
 		true, historical, invariantID, capital)
 	cost := risk.ValidationCost(class, true, false)
 	slot := planner.DecisionRule(numAt(prior, "score"), cost)
 	return validation.VObj(
-		kvOf("finding_id", objAt(f, "finding_id")),
+		kvOf("finding_id", validation.ObjAt(f, "finding_id")),
 		kvOf("prior", prior),
 		kvOf("validation_cost", validation.VStr(cost)),
 		kvOf("queue_slot", validation.VStr(slot)),
@@ -114,7 +114,7 @@ func (o *Orchestrator) ReproductionQueue() (validation.Value, error) {
 	}
 	prios := map[string]float64{}
 	for _, t := range triage.A {
-		prios[strAt(t, "finding_id")] = numAt(objAt(t, "prior"), "score")
+		prios[strAt(t, "finding_id")] = numAt(validation.ObjAt(t, "prior"), "score")
 	}
 	live, err := findings.LoadLiveFindings(o.C)
 	if err != nil {
@@ -126,8 +126,8 @@ func (o *Orchestrator) ReproductionQueue() (validation.Value, error) {
 		if status != "POSSIBLE" && status != "PROVISIONALLY_VALID" {
 			continue
 		}
-		repro := asDict(objAt(asDict(objAt(f, "verification")), "reproduction"))
-		raw := objAt(repro, "attempts")
+		repro := asDict(validation.ObjAt(asDict(validation.ObjAt(f, "verification")), "reproduction"))
+		raw := validation.ObjAt(repro, "attempts")
 		nAttempts := 0
 		if raw.Kind == validation.Arr {
 			nAttempts = len(raw.A)

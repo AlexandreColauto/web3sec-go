@@ -61,7 +61,7 @@ func runClassify(root string, args []string, r *Runner) int {
 	}
 	var rec *validation.Value
 	for i := range execs {
-		if objStr(execs[i], "exec_id") == pos[1] {
+		if validation.ObjStr(execs[i], "exec_id") == pos[1] {
 			rec = &execs[i]
 			break
 		}
@@ -73,12 +73,12 @@ func runClassify(root string, args []string, r *Runner) int {
 	}
 	res := sandbox.ClassifyFailure(*rec)
 	fmt.Fprintf(r.Out, "exec %s (exit %s): %s\n", pos[1],
-		scalarStr(objAt(*rec, "exit_status")),
-		strings.ToUpper(objStr(res, "class")))
-	for _, s := range objAt(res, "signals").A {
+		scalarStr(validation.ObjAt(*rec, "exit_status")),
+		strings.ToUpper(validation.ObjStr(res, "class")))
+	for _, s := range validation.ObjAt(res, "signals").A {
 		fmt.Fprintf(r.Out, "  signal: %s\n", scalarStr(s))
 	}
-	fmt.Fprintf(r.Out, "  %s\n", objStr(res, "note"))
+	fmt.Fprintf(r.Out, "  %s\n", validation.ObjStr(res, "note"))
 	return 0
 }
 

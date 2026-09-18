@@ -66,7 +66,7 @@ func addCurated(t *testing.T, cluster, taxonomy string, n int) []validation.Valu
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := UpdateExample(objStr(added, "id"), strPtr("curated"), nil,
+		if _, err := UpdateExample(validation.ObjStr(added, "id"), strPtr("curated"), nil,
 			nil); err != nil {
 			t.Fatal(err)
 		}
@@ -89,20 +89,20 @@ func TestSFTSplitNeverStraddlesClusters(t *testing.T) {
 		t.Fatal(err)
 	}
 	byCluster := map[string]map[string]bool{}
-	for _, e := range objAt(store, "examples").A {
-		c := objStr(objAt(e, "source"), "cluster")
+	for _, e := range validation.ObjAt(store, "examples").A {
+		c := validation.ObjStr(validation.ObjAt(e, "source"), "cluster")
 		if byCluster[c] == nil {
 			byCluster[c] = map[string]bool{}
 		}
-		byCluster[c][objStr(e, "partition")] = true
+		byCluster[c][validation.ObjStr(e, "partition")] = true
 	}
 	for c, parts := range byCluster {
 		if len(parts) != 1 {
 			t.Fatalf("cluster %s straddles: %v", c, parts)
 		}
 	}
-	if objAt(stats, "held-out").I < 1 {
-		t.Fatalf("held-out = %v", objAt(stats, "held-out"))
+	if validation.ObjAt(stats, "held-out").I < 1 {
+		t.Fatalf("held-out = %v", validation.ObjAt(stats, "held-out"))
 	}
 }
 
@@ -119,8 +119,8 @@ func TestSFTSplitReaches15PctFloor(t *testing.T) {
 		t.Fatal(err)
 	}
 	held := 0
-	for _, e := range objAt(store, "examples").A {
-		if objStr(e, "partition") == "held-out" {
+	for _, e := range validation.ObjAt(store, "examples").A {
+		if validation.ObjStr(e, "partition") == "held-out" {
 			held++
 		}
 	}
@@ -159,8 +159,8 @@ func partitionSnapshot(t *testing.T) string {
 		t.Fatal(err)
 	}
 	out := ""
-	for _, e := range objAt(store, "examples").A {
-		out += objStr(e, "id") + "=" + objStr(e, "partition") + ";"
+	for _, e := range validation.ObjAt(store, "examples").A {
+		out += validation.ObjStr(e, "id") + "=" + validation.ObjStr(e, "partition") + ";"
 	}
 	return out
 }
@@ -179,13 +179,13 @@ func TestSFTSplitOvershootsWholeClusterButNeverSplits(t *testing.T) {
 		t.Fatal(err)
 	}
 	parts := map[string]bool{}
-	for _, e := range objAt(store, "examples").A {
-		parts[objStr(e, "partition")] = true
+	for _, e := range validation.ObjAt(store, "examples").A {
+		parts[validation.ObjStr(e, "partition")] = true
 	}
 	if len(parts) != 1 || !parts["held-out"] {
 		t.Fatalf("parts = %v", parts)
 	}
-	if got := objAt(stats, "held_out_pct").F; got != 100.0 {
+	if got := validation.ObjAt(stats, "held_out_pct").F; got != 100.0 {
 		t.Fatalf("held_out_pct = %v", got)
 	}
 }
@@ -196,7 +196,7 @@ func TestSFTSplitEmptyStoreIsNoop(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objAt(stats, "training").I != 0 || objAt(stats, "held-out").I != 0 {
+	if validation.ObjAt(stats, "training").I != 0 || validation.ObjAt(stats, "held-out").I != 0 {
 		t.Fatalf("stats = %v", stats)
 	}
 }
@@ -257,12 +257,12 @@ func TestSFTDraftsStayUnpartitioned(t *testing.T) {
 	if _, err := SplitExamples(9); err != nil {
 		t.Fatal(err)
 	}
-	got, err := GetExample(objStr(added, "id"))
+	got, err := GetExample(validation.ObjStr(added, "id"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objAt(got, "partition").Kind != validation.Null {
-		t.Fatalf("partition = %v", objAt(got, "partition"))
+	if validation.ObjAt(got, "partition").Kind != validation.Null {
+		t.Fatalf("partition = %v", validation.ObjAt(got, "partition"))
 	}
 }
 
@@ -272,30 +272,30 @@ func TestSFTMixReportOnTwoSeeds(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tm := objAt(rep, "taxonomy_mix")
-	if got := objAt(tm, "confirmed-critical"); objAt(got, "count").I != 1 {
+	tm := validation.ObjAt(rep, "taxonomy_mix")
+	if got := validation.ObjAt(tm, "confirmed-critical"); validation.ObjAt(got, "count").I != 1 {
 		t.Fatalf("confirmed-critical = %v", got)
 	}
-	if got := objAt(tm, "real-weakness-non-exploitable"); objAt(got, "count").I != 1 {
+	if got := validation.ObjAt(tm, "real-weakness-non-exploitable"); validation.ObjAt(got, "count").I != 1 {
 		t.Fatalf("real-weakness = %v", got)
 	}
-	if got := objAt(objAt(tm, "confirmed-critical"), "target_pct").F; got != 40.0 {
+	if got := validation.ObjAt(validation.ObjAt(tm, "confirmed-critical"), "target_pct").F; got != 40.0 {
 		t.Fatalf("target_pct = %v", got)
 	}
-	if got := objAt(objAt(tm, "confirmed-critical"), "gap").F; got != 40.0-50.0 {
+	if got := validation.ObjAt(validation.ObjAt(tm, "confirmed-critical"), "gap").F; got != 40.0-50.0 {
 		t.Fatalf("gap = %v", got)
 	}
-	if got := objAt(rep, "pivot_share_pct").F; got != 50.0 {
+	if got := validation.ObjAt(rep, "pivot_share_pct").F; got != 50.0 {
 		t.Fatalf("pivot_share_pct = %v", got)
 	}
-	if got := validation.CanonCompact(objAt(rep, "source_mix")); got !=
+	if got := validation.CanonCompact(validation.ObjAt(rep, "source_mix")); got !=
 		`{"historical":2}` {
 		t.Fatalf("source_mix = %s", got)
 	}
-	if got := objAt(rep, "dedup_collisions").I; got != 0 {
+	if got := validation.ObjAt(rep, "dedup_collisions").I; got != 0 {
 		t.Fatalf("dedup_collisions = %d", got)
 	}
-	if got := objAt(objAt(rep, "partition_counts"), "unsplit").I; got != 2 {
+	if got := validation.ObjAt(validation.ObjAt(rep, "partition_counts"), "unsplit").I; got != 2 {
 		t.Fatalf("unsplit = %d", got)
 	}
 }
@@ -307,11 +307,11 @@ func TestSFTMixReportGapAndWarnings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	gap := objAt(objAt(objAt(rep, "taxonomy_mix"), "invalid-hypothesis"), "gap")
+	gap := validation.ObjAt(validation.ObjAt(validation.ObjAt(rep, "taxonomy_mix"), "invalid-hypothesis"), "gap")
 	if gap.F != 20.0 {
 		t.Fatalf("gap = %v", gap)
 	}
-	if got := objAt(rep, "dedup_collisions").I; got != 0 {
+	if got := validation.ObjAt(rep, "dedup_collisions").I; got != 0 {
 		t.Fatalf("dedup_collisions = %d", got)
 	}
 }

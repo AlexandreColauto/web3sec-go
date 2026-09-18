@@ -80,10 +80,10 @@ func TestValidatedRiskG02Regression(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if band := objAt(got, "band").S; band != "high" {
+	if band := validation.ObjAt(got, "band").S; band != "high" {
 		t.Errorf("G-02 band = %q; want high", band)
 	}
-	if score := objAt(got, "score").F; score < 6.5 {
+	if score := validation.ObjAt(got, "score").F; score < 6.5 {
 		t.Errorf("G-02 score = %v; want >= 6.5", score)
 	}
 }
@@ -99,14 +99,14 @@ func TestRecordReversibility(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(objAt(out, "risk"), "reversibility"); got != "irreversible" {
+	if got := validation.ObjStr(validation.ObjAt(out, "risk"), "reversibility"); got != "irreversible" {
 		t.Errorf("stored reversibility = %q", got)
 	}
-	v := objAt(objAt(out, "risk"), "validated")
-	if band := objStr(v, "band"); band != "high" {
+	v := validation.ObjAt(validation.ObjAt(out, "risk"), "validated")
+	if band := validation.ObjStr(v, "band"); band != "high" {
 		t.Errorf("band = %q; want high (4.0 + 3.0)", band)
 	}
-	if score := objAt(v, "score").F; score != 7.0 {
+	if score := validation.ObjAt(v, "score").F; score != 7.0 {
 		t.Errorf("score = %v; want 7.0", score)
 	}
 
@@ -117,11 +117,11 @@ func TestRecordReversibility(t *testing.T) {
 	}
 	var setEv, calEv int
 	for _, e := range evs {
-		switch objStr(e, "type") {
+		switch validation.ObjStr(e, "type") {
 		case "finding.reversibility_set":
 			setEv++
-			if objStr(e, "ref") != fid {
-				t.Errorf("set event ref = %q; want %q", objStr(e, "ref"), fid)
+			if validation.ObjStr(e, "ref") != fid {
+				t.Errorf("set event ref = %q; want %q", validation.ObjStr(e, "ref"), fid)
 			}
 		case "finding.calibrated":
 			calEv++
@@ -137,10 +137,10 @@ func TestRecordReversibility(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, had := fieldAt(objAt(out, "risk"), "reversibility"); had {
+	if _, had := fieldAt(validation.ObjAt(out, "risk"), "reversibility"); had {
 		t.Error("clear must pop the reversibility field")
 	}
-	if band := objStr(objAt(objAt(out, "risk"), "validated"), "band"); band != "medium" {
+	if band := validation.ObjStr(validation.ObjAt(validation.ObjAt(out, "risk"), "validated"), "band"); band != "medium" {
 		t.Errorf("band after clear = %q; want medium", band)
 	}
 }
@@ -161,7 +161,7 @@ func TestRecordReversibilityInvalid(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, had := fieldAt(objAt(f, "risk"), "reversibility"); had {
+	if _, had := fieldAt(validation.ObjAt(f, "risk"), "reversibility"); had {
 		t.Error("failed record must not write the field")
 	}
 }

@@ -20,10 +20,10 @@ func TestSFTMissingStoreIsEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objAt(store, "version").I; got != 1 {
+	if got := validation.ObjAt(store, "version").I; got != 1 {
 		t.Fatalf("version = %d", got)
 	}
-	if got := objAt(store, "examples"); got.Kind != validation.Arr || len(got.A) != 0 {
+	if got := validation.ObjAt(store, "examples"); got.Kind != validation.Arr || len(got.A) != 0 {
 		t.Fatalf("examples = %v", got)
 	}
 }
@@ -35,15 +35,15 @@ func TestSFTAddAssignsIDAndPersists(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(ex, "id"); got != "SFT-0001" {
+	if got := validation.ObjStr(ex, "id"); got != "SFT-0001" {
 		t.Fatalf("id = %q", got)
 	}
 	store, err := LoadStore()
 	if err != nil {
 		t.Fatal(err)
 	}
-	rows := objAt(store, "examples").A
-	if len(rows) != 1 || objStr(rows[0], "id") != "SFT-0001" {
+	rows := validation.ObjAt(store, "examples").A
+	if len(rows) != 1 || validation.ObjStr(rows[0], "id") != "SFT-0001" {
 		t.Fatalf("store = %v", rows)
 	}
 	// caller's dict untouched (copy semantics)
@@ -61,7 +61,7 @@ func TestSFTAddSecondGetsNextID(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(ex2, "id"); got != "SFT-0002" {
+	if got := validation.ObjStr(ex2, "id"); got != "SFT-0002" {
 		t.Fatalf("id = %q", got)
 	}
 }
@@ -69,7 +69,7 @@ func TestSFTAddSecondGetsNextID(t *testing.T) {
 func TestSFTAddRejectsBadSchema(t *testing.T) {
 	useStore(t)
 	ex := baseExample(t)
-	assumptions := objAt(atPath(ex, "structured"), "assumptions").A
+	assumptions := validation.ObjAt(atPath(ex, "structured"), "assumptions").A
 	assumptions[0] = setKey(assumptions[0], "id", validation.VStr("B1"))
 	ex = setAt(ex, validation.VArr(assumptions...), "structured", "assumptions")
 	_, err := AddExample(ex, "draft")
@@ -80,7 +80,7 @@ func TestSFTAddRejectsBadSchema(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objAt(store, "examples"); len(got.A) != 0 {
+	if got := validation.ObjAt(store, "examples"); len(got.A) != 0 {
 		t.Fatalf("partial write: %v", got)
 	}
 }
@@ -103,12 +103,12 @@ func TestSFTUpdateTransitionsAndVersionBump(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	id, curated := objStr(ex, "id"), "x"
+	id, curated := validation.ObjStr(ex, "id"), "x"
 	cur, err := UpdateExample(id, strPtr("curated"), &curated, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(cur, "status") != "curated" || objAt(cur, "version").I != 2 {
+	if validation.ObjStr(cur, "status") != "curated" || validation.ObjAt(cur, "version").I != 2 {
 		t.Fatalf("curated = %v", cur)
 	}
 	_, err = UpdateExample(id, strPtr("draft"), nil, nil)
@@ -123,7 +123,7 @@ func TestSFTRejectedRequiresReasons(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	id := objStr(ex, "id")
+	id := validation.ObjStr(ex, "id")
 	_, err = UpdateExample(id, strPtr("rejected"), nil, nil)
 	if err == nil || !strings.Contains(err.Error(), "rejection_reasons") {
 		t.Fatalf("err = %v", err)
@@ -133,7 +133,7 @@ func TestSFTRejectedRequiresReasons(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(rej, "status"); got != "rejected" {
+	if got := validation.ObjStr(rej, "status"); got != "rejected" {
 		t.Fatalf("status = %q", got)
 	}
 }
@@ -151,21 +151,21 @@ func TestSFTListFilters(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := UpdateExample(objStr(a, "id"), strPtr("curated"), nil, nil); err != nil {
+	if _, err := UpdateExample(validation.ObjStr(a, "id"), strPtr("curated"), nil, nil); err != nil {
 		t.Fatal(err)
 	}
 	curated, err := ListExamples(strPtr("curated"), nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(curated) != 1 || objStr(curated[0], "id") != objStr(a, "id") {
+	if len(curated) != 1 || validation.ObjStr(curated[0], "id") != validation.ObjStr(a, "id") {
 		t.Fatalf("curated = %v", curated)
 	}
 	byTax, err := ListExamples(nil, nil, strPtr("invalid-hypothesis"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(byTax) != 1 || objStr(byTax[0], "id") != objStr(b, "id") {
+	if len(byTax) != 1 || validation.ObjStr(byTax[0], "id") != validation.ObjStr(b, "id") {
 		t.Fatalf("by taxonomy = %v", byTax)
 	}
 }
@@ -217,7 +217,7 @@ func TestSFTExportJSONLOnlyCurated(t *testing.T) {
 	if _, err := AddExample(baseExample(t), "draft"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := UpdateExample(objStr(a, "id"), strPtr("curated"), nil, nil); err != nil {
+	if _, err := UpdateExample(validation.ObjStr(a, "id"), strPtr("curated"), nil, nil); err != nil {
 		t.Fatal(err)
 	}
 	text, err := ExportJSONL(nil)
@@ -248,21 +248,21 @@ func TestSFTSeedStoreLintsCleanAndShape(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rows := objAt(store, "examples").A
+	rows := validation.ObjAt(store, "examples").A
 	ids := []string{}
 	for _, e := range rows {
-		ids = append(ids, objStr(e, "id"))
+		ids = append(ids, validation.ObjStr(e, "id"))
 	}
 	if strings.Join(ids, ",") != "SFT-0001,SFT-0002" {
 		t.Fatalf("ids = %v", ids)
 	}
 	prompt := promptText(t)
 	for _, e := range rows {
-		if objStr(e, "status") != "curated" {
-			t.Fatalf("status = %q", objStr(e, "status"))
+		if validation.ObjStr(e, "status") != "curated" {
+			t.Fatalf("status = %q", validation.ObjStr(e, "status"))
 		}
-		if got := objStr(arrAt(objAt(e, "messages"), 0), "content"); got != prompt {
-			t.Fatalf("system prompt drift on %s", objStr(e, "id"))
+		if got := validation.ObjStr(arrAt(validation.ObjAt(e, "messages"), 0), "content"); got != prompt {
+			t.Fatalf("system prompt drift on %s", validation.ObjStr(e, "id"))
 		}
 		if err := validation.Validate(e, "sft_example", 1); err != nil {
 			t.Fatal(err)
@@ -270,15 +270,15 @@ func TestSFTSeedStoreLintsCleanAndShape(t *testing.T) {
 	}
 	byID := map[string]validation.Value{}
 	for _, e := range rows {
-		byID[objStr(e, "id")] = e
+		byID[validation.ObjStr(e, "id")] = e
 	}
-	if got := objStr(byID["SFT-0001"], "taxonomy"); got != "confirmed-critical" {
+	if got := validation.ObjStr(byID["SFT-0001"], "taxonomy"); got != "confirmed-critical" {
 		t.Fatalf("SFT-0001 taxonomy = %q", got)
 	}
 	if got := intOf(atPath(byID["SFT-0001"], "structured", "pivot_count")); got != 1 {
 		t.Fatalf("SFT-0001 pivot_count = %d", got)
 	}
-	if got := objStr(byID["SFT-0002"], "taxonomy"); got !=
+	if got := validation.ObjStr(byID["SFT-0002"], "taxonomy"); got !=
 		"real-weakness-non-exploitable" {
 		t.Fatalf("SFT-0002 taxonomy = %q", got)
 	}
@@ -291,8 +291,8 @@ func TestSFTSeedExamplesPassFullLint(t *testing.T) {
 		t.Fatal(err)
 	}
 	curated := []validation.Value{}
-	for _, e := range objAt(store, "examples").A {
-		if objStr(e, "status") == "curated" {
+	for _, e := range validation.ObjAt(store, "examples").A {
+		if validation.ObjStr(e, "status") == "curated" {
 			curated = append(curated, e)
 		}
 	}
@@ -302,13 +302,13 @@ func TestSFTSeedExamplesPassFullLint(t *testing.T) {
 	for _, e := range curated {
 		others := []validation.Value{}
 		for _, x := range curated {
-			if objStr(x, "id") != objStr(e, "id") {
+			if validation.ObjStr(x, "id") != validation.ObjStr(e, "id") {
 				others = append(others, x)
 			}
 		}
 		hard := hardReasons(LintExample(e, others, "curated"))
 		if len(hard) != 0 {
-			t.Fatalf("%s: %v", objStr(e, "id"), hard)
+			t.Fatalf("%s: %v", validation.ObjStr(e, "id"), hard)
 		}
 	}
 }

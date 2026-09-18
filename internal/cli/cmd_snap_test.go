@@ -103,31 +103,31 @@ func TestSnapDeploymentAndChainFlags(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	depPin := objAt(snap, "deployment")
-	if got := len(objAt(depPin, "contracts").A); got != 2 {
+	depPin := validation.ObjAt(snap, "deployment")
+	if got := len(validation.ObjAt(depPin, "contracts").A); got != 2 {
 		t.Fatalf("deployment.contracts = %d, want 2", got)
 	}
-	if got := objStr(depPin, "network"); got != "ethereum" {
+	if got := validation.ObjStr(depPin, "network"); got != "ethereum" {
 		t.Fatalf("deployment.network = %q", got)
 	}
-	chPin := objAt(snap, "chain")
-	if got := scalarStr(objAt(chPin, "fork_block")); got != "23456789" {
+	chPin := validation.ObjAt(snap, "chain")
+	if got := scalarStr(validation.ObjAt(chPin, "fork_block")); got != "23456789" {
 		t.Fatalf("chain.fork_block = %q", got)
 	}
-	man := objAt(snap, "manifest")
-	depRoot := objStr(man, "deployment_merkle_root")
-	chainFP := objStr(man, "chain_fingerprint")
+	man := validation.ObjAt(snap, "manifest")
+	depRoot := validation.ObjStr(man, "deployment_merkle_root")
+	chainFP := validation.ObjStr(man, "chain_fingerprint")
 	if len(depRoot) != 64 || len(chainFP) != 64 {
 		t.Fatalf("manifest roots: deployment=%q chain=%q", depRoot, chainFP)
 	}
-	if objStr(man, "toolchain_fingerprint") == "" {
+	if validation.ObjStr(man, "toolchain_fingerprint") == "" {
 		t.Fatalf("toolchain_fingerprint missing: %s", validation.CanonCompact(man))
 	}
 	st, err := validation.ReadJson(filepath.Join(camp, "campaign_state.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(st, "active_snapshot_id"); got != sid {
+	if got := validation.ObjStr(st, "active_snapshot_id"); got != sid {
 		t.Fatalf("active_snapshot_id = %q, want %q", got, sid)
 	}
 

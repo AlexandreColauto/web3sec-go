@@ -43,7 +43,7 @@ func dedupSigFinding(t *testing.T, c *state.Campaign, title, class, path,
 	if err != nil {
 		t.Fatalf("ingest: %v", err)
 	}
-	return objStr(f, "finding_id")
+	return validation.ObjStr(f, "finding_id")
 }
 
 func TestDedupSignatureHelpAndArgparse(t *testing.T) {
@@ -112,13 +112,13 @@ func TestDedupSignatureRootCauseComputesTheHash(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(objAt(f, "dedup"), "root_cause_signature"); got != want {
+	if got := validation.ObjStr(validation.ObjAt(f, "dedup"), "root_cause_signature"); got != want {
 		t.Errorf("stored signature: %q", got)
 	}
-	if got := objStr(objAt(f, "dedup_meta"), "root_cause_sentence"); got != sentence {
+	if got := validation.ObjStr(validation.ObjAt(f, "dedup_meta"), "root_cause_sentence"); got != sentence {
 		t.Errorf("stored sentence: %q", got)
 	}
-	if got := objStr(objAt(f, "root_cause"), "cwe"); got != "CWE-682" {
+	if got := validation.ObjStr(validation.ObjAt(f, "root_cause"), "cwe"); got != "CWE-682" {
 		t.Errorf("stored cwe: %q", got)
 	}
 	// Deterministic: the same sentence always hashes the same, a different one
@@ -149,14 +149,14 @@ func TestDedupSignatureEconomic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(objAt(f, "dedup"), "economic_signature"); got != want {
+	if got := validation.ObjStr(validation.ObjAt(f, "dedup"), "economic_signature"); got != want {
 		t.Errorf("stored signature: %q", got)
 	}
 	events, err := c.Events()
 	if err != nil {
 		t.Fatal(err)
 	}
-	last := objStr(events[len(events)-1], "type")
+	last := validation.ObjStr(events[len(events)-1], "type")
 	if last != "dedup.economic_set" {
 		t.Errorf("last event: %q", last)
 	}
@@ -203,7 +203,7 @@ func TestTier2FlagsCodeProtectedPairs(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		ids := objAt(objAt(f, "dedup"), "possible_duplicate_of")
+		ids := validation.ObjAt(validation.ObjAt(f, "dedup"), "possible_duplicate_of")
 		found := false
 		for _, id := range ids.A {
 			if id.Kind == validation.Str && id.S == pair[1] {
@@ -221,7 +221,7 @@ func TestTier2FlagsCodeProtectedPairs(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if got := objStr(f, "status"); got == "DUPLICATE" {
+		if got := validation.ObjStr(f, "status"); got == "DUPLICATE" {
 			t.Errorf("%s was merged, not flagged", fid)
 		}
 	}
@@ -259,13 +259,13 @@ func TestTier2KeepsAutoMergingSameSpotPairs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(keep, "status"); got == "DUPLICATE" {
+	if got := validation.ObjStr(keep, "status"); got == "DUPLICATE" {
 		t.Errorf("the first finding was merged away: %q", got)
 	}
-	if got := objStr(dup, "status"); got != "DUPLICATE" {
+	if got := validation.ObjStr(dup, "status"); got != "DUPLICATE" {
 		t.Errorf("same-spot pair did not auto-merge: status %q", got)
 	}
-	if got := objStr(objAt(dup, "dedup"), "duplicate_of"); got != a {
+	if got := validation.ObjStr(validation.ObjAt(dup, "dedup"), "duplicate_of"); got != a {
 		t.Errorf("duplicate_of: %q want %q", got, a)
 	}
 }

@@ -44,10 +44,10 @@ func artifactProblems(t *testing.T, c *state.Campaign) ([]string, bool) {
 		t.Fatal(err)
 	}
 	var out []string
-	for _, p := range objAt(sec, "problems").A {
+	for _, p := range validation.ObjAt(sec, "problems").A {
 		out = append(out, p.S)
 	}
-	return out, objAt(sec, "ok").B
+	return out, validation.ObjAt(sec, "ok").B
 }
 
 // TestArtifactsHashedRowIsClean: the happy path is unchanged — a registered
@@ -68,7 +68,7 @@ func TestArtifactsHashlessRowIsAProblem(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rows := objAt(st, "artifacts")
+	rows := validation.ObjAt(st, "artifacts")
 	if len(rows.A) != 1 {
 		t.Fatalf("artifacts = %d rows, want 1", len(rows.A))
 	}
@@ -100,9 +100,9 @@ func TestArtifactsMissingFileStillReported(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	row := objAt(st, "artifacts").A[0]
+	row := validation.ObjAt(st, "artifacts").A[0]
 	if err := os.Remove(filepath.Join(
-		c.Root, objStr(row, "path"))); err != nil {
+		c.Root, validation.ObjStr(row, "path"))); err != nil {
 		t.Fatal(err)
 	}
 	problems, ok := artifactProblems(t, c)

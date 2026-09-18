@@ -131,12 +131,12 @@ func TestR37bTamperWarningNamesWhatIsKnown(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		evs := objAt(st, "events")
+		evs := validation.ObjAt(st, "events")
 		for i := range evs.A {
-			if objStr(evs.A[i], "type") != "note.added" {
+			if validation.ObjStr(evs.A[i], "type") != "note.added" {
 				continue
 			}
-			data := objAt(evs.A[i], "data")
+			data := validation.ObjAt(evs.A[i], "data")
 			data.O = validation.SetOrAppend(data.O, "text",
 				validation.VStr("projection-only edit"))
 			evs.A[i].O = validation.SetOrAppend(evs.A[i].O, "data", data)

@@ -110,7 +110,7 @@ func runEnvDoctor(root string, args []string, r *Runner) error {
 	// on STDERR: the stdout surface is twin-pinned, and the JSON report
 	// carries a "host_provers" key for machines (--json included).
 	host := hostProverRows()
-	if objAt(report, "host_provers").Kind == validation.Null {
+	if validation.ObjAt(report, "host_provers").Kind == validation.Null {
 		report.O = append(report.O, validation.KV{K: "host_provers", V: host})
 	}
 	if asJSON {
@@ -129,8 +129,8 @@ func runEnvDoctor(root string, args []string, r *Runner) error {
 
 // printEnvDoctor is cli.py's human view, line for line.
 func printEnvDoctor(r *Runner, report validation.Value) {
-	docker := objAt(report, "docker")
-	img := objAt(docker, "image")
+	docker := validation.ObjAt(report, "docker")
+	img := validation.ObjAt(docker, "image")
 	fmt.Fprintf(r.Out, "docker:        cli=%s  daemon=%s\n",
 		yesNo(t26Truthy(docker, "cli")), yesNo(t26Truthy(docker, "daemon")))
 	present, pinned := "ABSENT", " (tag reference!)"
@@ -140,33 +140,33 @@ func printEnvDoctor(r *Runner, report validation.Value) {
 	if t26Truthy(img, "pinned") {
 		pinned = " (digest-pinned)"
 	}
-	fmt.Fprintf(r.Out, "image:         %s — %s%s\n", objStr(img, "image"),
+	fmt.Fprintf(r.Out, "image:         %s — %s%s\n", validation.ObjStr(img, "image"),
 		present, pinned)
-	if d := objStr(img, "digest"); d != "" {
+	if d := validation.ObjStr(img, "digest"); d != "" {
 		fmt.Fprintf(r.Out, "  local digest: %s\n", d)
 	}
-	rpc := objAt(report, "fork_rpc")
-	url := objStr(rpc, "url")
+	rpc := validation.ObjAt(report, "fork_rpc")
+	url := validation.ObjStr(rpc, "url")
 	if url == "" {
 		url = "(unset)"
 	}
-	status := "UNREACHABLE (" + objStr(rpc, "error") + ")"
+	status := "UNREACHABLE (" + validation.ObjStr(rpc, "error") + ")"
 	if t26Truthy(rpc, "reachable") {
-		status = "chain " + scalarStr(objAt(rpc, "chain_id"))
+		status = "chain " + scalarStr(validation.ObjAt(rpc, "chain_id"))
 	}
 	fmt.Fprintf(r.Out, "fork RPC:      %s — %s\n", url, status)
 	// feedback-triage A7: when the doctor cross-checked the profiles
 	// against the campaign floor (profile_fit), an available profile whose
 	// evidence ceiling is below the floor is marked as such instead of a
 	// bare "ok" — "present, floor will refuse".
-	fit := objAt(report, "profile_fit")
+	fit := validation.ObjAt(report, "profile_fit")
 	profs := []string{}
-	for _, kv := range objAt(report, "profiles").O {
+	for _, kv := range validation.ObjAt(report, "profiles").O {
 		verdict := "NO"
 		if t26Truthy(kv.V, "") {
 			verdict = "ok"
 			if fit.Kind == validation.Obj {
-				if fv := objStr(fit, kv.K); fv != "" && fv != "ok" {
+				if fv := validation.ObjStr(fit, kv.K); fv != "" && fv != "ok" {
 					verdict = fv
 				}
 			}
@@ -174,12 +174,12 @@ func printEnvDoctor(r *Runner, report validation.Value) {
 		profs = append(profs, kv.K+"="+verdict)
 	}
 	fmt.Fprintf(r.Out, "profiles:      %s\n", strings.Join(profs, " "))
-	if cr := objAt(report, "campaign"); cr.Kind == validation.Obj {
+	if cr := validation.ObjAt(report, "campaign"); cr.Kind == validation.Obj {
 		fmt.Fprintf(r.Out, "campaign:      max CONFIRMED floor %s, chain "+
-			"pin %s\n", scalarStr(objAt(cr, "max_confirm_floor")),
+			"pin %s\n", scalarStr(validation.ObjAt(cr, "max_confirm_floor")),
 			yesNo(t26Truthy(cr, "chain_pin")))
 	}
-	if solc := objAt(report, "solc"); solc.Kind == validation.Obj &&
+	if solc := validation.ObjAt(report, "solc"); solc.Kind == validation.Obj &&
 		len(solc.O) > 0 {
 		state := "not checked (no daemon)"
 		if t26Truthy(solc, "present") {
@@ -188,9 +188,9 @@ func printEnvDoctor(r *Runner, report validation.Value) {
 			state = "ABSENT from image"
 		}
 		fmt.Fprintf(r.Out, "solc:          %s — %s\n",
-			scalarStr(objAt(solc, "required")), state)
+			scalarStr(validation.ObjAt(solc, "required")), state)
 	}
-	issues := objAt(report, "issues").A
+	issues := validation.ObjAt(report, "issues").A
 	if len(issues) > 0 {
 		fmt.Fprint(r.Out, "\nISSUES:\n")
 		for _, i := range issues {
@@ -207,7 +207,7 @@ func t26Truthy(v validation.Value, key string) bool {
 	if key == "" {
 		return pyTruthyCLI(v)
 	}
-	return pyTruthyCLI(objAt(v, key))
+	return pyTruthyCLI(validation.ObjAt(v, key))
 }
 
 // yesNo is Python's `'yes' if x else 'NO'`.
@@ -280,9 +280,9 @@ func printHostProvers(w io.Writer, host validation.Value) {
 	for _, kv := range host.O {
 		row := kv.V
 		if t26Truthy(row, "present") {
-			fmt.Fprintf(w, "prover %s:   %s\n", kv.K, objStr(row, "version"))
+			fmt.Fprintf(w, "prover %s:   %s\n", kv.K, validation.ObjStr(row, "version"))
 		} else {
-			fmt.Fprintf(w, "prover %s:   ABSENT — %s\n", kv.K, objStr(row, "hint"))
+			fmt.Fprintf(w, "prover %s:   ABSENT — %s\n", kv.K, validation.ObjStr(row, "hint"))
 		}
 	}
 }

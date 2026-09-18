@@ -85,7 +85,7 @@ func t2Write(t *testing.T, root, name, body string) string {
 }
 
 func t2Str(v validation.Value, key string) string {
-	x := objAt(v, key)
+	x := validation.ObjAt(v, key)
 	if x.Kind == validation.Str {
 		return x.S
 	}
@@ -109,7 +109,7 @@ func t2ItemFor(t *testing.T, c *state.Campaign, fid, execID string) validation.V
 	if err != nil {
 		t.Fatalf("load %s: %v", fid, err)
 	}
-	ev := objAt(f, "evidence")
+	ev := validation.ObjAt(f, "evidence")
 	for _, item := range ev.A {
 		if t2Str(item, "artifact_id") == execID {
 			return item

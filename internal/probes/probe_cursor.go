@@ -78,7 +78,7 @@ func probeSequentialCursor(index, model validation.Value) (probeOut, error) {
 					kv("guard", validation.VStr(text)),
 					kv("guard_line", validation.VInt(int64(vGetIntOr(guard, "line", 0)))),
 					kv("cursor", validation.VStr(cursor)),
-					kv("stranded_entry", strArr(stranded))))
+					kv("stranded_entry", validation.StrArr(stranded))))
 			}
 		}
 	}

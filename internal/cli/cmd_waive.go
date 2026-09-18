@@ -97,7 +97,7 @@ func runWaive(root string, args []string, r *Runner) int {
 		return r.withErr(root, func() error { return err })
 	}
 	fmt.Fprintf(r.Out, "waived %s/%s (actor %s): %s\n", stage,
-		objStr(row, "subject"), actor, pyHead(reason, 60))
+		validation.ObjStr(row, "subject"), actor, pyHead(reason, 60))
 	return 0
 }
 

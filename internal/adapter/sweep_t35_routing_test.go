@@ -26,7 +26,7 @@ func TestRoutingTableAndAdapter(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(objAt(table, "exploit-chaining"), "budget_class"); got != "expensive" {
+	if got := validation.ObjStr(validation.ObjAt(table, "exploit-chaining"), "budget_class"); got != "expensive" {
 		t.Errorf("routing_table[exploit-chaining].budget_class = %q", got)
 	}
 	if _, err := PromptPath("nonexistent-stage"); err == nil ||

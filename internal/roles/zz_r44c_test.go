@@ -76,8 +76,8 @@ func r44cQueueNegative(t *testing.T, c *state.Campaign, pattern string) validati
 func r44cKnownIDs(t *testing.T, block validation.Value) []string {
 	t.Helper()
 	out := []string{}
-	for _, r := range objAt(block, "known_non_issues").A {
-		out = append(out, objStr(r, "memory_id"))
+	for _, r := range validation.ObjAt(block, "known_non_issues").A {
+		out = append(out, validation.ObjStr(r, "memory_id"))
 	}
 	return out
 }
@@ -108,7 +108,7 @@ func TestR44cKnownNonIssuesRefusesUnreadableMemoryStore(t *testing.T) {
 func TestR44cKnownNonIssuesRefusesUnreadableRow(t *testing.T) {
 	c := r44cCampaign(t, "C-r44cmemr2")
 	row := r44cQueueNegative(t, c, "a prior observation whose row file cannot be read")
-	path := filepath.Join(c.MemoryDir, objStr(row, "memory_id")+".json")
+	path := filepath.Join(c.MemoryDir, validation.ObjStr(row, "memory_id")+".json")
 	r44cChmod(t, path)
 
 	block, err := KnownNonIssues(c, nil, 12)
@@ -116,7 +116,7 @@ func TestR44cKnownNonIssuesRefusesUnreadableRow(t *testing.T) {
 		t.Fatalf("known_non_issues skipped an unreadable row: %s",
 			validation.CanonCompact(block))
 	}
-	if !strings.Contains(err.Error(), objStr(row, "memory_id")) ||
+	if !strings.Contains(err.Error(), validation.ObjStr(row, "memory_id")) ||
 		!strings.Contains(err.Error(), "permission denied") {
 		t.Fatalf("refusal must name the unreadable row and the errno: %v", err)
 	}
@@ -173,7 +173,7 @@ func TestR44cKnownNonIssuesHonestShapesStayGreen(t *testing.T) {
 	}
 	if got := r44cKnownIDs(t, block); len(got) != 2 {
 		t.Fatalf("known_non_issues = %v, want the local row %s and the "+
-			"unwrapped shared row", got, objStr(row, "memory_id"))
+			"unwrapped shared row", got, validation.ObjStr(row, "memory_id"))
 	}
 
 	// Absent store: still green (absence is a fact — the fold belongs to the

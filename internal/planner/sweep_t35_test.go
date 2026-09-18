@@ -21,8 +21,8 @@ import (
 
 func TestMarkAnsweredRewritesInPlaceWithoutArchiving(t *testing.T) {
 	root := oracles(t)
-	model := objAt(at(t, root, "seed_lenses").A[0], "model")
-	camp := pinnedCampaign(t, "ma-inplace", objAt(at(t, root, "load_plan"), "plan"))
+	model := validation.ObjAt(at(t, root, "seed_lenses").A[0], "model")
+	camp := pinnedCampaign(t, "ma-inplace", validation.ObjAt(at(t, root, "load_plan"), "plan"))
 	plan, err := DefaultPlanFromModel(camp, model)
 	if err != nil {
 		t.Fatal(err)
@@ -35,7 +35,7 @@ func TestMarkAnsweredRewritesInPlaceWithoutArchiving(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	pid := objStr(listOf(plan, "priorities")[0], "id")
+	pid := validation.ObjStr(listOf(plan, "priorities")[0], "id")
 	reason, ref := "first priority resolved before the query", "Rollup.sol#L45"
 	if _, err := MarkAnswered(camp, plan, pid, "answered", AnsweredOpts{
 		Reason: &reason, Ref: &ref, Actor: "pytest"}); err != nil {
@@ -56,7 +56,7 @@ func TestMarkAnsweredRewritesInPlaceWithoutArchiving(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, e := range events {
-		if objStr(e, "type") == "plan.superseded" {
+		if validation.ObjStr(e, "type") == "plan.superseded" {
 			t.Fatal("mark_answered must not log plan.superseded")
 		}
 	}
@@ -67,7 +67,7 @@ func TestMarkAnsweredRewritesInPlaceWithoutArchiving(t *testing.T) {
 	sum := sha256.Sum256(after)
 	var row validation.Value
 	for _, a := range listOf(st, "artifacts") {
-		if objStr(a, "kind") == "plan" {
+		if validation.ObjStr(a, "kind") == "plan" {
 			row = a
 			break
 		}
@@ -75,7 +75,7 @@ func TestMarkAnsweredRewritesInPlaceWithoutArchiving(t *testing.T) {
 	if row.Kind != validation.Obj {
 		t.Fatal("no plan artifact row registered")
 	}
-	if got, want := objStr(row, "sha256"), hex.EncodeToString(sum[:]); got != want {
+	if got, want := validation.ObjStr(row, "sha256"), hex.EncodeToString(sum[:]); got != want {
 		t.Fatalf("registry sha256 = %q, want %q", got, want)
 	}
 }
@@ -125,7 +125,7 @@ func l04Plan(symmetry []validation.Value) validation.Value {
 	}
 	checked := []string{}
 	for _, s := range symmetry {
-		checked = append(checked, objStr(s, "family"))
+		checked = append(checked, validation.ObjStr(s, "family"))
 	}
 	return validation.VObj(
 		kv("lenses", validation.VArr(validation.VObj(
@@ -134,9 +134,9 @@ func l04Plan(symmetry []validation.Value) validation.Value {
 			kv("surface", validation.VStr("protocol")),
 			kv("question", validation.VStr(strings.Repeat("q", 20))),
 			kv("status", validation.VStr("answered")),
-			kv("families", strArr([]string{"deposit", "withdraw", "drop"})),
+			kv("families", validation.StrArr([]string{"deposit", "withdraw", "drop"})),
 			kv("symmetry", validation.VArr(symmetry...)),
-			kv("families_checked", strArr(checked)),
+			kv("families_checked", validation.StrArr(checked)),
 			kv("closed_reason", validation.VStr("compared the gateway primitives")),
 			kv("closed_by", validation.VStr("tester"))))),
 		kv("priorities", validation.VArr(prios...)))
@@ -145,13 +145,13 @@ func l04Plan(symmetry []validation.Value) validation.Value {
 func symEntry(family string, primitives ...string) validation.Value {
 	return validation.VObj(
 		kv("family", validation.VStr(family)),
-		kv("primitives", strArr(primitives)))
+		kv("primitives", validation.StrArr(primitives)))
 }
 
 // l04Missing returns the L-04 missing entry, or Null.
 func l04Missing(st validation.Value) validation.Value {
 	for _, m := range listOf(st, "missing") {
-		if objStr(m, "subject") == "L-04" {
+		if validation.ObjStr(m, "subject") == "L-04" {
 			return m
 		}
 	}
@@ -166,7 +166,7 @@ func TestL04OpenWhenAFamilyHasNoQuotedPrimitive(t *testing.T) {
 		t.Fatalf("L-04 must stay open: %v", listOf(st, "missing"))
 	}
 	m := l04Missing(st)
-	if m.Kind != validation.Obj || !strings.Contains(objStr(m, "what"), "drop") {
+	if m.Kind != validation.Obj || !strings.Contains(validation.ObjStr(m, "what"), "drop") {
 		t.Fatalf("missing entry = %v, want it to name drop", m)
 	}
 }
@@ -188,7 +188,7 @@ func TestL04EmptyPrimitiveListDoesNotCount(t *testing.T) {
 		t.Fatal("a blank primitive is not an attestation")
 	}
 	if m := l04Missing(st); m.Kind != validation.Obj ||
-		!strings.Contains(objStr(m, "what"), "drop") {
+		!strings.Contains(validation.ObjStr(m, "what"), "drop") {
 		t.Fatalf("missing entry = %v, want it to name drop", m)
 	}
 }
@@ -201,7 +201,7 @@ func TestL04WhitespacePrimitiveDoesNotCount(t *testing.T) {
 		t.Fatal("a whitespace primitive is not an attestation")
 	}
 	if m := l04Missing(st); m.Kind != validation.Obj ||
-		!strings.Contains(objStr(m, "what"), "withdraw") {
+		!strings.Contains(validation.ObjStr(m, "what"), "withdraw") {
 		t.Fatalf("missing entry = %v, want it to name withdraw", m)
 	}
 }
@@ -223,8 +223,8 @@ func TestReopenedL04CarriesNoStaleSymmetry(t *testing.T) {
 			kv("surface", validation.VStr("protocol")),
 			kv("question", validation.VStr(strings.Repeat("q", 20))),
 			kv("status", validation.VStr("answered")),
-			kv("families", strArr([]string{"withdraw", "mint"})),
-			kv("families_checked", strArr([]string{"withdraw", "mint"})),
+			kv("families", validation.StrArr([]string{"withdraw", "mint"})),
+			kv("families_checked", validation.StrArr([]string{"withdraw", "mint"})),
 			kv("symmetry", validation.VArr(
 				symEntry("withdraw", "burn", "mint"), symEntry("mint", "mint"))),
 			kv("closed_reason", validation.VStr("compared both families")),
@@ -233,7 +233,7 @@ func TestReopenedL04CarriesNoStaleSymmetry(t *testing.T) {
 			kv("id", validation.VStr("Q-001")),
 			kv("question", validation.VStr(strings.Repeat("q", 20))),
 			kv("risk", validation.VFloat(0.5)),
-			kv("trajectories", strArr([]string{"code"})),
+			kv("trajectories", validation.StrArr([]string{"code"})),
 			kv("bug_class", validation.VStr("logic-error"))))))
 	if _, err := SavePlan(camp, plan); err != nil {
 		t.Fatalf("save plan: %v", err)
@@ -242,7 +242,7 @@ func TestReopenedL04CarriesNoStaleSymmetry(t *testing.T) {
 		title: "gateway withdraw drains the escrow", severity: "high",
 		contract: "L1ERC20Gateway", class: "logic-error",
 		fn: "finalizeWithdrawal"})
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	scnRewrite(t, camp, fid, "affected",
 		`[{"path":"contracts/L1ERC20Gateway.sol","contract":"L1ERC20Gateway",
 		   "function":"finalizeWithdrawal"},
@@ -259,14 +259,14 @@ func TestReopenedL04CarriesNoStaleSymmetry(t *testing.T) {
 	}
 	reopened := validation.VNull()
 	for _, l := range listOf(after, "lenses") {
-		if objStr(l, "id") == "L-04" {
+		if validation.ObjStr(l, "id") == "L-04" {
 			reopened = l
 		}
 	}
 	if reopened.Kind != validation.Obj {
 		t.Fatal("L-04 missing from the plan")
 	}
-	if got := objStr(reopened, "status"); got != "open" {
+	if got := validation.ObjStr(reopened, "status"); got != "open" {
 		t.Fatalf("status = %q, want open", got)
 	}
 	for _, key := range []string{"symmetry", "families_checked"} {
@@ -280,7 +280,7 @@ func TestReopenedL04CarriesNoStaleSymmetry(t *testing.T) {
 
 // stClosed reads divergence_status().closed.
 func stClosed(st validation.Value) bool {
-	v := objAt(st, "closed")
+	v := validation.ObjAt(st, "closed")
 	return v.Kind == validation.Bool && v.B
 }
 

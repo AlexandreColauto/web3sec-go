@@ -66,16 +66,6 @@ type InitOpts struct {
 	Budget     *validation.Value
 }
 
-// objStr returns a string field's value ("" when absent/non-string).
-func objStr(v validation.Value, key string) string {
-	for _, kv := range v.O {
-		if kv.K == key {
-			return kv.V.S
-		}
-	}
-	return ""
-}
-
 // kv is the vet-clean keyed KV constructor (unkeyed cross-package
 // literals are rejected by go vet).
 func kv(k string, v validation.Value) validation.KV {
@@ -353,27 +343,27 @@ func (c *Campaign) PinSnapshot(snap validation.Value) (string, error) {
 	if err := validation.Validate(snap, "snapshot", 1); err != nil {
 		return "", err
 	}
-	sid := objStr(snap, "snapshot_id")
+	sid := validation.ObjStr(snap, "snapshot_id")
 	st, err := c.State()
 	if err != nil {
 		return "", err
 	}
-	rows := objAt(st, "snapshots")
+	rows := validation.ObjAt(st, "snapshots")
 	existing := false
 	for _, r := range rows.A {
-		if objStr(r, "snapshot_id") == sid {
+		if validation.ObjStr(r, "snapshot_id") == sid {
 			existing = true
 			break
 		}
 	}
 	if !existing {
-		pass := objAt(objAt(st, "budget"), "pass")
+		pass := validation.ObjAt(validation.ObjAt(st, "budget"), "pass")
 		if hasKey(snap, "pass") {
-			pass = objAt(snap, "pass")
+			pass = validation.ObjAt(snap, "pass")
 		}
 		pinned := validation.VBool(true)
 		if hasKey(snap, "pinned") {
-			pinned = objAt(snap, "pinned")
+			pinned = validation.ObjAt(snap, "pinned")
 		}
 		rows.A = append(rows.A, validation.VObj(
 			kv("snapshot_id", validation.VStr(sid)),
@@ -425,8 +415,8 @@ func (c *Campaign) PinSnapshot(snap validation.Value) (string, error) {
 	}
 	if evErr == nil {
 		for _, e := range evts {
-			if objStr(e, "type") == "snapshot.pinned" &&
-				objStr(e, "ref") == sid {
+			if validation.ObjStr(e, "type") == "snapshot.pinned" &&
+				validation.ObjStr(e, "ref") == sid {
 				pinnedInLog = true
 				break
 			}
@@ -440,7 +430,7 @@ func (c *Campaign) PinSnapshot(snap validation.Value) (string, error) {
 		// checks the hash chain, never data keys), so old campaigns
 		// without the key simply never warn — the grandfather rule.
 		data := validation.VObj(
-			kv("ladder", objAt(objAt(snap, "source"), "ladder")),
+			kv("ladder", validation.ObjAt(validation.ObjAt(snap, "source"), "ladder")),
 			kv("framework_build", validation.VStr(version.Commit())),
 		)
 		if existing {
@@ -496,12 +486,12 @@ func (c *Campaign) ActiveSnapshot() (validation.Value, error) {
 	if err != nil {
 		return validation.VNull(), err
 	}
-	sid := objAt(st, "active_snapshot_id")
+	sid := validation.ObjAt(st, "active_snapshot_id")
 	if sid.Kind != validation.Str || sid.S == "" {
 		return validation.VNull(), nil
 	}
-	for _, r := range objAt(st, "snapshots").A {
-		if objStr(r, "snapshot_id") == sid.S {
+	for _, r := range validation.ObjAt(st, "snapshots").A {
+		if validation.ObjStr(r, "snapshot_id") == sid.S {
 			return r, nil
 		}
 	}
@@ -515,7 +505,7 @@ func (c *Campaign) ActiveSnapshotIDOrNone() (*string, error) {
 	if err != nil {
 		return nil, err
 	}
-	sid := objAt(st, "active_snapshot_id")
+	sid := validation.ObjAt(st, "active_snapshot_id")
 	if sid.Kind != validation.Str || sid.S == "" {
 		return nil, nil
 	}
@@ -540,7 +530,7 @@ func (c *Campaign) ActiveSnapshotContentHash() (string, bool) {
 	if err != nil {
 		return "", false
 	}
-	h := objAt(objAt(meta, "source"), "content_hash")
+	h := validation.ObjAt(validation.ObjAt(meta, "source"), "content_hash")
 	if h.Kind == validation.Str && h.S != "" {
 		return h.S, true
 	}
@@ -573,7 +563,7 @@ func (c *Campaign) StampRecon(verb, src string) error {
 	if err != nil {
 		return err
 	}
-	recon := objAt(st, "recon")
+	recon := validation.ObjAt(st, "recon")
 	if recon.Kind != validation.Obj {
 		recon = validation.VObj()
 	}
@@ -593,9 +583,9 @@ func (c *Campaign) ReconStamp(verb string) (validation.Value, error) {
 	if err != nil {
 		return validation.VNull(), err
 	}
-	recon := objAt(st, "recon")
+	recon := validation.ObjAt(st, "recon")
 	if recon.Kind != validation.Obj {
 		return validation.VNull(), nil
 	}
-	return objAt(recon, verb), nil
+	return validation.ObjAt(recon, verb), nil
 }

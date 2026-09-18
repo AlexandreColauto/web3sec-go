@@ -149,10 +149,10 @@ func AcceptanceWithPriors(finding validation.Value, priors map[string]Prior,
 	e := AcceptanceEntry{Finding: finding}
 	score := 0.0
 
-	riskObj := orObj(objAt(finding, "risk"))
+	riskObj := orObj(validation.ObjAt(finding, "risk"))
 
 	// severity band (validated_risk, when the impact has been validated)
-	if band := orStr(objAt(orObj(objAt(riskObj, "validated")), "band")); band != "" {
+	if band := orStr(validation.ObjAt(orObj(validation.ObjAt(riskObj, "validated")), "band")); band != "" {
 		if w, ok := wAcceptanceSeverity[band]; ok {
 			score += w
 		}
@@ -170,7 +170,7 @@ func AcceptanceWithPriors(finding validation.Value, priors map[string]Prior,
 
 	// hostile-critic verdict (the real enum; only confirmed / disproved are
 	// worth anything — see wAcceptanceCritic)
-	if v := orStr(objAt(orObj(objAt(finding, "verification")),
+	if v := orStr(validation.ObjAt(orObj(validation.ObjAt(finding, "verification")),
 		"critic_verdict")); v != "" {
 		if w, ok := wAcceptanceCritic[v]; ok {
 			score += w
@@ -180,20 +180,20 @@ func AcceptanceWithPriors(finding validation.Value, priors map[string]Prior,
 
 	// triager outlook (G6): likelihood call under the live policy, bounded
 	// and never disqualifying — only the critic disproves.
-	if o := objAt(orObj(objAt(finding, "verification")), "triager_outlook"); o.Kind ==
+	if o := validation.ObjAt(orObj(validation.ObjAt(finding, "verification")), "triager_outlook"); o.Kind ==
 		validation.Obj {
-		if w, ok := wAcceptanceOutlook[orStr(objAt(o, "outcome"))]; ok {
+		if w, ok := wAcceptanceOutlook[orStr(validation.ObjAt(o, "outcome"))]; ok {
 			score += w
 		}
 	}
 
 	// demotions
-	if a := objAt(orObj(objAt(finding, "dedup_meta")), "in_code_ack"); a.Kind ==
+	if a := validation.ObjAt(orObj(validation.ObjAt(finding, "dedup_meta")), "in_code_ack"); a.Kind ==
 		validation.Obj {
 		score -= acceptanceAckDemotion
 		e.AckDemoted = true
 	}
-	if ar := objAt(orObj(objAt(finding, "bounty")), "accepted_risk"); ar.Kind ==
+	if ar := validation.ObjAt(orObj(validation.ObjAt(finding, "bounty")), "accepted_risk"); ar.Kind ==
 		validation.Obj {
 		score -= acceptanceRiskDemotion
 		e.RiskDemoted = true
@@ -207,7 +207,7 @@ func AcceptanceWithPriors(finding validation.Value, priors map[string]Prior,
 	// wall) — gate on a parseable record with a non-empty pattern. Policy
 	// accepted-risk (−2) is a DIFFERENT layer and stays with bounty
 	// keys — this block never reads bounty.
-	if ms := objAt(orObj(objAt(finding, "dedup_meta")),
+	if ms := validation.ObjAt(orObj(validation.ObjAt(finding, "dedup_meta")),
 		"mitigation_present"); ms.Kind == validation.Str && ms.S != "" {
 		var m map[string]string
 		if json.Unmarshal([]byte(ms.S), &m) == nil && m["pattern"] != "" {
@@ -220,14 +220,14 @@ func AcceptanceWithPriors(finding validation.Value, priors map[string]Prior,
 	// corroboration (G1): operator-resolved same-root-cause pair where the
 	// partner is SAST-flagged; recorded by dedup.ResolveCandidate, consumed
 	// here. Absent => 0, so existing bytes never move.
-	if cb := objAt(orObj(objAt(finding, "dedup_meta")), "corroborated_by"); cb.Kind ==
+	if cb := validation.ObjAt(orObj(validation.ObjAt(finding, "dedup_meta")), "corroborated_by"); cb.Kind ==
 		validation.Str && cb.S != "" {
 		score += acceptanceCorroborationBonus
 		e.Corroborated = true
 	}
 
 	// reversibility (E5 classification)
-	if rv := orStr(objAt(riskObj, "reversibility")); rv != "" {
+	if rv := orStr(validation.ObjAt(riskObj, "reversibility")); rv != "" {
 		if w, ok := wAcceptanceReversibility[rv]; ok {
 			score += w
 		}
@@ -240,7 +240,7 @@ func AcceptanceWithPriors(finding validation.Value, priors map[string]Prior,
 	// one would too, but only this position keeps "nil priors ⇒ the old
 	// bytes" provable by inspection (everything above is untouched).
 	if priors != nil {
-		cls := orStr(objAt(orObj(objAt(finding, "root_cause")), "class"))
+		cls := orStr(validation.ObjAt(orObj(validation.ObjAt(finding, "root_cause")), "class"))
 		if p, ok := priors[cls]; ok && !p.Fallback && p.N >= DefaultMinN {
 			term := 2 * (p.Rate - global.Rate) *
 				math.Min(1, float64(p.N)/30)
@@ -320,12 +320,12 @@ func AcceptanceRankingWithPriors(fs []validation.Value, by string,
 	return entries
 }
 
-func findingIDOf(f validation.Value) string { return orStr(objAt(f, "finding_id")) }
+func findingIDOf(f validation.Value) string { return orStr(validation.ObjAt(f, "finding_id")) }
 
 func validatedScoreOf(f validation.Value) float64 {
-	riskObj := orObj(objAt(f, "risk"))
-	validated := objAt(riskObj, "validated")
-	return numOrZero(objAt(validated, "score"))
+	riskObj := orObj(validation.ObjAt(f, "risk"))
+	validated := validation.ObjAt(riskObj, "validated")
+	return numOrZero(validation.ObjAt(validated, "score"))
 }
 
 // AcceptanceTopK caps a ranking at K entries — the QUALIFIED ones first, so
@@ -366,6 +366,6 @@ func ScoreText(x float64) string { return fmt.Sprintf("%.2f", x) }
 // validatedBandOf is the finding's validated_risk band ("" when
 // unvalidated). (workorder_test.go owns the name bandOf.)
 func validatedBandOf(f validation.Value) string {
-	riskObj := orObj(objAt(f, "risk"))
-	return orStr(objAt(objAt(riskObj, "validated"), "band"))
+	riskObj := orObj(validation.ObjAt(f, "risk"))
+	return orStr(validation.ObjAt(validation.ObjAt(riskObj, "validated"), "band"))
 }

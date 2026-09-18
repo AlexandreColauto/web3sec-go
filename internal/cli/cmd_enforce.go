@@ -93,46 +93,46 @@ func enforceCmd(root string, args []string, r *Runner) error {
 // enforcePrint renders the table: the headline, one line per site, the
 // signals and the stage-pair count.
 func enforcePrint(r *Runner, tbl validation.Value, name string) {
-	stats := objAt(tbl, "stats")
+	stats := validation.ObjAt(tbl, "stats")
 	head := fmt.Sprintf("enforce: %s — %s match, %s site(s) (%s write, %s read), ordering: %s",
-		name, objStr(tbl, "match"), pyIntText(objAt(stats, "sites")),
-		pyIntText(objAt(stats, "writes")), pyIntText(objAt(stats, "reads")),
-		objStr(tbl, "ordering"))
-	if note := objStr(tbl, "note"); note != "" {
+		name, validation.ObjStr(tbl, "match"), pyIntText(validation.ObjAt(stats, "sites")),
+		pyIntText(validation.ObjAt(stats, "writes")), pyIntText(validation.ObjAt(stats, "reads")),
+		validation.ObjStr(tbl, "ordering"))
+	if note := validation.ObjStr(tbl, "note"); note != "" {
 		head += " (" + note + ")"
 	}
 	fmt.Fprintln(r.Out, head)
 	if len(objListAt(tbl, "sites")) == 0 {
 		fmt.Fprintf(r.Out, "  no site reads or writes %s (concept keys tried: %s)\n",
-			name, strings.Join(t14Strings(objAt(tbl, "concept_keys")), ", "))
+			name, strings.Join(t14Strings(validation.ObjAt(tbl, "concept_keys")), ", "))
 		return
 	}
 	for _, s := range objListAt(tbl, "sites") {
 		depth := "-"
-		if d := objAt(s, "depth"); d.Kind == validation.Int {
+		if d := validation.ObjAt(s, "depth"); d.Kind == validation.Int {
 			depth = pyIntText(d)
 		}
 		entry := ""
-		if b := objAt(s, "is_entry_point"); b.Kind == validation.Bool && b.B {
+		if b := validation.ObjAt(s, "is_entry_point"); b.Kind == validation.Bool && b.B {
 			entry = " entry"
 		}
 		fmt.Fprintf(r.Out, "  %-5s %s.%s@%s  depth %s%s  %s\n",
-			objStr(s, "kind"), objStr(s, "contract"), objStr(s, "function"),
-			pyIntText(objAt(s, "line")), depth, entry,
+			validation.ObjStr(s, "kind"), validation.ObjStr(s, "contract"), validation.ObjStr(s, "function"),
+			pyIntText(validation.ObjAt(s, "line")), depth, entry,
 			enforceGuardText(s, name))
 	}
 	if sigs := objListAt(tbl, "signals"); len(sigs) > 0 {
 		fmt.Fprintln(r.Out, "signals:")
 		for _, s := range sigs {
-			fmt.Fprintf(r.Out, "  - %s: %s\n", objStr(s, "signal"),
-				objStr(s, "detail"))
+			fmt.Fprintf(r.Out, "  - %s: %s\n", validation.ObjStr(s, "signal"),
+				validation.ObjStr(s, "detail"))
 		}
 	}
 	fmt.Fprintf(r.Out, "stages: %s (write, read) pair(s), %s with an unguarded "+
 		"write, %s open on both ends\n",
-		pyIntText(objAt(stats, "stage_pairs")),
-		pyIntText(objAt(stats, "stage_gaps")),
-		pyIntText(objAt(stats, "stage_open_gaps")))
+		pyIntText(validation.ObjAt(stats, "stage_pairs")),
+		pyIntText(validation.ObjAt(stats, "stage_gaps")),
+		pyIntText(validation.ObjAt(stats, "stage_open_gaps")))
 }
 
 // enforceGuardText describes a site's assertions relative to the queried
@@ -142,9 +142,9 @@ func enforceGuardText(site validation.Value, name string) string {
 	about := []string{}
 	others := 0
 	for _, g := range objListAt(site, "guards") {
-		if b := objAt(g, "about_variable"); b.Kind == validation.Bool && b.B {
+		if b := validation.ObjAt(g, "about_variable"); b.Kind == validation.Bool && b.B {
 			about = append(about, fmt.Sprintf("class %s %s",
-				pyIntText(objAt(g, "class")), objStr(g, "text")))
+				pyIntText(validation.ObjAt(g, "class")), validation.ObjStr(g, "text")))
 			continue
 		}
 		others++

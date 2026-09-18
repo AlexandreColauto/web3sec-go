@@ -50,7 +50,7 @@ func r40eAuditSection2(t *testing.T, c *state.Campaign) string {
 		t.Fatalf("sections.Artifacts: %v", err)
 	}
 	items := []string{}
-	for _, p := range objAt(sec, "problems").A {
+	for _, p := range validation.ObjAt(sec, "problems").A {
 		items = append(items, p.S)
 	}
 	return strings.Join(items, " | ")
@@ -65,7 +65,7 @@ func r40eEventCount(t *testing.T, c *state.Campaign, eventType string) int {
 	}
 	n := 0
 	for _, e := range evts {
-		if objStr(e, "type") == eventType {
+		if validation.ObjStr(e, "type") == eventType {
 			n++
 		}
 	}
@@ -104,14 +104,14 @@ func r40eSweepCase(t *testing.T) (validation.Value, string, string, string, Swee
 	t.Helper()
 	doc := readTest(t, "oracle_sweeps.json")
 	for _, c := range casesOf(t, doc) {
-		if objAt(c, "error").Kind == validation.Obj {
+		if validation.ObjAt(c, "error").Kind == validation.Obj {
 			continue
 		}
-		return c, objStr(c, "label"), objStr(c, "seed"),
-			objStr(c, "contract"), SweepOpts{
-				EntryPointsReviewed: objAt(c, "entry_points_reviewed").I,
-				FunctionsReviewed:   objAt(c, "functions_reviewed").I,
-				Complete:            objAt(c, "complete").B,
+		return c, validation.ObjStr(c, "label"), validation.ObjStr(c, "seed"),
+			validation.ObjStr(c, "contract"), SweepOpts{
+				EntryPointsReviewed: validation.ObjAt(c, "entry_points_reviewed").I,
+				FunctionsReviewed:   validation.ObjAt(c, "functions_reviewed").I,
+				Complete:            validation.ObjAt(c, "complete").B,
 			}
 	}
 	t.Fatal("no successful record_sweep oracle case")
@@ -163,8 +163,8 @@ func TestR40ERefusedRecordSweepRestoresLedgerBytes(t *testing.T) {
 		t.Fatalf("audit section 2 red after the honest retry: %s", got)
 	}
 	// The retry reproduces the Python twin's recorded row and file exactly.
-	wantCanon(t, label, row, objStr(c, "result"))
-	wantFile(t, label, path, objStr(c, "file"))
+	wantCanon(t, label, row, validation.ObjStr(c, "result"))
+	wantFile(t, label, path, validation.ObjStr(c, "file"))
 }
 
 // TestR40EHealthyRecordSweepStillWorks is the happy-path guard: the door
@@ -180,6 +180,6 @@ func TestR40EHealthyRecordSweepStillWorks(t *testing.T) {
 	if got := r40eEventCount(t, camp, "coverage.sweep"); got != 1 {
 		t.Fatalf("coverage.sweep events = %d, want 1", got)
 	}
-	wantCanon(t, label, row, objStr(c, "result"))
-	wantFile(t, label, Path(camp), objStr(c, "file"))
+	wantCanon(t, label, row, validation.ObjStr(c, "result"))
+	wantFile(t, label, Path(camp), validation.ObjStr(c, "file"))
 }

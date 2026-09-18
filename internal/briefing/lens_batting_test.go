@@ -143,7 +143,7 @@ func batSetPolicy(t *testing.T, c *state.Campaign, on bool) {
 // batLines extracts the batting-average advisory lines.
 func batLines(b validation.Value) []string {
 	out := []string{}
-	for _, a := range strListOf(objAt(b, "next_actions")) {
+	for _, a := range strListOf(validation.ObjAt(b, "next_actions")) {
 		if strings.Contains(a, "batting average") {
 			out = append(out, a)
 		}

@@ -107,7 +107,7 @@ func mcScaffoldSHA(t *testing.T, c *state.Campaign) string {
 // mcHarness is verification.harness after a run.
 func mcHarness(t *testing.T, c *state.Campaign) validation.Value {
 	t.Helper()
-	return objAt(objAt(harnessEntry(t, c), "verification"), "harness")
+	return validation.ObjAt(validation.ObjAt(harnessEntry(t, c), "verification"), "harness")
 }
 
 // objHasKey reports key presence — the proof-key contract distinguishes
@@ -194,22 +194,22 @@ func TestHarnessResultMinicertoraProven(t *testing.T) {
 		t.Fatalf("stdout = %q", out)
 	}
 	h := mcHarness(t, c)
-	if objStr(h, "kind") != "minicertora" ||
-		objStr(h, "rung") != "proved-bounded" {
+	if validation.ObjStr(h, "kind") != "minicertora" ||
+		validation.ObjStr(h, "rung") != "proved-bounded" {
 		t.Fatalf("harness = %s", validation.CanonCompact(h))
 	}
-	if bk := objAt(h, "bounded_k"); bk.Kind != validation.Int || bk.I != 4 {
+	if bk := validation.ObjAt(h, "bounded_k"); bk.Kind != validation.Int || bk.I != 4 {
 		t.Fatalf("bounded_k = %s, want 4", validation.CanonCompact(bk))
 	}
-	p := objAt(h, "proof")
+	p := validation.ObjAt(h, "proof")
 	if p.Kind != validation.Obj {
 		t.Fatalf("proof = %s, want an object", validation.CanonCompact(p))
 	}
-	if objStr(p, "confidence") != "modeled" {
+	if validation.ObjStr(p, "confidence") != "modeled" {
 		t.Fatalf("proof.confidence = %q, want modeled",
-			objStr(p, "confidence"))
+			validation.ObjStr(p, "confidence"))
 	}
-	as := objAt(p, "assumptions")
+	as := validation.ObjAt(p, "assumptions")
 	if as.Kind != validation.Arr || len(as.A) == 0 ||
 		as.A[0].S != "msg.value-default-zero" {
 		t.Fatalf("proof.assumptions = %s", validation.CanonCompact(as))
@@ -233,13 +233,13 @@ func TestHarnessResultMinicertoraViolated(t *testing.T) {
 		t.Fatalf("stdout %q must name the rung", out)
 	}
 	h := mcHarness(t, c)
-	if objStr(h, "rung") != "counterexample" {
+	if validation.ObjStr(h, "rung") != "counterexample" {
 		t.Fatalf("rung = %s", validation.CanonCompact(h))
 	}
 	want := "counterexample: total >= before " +
 		"[unconfirmed: crosses a havoc'd call]"
-	if objStr(h, "summary") != want {
-		t.Fatalf("summary = %q, want %q", objStr(h, "summary"), want)
+	if validation.ObjStr(h, "summary") != want {
+		t.Fatalf("summary = %q, want %q", validation.ObjStr(h, "summary"), want)
 	}
 	if !objHasKey(h, "proof") {
 		t.Fatal("a VIOLATED line is attributed: the proof key must ride")
@@ -264,16 +264,16 @@ func TestHarnessResultMinicertoraUnknown(t *testing.T) {
 		t.Fatalf("stdout %q must name the rung", out)
 	}
 	h := mcHarness(t, c)
-	if objStr(h, "rung") != "inconclusive" {
+	if validation.ObjStr(h, "rung") != "inconclusive" {
 		t.Fatalf("rung = %s", validation.CanonCompact(h))
 	}
-	p := objAt(h, "proof")
+	p := validation.ObjAt(h, "proof")
 	if p.Kind != validation.Obj {
 		t.Fatalf("an attributed UNKNOWN must keep its proof sidecar: %s",
 			validation.CanonCompact(h))
 	}
-	if objStr(p, "reason") != "loop-bound-may-be-exceeded" {
-		t.Fatalf("proof.reason = %q", objStr(p, "reason"))
+	if validation.ObjStr(p, "reason") != "loop-bound-may-be-exceeded" {
+		t.Fatalf("proof.reason = %q", validation.ObjStr(p, "reason"))
 	}
 }
 
@@ -295,18 +295,18 @@ func TestHarnessResultMinicertoraBoundViolation(t *testing.T) {
 		t.Fatalf("stdout %q must name the rung", out)
 	}
 	h := mcHarness(t, c)
-	if objStr(h, "rung") != "inconclusive" {
+	if validation.ObjStr(h, "rung") != "inconclusive" {
 		t.Fatalf("rung = %s", validation.CanonCompact(h))
 	}
 	want := "scaffold-bound violation: harness file hash differs " +
 		"from stored scaffold"
-	if objStr(h, "summary") != want {
-		t.Fatalf("summary = %q, want %q", objStr(h, "summary"), want)
+	if validation.ObjStr(h, "summary") != want {
+		t.Fatalf("summary = %q, want %q", validation.ObjStr(h, "summary"), want)
 	}
 	if objHasKey(h, "proof") {
 		t.Fatal("a refusal stores no proof key (absent, not null)")
 	}
-	if bk := objAt(h, "bounded_k"); bk.Kind != validation.Null {
+	if bk := validation.ObjAt(h, "bounded_k"); bk.Kind != validation.Null {
 		t.Fatalf("bounded_k = %s, want null", validation.CanonCompact(bk))
 	}
 }
@@ -356,18 +356,18 @@ func TestHarnessResultMinicertoraDegradedClaim(t *testing.T) {
 		t.Fatalf("stdout = %q, want %q", out, want)
 	}
 	h := mcHarness(t, c)
-	if objStr(h, "rung") != "inconclusive" {
+	if validation.ObjStr(h, "rung") != "inconclusive" {
 		t.Fatalf("a weakened pinned claim must never map: %s",
 			validation.CanonCompact(h))
 	}
 	degraded := "scaffold-degraded: invariant assert line changed"
-	if summary := objStr(h, "summary"); summary != degraded {
+	if summary := validation.ObjStr(h, "summary"); summary != degraded {
 		t.Fatalf("summary = %q, want %q", summary, degraded)
 	}
 	if objHasKey(h, "proof") {
 		t.Fatal("a refusal stores no proof key (absent, not null)")
 	}
-	if bk := objAt(h, "bounded_k"); bk.Kind != validation.Null {
+	if bk := validation.ObjAt(h, "bounded_k"); bk.Kind != validation.Null {
 		t.Fatalf("bounded_k = %s, want null", validation.CanonCompact(bk))
 	}
 	evs := harnessEventsOf(t, c, "harness_run")
@@ -398,8 +398,8 @@ func TestHarnessResultMinicertoraContradiction(t *testing.T) {
 	}
 	h := mcHarness(t, c)
 	want := "inconclusive (report-contradiction: exit 1 with verdict PROVEN)"
-	if objStr(h, "summary") != want {
-		t.Fatalf("summary = %q, want %q", objStr(h, "summary"), want)
+	if validation.ObjStr(h, "summary") != want {
+		t.Fatalf("summary = %q, want %q", validation.ObjStr(h, "summary"), want)
 	}
 	if objHasKey(h, "proof") {
 		t.Fatal("a contradicted report stores no proof key")
@@ -425,12 +425,12 @@ func TestHarnessResultMinicertoraTimedOut(t *testing.T) {
 		t.Fatalf("stdout %q must name the rung", out)
 	}
 	h := mcHarness(t, c)
-	if objStr(h, "rung") != "inconclusive" {
+	if validation.ObjStr(h, "rung") != "inconclusive" {
 		t.Fatalf("rung = %s", validation.CanonCompact(h))
 	}
 	want := "inconclusive (no clean completion; loop bound was 8)"
-	if objStr(h, "summary") != want {
-		t.Fatalf("summary = %q, want %q", objStr(h, "summary"), want)
+	if validation.ObjStr(h, "summary") != want {
+		t.Fatalf("summary = %q, want %q", validation.ObjStr(h, "summary"), want)
 	}
 	if objHasKey(h, "proof") {
 		t.Fatal("a timed-out run stores no proof key")
@@ -456,17 +456,17 @@ func TestHarnessResultMinicertoraTimedOutLoopBound4(t *testing.T) {
 		t.Fatalf("stdout = %q, want the inconclusive print", out)
 	}
 	h := mcHarness(t, c)
-	if objStr(h, "rung") != "inconclusive" {
+	if validation.ObjStr(h, "rung") != "inconclusive" {
 		t.Fatalf("rung = %s", validation.CanonCompact(h))
 	}
 	want := "inconclusive (no clean completion; loop bound was 4)"
-	if objStr(h, "summary") != want {
-		t.Fatalf("summary = %q, want %q", objStr(h, "summary"), want)
+	if validation.ObjStr(h, "summary") != want {
+		t.Fatalf("summary = %q, want %q", validation.ObjStr(h, "summary"), want)
 	}
 	if objHasKey(h, "proof") {
 		t.Fatal("a timed-out run stores no proof key")
 	}
-	if bk := objAt(h, "bounded_k"); bk.Kind != validation.Null {
+	if bk := validation.ObjAt(h, "bounded_k"); bk.Kind != validation.Null {
 		t.Fatalf("bounded_k = %s, want null", validation.CanonCompact(bk))
 	}
 }
@@ -506,11 +506,11 @@ func TestHarnessResultMinicertoraNoCleanExit(t *testing.T) {
 		t.Fatalf("exit %d out=%q err=%q", code, out, errS)
 	}
 	h := mcHarness(t, c)
-	if objStr(h, "rung") != "inconclusive" {
+	if validation.ObjStr(h, "rung") != "inconclusive" {
 		t.Fatalf("rung = %s, want the negative floor", validation.CanonCompact(h))
 	}
-	if objStr(h, "summary") != "inconclusive (exit output unmapped)" {
-		t.Fatalf("summary = %q", objStr(h, "summary"))
+	if validation.ObjStr(h, "summary") != "inconclusive (exit output unmapped)" {
+		t.Fatalf("summary = %q", validation.ObjStr(h, "summary"))
 	}
 	if objHasKey(h, "proof") {
 		t.Fatal("an unknown exit status stores no proof key")
@@ -602,18 +602,18 @@ func TestHarnessResultMinicertoraProvenNoBounds(t *testing.T) {
 		t.Fatalf("stdout = %q, want the k-less proved line", out)
 	}
 	h := mcHarness(t, c)
-	if objStr(h, "rung") != "proved-bounded" {
+	if validation.ObjStr(h, "rung") != "proved-bounded" {
 		t.Fatalf("rung = %s", validation.CanonCompact(h))
 	}
-	if bk := objAt(h, "bounded_k"); bk.Kind != validation.Null {
+	if bk := validation.ObjAt(h, "bounded_k"); bk.Kind != validation.Null {
 		t.Fatalf("bounded_k = %s, want null", validation.CanonCompact(bk))
 	}
-	p := objAt(h, "proof")
+	p := validation.ObjAt(h, "proof")
 	if p.Kind != validation.Obj {
 		t.Fatalf("an attributed PROVEN line keeps its sidecar: %s",
 			validation.CanonCompact(h))
 	}
-	lb := objAt(objAt(p, "bounds"), "loop_bound")
+	lb := validation.ObjAt(validation.ObjAt(p, "bounds"), "loop_bound")
 	if lb.Kind != validation.Null {
 		t.Fatalf("proof.bounds.loop_bound = %s, want null",
 			validation.CanonCompact(lb))
@@ -641,11 +641,11 @@ func TestHarnessResultMinicertoraProvenBigBound(t *testing.T) {
 		t.Fatalf("stdout = %q, want %q", out, want)
 	}
 	h := mcHarness(t, c)
-	if bk := objAt(h, "bounded_k"); bk.Kind != validation.Null {
+	if bk := validation.ObjAt(h, "bounded_k"); bk.Kind != validation.Null {
 		t.Fatalf("bounded_k = %s, want null (the pointer cannot hold it)",
 			validation.CanonCompact(bk))
 	}
-	lb := objAt(objAt(objAt(h, "proof"), "bounds"), "loop_bound")
+	lb := validation.ObjAt(validation.ObjAt(validation.ObjAt(h, "proof"), "bounds"), "loop_bound")
 	if lb.Kind != validation.Int || lb.Big != "99999999999999999999" {
 		t.Fatalf("proof.bounds.loop_bound = %s, want the big int",
 			validation.CanonCompact(lb))
@@ -671,13 +671,13 @@ func TestHarnessResultMinicertoraKilledStatus(t *testing.T) {
 		t.Fatalf("stdout = %q, want the inconclusive print", out)
 	}
 	h := mcHarness(t, c)
-	if objStr(h, "rung") != "inconclusive" {
+	if validation.ObjStr(h, "rung") != "inconclusive" {
 		t.Fatalf("rung = %s", validation.CanonCompact(h))
 	}
 	want := "inconclusive (no clean completion; loop bound was 8)"
-	if objStr(h, "summary") != want {
+	if validation.ObjStr(h, "summary") != want {
 		t.Fatalf("summary = %q, want the -1 gate's wording",
-			objStr(h, "summary"))
+			validation.ObjStr(h, "summary"))
 	}
 	if objHasKey(h, "proof") {
 		t.Fatal("a killed run stores no proof key")
@@ -703,17 +703,17 @@ func TestHarnessResultMinicertoraTimedOutNoBound(t *testing.T) {
 		t.Fatalf("stdout = %q, want the inconclusive print", out)
 	}
 	h := mcHarness(t, c)
-	if objStr(h, "rung") != "inconclusive" {
+	if validation.ObjStr(h, "rung") != "inconclusive" {
 		t.Fatalf("rung = %s", validation.CanonCompact(h))
 	}
 	want := "inconclusive (no clean completion)"
-	if objStr(h, "summary") != want {
-		t.Fatalf("summary = %q, want %q", objStr(h, "summary"), want)
+	if validation.ObjStr(h, "summary") != want {
+		t.Fatalf("summary = %q, want %q", validation.ObjStr(h, "summary"), want)
 	}
 	if objHasKey(h, "proof") {
 		t.Fatal("a timed-out run stores no proof key")
 	}
-	if bk := objAt(h, "bounded_k"); bk.Kind != validation.Null {
+	if bk := validation.ObjAt(h, "bounded_k"); bk.Kind != validation.Null {
 		t.Fatalf("bounded_k = %s, want null", validation.CanonCompact(bk))
 	}
 }
@@ -833,7 +833,7 @@ func mcLinkField(t *testing.T, c *state.Campaign, path ...string) validation.Val
 		t.Fatalf("parse invariant_links.json: %v", err)
 	}
 	for _, k := range path {
-		v = objAt(v, k)
+		v = validation.ObjAt(v, k)
 	}
 	return v
 }
@@ -859,7 +859,7 @@ func TestHarnessResultMinicertoraInvariantProof(t *testing.T) {
 	}
 	proof := mcLinkField(t, c, "invariants", "INV-1", "verification",
 		"harness", "proof")
-	inv := objAt(proof, "invariant")
+	inv := validation.ObjAt(proof, "invariant")
 	if inv.Kind != validation.Obj {
 		t.Fatalf("stored proof.invariant = %s, want the verbatim object",
 			validation.CanonCompact(inv))
@@ -874,7 +874,7 @@ func TestHarnessResultMinicertoraInvariantProof(t *testing.T) {
 		t.Errorf("stored proof.invariant = %s\nwant %s", got, want)
 	}
 	// A PROVEN rule line carries no witness: calls rides as null.
-	if calls := objAt(proof, "calls"); calls.Kind != validation.Null {
+	if calls := validation.ObjAt(proof, "calls"); calls.Kind != validation.Null {
 		t.Errorf("stored proof.calls = %s, want null",
 			validation.CanonCompact(calls))
 	}
@@ -895,13 +895,13 @@ func TestHarnessResultMinicertoraInvariantInitNull(t *testing.T) {
 	}
 	inv := mcLinkField(t, c, "invariants", "INV-1", "verification",
 		"harness", "proof", "invariant")
-	if init := objAt(inv, "init"); init.Kind != validation.Null {
+	if init := validation.ObjAt(inv, "init"); init.Kind != validation.Null {
 		t.Fatalf("stored proof.invariant.init = %s, want null",
 			validation.CanonCompact(init))
 	}
-	pf := objAt(inv, "per_function")
+	pf := validation.ObjAt(inv, "per_function")
 	if pf.Kind != validation.Arr || len(pf.A) != 1 ||
-		objStr(pf.A[0], "function") != "deposit" {
+		validation.ObjStr(pf.A[0], "function") != "deposit" {
 		t.Fatalf("stored proof.invariant.per_function = %s",
 			validation.CanonCompact(pf))
 	}
@@ -938,14 +938,14 @@ func TestHarnessResultMinicertoraRuleLineInvariantNull(t *testing.T) {
 		t.Fatalf("stored proof keys = %s\nwant %s", got, wantKeys)
 	}
 	for _, k := range []string{"invariant", "calls"} {
-		if v := objAt(proof, k); v.Kind != validation.Null {
+		if v := validation.ObjAt(proof, k); v.Kind != validation.Null {
 			t.Errorf("stored proof.%s = %s, want null", k,
 				validation.CanonCompact(v))
 		}
 	}
-	if !strings.HasPrefix(objStr(proof, "compiler_pin"), "unchecked") {
+	if !strings.HasPrefix(validation.ObjStr(proof, "compiler_pin"), "unchecked") {
 		t.Errorf("a fixture record with no visible pin must say so, got %q",
-			objStr(proof, "compiler_pin"))
+			validation.ObjStr(proof, "compiler_pin"))
 	}
 }
 
@@ -981,7 +981,7 @@ func TestHarnessResultMinicertoraCallsAuditSuffix(t *testing.T) {
 	if err != nil {
 		t.Fatalf("audit --json: %v", err)
 	}
-	runs := objAt(objAt(objAt(rep, "sections"), "invariant_verification"),
+	runs := validation.ObjAt(validation.ObjAt(validation.ObjAt(rep, "sections"), "invariant_verification"),
 		"harness_runs")
 	if runs.Kind != validation.Arr || len(runs.A) == 0 {
 		t.Fatalf("harness_runs = %s", validation.CanonCompact(runs))
@@ -1036,18 +1036,18 @@ func TestHarnessResultMinicertoraUnboundDegradedClaim(t *testing.T) {
 		t.Fatalf("stdout = %q, want %q", out, want)
 	}
 	h := mcHarness(t, c)
-	if objStr(h, "rung") != "inconclusive" {
+	if validation.ObjStr(h, "rung") != "inconclusive" {
 		t.Fatalf("a weakened pinned claim must never map, bound or not: %s",
 			validation.CanonCompact(h))
 	}
 	degraded := "scaffold-degraded: invariant assert line changed"
-	if summary := objStr(h, "summary"); summary != degraded {
+	if summary := validation.ObjStr(h, "summary"); summary != degraded {
 		t.Fatalf("summary = %q, want %q", summary, degraded)
 	}
 	if objHasKey(h, "proof") {
 		t.Fatal("a refusal stores no proof key (absent, not null)")
 	}
-	if bk := objAt(h, "bounded_k"); bk.Kind != validation.Null {
+	if bk := validation.ObjAt(h, "bounded_k"); bk.Kind != validation.Null {
 		t.Fatalf("bounded_k = %s, want null", validation.CanonCompact(bk))
 	}
 	evs := harnessEventsOf(t, c, "harness_run")
@@ -1181,8 +1181,8 @@ func TestHarnessResultChecksAMatchingPin(t *testing.T) {
 	}
 	proof := mcLinkField(t, c, "invariants", "INV-1", "verification",
 		"harness", "proof")
-	if !strings.Contains(objStr(proof, "compiler_pin"), "checked against pinned solc 0.8.36") {
+	if !strings.Contains(validation.ObjStr(proof, "compiler_pin"), "checked against pinned solc 0.8.36") {
 		t.Fatalf("proof must record the check it passed: %q",
-			objStr(proof, "compiler_pin"))
+			validation.ObjStr(proof, "compiler_pin"))
 	}
 }

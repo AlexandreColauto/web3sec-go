@@ -183,7 +183,7 @@ func skewBrief(sid string) validation.Value {
 	brief := m6Brief()
 	brief.O = validation.SetOrAppend(brief.O, "divergence", validation.VNull())
 	brief.O = validation.SetOrAppend(brief.O, "probe_surface", validation.VNull())
-	camp := objAt(brief, "campaign")
+	camp := validation.ObjAt(brief, "campaign")
 	camp.O = validation.SetOrAppend(camp.O, "active_snapshot",
 		validation.VStr(sid))
 	brief.O = validation.SetOrAppend(brief.O, "campaign", camp)

@@ -55,7 +55,7 @@ func runPrescreen(root string, args []string, r *Runner) int {
 		if err != nil {
 			return err
 		}
-		stale := active != nil && objStr(rep, "snapshot_id") != *active
+		stale := active != nil && validation.ObjStr(rep, "snapshot_id") != *active
 		if asJSON {
 			fmt.Fprintln(r.Out, validation.DumpIndentedASCII(rep))
 			return nil
@@ -68,8 +68,8 @@ func runPrescreen(root string, args []string, r *Runner) int {
 			case boolAtCLI(row, "forced"):
 				mark = "forced"
 			}
-			fmt.Fprintf(r.Out, "  [%s] %s (%s)\n", mark, objStr(row, "id"),
-				objStr(row, "criticality"))
+			fmt.Fprintf(r.Out, "  [%s] %s (%s)\n", mark, validation.ObjStr(row, "id"),
+				validation.ObjStr(row, "criticality"))
 			if !boolAtCLI(row, "match") {
 				if near := strListAtCLI(row, "near_matches"); len(near) > 0 {
 					fmt.Fprintf(r.Out, "        near-matches: %s\n",
@@ -80,7 +80,7 @@ func runPrescreen(root string, args []string, r *Runner) int {
 		if stale {
 			fmt.Fprintf(r.Out, "NOTE: report is from snapshot %s, active pin "+
 				"is %s — re-run `webv2 prescreen` after re-pinning\n",
-				objStr(rep, "snapshot_id"), *active)
+				validation.ObjStr(rep, "snapshot_id"), *active)
 		}
 		for _, prob := range strListAtCLI(rep, "problems") {
 			fmt.Fprintf(r.Out, "PROBLEM: %s\n", prob)

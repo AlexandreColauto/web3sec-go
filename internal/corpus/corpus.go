@@ -17,7 +17,7 @@ package corpus
 import (
 	"errors"
 	"math"
-	"os"
+
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -148,13 +148,13 @@ func classEntryFor(inv map[string]*classEntry, cls string) *classEntry {
 func addMemoryRows(inv map[string]*classEntry, rows []validation.Value) {
 	for _, w := range rows {
 		row := wrappedRow(w)
-		cls := objStr(row, "bug_class")
+		cls := validation.ObjStr(row, "bug_class")
 		if cls == "" || cls == "unmapped" {
 			continue
 		}
 		e := classEntryFor(inv, cls)
 		e.memoryRows++
-		if m := lossRe.FindStringSubmatch(objStr(row, "evidence_summary")); m != nil {
+		if m := lossRe.FindStringSubmatch(validation.ObjStr(row, "evidence_summary")); m != nil {
 			if v, perr := parsePyFloat(strings.ReplaceAll(m[1], ",", "")); perr == nil {
 				e.lossSum += v
 			}
@@ -167,21 +167,21 @@ func addMemoryRows(inv map[string]*classEntry, rows []validation.Value) {
 func addEvalCases(inv map[string]*classEntry, cases []validation.Value) int64 {
 	unmapped := int64(0)
 	for _, cse := range cases {
-		g := objAt(cse, "gold")
+		g := validation.ObjAt(cse, "gold")
 		if g.Kind != validation.Obj {
 			continue
 		}
-		if objStr(g, "outcome") != "confirmed-exploitable" {
+		if validation.ObjStr(g, "outcome") != "confirmed-exploitable" {
 			continue
 		}
-		cls := objStr(g, "bug_class")
+		cls := validation.ObjStr(g, "bug_class")
 		if cls == "" || cls == "unmapped" {
 			unmapped++
 			continue
 		}
 		e := classEntryFor(inv, cls)
 		e.evalCases++
-		sev := objStr(g, "severity")
+		sev := validation.ObjStr(g, "severity")
 		if sev == "" {
 			sev = "unknown"
 		}
@@ -239,7 +239,7 @@ func wrappedRow(w validation.Value) validation.Value {
 // scopeOf is `w.get("scope") if isinstance(w, dict) else None`.
 func scopeOf(w validation.Value) validation.Value {
 	if w.Kind == validation.Obj {
-		return objAt(w, "scope")
+		return validation.ObjAt(w, "scope")
 	}
 	return validation.VNull()
 }
@@ -274,12 +274,12 @@ func ExposureRows(inventory validation.Value, probed []validation.Value) []valid
 	}
 	rows := make([]row, 0, len(probed))
 	for _, p := range probed {
-		cls := objStr(p, "bug_class")
-		inv := objAt(objAt(inventory, "classes"), cls)
+		cls := validation.ObjStr(p, "bug_class")
+		inv := validation.ObjAt(validation.ObjAt(inventory, "classes"), cls)
 		weight := intAt(inv, "memory_rows") + intAt(inv, "eval_cases")
 		hits := listAt(p, "hits")
 		score := float64(len(hits)) * math.Log2(1+float64(weight)) *
-			ConfidenceFactor[objStr(p, "confidence")] * searchFactor(cls)
+			ConfidenceFactor[validation.ObjStr(p, "confidence")] * searchFactor(cls)
 		score = validation.PythonRound(score, 6)
 		loss := floatAt(inv, "loss_usd_sum")
 		rows = append(rows, row{
@@ -288,9 +288,9 @@ func ExposureRows(inventory validation.Value, probed []validation.Value) []valid
 			loss:  loss,
 			val: validation.VObj(
 				validation.KV{K: "bug_class", V: validation.VStr(cls)},
-				validation.KV{K: "exposed", V: objAt(p, "exposed")},
-				validation.KV{K: "hits", V: objAt(p, "hits")},
-				validation.KV{K: "confidence", V: objAt(p, "confidence")},
+				validation.KV{K: "exposed", V: validation.ObjAt(p, "exposed")},
+				validation.KV{K: "hits", V: validation.ObjAt(p, "hits")},
+				validation.KV{K: "confidence", V: validation.ObjAt(p, "confidence")},
 				validation.KV{K: "corpus_weight", V: validation.VInt(int64(weight))},
 				validation.KV{K: "loss_usd_sum", V: validation.VFloat(loss)},
 				validation.KV{K: "score", V: validation.VFloat(score)},
@@ -327,7 +327,7 @@ func CoverageGaps(inventory validation.Value) []string {
 		known[cls] = true
 	}
 	var out []string
-	for _, kv := range objAt(inventory, "classes").O {
+	for _, kv := range validation.ObjAt(inventory, "classes").O {
 		if !known[kv.K] {
 			out = append(out, kv.K)
 		}
@@ -352,7 +352,7 @@ func ActiveSnapshotRoot(c *state.Campaign) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	root := objStr(objAt(meta, "source"), "root")
+	root := validation.ObjStr(validation.ObjAt(meta, "source"), "root")
 	return root, nil
 }
 
@@ -370,28 +370,8 @@ func snapshotManifestPath(c *state.Campaign, sid string) string {
 
 // ---- helpers -------------------------------------------------------------
 
-func objAt(v validation.Value, key string) validation.Value {
-	if v.Kind != validation.Obj {
-		return validation.VNull()
-	}
-	for _, kv := range v.O {
-		if kv.K == key {
-			return kv.V
-		}
-	}
-	return validation.VNull()
-}
-
-func objStr(v validation.Value, key string) string {
-	x := objAt(v, key)
-	if x.Kind == validation.Str {
-		return x.S
-	}
-	return ""
-}
-
 func listAt(v validation.Value, key string) []validation.Value {
-	x := objAt(v, key)
+	x := validation.ObjAt(v, key)
 	if x.Kind != validation.Arr {
 		return nil
 	}
@@ -409,7 +389,7 @@ func strListAt(v validation.Value, key string) []string {
 }
 
 func intAt(v validation.Value, key string) int64 {
-	x := objAt(v, key)
+	x := validation.ObjAt(v, key)
 	switch x.Kind {
 	case validation.Int:
 		if x.Big != "" {
@@ -423,7 +403,7 @@ func intAt(v validation.Value, key string) int64 {
 }
 
 func floatAt(v validation.Value, key string) float64 {
-	x := objAt(v, key)
+	x := validation.ObjAt(v, key)
 	switch x.Kind {
 	case validation.Flt:
 		return x.F
@@ -431,15 +411,6 @@ func floatAt(v validation.Value, key string) float64 {
 		return float64(x.I)
 	}
 	return 0.0
-}
-
-// nowIso is state.now_iso with the WEBV2_NOW pin honored first (the golden
-// recipes pin the clock).
-func nowIso() string {
-	if v := os.Getenv("WEBV2_NOW"); v != "" {
-		return v
-	}
-	return state.NowIso()
 }
 
 // sortedKeys is sorted(map keys) for a membership set.

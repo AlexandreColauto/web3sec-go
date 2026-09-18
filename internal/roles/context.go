@@ -30,7 +30,7 @@ func sequenceRequirements(campaign *state.Campaign) ([]validation.Value, error) 
 		if !sequencepoc.IsSequenceRequired(f) {
 			continue
 		}
-		seq := objAt(f, "exploit_sequence")
+		seq := validation.ObjAt(f, "exploit_sequence")
 		steps := 0
 		actorSet := map[string]bool{}
 		if seq.Kind == validation.Arr {
@@ -39,7 +39,7 @@ func sequenceRequirements(campaign *state.Campaign) ([]validation.Value, error) 
 				if s.Kind != validation.Obj {
 					continue
 				}
-				if a := objAt(s, "actor"); a.Kind == validation.Str &&
+				if a := validation.ObjAt(s, "actor"); a.Kind == validation.Str &&
 					a.S != "" {
 					actorSet[a.S] = true
 				}
@@ -54,9 +54,9 @@ func sequenceRequirements(campaign *state.Campaign) ([]validation.Value, error) 
 			"actor(s) — a single-call PoC cannot cover it; attempt T4 with "+
 			"`webv2 sequence run`", steps, len(actors))
 		out = append(out, validation.VObj(
-			validation.KV{K: "finding_id", V: objAt(f, "finding_id")},
+			validation.KV{K: "finding_id", V: validation.ObjAt(f, "finding_id")},
 			validation.KV{K: "steps", V: validation.VInt(int64(steps))},
-			validation.KV{K: "actors", V: strArr(actors)},
+			validation.KV{K: "actors", V: validation.StrArr(actors)},
 			validation.KV{K: "note", V: validation.VStr(note)}))
 	}
 	return out, nil
@@ -68,19 +68,19 @@ func simulationDirectiveBlock(playbook validation.Value) validation.Value {
 	if playbook.Kind != validation.Obj {
 		return validation.VNull()
 	}
-	if objStr(playbook, "investigation_mode") != "adversarial-simulation" {
+	if validation.ObjStr(playbook, "investigation_mode") != "adversarial-simulation" {
 		return validation.VNull()
 	}
-	sim := objAt(playbook, "simulation")
+	sim := validation.ObjAt(playbook, "simulation")
 	if sim.Kind != validation.Obj {
 		return validation.VNull()
 	}
-	ref := objAt(sim, "expectation_violated")
+	ref := validation.ObjAt(sim, "expectation_violated")
 	statement := ""
-	if invs := objAt(playbook, "invariants"); invs.Kind == validation.Arr {
+	if invs := validation.ObjAt(playbook, "invariants"); invs.Kind == validation.Arr {
 		for _, i := range invs.A {
-			if i.Kind == validation.Obj && sameScalar(objAt(i, "id"), ref) {
-				statement = objStr(i, "statement")
+			if i.Kind == validation.Obj && sameScalar(validation.ObjAt(i, "id"), ref) {
+				statement = validation.ObjStr(i, "statement")
 				break
 			}
 		}
@@ -105,7 +105,7 @@ func simulationDirectiveBlock(playbook validation.Value) validation.Value {
 // flags for findings whose class has a simulation-mode playbook.
 func benignActorAuditBlock(campaign *state.Campaign,
 	finding validation.Value) validation.Value {
-	cls := objStr(objAt(finding, "root_cause"), "class")
+	cls := validation.ObjStr(validation.ObjAt(finding, "root_cause"), "class")
 	if cls == "" {
 		return validation.VNull()
 	}
@@ -113,22 +113,22 @@ func benignActorAuditBlock(campaign *state.Campaign,
 	if err != nil || !found {
 		return validation.VNull()
 	}
-	sim := objAt(pb, "simulation")
+	sim := validation.ObjAt(pb, "simulation")
 	if sim.Kind != validation.Obj {
 		return validation.VNull()
 	}
 	cast := map[string]string{}
-	if actors := objAt(sim, "actors"); actors.Kind == validation.Arr {
+	if actors := validation.ObjAt(sim, "actors"); actors.Kind == validation.Arr {
 		for _, a := range actors.A {
 			if a.Kind != validation.Obj {
 				continue
 			}
-			if name := objAt(a, "name"); name.Kind == validation.Str {
-				cast[name.S] = objStr(a, "behavior_class")
+			if name := validation.ObjAt(a, "name"); name.Kind == validation.Str {
+				cast[name.S] = validation.ObjStr(a, "behavior_class")
 			}
 		}
 	}
-	flags := sequencepoc.BenignActorAudit(objAt(finding, "exploit_sequence"), cast)
+	flags := sequencepoc.BenignActorAudit(validation.ObjAt(finding, "exploit_sequence"), cast)
 	if len(flags) == 0 {
 		return validation.VNull()
 	}
@@ -139,17 +139,17 @@ func benignActorAuditBlock(campaign *state.Campaign,
 // a role other than its owner ever sees.
 func findingSummary(f validation.Value) validation.Value {
 	levels := []validation.Value{}
-	if ev := objAt(f, "evidence"); ev.Kind == validation.Arr {
+	if ev := validation.ObjAt(f, "evidence"); ev.Kind == validation.Arr {
 		for _, e := range ev.A {
-			levels = append(levels, objAt(e, "level"))
+			levels = append(levels, validation.ObjAt(e, "level"))
 		}
 	}
 	return validation.VObj(
-		validation.KV{K: "finding_id", V: objAt(f, "finding_id")},
-		validation.KV{K: "title", V: objAt(f, "title")},
-		validation.KV{K: "status", V: objAt(f, "status")},
-		validation.KV{K: "trajectory", V: objAt(f, "trajectory")},
-		validation.KV{K: "bug_class", V: objAt(objAt(f, "root_cause"), "class")},
+		validation.KV{K: "finding_id", V: validation.ObjAt(f, "finding_id")},
+		validation.KV{K: "title", V: validation.ObjAt(f, "title")},
+		validation.KV{K: "status", V: validation.ObjAt(f, "status")},
+		validation.KV{K: "trajectory", V: validation.ObjAt(f, "trajectory")},
+		validation.KV{K: "bug_class", V: validation.ObjAt(validation.ObjAt(f, "root_cause"), "class")},
 		validation.KV{K: "evidence_levels", V: validation.VArr(levels...)})
 }
 
@@ -225,7 +225,7 @@ func loadMemoryRows(campaign *state.Campaign) ([]validation.Value, error) {
 	}
 	for _, w := range wrapped {
 		if w.Kind == validation.Obj {
-			if r := objAt(w, "row"); r.Kind != validation.Null {
+			if r := validation.ObjAt(w, "row"); r.Kind != validation.Null {
 				rows = append(rows, r)
 				continue
 			}
@@ -244,7 +244,7 @@ func devRows(rows []validation.Value) []validation.Value {
 		if r.Kind != validation.Obj {
 			continue
 		}
-		p := objAt(r, "partition")
+		p := validation.ObjAt(r, "partition")
 		if p.Kind == validation.Null || (p.Kind == validation.Str &&
 			p.S == "dev") {
 			dev = append(dev, r)
@@ -257,7 +257,7 @@ func devRows(rows []validation.Value) []validation.Value {
 func negativeRows(dev []validation.Value) []validation.Value {
 	negative := []validation.Value{}
 	for _, r := range dev {
-		st := objAt(r, "status")
+		st := validation.ObjAt(r, "status")
 		if st.Kind == validation.Str && contains(NegativeStatuses, st.S) {
 			negative = append(negative, r)
 		}
@@ -271,16 +271,16 @@ func rankNegative(negative []validation.Value,
 	bugClass *string) []validation.Value {
 	sort.SliceStable(negative, func(i, j int) bool {
 		ci, cj := int64(1), int64(1)
-		if bugClass != nil && objStr(negative[i], "bug_class") == *bugClass {
+		if bugClass != nil && validation.ObjStr(negative[i], "bug_class") == *bugClass {
 			ci = 0
 		}
-		if bugClass != nil && objStr(negative[j], "bug_class") == *bugClass {
+		if bugClass != nil && validation.ObjStr(negative[j], "bug_class") == *bugClass {
 			cj = 0
 		}
 		if ci != cj {
 			return ci < cj
 		}
-		return objStr(negative[i], "created_at") < objStr(negative[j], "created_at")
+		return validation.ObjStr(negative[i], "created_at") < validation.ObjStr(negative[j], "created_at")
 	})
 	return negative
 }
@@ -289,57 +289,57 @@ func rankNegative(negative []validation.Value,
 // the model needs to judge applicability (pin divergence, policy contingency,
 // schema version), never the raw record.
 func summarizeNonIssue(row validation.Value, activePin string) validation.Value {
-	rejectionClass := objAt(row, "rejection_class")
+	rejectionClass := validation.ObjAt(row, "rejection_class")
 	if rejectionClass.Kind == validation.Null {
-		rc := learning.RejectionClassForStatus(objStr(row, "status"))
+		rc := learning.RejectionClassForStatus(validation.ObjStr(row, "status"))
 		if rc != "" {
 			rejectionClass = validation.VStr(rc)
 		}
 	}
-	rowPin := objStr(row, "snapshot_id")
+	rowPin := validation.ObjStr(row, "snapshot_id")
 	// deciding_propositions is passed through VERBATIM for v2 rows (Python:
 	// `row.get("deciding_propositions") if schema_version >= 2 else []`), so
 	// an absent/None field serializes as null, not [] — the v2 schema makes
 	// the distinction load-bearing for the boundary's differs_from_memory
 	// check. v1 rows carry no proposition structure and always emit [].
 	deciding := validation.VArr()
-	if sv := objAt(row, "schema_version"); sv.Kind == validation.Int &&
+	if sv := validation.ObjAt(row, "schema_version"); sv.Kind == validation.Int &&
 		sv.I >= 2 {
-		deciding = objAt(row, "deciding_propositions")
+		deciding = validation.ObjAt(row, "deciding_propositions")
 	}
 	policyContingent := false
 	if rejectionClass.Kind == validation.Str {
 		policyContingent = rejectionClass.S == "below-threshold"
 	}
 	return validation.VObj(
-		validation.KV{K: "memory_id", V: objAt(row, "memory_id")},
-		validation.KV{K: "status", V: objAt(row, "status")},
+		validation.KV{K: "memory_id", V: validation.ObjAt(row, "memory_id")},
+		validation.KV{K: "status", V: validation.ObjAt(row, "status")},
 		validation.KV{K: "rejection_class", V: rejectionClass},
-		validation.KV{K: "bug_class", V: objAt(row, "bug_class")},
-		validation.KV{K: "cwe", V: objAt(row, "cwe")},
+		validation.KV{K: "bug_class", V: validation.ObjAt(row, "bug_class")},
+		validation.KV{K: "cwe", V: validation.ObjAt(row, "cwe")},
 		validation.KV{K: "pattern",
-			V: validation.VStr(truncate(objStr(row, "pattern"), 300))},
+			V: validation.VStr(truncate(validation.ObjStr(row, "pattern"), 300))},
 		validation.KV{K: "evidence_summary",
-			V: validation.VStr(truncate(objStr(row, "evidence_summary"), 200))},
+			V: validation.VStr(truncate(validation.ObjStr(row, "evidence_summary"), 200))},
 		validation.KV{K: "deciding_propositions", V: deciding},
 		validation.KV{K: "pin_diverged",
 			V: validation.VBool(rowPin != "" && activePin != "" &&
 				rowPin != activePin)},
 		validation.KV{K: "policy_contingent", V: validation.VBool(policyContingent)},
 		validation.KV{K: "schema_version",
-			V: defaultedInt(objAt(row, "schema_version"), 1)})
+			V: defaultedInt(validation.ObjAt(row, "schema_version"), 1)})
 }
 
 // permittedChecks is _permitted_checks: union of the tool ids the model
 // recommended per assumption.
 func permittedChecks(finding validation.Value) []string {
 	tools := map[string]bool{}
-	if as := objAt(finding, "assumptions"); as.Kind == validation.Arr {
+	if as := validation.ObjAt(finding, "assumptions"); as.Kind == validation.Arr {
 		for _, a := range as.A {
 			if a.Kind != validation.Obj {
 				continue
 			}
-			if opts := objAt(a, "verification_options"); opts.Kind == validation.Arr {
+			if opts := validation.ObjAt(a, "verification_options"); opts.Kind == validation.Arr {
 				for _, o := range opts.A {
 					if o.Kind == validation.Str {
 						tools[o.S] = true
@@ -359,30 +359,30 @@ func permittedChecks(finding validation.Value) []string {
 // criticClaim is _critic_claim: fresh serialization of the claim under
 // review, allow-listed — no proposer narrative.
 func criticClaim(finding validation.Value) validation.Value {
-	rc := asObj(objAt(finding, "root_cause"))
-	econ := asObj(objAt(finding, "economic_impact"))
-	inv := asObj(objAt(finding, "invariant"))
+	rc := asObj(validation.ObjAt(finding, "root_cause"))
+	econ := asObj(validation.ObjAt(finding, "economic_impact"))
+	inv := asObj(validation.ObjAt(finding, "invariant"))
 	invOut := validation.VObj()
 	for _, k := range []string{"id", "statement", "documented_ref",
 		"violation_demonstrated"} {
-		if v := objAt(inv, k); v.Kind != validation.Null {
+		if v := validation.ObjAt(inv, k); v.Kind != validation.Null {
 			invOut.O = append(invOut.O, validation.KV{K: k, V: v})
 		}
 	}
 	econOut := validation.VObj()
 	for _, k := range []string{"asset", "max_loss_usd", "extractable_usd",
 		"blast_radius", "extraction_ratio", "price_basis"} {
-		if v := objAt(econ, k); v.Kind != validation.Null {
+		if v := validation.ObjAt(econ, k); v.Kind != validation.Null {
 			econOut.O = append(econOut.O, validation.KV{K: k, V: v})
 		}
 	}
 	return validation.VObj(
-		validation.KV{K: "finding_id", V: objAt(finding, "finding_id")},
-		validation.KV{K: "title", V: objAt(finding, "title")},
-		validation.KV{K: "claim_version", V: objAt(finding, "claim_version")},
+		validation.KV{K: "finding_id", V: validation.ObjAt(finding, "finding_id")},
+		validation.KV{K: "title", V: validation.ObjAt(finding, "title")},
+		validation.KV{K: "claim_version", V: validation.ObjAt(finding, "claim_version")},
 		validation.KV{K: "root_cause", V: validation.VObj(
-			validation.KV{K: "class", V: objAt(rc, "class")},
-			validation.KV{K: "cwe", V: objAt(rc, "cwe")})},
+			validation.KV{K: "class", V: validation.ObjAt(rc, "class")},
+			validation.KV{K: "cwe", V: validation.ObjAt(rc, "cwe")})},
 		validation.KV{K: "affected", V: orEmpty(finding, "affected")},
 		validation.KV{K: "attacker", V: orEmptyObj(finding, "attacker")},
 		validation.KV{K: "invariant", V: invOut},
@@ -395,7 +395,7 @@ func criticClaim(finding validation.Value) validation.Value {
 // pins — the tool's own report, never the proposer's narrative.
 func minimalEvidence(finding validation.Value) validation.Value {
 	out := []validation.Value{}
-	if ev := objAt(finding, "evidence"); ev.Kind == validation.Arr {
+	if ev := validation.ObjAt(finding, "evidence"); ev.Kind == validation.Arr {
 		for _, e := range ev.A {
 			if e.Kind != validation.Obj {
 				continue
@@ -404,7 +404,7 @@ func minimalEvidence(finding validation.Value) validation.Value {
 			for _, k := range []string{"evidence_id", "level", "type",
 				"artifact_id", "command", "description", "sandbox_profile",
 				"snapshot_id", "produced_at"} {
-				if v := objAt(e, k); v.Kind != validation.Null {
+				if v := validation.ObjAt(e, k); v.Kind != validation.Null {
 					item.O = append(item.O, validation.KV{K: k, V: v})
 				}
 			}
@@ -422,7 +422,7 @@ func invariantVerificationBlock(campaign *state.Campaign,
 	if err != nil {
 		return validation.VNull(), err
 	}
-	reg := objAt(links, "invariants")
+	reg := validation.ObjAt(links, "invariants")
 	if reg.Kind != validation.Obj {
 		return validation.VArr(), nil
 	}
@@ -438,15 +438,15 @@ func invariantVerificationBlock(campaign *state.Campaign,
 		if !ok {
 			continue
 		}
-		stmt := objStr(e, "statement")
+		stmt := validation.ObjStr(e, "statement")
 		if stmt == "" {
 			stmt = "(statement not recorded — legacy/migrated entry)"
 		}
-		status := objStr(e, "status")
+		status := validation.ObjStr(e, "status")
 		if status == "" {
 			status = "UNVERIFIED"
 		}
-		source := objStr(e, "source")
+		source := validation.ObjStr(e, "source")
 		if source == "" {
 			source = "model"
 		}
@@ -577,7 +577,7 @@ func proposerBundle(campaign *state.Campaign,
 		validation.KV{K: "role", V: validation.VStr("proposer")},
 		validation.KV{K: "campaign_id", V: validation.VStr(campaign.CampaignID)},
 		validation.KV{K: "target", V: validation.VObj(
-			validation.KV{K: "program", V: objAt(b.st, "program")},
+			validation.KV{K: "program", V: validation.ObjAt(b.st, "program")},
 			validation.KV{K: "active_snapshot_id", V: nullableStr(b.active)})},
 		validation.KV{K: "snapshot", V: b.snap},
 		validation.KV{K: "playbook", V: b.playbook},
@@ -617,7 +617,7 @@ func BuildCriticContext(campaign *state.Campaign,
 	if err != nil {
 		return validation.VNull(), err
 	}
-	baseline := objAt(finding, "attacker")
+	baseline := validation.ObjAt(finding, "attacker")
 	if baseline.Kind != validation.Obj {
 		baseline = validation.VObj()
 	}
@@ -635,13 +635,13 @@ func BuildCriticContext(campaign *state.Campaign,
 	}
 	var seqReq validation.Value = validation.VNull()
 	for _, r := range seqReqs {
-		if objStr(r, "finding_id") == findingID {
+		if validation.ObjStr(r, "finding_id") == findingID {
 			seqReq = validation.VObj(
-				validation.KV{K: "finding_id", V: objAt(r, "finding_id")},
-				validation.KV{K: "steps", V: objAt(r, "steps")},
+				validation.KV{K: "finding_id", V: validation.ObjAt(r, "finding_id")},
+				validation.KV{K: "steps", V: validation.ObjAt(r, "steps")},
 				validation.KV{K: "n_actors",
-					V: validation.VInt(int64(len(objAt(r, "actors").A)))},
-				validation.KV{K: "note", V: objAt(r, "note")})
+					V: validation.VInt(int64(len(validation.ObjAt(r, "actors").A)))},
+				validation.KV{K: "note", V: validation.ObjAt(r, "note")})
 			break
 		}
 	}
@@ -651,9 +651,9 @@ func BuildCriticContext(campaign *state.Campaign,
 		validation.KV{K: "claim", V: criticClaim(finding)},
 		validation.KV{K: "attacker_baseline", V: baseline},
 		validation.KV{K: "evidence", V: minimalEvidence(finding)},
-		validation.KV{K: "snapshot_ids", V: asObj(objAt(finding, "snapshot_ids"))},
+		validation.KV{K: "snapshot_ids", V: asObj(validation.ObjAt(finding, "snapshot_ids"))},
 		validation.KV{K: "permitted_checks",
-			V: strArr(permittedChecks(finding))},
+			V: validation.StrArr(permittedChecks(finding))},
 		validation.KV{K: "fork_diff", V: forkDiff},
 		validation.KV{K: "invariant_verification", V: invVer},
 		validation.KV{K: "sequence_requirement", V: seqReq},
@@ -673,7 +673,7 @@ func BuildCriticContext(campaign *state.Campaign,
 				V: validation.VStr("model_response.schema.json")})},
 	)
 	// Python deletes a None benign_actor_audit; omitting it keeps the order.
-	if v := objAt(bundle, "benign_actor_audit"); v.Kind == validation.Null {
+	if v := validation.ObjAt(bundle, "benign_actor_audit"); v.Kind == validation.Null {
 		bundle = removeKey(bundle, "benign_actor_audit")
 	}
 	if err := AssertClean(bundle, "critic"); err != nil {
@@ -689,16 +689,16 @@ func BuildReproducerContext(campaign *state.Campaign,
 	if err != nil {
 		return validation.VNull(), err
 	}
-	status := objStr(finding, "status")
+	status := validation.ObjStr(finding, "status")
 	if status != "CONFIRMED" && status != "PROVISIONALLY_VALID" &&
 		status != "POSSIBLE" {
 		return validation.VNull(), fmt.Errorf("%s is in status %s; the "+
 			"reproducer context is built only for confirmed/near-confirmed "+
 			"claims", findingID, status)
 	}
-	rc := asObj(objAt(finding, "root_cause"))
-	class := objStr(rc, "class")
-	repro := asObj(objAt(asObj(objAt(finding, "verification")), "reproduction"))
+	rc := asObj(validation.ObjAt(finding, "root_cause"))
+	class := validation.ObjStr(rc, "class")
+	repro := asObj(validation.ObjAt(asObj(validation.ObjAt(finding, "verification")), "reproduction"))
 	required := blockingAssumptions(finding)
 	snap, err := snapshotBlock(campaign)
 	if err != nil {
@@ -712,7 +712,7 @@ func BuildReproducerContext(campaign *state.Campaign,
 		validation.KV{K: "role", V: validation.VStr("reproducer")},
 		validation.KV{K: "campaign_id", V: validation.VStr(campaign.CampaignID)},
 		validation.KV{K: "claim", V: reproducerClaim(finding, required)},
-		validation.KV{K: "deployment", V: asObj(objAt(finding, "snapshot_ids"))},
+		validation.KV{K: "deployment", V: asObj(validation.ObjAt(finding, "snapshot_ids"))},
 		validation.KV{K: "active_snapshot", V: snap},
 		validation.KV{K: "reproduction_state", V: repro},
 		validation.KV{K: "permitted_execution_profiles", V: validation.VArr(profiles...)},
@@ -740,12 +740,12 @@ func BuildReproducerContext(campaign *state.Campaign,
 // boundary; this shape is what the doc's §4.1 column allows).
 func reproducerClaim(finding validation.Value,
 	required []validation.Value) validation.Value {
-	rc := asObj(objAt(finding, "root_cause"))
-	econ := asObj(objAt(finding, "economic_impact"))
+	rc := asObj(validation.ObjAt(finding, "root_cause"))
+	econ := asObj(validation.ObjAt(finding, "economic_impact"))
 	return validation.VObj(
-		validation.KV{K: "finding_id", V: objAt(finding, "finding_id")},
-		validation.KV{K: "title", V: objAt(finding, "title")},
-		validation.KV{K: "claim_version", V: objAt(finding, "claim_version")},
+		validation.KV{K: "finding_id", V: validation.ObjAt(finding, "finding_id")},
+		validation.KV{K: "title", V: validation.ObjAt(finding, "title")},
+		validation.KV{K: "claim_version", V: validation.ObjAt(finding, "claim_version")},
 		validation.KV{K: "root_cause", V: projectKeys(rc, []string{
 			"class", "cwe", "description", "mechanism"})},
 		validation.KV{K: "affected", V: orEmpty(finding, "affected")},
@@ -763,14 +763,14 @@ func reproducerClaim(finding validation.Value,
 // (blocking == true), in the finding's order.
 func blockingAssumptions(finding validation.Value) []validation.Value {
 	required := []validation.Value{}
-	as := objAt(finding, "assumptions")
+	as := validation.ObjAt(finding, "assumptions")
 	if as.Kind != validation.Arr {
 		return required
 	}
 	for _, a := range as.A {
 		if a.Kind == validation.Obj &&
-			objAt(a, "blocking").Kind == validation.Bool &&
-			objAt(a, "blocking").B {
+			validation.ObjAt(a, "blocking").Kind == validation.Bool &&
+			validation.ObjAt(a, "blocking").B {
 			required = append(required, a)
 		}
 	}
@@ -782,7 +782,7 @@ func blockingAssumptions(finding validation.Value) []validation.Value {
 func projectKeys(v validation.Value, keys []string) validation.Value {
 	out := validation.VObj()
 	for _, k := range keys {
-		if x := objAt(v, k); x.Kind != validation.Null {
+		if x := validation.ObjAt(v, k); x.Kind != validation.Null {
 			out.O = append(out.O, validation.KV{K: k, V: x})
 		}
 	}
@@ -799,7 +799,7 @@ func asObj(v validation.Value) validation.Value {
 }
 
 func orEmpty(v validation.Value, key string) validation.Value {
-	x := objAt(v, key)
+	x := validation.ObjAt(v, key)
 	if x.Kind == validation.Arr {
 		return x
 	}
@@ -807,7 +807,7 @@ func orEmpty(v validation.Value, key string) validation.Value {
 }
 
 func orEmptyObj(v validation.Value, key string) validation.Value {
-	x := objAt(v, key)
+	x := validation.ObjAt(v, key)
 	if x.Kind == validation.Obj {
 		return x
 	}
@@ -822,14 +822,6 @@ func removeKey(v validation.Value, key string) validation.Value {
 		}
 	}
 	return out
-}
-
-func strArr(xs []string) validation.Value {
-	out := make([]validation.Value, len(xs))
-	for i, x := range xs {
-		out[i] = validation.VStr(x)
-	}
-	return validation.VArr(out...)
 }
 
 func contains(xs []string, want string) bool {

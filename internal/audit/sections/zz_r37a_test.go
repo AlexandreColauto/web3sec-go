@@ -48,7 +48,7 @@ func zzr37aProblems(t *testing.T, c *state.Campaign) []string {
 		t.Fatal(err)
 	}
 	var msgs []string
-	for _, p := range objAt(sec, "problems").A {
+	for _, p := range validation.ObjAt(sec, "problems").A {
 		msgs = append(msgs, p.S)
 	}
 	return msgs
@@ -95,9 +95,9 @@ func TestZZR37aRefreshedThenPrunedAuditsGreen(t *testing.T) {
 	}
 	var kinds []string
 	for _, e := range events {
-		switch objStr(e, "type") {
+		switch validation.ObjStr(e, "type") {
 		case "artifact.registered", "artifact.refreshed", "artifact.pruned":
-			kinds = append(kinds, objStr(e, "type"))
+			kinds = append(kinds, validation.ObjStr(e, "type"))
 		}
 	}
 	want := "artifact.registered artifact.refreshed artifact.pruned"
@@ -199,8 +199,8 @@ func TestZZR37aStateRowSurvivingPruneRefused(t *testing.T) {
 		t.Fatal(err)
 	}
 	var row validation.Value
-	for _, a := range objAt(st, "artifacts").A {
-		if objStr(a, "artifact_id") == id {
+	for _, a := range validation.ObjAt(st, "artifacts").A {
+		if validation.ObjStr(a, "artifact_id") == id {
 			row = a
 		}
 	}
@@ -215,7 +215,7 @@ func TestZZR37aStateRowSurvivingPruneRefused(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	arts := objAt(st, "artifacts")
+	arts := validation.ObjAt(st, "artifacts")
 	arts.A = append(arts.A, row)
 	st.O = validation.SetOrAppend(st.O, "artifacts", arts)
 	if err := c.SaveState(st); err != nil {
@@ -244,8 +244,8 @@ func TestZZR37aGenericMessageStillFires(t *testing.T) {
 		t.Fatal(err)
 	}
 	var kept []validation.Value
-	for _, a := range objAt(st, "artifacts").A {
-		if objStr(a, "artifact_id") != id {
+	for _, a := range validation.ObjAt(st, "artifacts").A {
+		if validation.ObjStr(a, "artifact_id") != id {
 			kept = append(kept, a)
 		}
 	}

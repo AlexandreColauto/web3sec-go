@@ -170,7 +170,7 @@ func TestR40DRefusedImpactAndUnpriceableRestoreFindingBytes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if v := objAt(objAt(f, "economic_impact"), "priceable"); v.Kind != validation.Bool || v.B {
+	if v := validation.ObjAt(validation.ObjAt(f, "economic_impact"), "priceable"); v.Kind != validation.Bool || v.B {
 		t.Fatalf("retried decision did not store priceable:false: %v", v)
 	}
 	if got := r40dEventCount(t, c2, "finding.unpriceable"); got != 1 {

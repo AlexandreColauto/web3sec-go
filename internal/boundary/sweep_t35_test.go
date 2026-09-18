@@ -21,7 +21,7 @@ func t35BundleSetup(t *testing.T) (*state.Campaign, string) {
 	c := newCamp(t)
 	pin(t, c)
 	f := mustIngest(t, c, validHypothesis())
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	if _, err := findings.Transition(c, fid, "POSSIBLE", "triage", "", "",
 		false); err != nil {
 		t.Fatal(err)
@@ -48,19 +48,19 @@ func TestRoleBundlesAgreeWithBoundaryRoleContract(t *testing.T) {
 	}
 	// the bundles' requested response schema(s) ⊆ ROLE_RESPONSES[role].
 	own, _ := roleKinds("proposer")
-	for _, s := range strList(objAt(objAt(proposer, "request"),
+	for _, s := range strList(validation.ObjAt(validation.ObjAt(proposer, "request"),
 		"response_schemas")) {
 		if !containsStr(own, s) {
 			t.Errorf("proposer requests %q outside ROLE_RESPONSES", s)
 		}
 	}
 	criticKinds, _ := roleKinds("critic")
-	if got := objStr(objAt(critic, "task"), "response_schema"); !containsStr(
+	if got := validation.ObjStr(validation.ObjAt(critic, "task"), "response_schema"); !containsStr(
 		criticKinds, got) {
 		t.Errorf("critic response_schema = %q, want %v", got, criticKinds)
 	}
 	reproKinds, _ := roleKinds("reproducer")
-	if got := objStr(objAt(reproducer, "task"), "response_schema"); !containsStr(
+	if got := validation.ObjStr(validation.ObjAt(reproducer, "task"), "response_schema"); !containsStr(
 		reproKinds, got) {
 		t.Errorf("reproducer response_schema = %q, want %v", got, reproKinds)
 	}
@@ -75,7 +75,7 @@ func TestRoleBundlesAgreeWithBoundaryRoleContract(t *testing.T) {
 		}
 	}
 	// critic bundle: permitted checks ⊆ tool registry.
-	checks := strList(objAt(critic, "permitted_checks"))
+	checks := strList(validation.ObjAt(critic, "permitted_checks"))
 	if len(checks) == 0 {
 		t.Fatal("critic bundle surfaces no permitted checks")
 	}
@@ -86,7 +86,7 @@ func TestRoleBundlesAgreeWithBoundaryRoleContract(t *testing.T) {
 		}
 	}
 	// reproducer bundle: permitted execution profiles ⊆ sandbox.Profiles.
-	profiles := strList(objAt(reproducer, "permitted_execution_profiles"))
+	profiles := strList(validation.ObjAt(reproducer, "permitted_execution_profiles"))
 	if len(profiles) == 0 {
 		t.Fatal("reproducer bundle surfaces no execution profiles")
 	}
@@ -189,7 +189,7 @@ func TestNegativeMemoryStalenessEndToEnd(t *testing.T) {
 	c := newCamp(t)
 	t35PinWithID(t, c, snapA)
 	cls := "oracle-manipulation"
-	mid := objStr(mustQueueMemory(t, c, learning.QueueOpts{
+	mid := validation.ObjStr(mustQueueMemory(t, c, learning.QueueOpts{
 		Kind:            "disproved",
 		Status:          "DISPROVED",
 		Pattern:         "TWAP oracle manipulation via flash loan on the redemption path",
@@ -209,13 +209,13 @@ func TestNegativeMemoryStalenessEndToEnd(t *testing.T) {
 		t.Fatal("no queued memory row")
 	}
 	row := rows[0]
-	if got := objStr(row, "snapshot_id"); got != snapA {
+	if got := validation.ObjStr(row, "snapshot_id"); got != snapA {
 		t.Errorf("snapshot_id = %q, want %q", got, snapA)
 	}
-	if got := objAt(row, "schema_version").I; got != 2 {
+	if got := validation.ObjAt(row, "schema_version").I; got != 2 {
 		t.Errorf("schema_version = %v, want 2", got)
 	}
-	if got := objStr(row, "rejection_class"); got != "invalid-hypothesis" {
+	if got := validation.ObjStr(row, "rejection_class"); got != "invalid-hypothesis" {
 		t.Errorf("rejection_class = %q, want invalid-hypothesis (derived)", got)
 	}
 
@@ -225,19 +225,19 @@ func TestNegativeMemoryStalenessEndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	block := objAt(bundle, "negative_memory")
-	if objAt(block, "authoritative").Kind != validation.Bool ||
-		objAt(block, "authoritative").B {
-		t.Errorf("authoritative = %v, want false", objAt(block, "authoritative"))
+	block := validation.ObjAt(bundle, "negative_memory")
+	if validation.ObjAt(block, "authoritative").Kind != validation.Bool ||
+		validation.ObjAt(block, "authoritative").B {
+		t.Errorf("authoritative = %v, want false", validation.ObjAt(block, "authoritative"))
 	}
-	if objStr(block, "staleness_note") == "" {
+	if validation.ObjStr(block, "staleness_note") == "" {
 		t.Error("staleness_note is empty")
 	}
 	prior := t35PriorByID(t, block, mid)
-	if !objAt(prior, "pin_diverged").B {
+	if !validation.ObjAt(prior, "pin_diverged").B {
 		t.Error("pin_diverged = false, want true")
 	}
-	propType := objAt(objAt(prior, "deciding_propositions").A[0], "type")
+	propType := validation.ObjAt(validation.ObjAt(prior, "deciding_propositions").A[0], "type")
 	if propType.S != "temporal" {
 		t.Errorf("deciding_propositions[0].type = %v", propType)
 	}
@@ -245,18 +245,18 @@ func TestNegativeMemoryStalenessEndToEnd(t *testing.T) {
 	// ingest a matching hypothesis (no override) -> the prior re-raises.
 	mustIngest(t, c, validHypothesis())
 	data := utilityEvent(t, c)
-	if got := strList(objAt(data, "re_raised")); joinStrings(got, ",") != mid {
+	if got := strList(validation.ObjAt(data, "re_raised")); joinStrings(got, ",") != mid {
 		t.Errorf("re_raised = %v, want [%s]", got, mid)
 	}
-	if got := strList(objAt(data, "override_declared")); len(got) != 0 {
+	if got := strList(validation.ObjAt(data, "override_declared")); len(got) != 0 {
 		t.Errorf("override_declared = %v, want []", got)
 	}
-	if got := strList(objAt(data, "not_matched")); len(got) != 0 {
+	if got := strList(validation.ObjAt(data, "not_matched")); len(got) != 0 {
 		t.Errorf("not_matched = %v, want []", got)
 	}
 
 	// queue a NON-ECONOMIC row against B: the class is derived.
-	mid2 := objStr(mustQueueMemory(t, c, learning.QueueOpts{
+	mid2 := validation.ObjStr(mustQueueMemory(t, c, learning.QueueOpts{
 		Kind:            "reflection",
 		Status:          "NON-ECONOMIC",
 		Pattern:         "the price push clears the fees but lands below the program payout threshold",
@@ -269,17 +269,17 @@ func TestNegativeMemoryStalenessEndToEnd(t *testing.T) {
 	}
 	var row2 validation.Value
 	for _, r := range rows {
-		if objStr(r, "memory_id") == mid2 {
+		if validation.ObjStr(r, "memory_id") == mid2 {
 			row2 = r
 		}
 	}
 	if row2.Kind != validation.Obj {
 		t.Fatalf("queued row %s missing", mid2)
 	}
-	if got := objStr(row2, "rejection_class"); got != "below-threshold" {
+	if got := validation.ObjStr(row2, "rejection_class"); got != "below-threshold" {
 		t.Errorf("rejection_class = %q, want below-threshold", got)
 	}
-	if got := objStr(row2, "snapshot_id"); got != snapB {
+	if got := validation.ObjStr(row2, "snapshot_id"); got != snapB {
 		t.Errorf("snapshot_id = %q, want %q", got, snapB)
 	}
 
@@ -287,28 +287,28 @@ func TestNegativeMemoryStalenessEndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	block2 := objAt(bundle2, "negative_memory")
+	block2 := validation.ObjAt(bundle2, "negative_memory")
 	fresh := t35PriorByID(t, block2, mid2)
 	stale := t35PriorByID(t, block2, mid)
-	if !objAt(fresh, "policy_contingent").B {
+	if !validation.ObjAt(fresh, "policy_contingent").B {
 		t.Error("fresh policy_contingent = false, want true")
 	}
-	if got := objStr(fresh, "rejection_class"); got != "below-threshold" {
+	if got := validation.ObjStr(fresh, "rejection_class"); got != "below-threshold" {
 		t.Errorf("fresh rejection_class = %q", got)
 	}
-	if objAt(fresh, "pin_diverged").B {
+	if validation.ObjAt(fresh, "pin_diverged").B {
 		t.Error("fresh pin_diverged = true, want false")
 	}
-	if objAt(stale, "policy_contingent").B {
+	if validation.ObjAt(stale, "policy_contingent").B {
 		t.Error("stale policy_contingent = true, want false")
 	}
-	if got := objStr(stale, "rejection_class"); got != "invalid-hypothesis" {
+	if got := validation.ObjStr(stale, "rejection_class"); got != "invalid-hypothesis" {
 		t.Errorf("stale rejection_class = %q", got)
 	}
-	if !objAt(stale, "pin_diverged").B {
+	if !validation.ObjAt(stale, "pin_diverged").B {
 		t.Error("stale pin_diverged = false, want true")
 	}
-	if objAt(block2, "authoritative").B {
+	if validation.ObjAt(block2, "authoritative").B {
 		t.Error("authoritative = true, want false")
 	}
 }
@@ -328,13 +328,13 @@ func mustQueueMemory(t *testing.T, c *state.Campaign,
 func t35PriorByID(t *testing.T, block validation.Value,
 	memoryID string) validation.Value {
 	t.Helper()
-	for _, p := range objAt(block, "known_non_issues").A {
-		if objStr(p, "memory_id") == memoryID {
+	for _, p := range validation.ObjAt(block, "known_non_issues").A {
+		if validation.ObjStr(p, "memory_id") == memoryID {
 			return p
 		}
 	}
 	t.Fatalf("prior %s missing from %s", memoryID,
-		validation.CanonCompact(objAt(block, "known_non_issues")))
+		validation.CanonCompact(validation.ObjAt(block, "known_non_issues")))
 	return validation.VNull()
 }
 
@@ -368,7 +368,7 @@ func TestTrajectoryIntegrityEndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	ev1(t, c, fid)
 	if _, err := ApplyCriticVerdict(c, fid, validCriticVerdict(fid),
 		""); err != nil {
@@ -391,9 +391,9 @@ func TestTrajectoryIntegrityEndToEnd(t *testing.T) {
 	seqs := []int64{}
 	byType := map[string][]validation.Value{}
 	for _, e := range traj {
-		types = append(types, objStr(e, "type"))
-		seqs = append(seqs, objAt(e, "seq").I)
-		byType[objStr(e, "type")] = append(byType[objStr(e, "type")], e)
+		types = append(types, validation.ObjStr(e, "type"))
+		seqs = append(seqs, validation.ObjAt(e, "seq").I)
+		byType[validation.ObjStr(e, "type")] = append(byType[validation.ObjStr(e, "type")], e)
 	}
 	want := "model.rejected,model.request,model.plan_received," +
 		"model.reproducer_request"
@@ -406,40 +406,40 @@ func TestTrajectoryIntegrityEndToEnd(t *testing.T) {
 		}
 	}
 	reqEv := byType["model.request"][0]
-	if got := objStr(objAt(reqEv, "data"), "prompt_version"); got != promptStamp {
+	if got := validation.ObjStr(validation.ObjAt(reqEv, "data"), "prompt_version"); got != promptStamp {
 		t.Errorf("prompt_version = %q, want the prompt stamp %q", got,
 			promptStamp)
 	}
-	if got := objStr(objAt(reqEv, "data"), "context_hash"); got !=
+	if got := validation.ObjStr(validation.ObjAt(reqEv, "data"), "context_hash"); got !=
 		ContextHash(bundle) {
 		t.Errorf("context_hash = %q, want the bundle's hash", got)
 	}
 	rejEv := byType["model.rejected"][0]
-	rejData := objAt(rejEv, "data")
-	if got := objStr(rejData, "role"); got != "proposer" {
+	rejData := validation.ObjAt(rejEv, "data")
+	if got := validation.ObjStr(rejData, "role"); got != "proposer" {
 		t.Errorf("rejected role = %q", got)
 	}
-	if got := objStr(rejData, "kind"); got != "hypothesis" {
+	if got := validation.ObjStr(rejData, "kind"); got != "hypothesis" {
 		t.Errorf("rejected kind = %q", got)
 	}
-	if got := objStr(rejData, "payload_sha256"); !regexpHex64.MatchString(got) {
+	if got := validation.ObjStr(rejData, "payload_sha256"); !regexpHex64.MatchString(got) {
 		t.Errorf("payload_sha256 = %q, want 64 hex chars", got)
 	}
-	if got := objStr(rejData, "action"); !containsString(got, "re-request") {
+	if got := validation.ObjStr(rejData, "action"); !containsString(got, "re-request") {
 		t.Errorf("action = %q, want a re-request instruction", got)
 	}
 	rpEv := byType["model.reproducer_request"][0]
-	if got := objStr(objAt(rpEv, "data"), "request_sha256"); got !=
+	if got := validation.ObjStr(validation.ObjAt(rpEv, "data"), "request_sha256"); got !=
 		ContextHash(rreq) {
 		t.Errorf("request_sha256 = %q, want the validated request's hash", got)
 	}
-	if got := objStr(rpEv, "ref"); got != fid {
+	if got := validation.ObjStr(rpEv, "ref"); got != fid {
 		t.Errorf("reproducer_request ref = %q, want %q", got, fid)
 	}
-	if got := objStr(objAt(rpEv, "data"), "min_evidence_level"); got != "E5" {
+	if got := validation.ObjStr(validation.ObjAt(rpEv, "data"), "min_evidence_level"); got != "E5" {
 		t.Errorf("min_evidence_level = %q, want E5", got)
 	}
-	if got := objStr(objAt(rpEv, "data"), "execution_profile"); got !=
+	if got := validation.ObjStr(validation.ObjAt(rpEv, "data"), "execution_profile"); got !=
 		"fork-runner" {
 		t.Errorf("execution_profile = %q, want fork-runner", got)
 	}
@@ -447,13 +447,13 @@ func TestTrajectoryIntegrityEndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objAt(report, "ok").Kind != validation.Bool || !objAt(report, "ok").B {
-		t.Errorf("verify_trajectory ok = %v", objAt(report, "ok"))
+	if validation.ObjAt(report, "ok").Kind != validation.Bool || !validation.ObjAt(report, "ok").B {
+		t.Errorf("verify_trajectory ok = %v", validation.ObjAt(report, "ok"))
 	}
-	if got := objAt(report, "events").I; got != 4 {
+	if got := validation.ObjAt(report, "events").I; got != 4 {
 		t.Errorf("events = %d, want 4", got)
 	}
-	if got := objAt(report, "problems"); len(got.A) != 0 {
+	if got := validation.ObjAt(report, "problems"); len(got.A) != 0 {
 		t.Errorf("problems = %v", got)
 	}
 	if v, err := c.VerifyLog(); err != nil || !v.OK {
@@ -492,21 +492,21 @@ func TestEndToEndCampaignWalkthrough(t *testing.T) {
 	if err != nil || !found {
 		t.Fatalf("playbook_for_class: found=%v err=%v", found, err)
 	}
-	if got := objStr(pb, "bug_class"); got != cls {
+	if got := validation.ObjStr(pb, "bug_class"); got != cls {
 		t.Errorf("playbook bug_class = %q", got)
 	}
-	if len(objAt(pb, "assumption_templates").A) == 0 ||
-		len(objAt(pb, "hunt_order").A) == 0 {
+	if len(validation.ObjAt(pb, "assumption_templates").A) == 0 ||
+		len(validation.ObjAt(pb, "hunt_order").A) == 0 {
 		t.Error("playbook lacks assumption_templates / hunt_order")
 	}
 	pbundle, err := roles.BuildProposerContext(c, &cls)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(objAt(pbundle, "playbook"), "bug_class"); got != cls {
+	if got := validation.ObjStr(validation.ObjAt(pbundle, "playbook"), "bug_class"); got != cls {
 		t.Errorf("bundle playbook bug_class = %q", got)
 	}
-	if objAt(objAt(pbundle, "negative_memory"), "authoritative").B {
+	if validation.ObjAt(validation.ObjAt(pbundle, "negative_memory"), "authoritative").B {
 		t.Error("negative_memory.authoritative = true, want false")
 	}
 
@@ -526,17 +526,17 @@ func TestEndToEndCampaignWalkthrough(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
-	if got := objStr(f, "status"); got != "HYPOTHESIS" {
+	fid := validation.ObjStr(f, "finding_id")
+	if got := validation.ObjStr(f, "status"); got != "HYPOTHESIS" {
 		t.Errorf("status = %q, want HYPOTHESIS", got)
 	}
-	for _, a := range objAt(f, "assumptions").A {
-		if got := objStr(a, "status"); got != "UNKNOWN" {
+	for _, a := range validation.ObjAt(f, "assumptions").A {
+		if got := validation.ObjStr(a, "status"); got != "UNKNOWN" {
 			t.Errorf("assumption %s status = %q, want UNKNOWN",
-				objStr(a, "id"), got)
+				validation.ObjStr(a, "id"), got)
 		}
 	}
-	if got := objAt(f, "claim_version").I; got != 1 {
+	if got := validation.ObjAt(f, "claim_version").I; got != 1 {
 		t.Errorf("claim_version = %v, want 1", got)
 	}
 
@@ -547,13 +547,13 @@ func TestEndToEndCampaignWalkthrough(t *testing.T) {
 		t.Fatal(err)
 	}
 	evIDs := []string{}
-	for _, e := range objAt(cbundle, "evidence").A {
-		evIDs = append(evIDs, objStr(e, "evidence_id"))
+	for _, e := range validation.ObjAt(cbundle, "evidence").A {
+		evIDs = append(evIDs, validation.ObjStr(e, "evidence_id"))
 	}
 	if joinStrings(evIDs, ",") != "EV-1" {
 		t.Errorf("critic evidence = %v, want [EV-1]", evIDs)
 	}
-	for _, chk := range strList(objAt(cbundle, "permitted_checks")) {
+	for _, chk := range strList(validation.ObjAt(cbundle, "permitted_checks")) {
 		if !containsStr(ToolRegistry(), chk) {
 			t.Errorf("permitted check %q outside the registry", chk)
 		}
@@ -565,23 +565,23 @@ func TestEndToEndCampaignWalkthrough(t *testing.T) {
 		t.Fatal(err)
 	}
 	byID := map[string]validation.Value{}
-	for _, a := range objAt(f2, "assumptions").A {
-		byID[objStr(a, "id")] = a
+	for _, a := range validation.ObjAt(f2, "assumptions").A {
+		byID[validation.ObjStr(a, "id")] = a
 	}
-	if got := objStr(byID["A1"], "status"); got != "SUPPORTED" {
+	if got := validation.ObjStr(byID["A1"], "status"); got != "SUPPORTED" {
 		t.Errorf("A1 status = %q", got)
 	}
-	if got := objStr(byID["A2"], "status"); got != "REFUTED" {
+	if got := validation.ObjStr(byID["A2"], "status"); got != "REFUTED" {
 		t.Errorf("A2 status = %q", got)
 	}
-	if got := strList(objAt(byID["A1"], "support")); joinStrings(got, ",") !=
+	if got := strList(validation.ObjAt(byID["A1"], "support")); joinStrings(got, ",") !=
 		"EV-1" {
 		t.Errorf("A1 support = %v, want [EV-1]", got)
 	}
-	if got := strList(objAt(byID["A2"], "contradictions")); joinStrings(got, ",") != "EV-1" {
+	if got := strList(validation.ObjAt(byID["A2"], "contradictions")); joinStrings(got, ",") != "EV-1" {
 		t.Errorf("A2 contradictions = %v, want [EV-1]", got)
 	}
-	if got := objStr(objAt(f2, "verification"), "critic_verdict"); got != "disproved" {
+	if got := validation.ObjStr(validation.ObjAt(f2, "verification"), "critic_verdict"); got != "disproved" {
 		t.Errorf("verification.critic_verdict = %q", got)
 	}
 
@@ -605,17 +605,17 @@ func TestEndToEndCampaignWalkthrough(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mid := objStr(mem, "memory_id")
-	if got := objStr(mem, "promotion_status"); got != "pending" {
+	mid := validation.ObjStr(mem, "memory_id")
+	if got := validation.ObjStr(mem, "promotion_status"); got != "pending" {
 		t.Errorf("promotion_status = %q, want pending", got)
 	}
-	if got := objStr(mem, "rejection_class"); got != "invalid-hypothesis" {
+	if got := validation.ObjStr(mem, "rejection_class"); got != "invalid-hypothesis" {
 		t.Errorf("rejection_class = %q, want invalid-hypothesis", got)
 	}
-	if got := objStr(mem, "finding_id"); got != fid {
+	if got := validation.ObjStr(mem, "finding_id"); got != fid {
 		t.Errorf("finding_id = %q, want %q", got, fid)
 	}
-	if got := objStr(mem, "snapshot_id"); got != snapID {
+	if got := validation.ObjStr(mem, "snapshot_id"); got != snapID {
 		t.Errorf("snapshot_id = %q, want %q", got, snapID)
 	}
 
@@ -624,10 +624,10 @@ func TestEndToEndCampaignWalkthrough(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(approved, "promotion_status"); got != "human-approved" {
+	if got := validation.ObjStr(approved, "promotion_status"); got != "human-approved" {
 		t.Errorf("promotion_status = %q, want human-approved", got)
 	}
-	if got := objStr(approved, "approved_by"); got != "operator-fixture" {
+	if got := validation.ObjStr(approved, "approved_by"); got != "operator-fixture" {
 		t.Errorf("approved_by = %q", got)
 	}
 	cmds, err := learning.PromotionCommands(c, mid, "")
@@ -637,10 +637,10 @@ func TestEndToEndCampaignWalkthrough(t *testing.T) {
 	if len(cmds) == 0 {
 		t.Fatal("promotion surface is empty")
 	}
-	if got := objStr(cmds[0], "substrate"); got != "shared-memory-store" {
+	if got := validation.ObjStr(cmds[0], "substrate"); got != "shared-memory-store" {
 		t.Errorf("substrate = %q", got)
 	}
-	if got := objStr(cmds[0], "command"); !containsString(got,
+	if got := validation.ObjStr(cmds[0], "command"); !containsString(got,
 		"webv2 publish "+c.CampaignID) {
 		t.Errorf("command = %q", got)
 	}
@@ -653,10 +653,10 @@ func TestEndToEndCampaignWalkthrough(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objAt(report, "ok").Kind != validation.Bool || !objAt(report, "ok").B {
-		t.Errorf("verify_trajectory ok = %v", objAt(report, "ok"))
+	if validation.ObjAt(report, "ok").Kind != validation.Bool || !validation.ObjAt(report, "ok").B {
+		t.Errorf("verify_trajectory ok = %v", validation.ObjAt(report, "ok"))
 	}
-	if got := objAt(report, "problems"); len(got.A) != 0 {
+	if got := validation.ObjAt(report, "problems"); len(got.A) != 0 {
 		t.Errorf("problems = %v", got)
 	}
 
@@ -668,8 +668,8 @@ func TestEndToEndCampaignWalkthrough(t *testing.T) {
 	}
 	transitions := []validation.Value{}
 	for _, e := range events {
-		if objStr(e, "type") == "finding.assumption_transition" &&
-			objStr(e, "ref") == fid {
+		if validation.ObjStr(e, "type") == "finding.assumption_transition" &&
+			validation.ObjStr(e, "ref") == fid {
 			transitions = append(transitions, e)
 		}
 	}
@@ -677,18 +677,18 @@ func TestEndToEndCampaignWalkthrough(t *testing.T) {
 		t.Errorf("assumption_transition events = %d, want exactly 2",
 			len(transitions))
 	}
-	for _, a := range objAt(f2, "assumptions").A {
+	for _, a := range validation.ObjAt(f2, "assumptions").A {
 		backed := false
 		for _, tr := range transitions {
-			d := objAt(tr, "data")
-			if objStr(d, "assumption") == objStr(a, "id") &&
-				objStr(d, "to") == objStr(a, "status") {
+			d := validation.ObjAt(tr, "data")
+			if validation.ObjStr(d, "assumption") == validation.ObjStr(a, "id") &&
+				validation.ObjStr(d, "to") == validation.ObjStr(a, "status") {
 				backed = true
 			}
 		}
 		if !backed {
 			t.Errorf("assumption %s is %s with no assumption_transition event",
-				objStr(a, "id"), objStr(a, "status"))
+				validation.ObjStr(a, "id"), validation.ObjStr(a, "status"))
 		}
 	}
 }

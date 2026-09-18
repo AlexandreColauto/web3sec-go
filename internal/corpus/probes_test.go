@@ -88,9 +88,9 @@ func TestCoverageRuleAgainstLiveCorpus(t *testing.T) {
 	if len(gaps) != 0 {
 		t.Fatalf("corpus classes without probe/alias/unprobed entry: %v", gaps)
 	}
-	if len(objAt(inv, "classes").O) != len(classes) {
+	if len(validation.ObjAt(inv, "classes").O) != len(classes) {
 		t.Fatalf("inventory classes = %d, want %d",
-			len(objAt(inv, "classes").O), len(classes))
+			len(validation.ObjAt(inv, "classes").O), len(classes))
 	}
 }
 
@@ -99,11 +99,11 @@ func TestCoverageRuleAgainstLiveCorpus(t *testing.T) {
 func TestReentrancyFiresWithoutGuard(t *testing.T) {
 	out := ProbeClasses(indexFor(t, reentrancySol))
 	r := probeOf(t, out, "reentrancy")
-	if !objAt(r, "exposed").B {
+	if !validation.ObjAt(r, "exposed").B {
 		t.Fatal("reentrancy must be exposed")
 	}
-	if !strings.HasSuffix(objStr(listAt(r, "hits")[0], "node_id"), ".deposit") {
-		t.Fatalf("hit node = %q, want *.deposit", objStr(listAt(r, "hits")[0], "node_id"))
+	if !strings.HasSuffix(validation.ObjStr(listAt(r, "hits")[0], "node_id"), ".deposit") {
+		t.Fatalf("hit node = %q, want *.deposit", validation.ObjStr(listAt(r, "hits")[0], "node_id"))
 	}
 }
 
@@ -132,13 +132,13 @@ func TestIndexedStatementWriteIsSeenByTheProbes(t *testing.T) {
 		t.Fatalf("WritersOf = %v, want [balances]", got)
 	}
 	r := probeOf(t, ProbeClasses(idx), "access-control")
-	if !objAt(r, "exposed").B {
+	if !validation.ObjAt(r, "exposed").B {
 		t.Fatal("an unguarded entry point writing an indexed lvalue must be exposed")
 	}
-	if got := objStr(listAt(r, "hits")[0], "node_id"); !strings.HasSuffix(got, ".setBalance") {
+	if got := validation.ObjStr(listAt(r, "hits")[0], "node_id"); !strings.HasSuffix(got, ".setBalance") {
 		t.Fatalf("hit node = %q, want *.setBalance", got)
 	}
-	if detail := objStr(listAt(r, "hits")[0], "detail"); !strings.Contains(detail, "balances") {
+	if detail := validation.ObjStr(listAt(r, "hits")[0], "detail"); !strings.Contains(detail, "balances") {
 		t.Fatalf("hit detail = %q, want it to name the written variable", detail)
 	}
 }
@@ -146,27 +146,27 @@ func TestIndexedStatementWriteIsSeenByTheProbes(t *testing.T) {
 func TestReentrancySilentWithGuard(t *testing.T) {
 	out := ProbeClasses(indexFor(t, safeReentrancySol))
 	r := probeOf(t, out, "reentrancy")
-	if objAt(r, "exposed").B {
+	if validation.ObjAt(r, "exposed").B {
 		t.Fatalf("guarded reentrancy must be silent, hits = %v", listAt(r, "hits"))
 	}
-	if objStr(r, "confidence") != "high" {
-		t.Fatalf("confidence = %q, want high", objStr(r, "confidence"))
+	if validation.ObjStr(r, "confidence") != "high" {
+		t.Fatalf("confidence = %q, want high", validation.ObjStr(r, "confidence"))
 	}
 }
 
 func TestSharePriceInflationFiresOnDonationShape(t *testing.T) {
 	out := ProbeClasses(indexFor(t, donationSol))
 	r := probeOf(t, out, "share-price-inflation")
-	if !objAt(r, "exposed").B {
+	if !validation.ObjAt(r, "exposed").B {
 		t.Fatal("share-price-inflation must be exposed")
 	}
 	// aliased classes report the same hits under their own names
 	d := probeOf(t, out, "donation")
-	if !objAt(d, "exposed").B {
+	if !validation.ObjAt(d, "exposed").B {
 		t.Fatal("donation alias must be exposed")
 	}
-	if validation.DumpsOrdered(objAt(d, "hits"), false) !=
-		validation.DumpsOrdered(objAt(r, "hits"), false) {
+	if validation.DumpsOrdered(validation.ObjAt(d, "hits"), false) !=
+		validation.DumpsOrdered(validation.ObjAt(r, "hits"), false) {
 		t.Fatal("alias hits must equal the canonical hits")
 	}
 }
@@ -178,15 +178,15 @@ func TestAliasHitsAreCopiesNotSharedLists(t *testing.T) {
 	out := ProbeClasses(indexFor(t, donationSol))
 	canon := probeOf(t, out, "share-price-inflation")
 	alias := probeOf(t, out, "donation")
-	if validation.DumpsOrdered(objAt(alias, "hits"), false) !=
-		validation.DumpsOrdered(objAt(canon, "hits"), false) {
+	if validation.DumpsOrdered(validation.ObjAt(alias, "hits"), false) !=
+		validation.DumpsOrdered(validation.ObjAt(canon, "hits"), false) {
 		t.Fatal("alias hits must equal the canonical hits")
 	}
 	if len(listAt(canon, "hits")) == 0 {
 		t.Fatal("fixture must expose the class for this test to bite")
 	}
 	n := len(listAt(canon, "hits"))
-	aliasHits := objAt(alias, "hits")
+	aliasHits := validation.ObjAt(alias, "hits")
 	aliasHits.A = append(aliasHits.A, validation.VObj(
 		validation.KV{K: "node_id", V: validation.VStr("tainted")},
 		validation.KV{K: "detail", V: validation.VStr("post-hoc mutation")}))
@@ -195,18 +195,18 @@ func TestAliasHitsAreCopiesNotSharedLists(t *testing.T) {
 			len(listAt(canon, "hits")), n)
 	}
 	for _, h := range listAt(canon, "hits") {
-		if objStr(h, "node_id") == "tainted" {
+		if validation.ObjStr(h, "node_id") == "tainted" {
 			t.Fatal("alias mutation leaked into the canonical row")
 		}
 	}
 	// and the reverse direction: mutating the canonical row leaves the
 	// alias's own list untouched
-	canonHits := objAt(canon, "hits")
+	canonHits := validation.ObjAt(canon, "hits")
 	canonHits.A = append(canonHits.A, validation.VObj(
 		validation.KV{K: "node_id", V: validation.VStr("tainted-2")},
 		validation.KV{K: "detail", V: validation.VStr("canonical edit")}))
 	for _, h := range listAt(alias, "hits") {
-		if objStr(h, "node_id") == "tainted-2" {
+		if validation.ObjStr(h, "node_id") == "tainted-2" {
 			t.Fatal("canonical mutation leaked into the alias row")
 		}
 	}
@@ -216,8 +216,8 @@ func TestPlainContractHasNoExposure(t *testing.T) {
 	out := ProbeClasses(indexFor(t, plainSol))
 	var exposed []string
 	for _, x := range out {
-		if objAt(x, "exposed").B {
-			exposed = append(exposed, objStr(x, "bug_class"))
+		if validation.ObjAt(x, "exposed").B {
+			exposed = append(exposed, validation.ObjStr(x, "bug_class"))
 		}
 	}
 	// a plain string setter exposes nothing structural
@@ -292,11 +292,11 @@ interface IERC20 { function transfer(address to, uint256 v) external returns (bo
 func TestTokenIntegrationFiresOnParenlessTransferfrom(t *testing.T) {
 	out := ProbeClasses(indexFor(t, tokenIfaceSol))
 	r := probeOf(t, out, "token-integration")
-	if !objAt(r, "exposed").B {
+	if !validation.ObjAt(r, "exposed").B {
 		t.Fatal("transferFrom recorded without parens must still fire")
 	}
-	if objStr(r, "confidence") != "low" {
-		t.Fatalf("confidence = %q, want low", objStr(r, "confidence"))
+	if validation.ObjStr(r, "confidence") != "low" {
+		t.Fatalf("confidence = %q, want low", validation.ObjStr(r, "confidence"))
 	}
 }
 
@@ -320,7 +320,7 @@ func TestFlashLoanNotExposedByTransferfromAlone(t *testing.T) {
 	// avoid the flashloan/lendingpool name leg so only call shapes count).
 	out := ProbeClasses(indexFor(t, tokenIfaceSol))
 	r := probeOf(t, out, "flash-loan")
-	if objAt(r, "exposed").B {
+	if validation.ObjAt(r, "exposed").B {
 		t.Fatalf("flash-loan must stay silent, hits = %v", listAt(r, "hits"))
 	}
 }
@@ -328,7 +328,7 @@ func TestFlashLoanNotExposedByTransferfromAlone(t *testing.T) {
 func TestFlashLoanInOutLegFiresOnParenlessCalls(t *testing.T) {
 	out := ProbeClasses(indexFor(t, flashInOutSol))
 	r := probeOf(t, out, "flash-loan")
-	if !objAt(r, "exposed").B {
+	if !validation.ObjAt(r, "exposed").B {
 		t.Fatal("pool.borrow + token.transfer (no parens) must fire")
 	}
 	// every hit must come from the call-shape leg ("transfer-in + out"), not
@@ -338,11 +338,11 @@ func TestFlashLoanInOutLegFiresOnParenlessCalls(t *testing.T) {
 		t.Fatal("no hits")
 	}
 	for _, h := range hits {
-		if objStr(h, "detail") != "transfer-in + out" {
-			t.Fatalf("detail = %q, want transfer-in + out", objStr(h, "detail"))
+		if validation.ObjStr(h, "detail") != "transfer-in + out" {
+			t.Fatalf("detail = %q, want transfer-in + out", validation.ObjStr(h, "detail"))
 		}
-		if !strings.HasSuffix(objStr(h, "node_id"), ".flash") {
-			t.Fatalf("node = %q, want *.flash", objStr(h, "node_id"))
+		if !strings.HasSuffix(validation.ObjStr(h, "node_id"), ".flash") {
+			t.Fatalf("node = %q, want *.flash", validation.ObjStr(h, "node_id"))
 		}
 	}
 }
@@ -350,12 +350,12 @@ func TestFlashLoanInOutLegFiresOnParenlessCalls(t *testing.T) {
 func TestCentralizationValueMoveLegFiresOnParenlessTransfer(t *testing.T) {
 	out := ProbeClasses(indexFor(t, authzValueMoveSol))
 	r := probeOf(t, out, "centralization-risk")
-	if !objAt(r, "exposed").B {
+	if !validation.ObjAt(r, "exposed").B {
 		t.Fatal("authz transfer (no parens) must fire the value-move leg")
 	}
-	if objStr(listAt(r, "hits")[0], "detail") != "authz value move" {
+	if validation.ObjStr(listAt(r, "hits")[0], "detail") != "authz value move" {
 		t.Fatalf("detail = %q, want authz value move",
-			objStr(listAt(r, "hits")[0], "detail"))
+			validation.ObjStr(listAt(r, "hits")[0], "detail"))
 	}
 }
 
@@ -364,7 +364,7 @@ func TestCentralizationValueMoveLegFiresOnParenlessTransfer(t *testing.T) {
 func probeOf(t *testing.T, out []validation.Value, cls string) validation.Value {
 	t.Helper()
 	for _, x := range out {
-		if objStr(x, "bug_class") == cls {
+		if validation.ObjStr(x, "bug_class") == cls {
 			return x
 		}
 	}
@@ -375,8 +375,8 @@ func probeOf(t *testing.T, out []validation.Value, cls string) validation.Value 
 // fnNodeOf finds a function node by name.
 func fnNodeOf(t *testing.T, index validation.Value, name string) validation.Value {
 	t.Helper()
-	for _, n := range objAt(index, "nodes").A {
-		if objStr(n, "kind") == "function" && objStr(n, "name") == name {
+	for _, n := range validation.ObjAt(index, "nodes").A {
+		if validation.ObjStr(n, "kind") == "function" && validation.ObjStr(n, "name") == name {
 			return n
 		}
 	}

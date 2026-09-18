@@ -70,7 +70,7 @@ func (o *Orchestrator) BuildStructuralIndex() (validation.Value, error) {
 	if err != nil {
 		return validation.VNull(), err
 	}
-	index, err := siAPI.IndexSnapshot(o.C, strAt(objAt(meta, "source"), "root"))
+	index, err := siAPI.IndexSnapshot(o.C, strAt(validation.ObjAt(meta, "source"), "root"))
 	if err != nil {
 		return validation.VNull(), err
 	}

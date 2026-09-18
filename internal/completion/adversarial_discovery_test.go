@@ -118,7 +118,7 @@ func f7Baseline(t *testing.T) *state.Campaign {
 func TestDiscoveryExitRefusesLivenessWithoutClause(t *testing.T) {
 	c := f7Baseline(t)
 	f := f7IngestLiveness(t, c)
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	res := t35DiscoveryProof(t, c)
 	if isDone(t, res) {
 		t.Fatal("discovery exit must refuse a liveness finding without " +
@@ -137,8 +137,8 @@ func TestDiscoveryExitRefusesLivenessWithoutClause(t *testing.T) {
 			t.Errorf("entry missing %q:\n%s", want, entry)
 		}
 	}
-	if !strings.Contains(objStr(res, "note"), "adversarial_game clause") {
-		t.Errorf("note = %q, want it to name the clause", objStr(res, "note"))
+	if !strings.Contains(validation.ObjStr(res, "note"), "adversarial_game clause") {
+		t.Errorf("note = %q, want it to name the clause", validation.ObjStr(res, "note"))
 	}
 	again := t35DiscoveryProof(t, c)
 	if got, want := validation.CanonCompact(again),
@@ -157,7 +157,7 @@ func TestDiscoveryExitRefusesLivenessWithoutClause(t *testing.T) {
 func TestDiscoveryExitRefusesClassFreezeWithoutClause(t *testing.T) {
 	c := f7Baseline(t)
 	f := f7IngestFreeze(t, c)
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	res := t35DiscoveryProof(t, c)
 	if isDone(t, res) {
 		t.Fatal("discovery exit must refuse a chain-freeze finding " +
@@ -196,7 +196,7 @@ func TestDiscoveryExitRefusesClassFreezeWithoutClause(t *testing.T) {
 func TestDiscoveryExitStillRefusesConfirmedLiveness(t *testing.T) {
 	c := f7Baseline(t)
 	f := f7IngestLiveness(t, c)
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	vf, err := findings.LoadFinding(c, fid)
 	if err != nil {
 		t.Fatal(err)
@@ -218,7 +218,7 @@ func TestDiscoveryExitStillRefusesConfirmedLiveness(t *testing.T) {
 // lingering entries.
 func TestDiscoveryExitPassesOnceClauseRecorded(t *testing.T) {
 	c := f7Baseline(t)
-	fid := objStr(f7IngestLiveness(t, c), "finding_id")
+	fid := validation.ObjStr(f7IngestLiveness(t, c), "finding_id")
 	if isDone(t, t35DiscoveryProof(t, c)) {
 		t.Fatal("precondition: the missing clause must block")
 	}
@@ -243,7 +243,7 @@ func TestDiscoveryExitPassesOnceClauseRecorded(t *testing.T) {
 func TestDiscoveryExitRefusesShortClause(t *testing.T) {
 	c := f7Baseline(t)
 	f := f7IngestLiveness(t, c)
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	vf, err := findings.LoadFinding(c, fid)
 	if err != nil {
 		t.Fatal(err)
@@ -272,7 +272,7 @@ func TestDiscoveryExitRefusesShortClause(t *testing.T) {
 // it.
 func TestDiscoveryExitWaiverClearsTheClause(t *testing.T) {
 	c := f7Baseline(t)
-	fid := objStr(f7IngestLiveness(t, c), "finding_id")
+	fid := validation.ObjStr(f7IngestLiveness(t, c), "finding_id")
 	if isDone(t, t35DiscoveryProof(t, c)) {
 		t.Fatal("precondition: the missing clause must block")
 	}
@@ -308,7 +308,7 @@ func TestDiscoveryExitIgnoresNonLivenessAndGhosts(t *testing.T) {
 // demand work on a statement the campaign already dispositioned.
 func TestDiscoveryExitIgnoresDeadLiveness(t *testing.T) {
 	c := f7Baseline(t)
-	fid := objStr(f7IngestLiveness(t, c), "finding_id")
+	fid := validation.ObjStr(f7IngestLiveness(t, c), "finding_id")
 	if isDone(t, t35DiscoveryProof(t, c)) {
 		t.Fatal("precondition: the missing clause must block")
 	}

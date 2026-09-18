@@ -94,11 +94,11 @@ func zzR32bLastEvent(t *testing.T, c *state.Campaign,
 	}
 	last := validation.VNull()
 	for _, ev := range events {
-		if objStr(ev, "type") != "harness_run" {
+		if validation.ObjStr(ev, "type") != "harness_run" {
 			continue
 		}
-		if objStr(objAt(ev, "data"), "invariant") == iid {
-			last = objAt(ev, "data")
+		if validation.ObjStr(validation.ObjAt(ev, "data"), "invariant") == iid {
+			last = validation.ObjAt(ev, "data")
 		}
 	}
 	if last.Kind != validation.Obj {
@@ -175,10 +175,10 @@ func zzR32bSetSlotField(t *testing.T, c *state.Campaign, key, val string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	reg := objAt(links, "invariants")
-	entry := objAt(reg, "INV-1")
-	ver := objAt(entry, "verification")
-	h := objAt(ver, "harness")
+	reg := validation.ObjAt(links, "invariants")
+	entry := validation.ObjAt(reg, "INV-1")
+	ver := validation.ObjAt(entry, "verification")
+	h := validation.ObjAt(ver, "harness")
 	if h.Kind != validation.Obj {
 		t.Fatal("no verification.harness to edit")
 	}
@@ -355,11 +355,11 @@ func TestZZR32bAbsentPinAndPrunedRowStillBurns(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, row := range objAt(st, "artifacts").A {
-		if objStr(row, "kind") != "harness" {
+	for _, row := range validation.ObjAt(st, "artifacts").A {
+		if validation.ObjStr(row, "kind") != "harness" {
 			continue
 		}
-		if _, err := c.PruneArtifact(objStr(row, "artifact_id"),
+		if _, err := c.PruneArtifact(validation.ObjStr(row, "artifact_id"),
 			"r32b repro: prune the pinned report row"); err != nil {
 			t.Fatal(err)
 		}

@@ -378,24 +378,8 @@ func parseTail(s string) (int, error) {
 
 // --- value helpers (cli-local; state's objAt is private) ------------------
 
-func objAt(v validation.Value, key string) validation.Value {
-	for _, kv := range v.O {
-		if kv.K == key {
-			return kv.V
-		}
-	}
-	return validation.VNull()
-}
-
-func objStr(v validation.Value, key string) string {
-	if f := objAt(v, key); f.Kind == validation.Str {
-		return f.S
-	}
-	return ""
-}
-
 func objInt(v validation.Value, key string) int64 {
-	if f := objAt(v, key); f.Kind == validation.Int {
+	if f := validation.ObjAt(v, key); f.Kind == validation.Int {
 		if f.Big != "" {
 			n, _ := strconv.ParseInt(f.Big, 10, 64)
 			return n

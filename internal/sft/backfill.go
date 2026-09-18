@@ -43,7 +43,7 @@ func BackfillFinding(campaign *state.Campaign,
 		return validation.VNull(), err
 	}
 	bundle = setKey(bundle, "existing_findings",
-		withoutFinding(objAt(bundle, "existing_findings"), findingID))
+		withoutFinding(validation.ObjAt(bundle, "existing_findings"), findingID))
 	ch := boundary.ContextHash(bundle)
 
 	traj, err := trajectory.ModelTrajectory(campaign)
@@ -77,7 +77,7 @@ func BackfillFinding(campaign *state.Campaign,
 		validation.KV{K: "provenance", V: validation.VObj(
 			validation.KV{K: "bundle_provenance", V: validation.VStr(prov)},
 			validation.KV{K: "context_hash", V: recordedHash},
-			validation.KV{K: "trajectory_refs", V: strArr(refs)})},
+			validation.KV{K: "trajectory_refs", V: validation.StrArr(refs)})},
 		validation.KV{K: "created_at", V: validation.VStr(state.NowIso())}), nil
 }
 
@@ -87,7 +87,7 @@ func withoutFinding(list validation.Value, findingID string) validation.Value {
 	out := []validation.Value{}
 	if list.Kind == validation.Arr {
 		for _, s := range list.A {
-			if objStr(s, "finding_id") != findingID {
+			if validation.ObjStr(s, "finding_id") != findingID {
 				out = append(out, s)
 			}
 		}
@@ -101,10 +101,10 @@ func backfillProvenance(traj []validation.Value, findingID,
 	ch string) (string, []string, validation.Value) {
 	responses := []validation.Value{}
 	for _, e := range traj {
-		data := objAt(e, "data")
-		if objStr(e, "type") != "model.response" || objStr(e, "ref") != findingID ||
-			objStr(data, "role") != "proposer" ||
-			objStr(data, "response_schema") != "hypothesis" {
+		data := validation.ObjAt(e, "data")
+		if validation.ObjStr(e, "type") != "model.response" || validation.ObjStr(e, "ref") != findingID ||
+			validation.ObjStr(data, "role") != "proposer" ||
+			validation.ObjStr(data, "response_schema") != "hypothesis" {
 			continue
 		}
 		responses = append(responses, e)
@@ -116,13 +116,13 @@ func backfillProvenance(traj []validation.Value, findingID,
 		return prov, refs, recorded
 	}
 	rsp := maxBySeq(responses)
-	refs = append(refs, pyStrValue(objAt(rsp, "seq")))
+	refs = append(refs, pyStrValue(validation.ObjAt(rsp, "seq")))
 	reqs := []validation.Value{}
 	for _, e := range traj {
-		data := objAt(e, "data")
-		if objStr(e, "type") == "model.request" &&
-			objStr(data, "role") == "proposer" &&
-			intOf(objAt(e, "seq")) < intOf(objAt(rsp, "seq")) {
+		data := validation.ObjAt(e, "data")
+		if validation.ObjStr(e, "type") == "model.request" &&
+			validation.ObjStr(data, "role") == "proposer" &&
+			intOf(validation.ObjAt(e, "seq")) < intOf(validation.ObjAt(rsp, "seq")) {
 			reqs = append(reqs, e)
 		}
 	}
@@ -130,8 +130,8 @@ func backfillProvenance(traj []validation.Value, findingID,
 		return prov, refs, recorded
 	}
 	req := maxBySeq(reqs)
-	refs = append(refs, pyStrValue(objAt(req, "seq")))
-	got := objStrDefault(objAt(req, "data"), "context_hash", "")
+	refs = append(refs, pyStrValue(validation.ObjAt(req, "seq")))
+	got := objStrDefault(validation.ObjAt(req, "data"), "context_hash", "")
 	if got == ch {
 		prov = "hash-verified"
 		recorded = validation.VStr(ch)
@@ -144,7 +144,7 @@ func backfillProvenance(traj []validation.Value, findingID,
 func maxBySeq(items []validation.Value) validation.Value {
 	best := items[0]
 	for _, e := range items[1:] {
-		if intOf(objAt(e, "seq")) > intOf(objAt(best, "seq")) {
+		if intOf(validation.ObjAt(e, "seq")) > intOf(validation.ObjAt(best, "seq")) {
 			best = e
 		}
 	}
@@ -155,24 +155,24 @@ func maxBySeq(items []validation.Value) validation.Value {
 // assumptions (with the status translation), invariants (head first, deduped)
 // and impact, plus the TODO skeleton fields.
 func backfillStructured(f validation.Value) validation.Value {
-	rc := objAt(f, "root_cause")
-	econ := objAt(f, "economic_impact")
-	headInv := objAt(f, "invariant")
+	rc := validation.ObjAt(f, "root_cause")
+	econ := validation.ObjAt(f, "economic_impact")
+	headInv := validation.ObjAt(f, "invariant")
 	assumptions := []validation.Value{}
-	if list := objAt(f, "assumptions"); list.Kind == validation.Arr {
+	if list := validation.ObjAt(f, "assumptions"); list.Kind == validation.Arr {
 		for _, a := range list.A {
 			if a.Kind != validation.Obj {
 				continue
 			}
 			fstatus := "OPEN"
-			if s, ok := backfillStatusMap[objStr(a, "status")]; ok {
+			if s, ok := backfillStatusMap[validation.ObjStr(a, "status")]; ok {
 				fstatus = s
 			}
 			evidence := []validation.Value{}
 			if fstatus == "CONFIRMED" {
-				evidence = arrOf(objAt(a, "support"))
+				evidence = arrOf(validation.ObjAt(a, "support"))
 			} else if fstatus == "REFUTED" {
-				evidence = arrOf(objAt(a, "contradictions"))
+				evidence = arrOf(validation.ObjAt(a, "contradictions"))
 			}
 			reason := "TODO: state the resolving evidence from the trajectory"
 			if len(evidence) > 0 {
@@ -194,7 +194,7 @@ func backfillStructured(f validation.Value) validation.Value {
 	invariants := []validation.Value{}
 	addInv := func(statement string) {
 		for _, i := range invariants {
-			if objStr(i, "statement") == statement {
+			if validation.ObjStr(i, "statement") == statement {
 				return
 			}
 		}
@@ -203,18 +203,18 @@ func backfillStructured(f validation.Value) validation.Value {
 			validation.KV{K: "status", V: validation.VStr("UNCHECKED")},
 			validation.KV{K: "depends_on", V: validation.VArr()}))
 	}
-	if objStr(headInv, "statement") != "" {
-		addInv(objStr(headInv, "statement"))
+	if validation.ObjStr(headInv, "statement") != "" {
+		addInv(validation.ObjStr(headInv, "statement"))
 	}
-	if list := objAt(f, "security_invariants"); list.Kind == validation.Arr {
+	if list := validation.ObjAt(f, "security_invariants"); list.Kind == validation.Arr {
 		for _, inv := range list.A {
-			if inv.Kind == validation.Obj && objStr(inv, "statement") != "" {
-				addInv(objStr(inv, "statement"))
+			if inv.Kind == validation.Obj && validation.ObjStr(inv, "statement") != "" {
+				addInv(validation.ObjStr(inv, "statement"))
 			}
 		}
 	}
-	impactBits := []string{strings.TrimSpace(objStr(econ, "asset"))}
-	if loss := objAt(econ, "max_loss_usd"); loss.Kind != validation.Null {
+	impactBits := []string{strings.TrimSpace(validation.ObjStr(econ, "asset"))}
+	if loss := validation.ObjAt(econ, "max_loss_usd"); loss.Kind != validation.Null {
 		impactBits = append(impactBits, "$"+pyNumText(loss)+" max loss")
 	}
 	expected := []string{}
@@ -227,10 +227,10 @@ func backfillStructured(f validation.Value) validation.Value {
 	if expectedImpact == "" {
 		expectedImpact = "TODO: state the concrete asset/actor/magnitude"
 	}
-	claim := strings.TrimSpace(objStr(f, "title"))
+	claim := strings.TrimSpace(validation.ObjStr(f, "title"))
 	if len(claim) < 10 {
-		claim = firstNonEmpty(objStr(rc, "description"),
-			objStr(headInv, "statement"), claim)
+		claim = firstNonEmpty(validation.ObjStr(rc, "description"),
+			validation.ObjStr(headInv, "statement"), claim)
 	}
 	return validation.VObj(
 		validation.KV{K: "bug_class", V: validation.VStr(
@@ -257,11 +257,11 @@ func clipRunes(s string, n int) string {
 // assumption lines translated from the finding, and the structured JSON block.
 func backfillTrace(structured validation.Value) string {
 	aLines := []string{}
-	if list := objAt(structured, "assumptions"); list.Kind == validation.Arr {
+	if list := validation.ObjAt(structured, "assumptions"); list.Kind == validation.Arr {
 		for _, a := range list.A {
 			text := clipRunes(getDefaultStr(a, "text", ""), 60)
 			aLines = append(aLines, getDefaultStr(a, "id", "A?")+" ("+text+
-				"): -> "+objStr(a, "status")+". "+objStr(a, "reason"))
+				"): -> "+validation.ObjStr(a, "status")+". "+validation.ObjStr(a, "reason"))
 		}
 	}
 	if len(aLines) == 0 {
@@ -284,7 +284,7 @@ func backfillTrace(structured validation.Value) string {
 		"",
 		"IMPACT:",
 		"TODO: concrete asset/actor/magnitude. Finding pre-fill: "+
-			objStr(structured, "expected_impact"),
+			validation.ObjStr(structured, "expected_impact"),
 		"",
 		"```json",
 		validation.DumpIndentedASCII(structured),
@@ -303,7 +303,7 @@ func getDefaultStr(v validation.Value, key, def string) string {
 	if !hasKey(v, key) {
 		return def
 	}
-	return pyStrValue(objAt(v, key))
+	return pyStrValue(validation.ObjAt(v, key))
 }
 
 func firstNonEmpty(items ...string) string {

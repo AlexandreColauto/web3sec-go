@@ -103,7 +103,7 @@ func TestQueueFlagsSequenceRequired(t *testing.T) {
 	if !ok {
 		t.Fatalf("sequence finding missing from queue: %v", q)
 	}
-	if v := objAt(seqRow, "sequence_required"); v.Kind != validation.Bool || !v.B {
+	if v := validation.ObjAt(seqRow, "sequence_required"); v.Kind != validation.Bool || !v.B {
 		t.Errorf("sequence_required = %v, want true", v)
 	}
 	note := strAt(seqRow, "note")
@@ -115,11 +115,11 @@ func TestQueueFlagsSequenceRequired(t *testing.T) {
 		t.Errorf("note leaks actor values: %q", note)
 	}
 	soloRow := q[fidSolo]
-	if v := objAt(soloRow, "sequence_required"); v.Kind != validation.Bool || v.B {
+	if v := validation.ObjAt(soloRow, "sequence_required"); v.Kind != validation.Bool || v.B {
 		t.Errorf("solo sequence_required = %v, want false", v)
 	}
-	if objAt(soloRow, "note").Kind != validation.Null {
-		t.Errorf("solo note = %v, want absent", objAt(soloRow, "note"))
+	if validation.ObjAt(soloRow, "note").Kind != validation.Null {
+		t.Errorf("solo note = %v, want absent", validation.ObjAt(soloRow, "note"))
 	}
 	// pre-existing keys untouched (ordering contract preserved)
 	for _, k := range []string{"finding_id", "next_tier", "attempts", "prior"} {
@@ -168,7 +168,7 @@ func TestMalformedSequenceEntriesDoNotCrashQueue(t *testing.T) {
 	})
 	q := seqQueue(t, New(c))
 	row := q[fid]
-	if v := objAt(row, "sequence_required"); v.Kind != validation.Bool || !v.B {
+	if v := validation.ObjAt(row, "sequence_required"); v.Kind != validation.Bool || !v.B {
 		t.Fatalf("sequence_required = %v, want true", v)
 	}
 	if !strings.Contains(strAt(row, "note"), "webv2 sequence run") {
@@ -186,7 +186,7 @@ func TestMalformedSequenceEntriesDoNotCrashQueue(t *testing.T) {
 		return f
 	})
 	q2 := seqQueue(t, New(c))
-	if v := objAt(q2[fid], "attempts"); v.Kind != validation.Int || v.I != 0 {
+	if v := validation.ObjAt(q2[fid], "attempts"); v.Kind != validation.Int || v.I != 0 {
 		t.Errorf("attempts = %v, want 0", v)
 	}
 }

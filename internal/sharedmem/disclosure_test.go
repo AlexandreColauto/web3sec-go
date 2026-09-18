@@ -146,7 +146,7 @@ func TestDisclosureRefusesFindingOutsideThePublish(t *testing.T) {
 	}
 	byID := map[string]validation.Value{}
 	for _, f := range all {
-		byID[objStr(f, "finding_id")] = f
+		byID[validation.ObjStr(f, "finding_id")] = f
 	}
 	if err := disclosureRuleCheck([]string{fid}, byID,
 		map[string]bool{fid: true}); err != nil {
@@ -212,11 +212,11 @@ func TestDisclosureArtifactIsCampaignLocalAndRegistered(t *testing.T) {
 		t.Fatal(err)
 	}
 	found := false
-	for _, a := range objAt(st, "artifacts").A {
-		if objStr(a, "kind") == DisclosureArtifactKind &&
-			filepath.Base(objStr(a, "path")) == DisclosureArtifactName {
+	for _, a := range validation.ObjAt(st, "artifacts").A {
+		if validation.ObjStr(a, "kind") == DisclosureArtifactKind &&
+			filepath.Base(validation.ObjStr(a, "path")) == DisclosureArtifactName {
 			found = true
-			if got := objStr(a, "sha256"); got != d.SHA256 {
+			if got := validation.ObjStr(a, "sha256"); got != d.SHA256 {
 				t.Errorf("registered artifact sha256 = %q, want %q", got, d.SHA256)
 			}
 		}
@@ -246,10 +246,10 @@ func TestDisclosureNullEmbargoIsRecordedAsNull(t *testing.T) {
 		t.Fatal(err)
 	}
 	rec := lastManifestRecord(t, c.Root)
-	if got := objStr(rec, "disclosure_sha256"); got != d.SHA256 {
+	if got := validation.ObjStr(rec, "disclosure_sha256"); got != d.SHA256 {
 		t.Errorf("record disclosure_sha256 = %q, want %q", got, d.SHA256)
 	}
-	if got := objAt(rec, "disclosure_embargo_until"); got.Kind != validation.Null {
+	if got := validation.ObjAt(rec, "disclosure_embargo_until"); got.Kind != validation.Null {
 		t.Errorf("record disclosure_embargo_until = %#v, want null", got)
 	}
 }
@@ -274,13 +274,13 @@ func TestDisclosureRecordCarriesHashAndEmbargo(t *testing.T) {
 		t.Fatal(err)
 	}
 	rec := lastManifestRecord(t, c.Root)
-	if got := objStr(rec, "disclosure_sha256"); got != d.SHA256 {
+	if got := validation.ObjStr(rec, "disclosure_sha256"); got != d.SHA256 {
 		t.Errorf("record disclosure_sha256 = %q, want %q", got, d.SHA256)
 	}
-	if got := objStr(rec, "disclosure_embargo_until"); got != "2026-10-01" {
+	if got := validation.ObjStr(rec, "disclosure_embargo_until"); got != "2026-10-01" {
 		t.Errorf("record disclosure_embargo_until = %q, want 2026-10-01", got)
 	}
-	if got := objStr(rec, "signatures_sha256"); got == d.SHA256 {
+	if got := validation.ObjStr(rec, "signatures_sha256"); got == d.SHA256 {
 		t.Error("the disclosure hash was folded into signatures_sha256")
 	}
 	if len(d.SHA256) != 64 {

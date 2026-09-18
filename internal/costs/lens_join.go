@@ -30,7 +30,7 @@ func ProbeRowLens(c *state.Campaign) map[string]string {
 		return rowLens
 	}
 	for _, r := range listOf(surface, "rows") {
-		if rid, lens := objStr(r, "row_id"), objStr(r, "lens"); rid != "" &&
+		if rid, lens := validation.ObjStr(r, "row_id"), validation.ObjStr(r, "lens"); rid != "" &&
 			lens != "" {
 			rowLens[rid] = lens
 		}
@@ -45,7 +45,7 @@ func PlanLensIDs(plan validation.Value) []string {
 	seen := map[string]bool{}
 	ids := []string{}
 	for _, l := range listOf(plan, "lenses") {
-		id := objStr(l, "id")
+		id := validation.ObjStr(l, "id")
 		if id == "" || seen[id] {
 			continue
 		}
@@ -63,8 +63,8 @@ func PlanLensIDs(plan validation.Value) []string {
 func PrioLensBucket(p validation.Value, rowLens map[string]string,
 	known map[string]bool) string {
 	lens := ""
-	if prov := objAt(p, "probe"); prov.Kind == validation.Obj {
-		lens = rowLens[objStr(prov, "row_id")]
+	if prov := validation.ObjAt(p, "probe"); prov.Kind == validation.Obj {
+		lens = rowLens[validation.ObjStr(prov, "row_id")]
 	}
 	if known[lens] {
 		return lens
@@ -77,7 +77,7 @@ func PrioLensBucket(p validation.Value, rowLens map[string]string,
 // precision block's floor intersection — a critic-only confirmation is a
 // false-positive suspect, not a billed result).
 func LensConfirmed(f validation.Value, c *state.Campaign) bool {
-	if objStr(objAt(f, "verification"), "critic_verdict") != "confirmed" {
+	if validation.ObjStr(validation.ObjAt(f, "verification"), "critic_verdict") != "confirmed" {
 		return false
 	}
 	return findings.EvidenceDeficit(f, "CONFIRMED", c) == nil

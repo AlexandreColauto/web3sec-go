@@ -39,15 +39,15 @@ func detailOrNone(v validation.Value) string {
 func RenderAssumptionLines(rows, gaps []validation.Value) []string {
 	out := []string{}
 	for _, r := range rows {
-		out = append(out, "- "+pyStr(objAt(r, "chain"))+
-			": finality="+detailOrNone(objAt(r, "finality"))+
-			" confirmations="+detailOrNone(objAt(r, "confirmation_depth"))+
-			" messenger="+detailOrNone(objAt(r, "messenger"))+
-			" separator="+detailOrNone(objAt(r, "separator")))
+		out = append(out, "- "+pyStr(validation.ObjAt(r, "chain"))+
+			": finality="+detailOrNone(validation.ObjAt(r, "finality"))+
+			" confirmations="+detailOrNone(validation.ObjAt(r, "confirmation_depth"))+
+			" messenger="+detailOrNone(validation.ObjAt(r, "messenger"))+
+			" separator="+detailOrNone(validation.ObjAt(r, "separator")))
 	}
 	for _, g := range gaps {
-		out = append(out, "- ASSUMPTION GAP "+pyStr(objAt(g, "hop"))+
-			" "+pyStr(objAt(g, "chain"))+": "+pyStr(objAt(g, "reason")))
+		out = append(out, "- ASSUMPTION GAP "+pyStr(validation.ObjAt(g, "hop"))+
+			" "+pyStr(validation.ObjAt(g, "chain"))+": "+pyStr(validation.ObjAt(g, "reason")))
 	}
 	return out
 }

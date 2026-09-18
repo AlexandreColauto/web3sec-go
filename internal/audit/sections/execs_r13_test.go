@@ -64,7 +64,7 @@ func TestExecEventsWithoutRecordsBurnRed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !objAt(rep, "ok").B {
+	if !validation.ObjAt(rep, "ok").B {
 		t.Fatalf("complete exec must be green: %s",
 			validation.DumpsOrdered(rep, false))
 	}
@@ -77,7 +77,7 @@ func TestExecEventsWithoutRecordsBurnRed(t *testing.T) {
 		t.Fatal(err)
 	}
 	body := validation.DumpsOrdered(rep, false)
-	if objAt(rep, "ok").B || !strings.Contains(body, eid) {
+	if validation.ObjAt(rep, "ok").B || !strings.Contains(body, eid) {
 		t.Fatalf("ghost exec events must burn red naming %s: %s",
 			eid, body)
 	}
@@ -149,7 +149,7 @@ func TestPlantedRecordStaysUnpoliced(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !objAt(rep, "ok").B {
+	if !validation.ObjAt(rep, "ok").B {
 		t.Fatalf("the refused direction must not fire (golden depends "+
 			"on its silence): %s", validation.DumpsOrdered(rep, false))
 	}

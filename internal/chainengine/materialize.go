@@ -105,7 +105,7 @@ func MaterializeChainOpts(c *state.Campaign, memberIDs []string, title, narrativ
 	} else {
 		economicImpact := chainBlastRadius(members)
 		if terminalDoc != nil &&
-			capabilities.IsLivenessTerminal(objStr(*terminalDoc, "capability")) {
+			capabilities.IsLivenessTerminal(validation.ObjStr(*terminalDoc, "capability")) {
 			economicImpact = livenessImpact(economicImpact)
 		}
 		chainFinding, err := chainFindingDoc(c, memberIDs, members, title,
@@ -117,11 +117,11 @@ func MaterializeChainOpts(c *state.Campaign, memberIDs []string, title, narrativ
 		if err := findings.SaveFinding(c, &chainFinding); err != nil {
 			return validation.VNull(), err
 		}
-		superID = objStr(chainFinding, "finding_id")
+		superID = validation.ObjStr(chainFinding, "finding_id")
 	}
 	ref := chainID
 	data := validation.VObj(
-		kvOf("members", strArr(memberIDs)),
+		kvOf("members", validation.StrArr(memberIDs)),
 		kvOf("evidence_floor", validation.VStr(floor)),
 	)
 	if provenance != "" {
@@ -163,7 +163,7 @@ func derivedTerminal(c *state.Campaign, memberIDs []string) *validation.Value {
 	}
 	want := setOf(memberIDs)
 	for _, p := range paths {
-		path := strList(objAt(p, "path"))
+		path := strList(validation.ObjAt(p, "path"))
 		if len(path) != len(want) {
 			continue
 		}
@@ -174,15 +174,15 @@ func derivedTerminal(c *state.Campaign, memberIDs []string) *validation.Value {
 		if !subsetOf(got, want) {
 			continue
 		}
-		term := objStr(p, "terminal_finding")
+		term := validation.ObjStr(p, "terminal_finding")
 		if term == "" {
 			continue
 		}
 		doc := validation.VObj(
-			kvOf("capability", validation.VStr(objStr(p, "terminal_capability"))),
+			kvOf("capability", validation.VStr(validation.ObjStr(p, "terminal_capability"))),
 			kvOf("via_finding", validation.VStr(term)),
 			kvOf("total_capital_required_usd",
-				objAt(p, "total_capital_required_usd")),
+				validation.ObjAt(p, "total_capital_required_usd")),
 		)
 		return &doc
 	}
@@ -197,10 +197,10 @@ func chainDuplicate(c *state.Campaign, signature string) error {
 		return err
 	}
 	for _, ch := range existing {
-		if objStr(ch, "chain_signature") == signature {
+		if validation.ObjStr(ch, "chain_signature") == signature {
 			return fmt.Errorf(
 				"a chain over this member set already exists: %s",
-				objStr(ch, "chain_id"))
+				validation.ObjStr(ch, "chain_id"))
 		}
 	}
 	return nil
@@ -232,11 +232,11 @@ func writeChainDoc(in chainDocInput) (validation.Value, error) {
 		kvOf("campaign_id", validation.VStr(in.campaign.CampaignID)),
 		kvOf("title", validation.VStr(in.title)),
 		kvOf("narrative", validation.VStr(in.narrative)),
-		kvOf("members", strArr(in.memberIDs)),
+		kvOf("members", validation.StrArr(in.memberIDs)),
 		kvOf("capability_links", validation.VArr(in.links...)),
 		kvOf("evidence_floor", validation.VStr(in.floor)),
 		kvOf("status", validation.VStr("proposed")),
-		kvOf("created_at", validation.VStr(nowIso())),
+		kvOf("created_at", validation.VStr(state.NowIso())),
 	)
 	if in.terminal != nil {
 		chainDoc.O = append(chainDoc.O, kvOf("terminal", *in.terminal))
@@ -281,10 +281,10 @@ func loadChainMembersMode(c *state.Campaign, memberIDs []string,
 	if !unproven {
 		unconfirmed := []string{}
 		for _, m := range members {
-			switch objStr(m, "status") {
+			switch validation.ObjStr(m, "status") {
 			case "CONFIRMED", "CHAIN":
 			default:
-				unconfirmed = append(unconfirmed, objStr(m, "finding_id"))
+				unconfirmed = append(unconfirmed, validation.ObjStr(m, "finding_id"))
 			}
 		}
 		if len(unconfirmed) > 0 {
@@ -295,7 +295,7 @@ func loadChainMembersMode(c *state.Campaign, memberIDs []string,
 	}
 	pins := []validation.Value{}
 	for _, m := range members {
-		pins = append(pins, objAt(objAt(m, "snapshot_ids"), "source"))
+		pins = append(pins, validation.ObjAt(validation.ObjAt(m, "snapshot_ids"), "source"))
 	}
 	if !unproven {
 		if err := checkPins(pins); err != nil {
@@ -313,7 +313,7 @@ func loadChainMembersMode(c *state.Campaign, memberIDs []string,
 func chainBlastRadius(members []validation.Value) validation.Value {
 	blast := ""
 	for _, m := range members {
-		b := objStr(objAt(m, "economic_impact"), "blast_radius")
+		b := validation.ObjStr(validation.ObjAt(m, "economic_impact"), "blast_radius")
 		if b != "" && blastRank(b) >= 0 && (blast == "" ||
 			blastRank(b) > blastRank(blast)) {
 			blast = b
@@ -425,8 +425,8 @@ func chainLinksMode(members []validation.Value,
 	out := []validation.Value{}
 	for i := 0; i+1 < len(members); i++ {
 		a, b := members[i], members[i+1]
-		aCaps := setOf(norm(capInput(objAt(asObj(objAt(a, "capabilities")), "granted"))))
-		bNeeds := setOf(norm(capInput(objAt(asObj(objAt(b, "capabilities")), "required"))))
+		aCaps := setOf(norm(capInput(validation.ObjAt(asObj(validation.ObjAt(a, "capabilities")), "granted"))))
+		bNeeds := setOf(norm(capInput(validation.ObjAt(asObj(validation.ObjAt(b, "capabilities")), "required"))))
 		overlap := []string{}
 		for cap := range aCaps {
 			if _, ok := bNeeds[cap]; ok {
@@ -435,14 +435,14 @@ func chainLinksMode(members []validation.Value,
 		}
 		if len(overlap) == 0 {
 			return nil, fmt.Errorf("capability gap: %s -> %s (grants %s, needs %s)",
-				objStr(a, "finding_id"), objStr(b, "finding_id"),
+				validation.ObjStr(a, "finding_id"), validation.ObjStr(b, "finding_id"),
 				pyListRepr(setKeys(aCaps)), pyListRepr(setKeys(bNeeds)))
 		}
 		sort.Strings(overlap)
 		link := validation.VObj(
-			kvOf("from_finding", validation.VStr(objStr(a, "finding_id"))),
+			kvOf("from_finding", validation.VStr(validation.ObjStr(a, "finding_id"))),
 			kvOf("granted", validation.VStr(overlap[0])),
-			kvOf("to_finding", validation.VStr(objStr(b, "finding_id"))),
+			kvOf("to_finding", validation.VStr(validation.ObjStr(b, "finding_id"))),
 			kvOf("required", validation.VStr(overlap[0])),
 		)
 		if unproven {
@@ -460,12 +460,12 @@ func chainLinksMode(members []validation.Value,
 func bestEvidenceLevel(m validation.Value) string {
 	best, bestIdx := "E0", 0
 	for _, e := range listOf(m, "evidence").A {
-		idx, err := findings.LevelIndex(objStr(e, "level"))
+		idx, err := findings.LevelIndex(validation.ObjStr(e, "level"))
 		if err != nil {
 			continue
 		}
 		if idx > bestIdx {
-			best, bestIdx = objStr(e, "level"), idx
+			best, bestIdx = validation.ObjStr(e, "level"), idx
 		}
 	}
 	return best
@@ -479,12 +479,12 @@ func chainFloor(members []validation.Value) (string, error) {
 		best, bestIdx := "E0", 0
 		first := true
 		for _, e := range listOf(m, "evidence").A {
-			idx, err := findings.LevelIndex(objStr(e, "level"))
+			idx, err := findings.LevelIndex(validation.ObjStr(e, "level"))
 			if err != nil {
 				return "", err
 			}
 			if first || idx > bestIdx {
-				best, bestIdx, first = objStr(e, "level"), idx, false
+				best, bestIdx, first = validation.ObjStr(e, "level"), idx, false
 			}
 		}
 		if floor == "" || bestIdx < floorIdx {
@@ -502,33 +502,33 @@ func terminalAnnotation(c *state.Campaign, memberIDs []string,
 		return nil, nil
 	}
 	t := *terminal
-	if t.Kind != validation.Obj || objStr(t, "capability") == "" {
+	if t.Kind != validation.Obj || validation.ObjStr(t, "capability") == "" {
 		return nil, fmt.Errorf("terminal annotation needs a 'capability'")
 	}
-	via := objStr(t, "via_finding")
-	if !hasKey(t, "via_finding") || objAt(t, "via_finding").Kind == validation.Null {
-		via = objStr(members[len(members)-1], "finding_id")
+	via := validation.ObjStr(t, "via_finding")
+	if !hasKey(t, "via_finding") || validation.ObjAt(t, "via_finding").Kind == validation.Null {
+		via = validation.ObjStr(members[len(members)-1], "finding_id")
 	}
 	vf, err := findings.LoadFinding(c, via)
 	if err != nil {
 		return nil, err
 	}
-	granted := norm(capInput(objAt(asObj(objAt(vf, "capabilities")), "granted")))
-	if !containsStr(granted, objStr(t, "capability")) {
+	granted := norm(capInput(validation.ObjAt(asObj(validation.ObjAt(vf, "capabilities")), "granted")))
+	if !containsStr(granted, validation.ObjStr(t, "capability")) {
 		return nil, fmt.Errorf(
 			"terminal capability %s is not granted by %s (grants %s))",
-			validation.PyReprStr(objStr(t, "capability")), via,
+			validation.PyReprStr(validation.ObjStr(t, "capability")), via,
 			pyListRepr(sortedStrings(granted)))
 	}
 	if !containsStr(memberIDs, via) {
 		return nil, fmt.Errorf("terminal via_finding %s is not a chain member", via)
 	}
 	doc := validation.VObj(
-		kvOf("capability", validation.VStr(objStr(t, "capability"))),
+		kvOf("capability", validation.VStr(validation.ObjStr(t, "capability"))),
 		kvOf("via_finding", validation.VStr(via)),
-		kvOf("total_capital_required_usd", objAt(t, "total_capital_required_usd")),
+		kvOf("total_capital_required_usd", validation.ObjAt(t, "total_capital_required_usd")),
 	)
-	if bd := objAt(t, "capital_breakdown"); bd.Kind != validation.Null {
+	if bd := validation.ObjAt(t, "capital_breakdown"); bd.Kind != validation.Null {
 		if bd.Kind != validation.Obj {
 			return nil, fmt.Errorf("capital_breakdown must be an object")
 		}
@@ -599,11 +599,11 @@ func chainFindingDoc(c *state.Campaign, memberIDs []string, members []validation
 		kvOf("profile", validation.VStr("arbitrary EOA")),
 		kvOf("capabilities", validation.VArr()))
 	if hasKey(first, "attacker") {
-		attacker = objAt(first, "attacker")
+		attacker = validation.ObjAt(first, "attacker")
 	}
 	dedupMeta := []validation.KV{
 		kvOf("chain_id", validation.VStr(chainID)),
-		kvOf("members", validation.VStr(validation.CanonSpaced(strArr(memberIDs)))),
+		kvOf("members", validation.VStr(validation.CanonSpaced(validation.StrArr(memberIDs)))),
 		kvOf("capability_links", validation.VStr(validation.CanonSpaced(valueArr(computed)))),
 		kvOf("evidence_floor", validation.VStr(floor)),
 		kvOf("chain_signature", validation.VStr(csig)),
@@ -614,12 +614,12 @@ func chainFindingDoc(c *state.Campaign, memberIDs []string, members []validation
 	}
 	reason := fmt.Sprintf("chain %s materialized from %s", chainID,
 		pyListRepr(memberIDs))
-	at := nowIso()
+	at := state.NowIso()
 	return validation.VObj(
 		kvOf("finding_id", validation.VStr("F-"+tailOf(state.NewID("x", 12)))),
 		kvOf("campaign_id", validation.VStr(c.CampaignID)),
 		kvOf("snapshot_ids", validation.VObj(
-			kvOf("source", objAt(objAt(first, "snapshot_ids"), "source")))),
+			kvOf("source", validation.ObjAt(validation.ObjAt(first, "snapshot_ids"), "source")))),
 		kvOf("title", validation.VStr(title)),
 		kvOf("status", validation.VStr("CHAIN")),
 		kvOf("trajectory", validation.VStr("chain")),
@@ -632,8 +632,8 @@ func chainFindingDoc(c *state.Campaign, memberIDs []string, members []validation
 		kvOf("risk", validation.VObj()),
 		kvOf("dedup", validation.VObj()),
 		kvOf("capabilities", validation.VObj(
-			kvOf("granted", strArr(granted)),
-			kvOf("required", strArr(required)))),
+			kvOf("granted", validation.StrArr(granted)),
+			kvOf("required", validation.StrArr(required)))),
 		kvOf("economic_impact", economicImpact),
 		kvOf("dedup_meta", validation.VObj(dedupMeta...)),
 		kvOf("history", validation.VArr(validation.VObj(

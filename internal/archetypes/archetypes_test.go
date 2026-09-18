@@ -222,7 +222,7 @@ func TestEachArchetypeMatchesItsPlantedTree(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if got := objStr(arch, "id"); got != aid {
+			if got := validation.ObjStr(arch, "id"); got != aid {
 				t.Fatalf("archetype id = %q, want %q", got, aid)
 			}
 			checks := listAt(arch, "checks")
@@ -232,10 +232,10 @@ func TestEachArchetypeMatchesItsPlantedTree(t *testing.T) {
 			for _, check := range checks {
 				result, detail, err := EvaluatePrecondition(check, idx)
 				if err != nil {
-					t.Fatalf("%s check %s: %v", aid, objStr(check, "type"), err)
+					t.Fatalf("%s check %s: %v", aid, validation.ObjStr(check, "type"), err)
 				}
 				if result != "present" {
-					t.Fatalf("%s check %s: %s", aid, objStr(check, "type"), detail)
+					t.Fatalf("%s check %s: %s", aid, validation.ObjStr(check, "type"), detail)
 				}
 			}
 		})
@@ -357,7 +357,7 @@ func TestAbsentCheckReportsNearMatches(t *testing.T) {
 	}
 	var varCheck validation.Value
 	for _, c := range listAt(arch, "checks") {
-		if objStr(c, "type") == "state_var_exists" {
+		if validation.ObjStr(c, "type") == "state_var_exists" {
 			varCheck = c
 			break
 		}
@@ -410,8 +410,8 @@ func TestPrescreenArtifactEventAndForce(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !containsStr(strSlice(objAt(rep, "matched_ids")), "unguarded-initialize") {
-		t.Fatalf("matched_ids = %v", objAt(rep, "matched_ids"))
+	if !containsStr(strSlice(validation.ObjAt(rep, "matched_ids")), "unguarded-initialize") {
+		t.Fatalf("matched_ids = %v", validation.ObjAt(rep, "matched_ids"))
 	}
 	if _, err := os.Stat(filepath.Join(c.ArtifactsDir, PrescreenFile)); err != nil {
 		t.Fatalf("archetype_prescreen.json missing: %v", err)
@@ -422,7 +422,7 @@ func TestPrescreenArtifactEventAndForce(t *testing.T) {
 		t.Fatal(err)
 	}
 	forced := rowByID(t, rep2, "delegatecall-to-user-input")
-	if !objAt(forced, "forced").B || objAt(forced, "match").B {
+	if !validation.ObjAt(forced, "forced").B || validation.ObjAt(forced, "match").B {
 		t.Fatalf("forced row = %v", forced)
 	}
 	// the override persists across re-runs (it is operator state)
@@ -430,7 +430,7 @@ func TestPrescreenArtifactEventAndForce(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !objAt(rowByID(t, rep3, "delegatecall-to-user-input"), "forced").B {
+	if !validation.ObjAt(rowByID(t, rep3, "delegatecall-to-user-input"), "forced").B {
 		t.Fatal("the override did not persist across re-runs")
 	}
 	verdict, err := c.VerifyLog()
@@ -504,24 +504,24 @@ func TestS5CorruptOverridesDegradeGracefully(t *testing.T) {
 			if err != nil {
 				t.Fatalf("prescreen crashed on a corrupt overrides file: %v", err)
 			}
-			if !containsStr(strSlice(objAt(rep, "matched_ids")), "unguarded-initialize") {
-				t.Fatalf("matched_ids = %v", objAt(rep, "matched_ids"))
+			if !containsStr(strSlice(validation.ObjAt(rep, "matched_ids")), "unguarded-initialize") {
+				t.Fatalf("matched_ids = %v", validation.ObjAt(rep, "matched_ids"))
 			}
 			for _, r := range listAt(rep, "results") {
-				if objAt(r, "forced").B {
+				if validation.ObjAt(r, "forced").B {
 					t.Fatalf("a corrupt overrides file force-applied %s",
-						objStr(r, "id"))
+						validation.ObjStr(r, "id"))
 				}
 			}
 			found := false
-			for _, prob := range strSlice(objAt(rep, "problems")) {
+			for _, prob := range strSlice(validation.ObjAt(rep, "problems")) {
 				if strings.Contains(prob, "archetype_overrides.json") {
 					found = true
 				}
 			}
 			if !found {
 				t.Fatalf("problems = %v, want an archetype_overrides.json note",
-					objAt(rep, "problems"))
+					validation.ObjAt(rep, "problems"))
 			}
 			if v, verr := c.VerifyLog(); verr != nil || !v.OK {
 				t.Fatalf("verify_log not ok: %v", verr)
@@ -540,7 +540,7 @@ func TestS5CorruptOverridesDegradeGracefully(t *testing.T) {
 func rowByID(t *testing.T, report validation.Value, id string) validation.Value {
 	t.Helper()
 	for _, r := range listAt(report, "results") {
-		if objStr(r, "id") == id {
+		if validation.ObjStr(r, "id") == id {
 			return r
 		}
 	}
@@ -566,7 +566,7 @@ func TestPrescreenArtifactCarriesCampaignID(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(rep, "campaign_id"); got != c.CampaignID {
+	if got := validation.ObjStr(rep, "campaign_id"); got != c.CampaignID {
 		t.Fatalf("report campaign_id = %q, want %q", got, c.CampaignID)
 	}
 	// the on-disk artifact carries it too
@@ -575,7 +575,7 @@ func TestPrescreenArtifactCarriesCampaignID(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(disk, "campaign_id"); got != c.CampaignID {
+	if got := validation.ObjStr(disk, "campaign_id"); got != c.CampaignID {
 		t.Fatalf("artifact campaign_id = %q, want %q", got, c.CampaignID)
 	}
 }

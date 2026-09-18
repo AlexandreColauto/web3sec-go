@@ -35,6 +35,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"websec/internal/validation"
 
 	"websec/internal/findings"
 	"websec/internal/state"
@@ -91,7 +92,7 @@ func TestR42UnreadableFindingIsNotDeleted(t *testing.T) {
 		{
 			name: "waive",
 			fixt: func(t *testing.T, c *state.Campaign) (string, map[string]string) {
-				fid := objStr(confirmedFinding(t, c, "Rounding loss"), "finding_id")
+				fid := validation.ObjStr(confirmedFinding(t, c, "Rounding loss"), "finding_id")
 				if _, err := StartLadder(c, fid); err != nil {
 					t.Fatal(err)
 				}
@@ -203,7 +204,7 @@ func TestR42UnreadableFindingIsNotDeleted(t *testing.T) {
 // reach a restore holding a ladder whose bytes it never saw.
 func TestR42SnapshotRefusesAnUnreadableLadder(t *testing.T) {
 	c := newCampaign(t, "r42 unreadable ladder")
-	fid := objStr(confirmedFinding(t, c, "Rounding loss"), "finding_id")
+	fid := validation.ObjStr(confirmedFinding(t, c, "Rounding loss"), "finding_id")
 	if _, err := StartLadder(c, fid); err != nil {
 		t.Fatal(err)
 	}
@@ -235,7 +236,7 @@ func TestR42SnapshotRefusesAnUnreadableLadder(t *testing.T) {
 func TestR42RestoreRefusesToRemoveAnUnreadableFile(t *testing.T) {
 	c := newCampaign(t, "r42 restore refuses")
 	f := confirmedFinding(t, c, "Rounding loss")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	fp := findings.FindingPath(c, fid)
 	before := r42Bytes(t, fp)
 
@@ -271,7 +272,7 @@ func TestR42UnwindNamesItsOwnFailure(t *testing.T) {
 	t.Run("at the door", func(t *testing.T) {
 		c := newCampaign(t, "r42 unwind voice")
 		f := confirmedFinding(t, c, "Rounding loss")
-		fid := objStr(f, "finding_id")
+		fid := validation.ObjStr(f, "finding_id")
 		fp := findings.FindingPath(c, fid)
 		before := r42Bytes(t, fp)
 		pair := ladderPair{lad: ladderFileSnap{path: ladderPath(c, fid)},
@@ -301,7 +302,7 @@ func TestR42UnwindNamesItsOwnFailure(t *testing.T) {
 	t.Run("through a real waive", func(t *testing.T) {
 		c := newCampaign(t, "r42 unwind voice via waive")
 		f := confirmedFinding(t, c, "Rounding loss")
-		fid := objStr(f, "finding_id")
+		fid := validation.ObjStr(f, "finding_id")
 		if _, err := StartLadder(c, fid); err != nil {
 			t.Fatal(err)
 		}
@@ -355,7 +356,7 @@ func TestR42LedgerDoorAndHonestSuccessStillHold(t *testing.T) {
 		{
 			name: "waive",
 			fixt: func(t *testing.T, c *state.Campaign) (string, map[string]string) {
-				fid := objStr(confirmedFinding(t, c, "Rounding loss"), "finding_id")
+				fid := validation.ObjStr(confirmedFinding(t, c, "Rounding loss"), "finding_id")
 				if _, err := StartLadder(c, fid); err != nil {
 					t.Fatal(err)
 				}

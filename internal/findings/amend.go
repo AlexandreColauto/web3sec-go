@@ -62,7 +62,7 @@ func Amend(campaign *state.Campaign, findingID string,
 	if err != nil {
 		return validation.VNull(), err
 	}
-	status := objStr(finding, "status")
+	status := validation.ObjStr(finding, "status")
 	changed := []string{}
 	if opts.HasTitle {
 		finding.O = validation.SetOrAppend(finding.O, "title",
@@ -75,7 +75,7 @@ func Amend(campaign *state.Campaign, findingID string,
 				"unknown bug class %s (not in taxonomy.known_classes)",
 				validation.PyReprStr(opts.Class))}
 		}
-		rc := asDict(objAt(finding, "root_cause"))
+		rc := asDict(validation.ObjAt(finding, "root_cause"))
 		rc.O = validation.SetOrAppend(rc.O, "class",
 			validation.VStr(opts.Class))
 		finding.O = validation.SetOrAppend(finding.O, "root_cause", rc)
@@ -91,7 +91,7 @@ func Amend(campaign *state.Campaign, findingID string,
 		changed = append(changed, "class")
 	}
 	if opts.HasClaim {
-		rc := asDict(objAt(finding, "root_cause"))
+		rc := asDict(validation.ObjAt(finding, "root_cause"))
 		rc.O = validation.SetOrAppend(rc.O, "description",
 			validation.VStr(opts.Claim))
 		finding.O = validation.SetOrAppend(finding.O, "root_cause", rc)
@@ -109,7 +109,7 @@ func Amend(campaign *state.Campaign, findingID string,
 	// material re-state"). The critic's stale-check (boundary.go) compares
 	// versions, so every amend re-stales verdicts pinned to the old claim.
 	version := int64(1)
-	if cur := objAt(finding, "claim_version"); cur.Kind == validation.Int {
+	if cur := validation.ObjAt(finding, "claim_version"); cur.Kind == validation.Int {
 		version = cur.I + 1
 	}
 	finding.O = validation.SetOrAppend(finding.O, "claim_version",
@@ -117,12 +117,12 @@ func Amend(campaign *state.Campaign, findingID string,
 	// History entry in the mutateStatus shape (from == to: amend never moves
 	// status). No finding.status event: the status did not change, so
 	// logging one would claim a transition that never happened.
-	hist := objAt(finding, "history")
+	hist := validation.ObjAt(finding, "history")
 	if hist.Kind != validation.Arr {
 		hist = validation.VArr()
 	}
 	hist.A = append(hist.A, validation.VObj(
-		validation.KV{K: "at", V: validation.VStr(nowIso())},
+		validation.KV{K: "at", V: validation.VStr(state.NowIso())},
 		validation.KV{K: "from", V: validation.VStr(status)},
 		validation.KV{K: "to", V: validation.VStr(status)},
 		validation.KV{K: "reason", V: validation.VStr(reason)},
@@ -179,10 +179,10 @@ func Supersede(campaign *state.Campaign, newID, oldID,
 	if err != nil {
 		return validation.VNull(), err
 	}
-	if IsTerminal(objStr(old, "status")) {
+	if IsTerminal(validation.ObjStr(old, "status")) {
 		return validation.VNull(), &RejectedError{Msg: fmt.Sprintf(
 			"cannot supersede terminal finding %s (%s)",
-			oldID, objStr(old, "status"))}
+			oldID, validation.ObjStr(old, "status"))}
 	}
 	newFinding, err := LoadFinding(campaign, newID)
 	if err != nil {
@@ -193,12 +193,12 @@ func Supersede(campaign *state.Campaign, newID, oldID,
 	// pair onto each other and leave zero live findings behind. The old
 	// side's terminality was always refused; the new side is the same
 	// claim about existence.
-	if IsTerminal(objStr(newFinding, "status")) {
+	if IsTerminal(validation.ObjStr(newFinding, "status")) {
 		return validation.VNull(), &RejectedError{Msg: fmt.Sprintf(
 			"cannot supersede %s with terminal finding %s (%s) — the "+
 				"successor must be a live finding; a superseded row cannot "+
 				"adopt anything, and this pair would cycle to zero live "+
-				"findings", oldID, newID, objStr(newFinding, "status"))}
+				"findings", oldID, newID, validation.ObjStr(newFinding, "status"))}
 	}
 	old, err = Transition(campaign, oldID, "SUPERSEDED",
 		"superseded by "+newID, actor, "", false)
@@ -207,8 +207,8 @@ func Supersede(campaign *state.Campaign, newID, oldID,
 	}
 	// Re-parent: COPY each old evidence item into the new finding, stamped
 	// with its source. The old array is never touched.
-	oldEv := objAt(old, "evidence")
-	newEv := objAt(newFinding, "evidence")
+	oldEv := validation.ObjAt(old, "evidence")
+	newEv := validation.ObjAt(newFinding, "evidence")
 	if newEv.Kind != validation.Arr {
 		newEv = validation.VArr()
 	}
@@ -220,7 +220,7 @@ func Supersede(campaign *state.Campaign, newID, oldID,
 		newEv.A = append(newEv.A, cp)
 	}
 	newFinding.O = validation.SetOrAppend(newFinding.O, "evidence", newEv)
-	dm := asDict(objAt(newFinding, "dedup_meta"))
+	dm := asDict(validation.ObjAt(newFinding, "dedup_meta"))
 	dm.O = validation.SetOrAppend(dm.O, "supersedes",
 		validation.VStr(oldID))
 	newFinding.O = validation.SetOrAppend(newFinding.O, "dedup_meta", dm)

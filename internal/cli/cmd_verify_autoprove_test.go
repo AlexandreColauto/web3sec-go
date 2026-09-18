@@ -53,16 +53,16 @@ func TestAutoproveProvenBindsRung(t *testing.T) {
 		t.Fatalf("summary shape: %q", out)
 	}
 	hv := mcLinkField(t, c, "invariants", "INV-1", "verification", "harness")
-	if objStr(hv, "kind") != string(harness.Kind("miniprover")) {
+	if validation.ObjStr(hv, "kind") != string(harness.Kind("miniprover")) {
 		t.Fatalf("kind: %s", validation.CanonCompact(hv))
 	}
-	if objStr(hv, "rung") != harness.RungProvedBounded {
-		t.Fatalf("rung: %s", objStr(hv, "rung"))
+	if validation.ObjStr(hv, "rung") != harness.RungProvedBounded {
+		t.Fatalf("rung: %s", validation.ObjStr(hv, "rung"))
 	}
-	if objStr(hv, "exec")[:7] != "REPORT-" {
-		t.Fatalf("report-only provenance row expected: %q", objStr(hv, "exec"))
+	if validation.ObjStr(hv, "exec")[:7] != "REPORT-" {
+		t.Fatalf("report-only provenance row expected: %q", validation.ObjStr(hv, "exec"))
 	}
-	if p := objAt(hv, "proof"); p.Kind != validation.Null {
+	if p := validation.ObjAt(hv, "proof"); p.Kind != validation.Null {
 		t.Fatalf("proof sidecar is minicertora-only: %s",
 			validation.CanonCompact(p))
 	}
@@ -104,10 +104,10 @@ func TestAutoproveViolatedIsCounterexample(t *testing.T) {
 		t.Fatalf("must name the refuted rules: %q", out)
 	}
 	hv := mcLinkField(t, c, "invariants", "INV-1", "verification", "harness")
-	if objStr(hv, "rung") != harness.RungCounterexample {
-		t.Fatalf("rung: %s", objStr(hv, "rung"))
+	if validation.ObjStr(hv, "rung") != harness.RungCounterexample {
+		t.Fatalf("rung: %s", validation.ObjStr(hv, "rung"))
 	}
-	if bk := objAt(hv, "bounded_k"); bk.Kind != validation.Null {
+	if bk := validation.ObjAt(hv, "bounded_k"); bk.Kind != validation.Null {
 		t.Fatal("counterexample carries no bound")
 	}
 }

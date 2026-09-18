@@ -183,11 +183,11 @@ func scCollect(c *state.Campaign, noSurface bool, goldPath string) (*scorecardVi
 		return nil, err
 	}
 	v := &scorecardView{
-		id:        objStr(st, "campaign_id"),
-		program:   objStr(st, "program"),
-		phase:     objStr(st, "phase"),
-		createdAt: objStr(st, "created_at"),
-		updatedAt: objStr(st, "updated_at"),
+		id:        validation.ObjStr(st, "campaign_id"),
+		program:   validation.ObjStr(st, "program"),
+		phase:     validation.ObjStr(st, "phase"),
+		createdAt: validation.ObjStr(st, "created_at"),
+		updatedAt: validation.ObjStr(st, "updated_at"),
 		goldPath:  goldPath,
 	}
 	if err := v.collectSurface(c, noSurface); err != nil {
@@ -238,9 +238,9 @@ func scPinnedSnapshot(c *state.Campaign) (root string, contained, ok bool, err e
 	if err != nil {
 		return "", false, false, err
 	}
-	src := objAt(snap, "source")
-	root = objStr(src, "root")
-	if flag := objAt(src, "campaign_inside_target"); flag.Kind == validation.Bool {
+	src := validation.ObjAt(snap, "source")
+	root = validation.ObjStr(src, "root")
+	if flag := validation.ObjAt(src, "campaign_inside_target"); flag.Kind == validation.Bool {
 		contained = flag.B
 	}
 	return root, contained, true, nil
@@ -345,7 +345,7 @@ func (v *scorecardView) collectFindings(c *state.Campaign) error {
 	statuses := map[string]int{}
 	rungs := map[string]int{}
 	for _, f := range live {
-		if s := objStr(f, "status"); s != "" {
+		if s := validation.ObjStr(f, "status"); s != "" {
 			statuses[s]++
 		}
 		// FindingLevel is finding_level: the highest evidence rung, E0 when
@@ -369,7 +369,7 @@ func (v *scorecardView) collectFindings(c *state.Campaign) error {
 	}
 	for _, row := range objListAt(rep, "rows") {
 		v.floorRows++
-		if objAt(row, "override").Kind == validation.Obj {
+		if validation.ObjAt(row, "override").Kind == validation.Obj {
 			v.floorOverrides++
 		}
 	}
@@ -410,7 +410,7 @@ func (v *scorecardView) collectProcess(c *state.Campaign, st validation.Value) e
 		return err
 	}
 	v.events = n
-	v.phaseHistory = len(objAt(st, "phase_history").A)
+	v.phaseHistory = len(validation.ObjAt(st, "phase_history").A)
 	execs, err := state.AllExecs(c)
 	if err != nil {
 		return err
@@ -421,10 +421,10 @@ func (v *scorecardView) collectProcess(c *state.Campaign, st validation.Value) e
 	if err != nil {
 		return err
 	}
-	if p := objAt(budget, "pass"); p.Kind == validation.Int {
+	if p := validation.ObjAt(budget, "pass"); p.Kind == validation.Int {
 		v.passes = int(p.I)
 	}
-	if m := objAt(budget, "max_passes"); m.Kind == validation.Int {
+	if m := validation.ObjAt(budget, "max_passes"); m.Kind == validation.Int {
 		v.maxPasses, v.hasMaxPasses = int(m.I), true
 	}
 	// The reproduction budget is PER FINDING (max_repro_attempts_per_finding),
@@ -435,8 +435,8 @@ func (v *scorecardView) collectProcess(c *state.Campaign, st validation.Value) e
 	if len(v.liveFindings) > 0 && perFinding > 0 {
 		total := 0
 		for _, f := range v.liveFindings {
-			repro := objAt(objAt(f, "verification"), "reproduction")
-			total += len(objAt(repro, "attempts").A)
+			repro := validation.ObjAt(validation.ObjAt(f, "verification"), "reproduction")
+			total += len(validation.ObjAt(repro, "attempts").A)
 		}
 		v.hasRepro = true
 		v.reproAttempts = total

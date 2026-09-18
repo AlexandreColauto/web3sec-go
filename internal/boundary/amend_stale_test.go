@@ -8,6 +8,7 @@ package boundary
 import (
 	"strings"
 	"testing"
+	"websec/internal/validation"
 
 	"websec/internal/findings"
 )
@@ -28,7 +29,7 @@ func TestAmendRestalesCriticVerdict(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if v := objAt(got, "claim_version"); v.I != 2 {
+	if v := validation.ObjAt(got, "claim_version"); v.I != 2 {
 		t.Fatalf("claim_version = %v, want 2", v)
 	}
 	// The same verdict payload is now stale-refused.

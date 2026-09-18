@@ -36,7 +36,7 @@ func batchEventsOfType(t *testing.T, camp *state.Campaign,
 	}
 	var out []validation.Value
 	for _, e := range evts {
-		if objStr(e, "type") == typ {
+		if validation.ObjStr(e, "type") == typ {
 			out = append(out, e)
 		}
 	}
@@ -48,8 +48,8 @@ func batchStatusOf(t *testing.T, plan validation.Value,
 	pid string) string {
 	t.Helper()
 	for _, p := range listOf(plan, "priorities") {
-		if objStr(p, "id") == pid {
-			return objStr(p, "status")
+		if validation.ObjStr(p, "id") == pid {
+			return validation.ObjStr(p, "status")
 		}
 	}
 	t.Fatalf("priority %s not in plan", pid)
@@ -89,16 +89,16 @@ func TestMarkAnsweredBatchAllValid(t *testing.T) {
 	}
 	// the shared reason rides the rows that carry none; a row's own
 	// reason wins.
-	if r := objStr(probePriority(t, got, "Q-001"),
+	if r := validation.ObjStr(probePriority(t, got, "Q-001"),
 		"closed_reason"); r != "batch review of the queue" {
 		t.Errorf("Q-001 closed_reason = %q", r)
 	}
-	if r := objStr(probePriority(t, got, "Q-002"),
+	if r := validation.ObjStr(probePriority(t, got, "Q-002"),
 		"closed_reason"); r != own {
 		t.Errorf("Q-002 closed_reason = %q, want the row's own reason", r)
 	}
 	q5 := probePriority(t, got, "Q-005")
-	if r := objStr(q5, "closed_ref"); r != "Rollup.sol#L45" {
+	if r := validation.ObjStr(q5, "closed_ref"); r != "Rollup.sol#L45" {
 		t.Errorf("Q-005 closed_ref = %q, want Rollup.sol#L45", r)
 	}
 
@@ -109,23 +109,23 @@ func TestMarkAnsweredBatchAllValid(t *testing.T) {
 		t.Fatalf("plan.priority_status events = %d, want 3", len(evts))
 	}
 	for i, pid := range []string{"Q-001", "Q-002", "Q-005"} {
-		if r := objStr(evts[i], "ref"); r != pid {
+		if r := validation.ObjStr(evts[i], "ref"); r != pid {
 			t.Errorf("event %d ref = %q, want %q", i, r, pid)
 		}
 	}
-	if got := objStr(objAt(evts[0], "data"), "reason"); got !=
+	if got := validation.ObjStr(validation.ObjAt(evts[0], "data"), "reason"); got !=
 		"batch review of the queue" {
 		t.Errorf("row 1 event reason = %q", got)
 	}
-	if got := objStr(objAt(evts[1], "data"), "reason"); got != own {
+	if got := validation.ObjStr(validation.ObjAt(evts[1], "data"), "reason"); got != own {
 		t.Errorf("row 2 event reason = %q, want the row's own reason", got)
 	}
-	if got := objStr(objAt(evts[2], "data"), "ref"); got !=
+	if got := validation.ObjStr(validation.ObjAt(evts[2], "data"), "ref"); got !=
 		"Rollup.sol#L45" {
 		t.Errorf("row 3 event ref = %q, want Rollup.sol#L45", got)
 	}
-	anchorRec := objAt(objAt(evts[2], "data"), "anchor")
-	if objStr(anchorRec, "field") != "consumer" {
+	anchorRec := validation.ObjAt(validation.ObjAt(evts[2], "data"), "anchor")
+	if validation.ObjStr(anchorRec, "field") != "consumer" {
 		t.Errorf("row 3 event anchor = %v, want the consumer record",
 			validation.CanonCompact(anchorRec))
 	}
@@ -144,9 +144,9 @@ func TestMarkAnsweredBatchAllValid(t *testing.T) {
 		t.Fatalf("single events = %d, want 1", len(singleEvts))
 	}
 	requireJSON(t, "batch row 1 event data == single-mark event data",
-		objAt(evts[0], "data"), objAt(singleEvts[0], "data"))
+		validation.ObjAt(evts[0], "data"), validation.ObjAt(singleEvts[0], "data"))
 	requireJSON(t, "batch row 1 event ref == single-mark event ref",
-		objAt(evts[0], "ref"), objAt(singleEvts[0], "ref"))
+		validation.ObjAt(evts[0], "ref"), validation.ObjAt(singleEvts[0], "ref"))
 }
 
 // TestMarkAnsweredBatchRefusalIsAtomic pins the all-or-nothing law: the
@@ -316,7 +316,7 @@ func TestMarkAnsweredBatchOverrideHappyPath(t *testing.T) {
 			len(overrides))
 	}
 	for i, pid := range []string{"Q-005", "Q-006"} {
-		if r := objStr(overrides[i], "ref"); r != pid {
+		if r := validation.ObjStr(overrides[i], "ref"); r != pid {
 			t.Errorf("override event %d ref = %q, want %q", i, r, pid)
 		}
 	}

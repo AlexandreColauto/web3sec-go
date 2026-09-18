@@ -112,7 +112,7 @@ func gateReadyEconomic(t *testing.T, c *state.Campaign) validation.Value {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	rec := testExec(t, c, "docker-networkless", fid, 0, "PASS: test_exploit\n")
 	pairs := []struct{ level, typ string }{
 		{"E4", "foundry-test"}, {"E5", "fork-test"}}
@@ -129,7 +129,7 @@ func gateReadyEconomic(t *testing.T, c *state.Campaign) validation.Value {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ver := asDict(objAt(f, "verification"))
+	ver := asDict(validation.ObjAt(f, "verification"))
 	ver.O = validation.SetOrAppend(ver.O, "reproduction", validation.VObj(
 		kv("tier_reached", validation.VStr("T3")),
 		kv("status", validation.VStr("reproduced")),
@@ -155,7 +155,7 @@ func TestGateDetailByteIdenticalToPreChangeTree(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := parseGolden(t, goldenA)
-	assertFailuresEqual(t, maskedFailures(t, c, detail, objStr(f, "finding_id")),
+	assertFailuresEqual(t, maskedFailures(t, c, detail, validation.ObjStr(f, "finding_id")),
 		want)
 	// _confirmation_gates renders the same list as "<check_id>: <message>"
 	gates, err := ConfirmationGates(c, f)
@@ -166,7 +166,7 @@ func TestGateDetailByteIdenticalToPreChangeTree(t *testing.T) {
 		t.Fatalf("gates = %d, want %d", len(gates), len(want))
 	}
 	for i, w := range want {
-		masked := strings.ReplaceAll(gates[i], objStr(f, "finding_id"),
+		masked := strings.ReplaceAll(gates[i], validation.ObjStr(f, "finding_id"),
 			"<FINDING>")
 		masked = strings.ReplaceAll(masked, c.CampaignID, "<CAMPAIGN>")
 		if masked != w.CheckID+": "+w.Message {
@@ -184,7 +184,7 @@ func TestGateDetailIdenticalWithSatisfiedClausesPresent(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := parseGolden(t, goldenB)
-	assertFailuresEqual(t, maskedFailures(t, c, detail, objStr(f, "finding_id")),
+	assertFailuresEqual(t, maskedFailures(t, c, detail, validation.ObjStr(f, "finding_id")),
 		want)
 }
 
@@ -231,7 +231,7 @@ func TestClauseCollectorIsTheOnlySource(t *testing.T) {
 func TestNamedDecisionLineNeedsAnEconomicClause(t *testing.T) {
 	c := ingestCamp(t)
 	f := minimalFinding(t, c)
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	imp := validation.VObj(
 		kv("priceable", validation.VBool(false)),
 		kv("ceiling", validation.VStr(ceilingBasis)),

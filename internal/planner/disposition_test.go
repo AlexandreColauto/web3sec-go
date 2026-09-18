@@ -70,7 +70,7 @@ func dgRow81(t *testing.T) validation.Value {
 	t.Helper()
 	surface, _ := maSurface(t)
 	for _, r := range listOf(*surface, "rows") {
-		if objStr(r, "row_id") == "81dfad6492" {
+		if validation.ObjStr(r, "row_id") == "81dfad6492" {
 			return deepCopy(t, r)
 		}
 	}
@@ -169,11 +169,11 @@ func TestDismissalGateMatrix(t *testing.T) {
 		t.Fatalf("exec-backed dismissal must pass: %v", err)
 	}
 	p := probePriority(t, plan, "Q-005")
-	if got := objStr(p, "closed_ref"); got != refExec {
+	if got := validation.ObjStr(p, "closed_ref"); got != refExec {
 		t.Errorf("closed_ref = %q, want the refutation %q", got, refExec)
 	}
 	// the anchor record keeps its own citation of the field
-	if got := objStr(objAt(objAt(p, "probe"), "anchor"), "ref"); got != refFile {
+	if got := validation.ObjStr(validation.ObjAt(validation.ObjAt(p, "probe"), "anchor"), "ref"); got != refFile {
 		t.Errorf("probe.anchor.ref = %q, want %q", got, refFile)
 	}
 
@@ -222,7 +222,7 @@ func TestDismissalGateMatrix(t *testing.T) {
 	if err != nil {
 		t.Fatalf("a cited reason must pass: %v", err)
 	}
-	if got := objStr(probePriority(t, planCited, "Q-005"), "closed_reason"); got != cited {
+	if got := validation.ObjStr(probePriority(t, planCited, "Q-005"), "closed_reason"); got != cited {
 		t.Errorf("closed_reason = %q", got)
 	}
 
@@ -293,7 +293,7 @@ func TestDismissalGateOverride(t *testing.T) {
 		t.Fatalf("override with reason must pass: %v", err)
 	}
 	p := probePriority(t, plan, "Q-005")
-	if got := objStr(p, "status"); got != "answered" {
+	if got := validation.ObjStr(p, "status"); got != "answered" {
 		t.Fatalf("status = %q, want answered", got)
 	}
 	evts, err := camp.Events()
@@ -302,34 +302,34 @@ func TestDismissalGateOverride(t *testing.T) {
 	}
 	var found validation.Value
 	for _, e := range evts {
-		if objStr(e, "type") == "probe.dismissal_overridden" {
+		if validation.ObjStr(e, "type") == "probe.dismissal_overridden" {
 			found = e
 		}
 	}
 	if found.Kind == validation.Null {
 		t.Fatal("no probe.dismissal_overridden event logged")
 	}
-	data := objAt(found, "data")
-	if got := objStr(data, "row_id"); got != "81dfad6492" {
+	data := validation.ObjAt(found, "data")
+	if got := validation.ObjStr(data, "row_id"); got != "81dfad6492" {
 		t.Errorf("event row_id = %q", got)
 	}
-	if got := objAt(data, "tier").I; got != 0 {
+	if got := validation.ObjAt(data, "tier").I; got != 0 {
 		t.Errorf("event tier = %d, want 0", got)
 	}
-	if got := objAt(data, "assertion_gap").I; got != 4 {
+	if got := validation.ObjAt(data, "assertion_gap").I; got != 4 {
 		t.Errorf("event assertion_gap = %d, want 4", got)
 	}
-	if got := objStr(data, "actor"); got != "operator" {
+	if got := validation.ObjStr(data, "actor"); got != "operator" {
 		t.Errorf("event actor = %q, want operator", got)
 	}
-	if got := objStr(data, "override_reason"); got != why {
+	if got := validation.ObjStr(data, "override_reason"); got != why {
 		t.Errorf("event override_reason = %q", got)
 	}
-	if got := objStr(data, "closed_reason"); got != reason {
+	if got := validation.ObjStr(data, "closed_reason"); got != reason {
 		t.Errorf("event closed_reason = %q", got)
 	}
 	phrases := listOf(data, "phrases")
-	if len(phrases) != 2 || objStr(phrases[0], "") != "" ||
+	if len(phrases) != 2 || validation.ObjStr(phrases[0], "") != "" ||
 		phrases[0].S != "not exploitable" || phrases[1].S != "never permanently" {
 		t.Errorf("event phrases = %v, want [not exploitable never permanently]",
 			phrases)
@@ -381,7 +381,7 @@ func TestDismissalOverrideNoticeIsSpecific(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, e := range evts {
-		if objStr(e, "type") == "probe.dismissal_overridden" {
+		if validation.ObjStr(e, "type") == "probe.dismissal_overridden" {
 			t.Error("a refutation-backed dismissal logged a dismissal override")
 		}
 	}
@@ -467,7 +467,7 @@ func TestRowSymbolsReadTheRowsOwnEntry(t *testing.T) {
 	rows := listOf(*surface, "rows")
 	row := validation.VNull()
 	for _, r := range rows {
-		if objStr(r, "row_id") == "81dfad6492" {
+		if validation.ObjStr(r, "row_id") == "81dfad6492" {
 			row = r
 		}
 	}
@@ -509,7 +509,7 @@ func TestARowWithNoSymbolsStaysClosable(t *testing.T) {
 	stripped := deepCopy(t, *surface)
 	found := false
 	for i, r := range listOf(stripped, "rows") {
-		if objStr(r, "row_id") != "81dfad6492" {
+		if validation.ObjStr(r, "row_id") != "81dfad6492" {
 			continue
 		}
 		found = true
@@ -557,8 +557,8 @@ func TestGhostCitationsAreRefused(t *testing.T) {
 	pid := ""
 	for _, p := range listOf(plan, "priorities") {
 		if prov, ok := probeProvenance(p); ok &&
-			objStr(prov, "row_id") == objStr(row, "row_id") {
-			pid = objStr(p, "id")
+			validation.ObjStr(prov, "row_id") == validation.ObjStr(row, "row_id") {
+			pid = validation.ObjStr(p, "id")
 		}
 	}
 	if pid == "" {
@@ -602,7 +602,7 @@ func sentinelDispositionFixture(t *testing.T) (*state.Campaign,
 	const rowID = "81dfad6492"
 	found := false
 	for i, r := range listOf(*surface, "rows") {
-		if objStr(r, "row_id") != rowID {
+		if validation.ObjStr(r, "row_id") != rowID {
 			continue
 		}
 		found = true
@@ -629,8 +629,8 @@ func priorityIDForRow(t *testing.T, plan validation.Value, rowID string) string 
 	t.Helper()
 	for _, p := range listOf(plan, "priorities") {
 		if prov, ok := probeProvenance(p); ok &&
-			objStr(prov, "row_id") == rowID {
-			return objStr(p, "id")
+			validation.ObjStr(prov, "row_id") == rowID {
+			return validation.ObjStr(p, "id")
 		}
 	}
 	t.Fatalf("no priority cites probe row %s", rowID)
@@ -686,8 +686,8 @@ func TestDispositionLintSentinelRowDemandsPasses(t *testing.T) {
 		t.Fatalf("with --passes: %v", err)
 	}
 	prio := storedPriority(t, camp, rowID)
-	if objStr(prio, "passes") != passes {
-		t.Errorf("passes = %q", objStr(prio, "passes"))
+	if validation.ObjStr(prio, "passes") != passes {
+		t.Errorf("passes = %q", validation.ObjStr(prio, "passes"))
 	}
 }
 
@@ -704,10 +704,10 @@ func TestDispositionLintSentinelRowOverride(t *testing.T) {
 		t.Fatalf("an explicit override must pass the sentinel rule: %v", err)
 	}
 	prio := storedPriority(t, camp, rowID)
-	if got := objStr(prio, "status"); got != "answered" {
+	if got := validation.ObjStr(prio, "status"); got != "answered" {
 		t.Errorf("status = %q, want answered", got)
 	}
-	if got := objStr(prio, "passes"); got != "" {
+	if got := validation.ObjStr(prio, "passes"); got != "" {
 		t.Errorf("passes = %q, want none (the override is the record)", got)
 	}
 }
@@ -721,7 +721,7 @@ func lowSentinelFixture(t *testing.T) (*state.Campaign, string) {
 	surface, index := maSurface(t)
 	found := false
 	for i, r := range listOf(*surface, "rows") {
-		if objStr(r, "row_id") != "81dfad6492" {
+		if validation.ObjStr(r, "row_id") != "81dfad6492" {
 			continue
 		}
 		found = true
@@ -768,12 +768,12 @@ func TestDispositionLintSentinelRowOverrideNeedsReason(t *testing.T) {
 	}
 	// the refusal is a decision that did not happen
 	prio := storedPriority(t, camp, rowID)
-	if got := objStr(prio, "status"); got != "open" {
+	if got := validation.ObjStr(prio, "status"); got != "open" {
 		t.Fatalf("refused closure changed the status to %q", got)
 	}
-	if objAt(prio, "passes").Kind != validation.Null {
+	if validation.ObjAt(prio, "passes").Kind != validation.Null {
 		t.Fatalf("refused closure recorded passes = %q",
-			objStr(prio, "passes"))
+			validation.ObjStr(prio, "passes"))
 	}
 
 	// negative control: a whitespace-only reason is not a justification
@@ -820,12 +820,12 @@ func TestDispositionLintSentinelRowOverrideIsLogged(t *testing.T) {
 		t.Error("OverrideLogged not set — the override went unannounced")
 	}
 	prio := storedPriority(t, camp, rowID)
-	if got := objStr(prio, "status"); got != "answered" {
+	if got := validation.ObjStr(prio, "status"); got != "answered" {
 		t.Fatalf("status = %q, want answered", got)
 	}
-	if objAt(prio, "passes").Kind != validation.Null {
+	if validation.ObjAt(prio, "passes").Kind != validation.Null {
 		t.Fatalf("passes = %q, want none (the override is the record)",
-			objStr(prio, "passes"))
+			validation.ObjStr(prio, "passes"))
 	}
 	evts, err := camp.Events()
 	if err != nil {
@@ -833,7 +833,7 @@ func TestDispositionLintSentinelRowOverrideIsLogged(t *testing.T) {
 	}
 	var found []validation.Value
 	for _, e := range evts {
-		if objStr(e, "type") == "probe.dismissal_overridden" {
+		if validation.ObjStr(e, "type") == "probe.dismissal_overridden" {
 			found = append(found, e)
 		}
 	}
@@ -841,23 +841,23 @@ func TestDispositionLintSentinelRowOverrideIsLogged(t *testing.T) {
 		t.Fatalf("probe.dismissal_overridden events = %d, want exactly 1",
 			len(found))
 	}
-	data := objAt(found[0], "data")
-	if got := objStr(data, "row_id"); got != rowID {
+	data := validation.ObjAt(found[0], "data")
+	if got := validation.ObjStr(data, "row_id"); got != rowID {
 		t.Errorf("event row_id = %q, want %q", got, rowID)
 	}
-	if got := objAt(data, "tier").I; got != 2 {
+	if got := validation.ObjAt(data, "tier").I; got != 2 {
 		t.Errorf("event tier = %d, want 2", got)
 	}
-	if got := objAt(data, "assertion_gap").I; got != 1 {
+	if got := validation.ObjAt(data, "assertion_gap").I; got != 1 {
 		t.Errorf("event assertion_gap = %d, want 1", got)
 	}
-	if got := objStr(data, "actor"); got != "operator" {
+	if got := validation.ObjStr(data, "actor"); got != "operator" {
 		t.Errorf("event actor = %q, want operator", got)
 	}
-	if got := objStr(data, "override_reason"); got != why {
+	if got := validation.ObjStr(data, "override_reason"); got != why {
 		t.Errorf("event override_reason = %q", got)
 	}
-	if got := objStr(data, "closed_reason"); got != reason {
+	if got := validation.ObjStr(data, "closed_reason"); got != reason {
 		t.Errorf("event closed_reason = %q", got)
 	}
 	if phrases := listOf(data, "phrases"); len(phrases) != 1 ||
@@ -889,7 +889,7 @@ func TestDispositionLintSentinelOverrideHighRiskIsOneEvent(t *testing.T) {
 		t.Error("OverrideLogged not set — the override went unannounced")
 	}
 	prio := storedPriority(t, camp, rowID)
-	if got := objStr(prio, "status"); got != "answered" {
+	if got := validation.ObjStr(prio, "status"); got != "answered" {
 		t.Fatalf("status = %q, want answered", got)
 	}
 	evts, err := camp.Events()
@@ -898,7 +898,7 @@ func TestDispositionLintSentinelOverrideHighRiskIsOneEvent(t *testing.T) {
 	}
 	var found []validation.Value
 	for _, e := range evts {
-		if objStr(e, "type") == "probe.dismissal_overridden" {
+		if validation.ObjStr(e, "type") == "probe.dismissal_overridden" {
 			found = append(found, e)
 		}
 	}
@@ -906,14 +906,14 @@ func TestDispositionLintSentinelOverrideHighRiskIsOneEvent(t *testing.T) {
 		t.Fatalf("probe.dismissal_overridden events = %d, want exactly 1",
 			len(found))
 	}
-	data := objAt(found[0], "data")
-	if got := objStr(data, "row_id"); got != rowID {
+	data := validation.ObjAt(found[0], "data")
+	if got := validation.ObjStr(data, "row_id"); got != rowID {
 		t.Errorf("event row_id = %q", got)
 	}
-	if got := objAt(data, "tier").I; got != 0 {
+	if got := validation.ObjAt(data, "tier").I; got != 0 {
 		t.Errorf("event tier = %d, want 0", got)
 	}
-	if got := objAt(data, "assertion_gap").I; got != 4 {
+	if got := validation.ObjAt(data, "assertion_gap").I; got != 4 {
 		t.Errorf("event assertion_gap = %d, want 4", got)
 	}
 	phrases := listOf(data, "phrases")
@@ -922,7 +922,7 @@ func TestDispositionLintSentinelOverrideHighRiskIsOneEvent(t *testing.T) {
 		t.Errorf("event phrases = %v, want [liveness-only owner can revert]",
 			phrases)
 	}
-	if got := objStr(data, "override_reason"); got != why {
+	if got := validation.ObjStr(data, "override_reason"); got != why {
 		t.Errorf("event override_reason = %q", got)
 	}
 }
@@ -1066,7 +1066,7 @@ func TestDeferredConsequenceGateMatrix(t *testing.T) {
 	if err != nil {
 		t.Fatalf("a symbol-citing --interim must pass: %v", err)
 	}
-	if got := objStr(probePriority(t, planInterim, "Q-005"), "interim"); got != interim {
+	if got := validation.ObjStr(probePriority(t, planInterim, "Q-005"), "interim"); got != interim {
 		t.Errorf("interim = %q, want %q", got, interim)
 	}
 
@@ -1079,7 +1079,7 @@ func TestDeferredConsequenceGateMatrix(t *testing.T) {
 	if err != nil {
 		t.Fatalf("a filed --finding must pass: %v", err)
 	}
-	if got := objStr(probePriority(t, planFinding, "Q-005"),
+	if got := validation.ObjStr(probePriority(t, planFinding, "Q-005"),
 		"interim_finding"); got != ref {
 		t.Errorf("interim_finding = %q, want %q", got, ref)
 	}
@@ -1174,7 +1174,7 @@ func TestDeferredConsequenceGateOverride(t *testing.T) {
 		t.Fatalf("override without reason must be refused, err = %v", err)
 	}
 	p := probePriority(t, deepCopy(t, plan), "Q-005")
-	if got := objStr(p, "status"); got != "open" {
+	if got := validation.ObjStr(p, "status"); got != "open" {
 		t.Fatalf("refusal mutated the fixture plan status to %q", got)
 	}
 
@@ -1193,7 +1193,7 @@ func TestDeferredConsequenceGateOverride(t *testing.T) {
 	if !logged {
 		t.Error("OverrideLogged not set — the override went unannounced")
 	}
-	if got := objStr(probePriority(t, planOver, "Q-005"), "status"); got != "answered" {
+	if got := validation.ObjStr(probePriority(t, planOver, "Q-005"), "status"); got != "answered" {
 		t.Errorf("status = %q, want answered", got)
 	}
 	evts, err := camp.Events()
@@ -1202,7 +1202,7 @@ func TestDeferredConsequenceGateOverride(t *testing.T) {
 	}
 	var found []validation.Value
 	for _, e := range evts {
-		if objStr(e, "type") == "probe.dismissal_overridden" {
+		if validation.ObjStr(e, "type") == "probe.dismissal_overridden" {
 			found = append(found, e)
 		}
 	}
@@ -1210,14 +1210,14 @@ func TestDeferredConsequenceGateOverride(t *testing.T) {
 		t.Fatalf("probe.dismissal_overridden events = %d, want exactly 1",
 			len(found))
 	}
-	data := objAt(found[0], "data")
-	if got := objStr(data, "row_id"); got != "81dfad6492" {
+	data := validation.ObjAt(found[0], "data")
+	if got := validation.ObjStr(data, "row_id"); got != "81dfad6492" {
 		t.Errorf("event row_id = %q", got)
 	}
-	if got := objStr(data, "actor"); got != "operator" {
+	if got := validation.ObjStr(data, "actor"); got != "operator" {
 		t.Errorf("event actor = %q, want operator", got)
 	}
-	if got := objStr(data, "override_reason"); got != why {
+	if got := validation.ObjStr(data, "override_reason"); got != why {
 		t.Errorf("event override_reason = %q", got)
 	}
 }
@@ -1251,7 +1251,7 @@ func TestDeferredConsequenceOverrideWithoutReasonIsOneEvent(t *testing.T) {
 	}
 	var logged1 []validation.Value
 	for _, e := range evts {
-		if objStr(e, "type") == "probe.dismissal_overridden" {
+		if validation.ObjStr(e, "type") == "probe.dismissal_overridden" {
 			logged1 = append(logged1, e)
 		}
 	}
@@ -1264,7 +1264,7 @@ func TestDeferredConsequenceOverrideWithoutReasonIsOneEvent(t *testing.T) {
 	// arm must not double-log
 	sentSurface := deepCopy(t, *surface)
 	for i, r := range listOf(sentSurface, "rows") {
-		if objStr(r, "row_id") != "81dfad6492" {
+		if validation.ObjStr(r, "row_id") != "81dfad6492" {
 			continue
 		}
 		r.O = validation.SetOrAppend(r.O, "own_form",
@@ -1287,7 +1287,7 @@ func TestDeferredConsequenceOverrideWithoutReasonIsOneEvent(t *testing.T) {
 	}
 	var logged2 []validation.Value
 	for _, e := range evts {
-		if objStr(e, "type") == "probe.dismissal_overridden" {
+		if validation.ObjStr(e, "type") == "probe.dismissal_overridden" {
 			logged2 = append(logged2, e)
 		}
 	}
@@ -1402,7 +1402,7 @@ func TestDeferredConsequenceReview(t *testing.T) {
 		t.Errorf("flag tokens = %v", f.Tokens)
 	}
 	// the sweep reports; it does not mutate — the plan value is unchanged
-	if got := objStr(objAt(plan, "priorities").A[0], "closed_reason"); got != tell {
+	if got := validation.ObjStr(validation.ObjAt(plan, "priorities").A[0], "closed_reason"); got != tell {
 		t.Errorf("sweep mutated the plan: closed_reason = %q", got)
 	}
 }
@@ -1460,7 +1460,7 @@ func TestDeferredConsequenceVocabularyTrigger(t *testing.T) {
 		}
 	}
 	p := probePriority(t, deepCopy(t, plan), "Q-005")
-	if got := objStr(p, "status"); got != "open" {
+	if got := validation.ObjStr(p, "status"); got != "open" {
 		t.Fatalf("refusal mutated the fixture plan status to %q", got)
 	}
 
@@ -1474,7 +1474,7 @@ func TestDeferredConsequenceVocabularyTrigger(t *testing.T) {
 	if err != nil {
 		t.Fatalf("a priced consumer-anchor closure must pass: %v", err)
 	}
-	if got := objStr(probePriority(t, planInterim, "Q-005"), "interim"); got != interim {
+	if got := validation.ObjStr(probePriority(t, planInterim, "Q-005"), "interim"); got != interim {
 		t.Errorf("interim = %q, want %q", got, interim)
 	}
 
@@ -1487,7 +1487,7 @@ func TestDeferredConsequenceVocabularyTrigger(t *testing.T) {
 	if err != nil {
 		t.Fatalf("a filed --finding must pass: %v", err)
 	}
-	if got := objStr(probePriority(t, planFinding, "Q-005"),
+	if got := validation.ObjStr(probePriority(t, planFinding, "Q-005"),
 		"interim_finding"); got != ref {
 		t.Errorf("interim_finding = %q, want %q", got, ref)
 	}
@@ -1537,7 +1537,7 @@ func TestDeferredConsequenceVocabularyTrigger(t *testing.T) {
 	}
 	n := 0
 	for _, e := range evts {
-		if objStr(e, "type") == "probe.dismissal_overridden" {
+		if validation.ObjStr(e, "type") == "probe.dismissal_overridden" {
 			n++
 		}
 	}
@@ -1616,11 +1616,11 @@ func TestConsequenceFlagsAlwaysValidated(t *testing.T) {
 	}
 	var liveP validation.Value
 	for _, q := range listOf(planLive, "priorities") {
-		if objStr(q, "id") == "Q-900" {
+		if validation.ObjStr(q, "id") == "Q-900" {
 			liveP = q
 		}
 	}
-	if got := objStr(liveP, "interim_finding"); got != live {
+	if got := validation.ObjStr(liveP, "interim_finding"); got != live {
 		t.Errorf("interim_finding = %q, want %q", got, live)
 	}
 
@@ -1644,8 +1644,8 @@ func TestConsequenceFlagsAlwaysValidated(t *testing.T) {
 		t.Fatalf("a real --interim must pass: %v", err)
 	}
 	for _, q := range listOf(plan3, "priorities") {
-		if objStr(q, "id") == "Q-900" && objStr(q, "interim") != statement {
-			t.Errorf("interim = %q, want %q", objStr(q, "interim"), statement)
+		if validation.ObjStr(q, "id") == "Q-900" && validation.ObjStr(q, "interim") != statement {
+			t.Errorf("interim = %q, want %q", validation.ObjStr(q, "interim"), statement)
 		}
 	}
 
@@ -1718,7 +1718,7 @@ func TestGateSkipNotice(t *testing.T) {
 	// fact, not the gate's mood
 	row := dgRow81(t)
 	resolvable := validation.VObj(kv("row_id",
-		validation.VStr(objStr(row, "row_id"))))
+		validation.VStr(validation.ObjStr(row, "row_id"))))
 	notice = ""
 	if err := checkDismissalGateInner(camp, "Q-005", "answered", resolvable,
 		true, AnsweredOpts{Reason: strPtr("commitBatch re-derives the " +
@@ -1807,7 +1807,7 @@ func TestLowRiskOverrideRecordsEvent(t *testing.T) {
 	}
 	var logged1 []validation.Value
 	for _, e := range evts {
-		if objStr(e, "type") == "probe.dismissal_overridden" {
+		if validation.ObjStr(e, "type") == "probe.dismissal_overridden" {
 			logged1 = append(logged1, e)
 		}
 	}
@@ -1815,29 +1815,29 @@ func TestLowRiskOverrideRecordsEvent(t *testing.T) {
 		t.Fatalf("probe.dismissal_overridden events = %d, want exactly 1",
 			len(logged1))
 	}
-	data := objAt(logged1[0], "data")
-	if got := objStr(data, "row_id"); got != "0000000001" {
+	data := validation.ObjAt(logged1[0], "data")
+	if got := validation.ObjStr(data, "row_id"); got != "0000000001" {
 		t.Errorf("row_id = %q", got)
 	}
-	if got := objAt(data, "tier").I; got != 2 {
+	if got := validation.ObjAt(data, "tier").I; got != 2 {
 		t.Errorf("tier = %d, want 2", got)
 	}
-	if got := objAt(data, "assertion_gap").I; got != 1 {
+	if got := validation.ObjAt(data, "assertion_gap").I; got != 1 {
 		t.Errorf("assertion_gap = %d, want 1", got)
 	}
-	if got := objStr(data, "actor"); got != "operator" {
+	if got := validation.ObjStr(data, "actor"); got != "operator" {
 		t.Errorf("actor = %q, want operator", got)
 	}
-	if got := objStr(data, "override_reason"); got != why {
+	if got := validation.ObjStr(data, "override_reason"); got != why {
 		t.Errorf("override_reason = %q", got)
 	}
-	if got := objStr(data, "closed_reason"); got != reason {
+	if got := validation.ObjStr(data, "closed_reason"); got != reason {
 		t.Errorf("closed_reason = %q", got)
 	}
-	if objAt(data, "phrases").Kind == validation.Arr &&
-		len(objAt(data, "phrases").A) != 0 {
+	if validation.ObjAt(data, "phrases").Kind == validation.Arr &&
+		len(validation.ObjAt(data, "phrases").A) != 0 {
 		t.Errorf("phrases = %+v, want empty (no dismissal vocabulary fired)",
-			objAt(data, "phrases").A)
+			validation.ObjAt(data, "phrases").A)
 	}
 
 	// (c) the pre-flight records nothing, but the notice out-param is set
@@ -1857,7 +1857,7 @@ func TestLowRiskOverrideRecordsEvent(t *testing.T) {
 	}
 	n := 0
 	for _, e := range evts {
-		if objStr(e, "type") == "probe.dismissal_overridden" {
+		if validation.ObjStr(e, "type") == "probe.dismissal_overridden" {
 			n++
 		}
 	}
@@ -1892,7 +1892,7 @@ func TestLowRiskOverrideRecordsEvent(t *testing.T) {
 	}
 	n = 0
 	for _, e := range evts {
-		if objStr(e, "type") == "probe.dismissal_overridden" {
+		if validation.ObjStr(e, "type") == "probe.dismissal_overridden" {
 			n++
 		}
 	}
@@ -1924,12 +1924,12 @@ func TestSentinelPassesPlausibilityFloor(t *testing.T) {
 		}
 		// negative control: the refusal is a decision that did not happen
 		prio := storedPriority(t, camp, rowID)
-		if got := objStr(prio, "status"); got != "open" {
+		if got := validation.ObjStr(prio, "status"); got != "open" {
 			t.Fatalf("junk %q refusal changed the status to %q", junk, got)
 		}
-		if objAt(prio, "passes").Kind != validation.Null {
+		if validation.ObjAt(prio, "passes").Kind != validation.Null {
 			t.Fatalf("junk %q refusal recorded passes = %q", junk,
-				objStr(prio, "passes"))
+				validation.ObjStr(prio, "passes"))
 		}
 	}
 
@@ -1941,7 +1941,7 @@ func TestSentinelPassesPlausibilityFloor(t *testing.T) {
 	if err != nil {
 		t.Fatalf("row-citation --passes must pass: %v", err)
 	}
-	if got := objStr(storedPriority(t, camp, rowID), "passes"); got != cite {
+	if got := validation.ObjStr(storedPriority(t, camp, rowID), "passes"); got != cite {
 		t.Errorf("passes = %q, want %q", got, cite)
 	}
 
@@ -1956,7 +1956,7 @@ func TestSentinelPassesPlausibilityFloor(t *testing.T) {
 		if err != nil {
 			t.Fatalf("literal --passes %q must pass: %v", literal, err)
 		}
-		if got := objStr(storedPriority(t, camp, rowID), "passes"); got != literal {
+		if got := validation.ObjStr(storedPriority(t, camp, rowID), "passes"); got != literal {
 			t.Errorf("passes = %q, want %q", got, literal)
 		}
 	}

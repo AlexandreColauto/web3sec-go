@@ -86,22 +86,9 @@ func kv(k string, v validation.Value) validation.KV {
 	return validation.KV{K: k, V: v}
 }
 
-// objAt is dict.get(key): the value for key, or Null when absent.
-func objAt(v validation.Value, key string) validation.Value {
-	if v.Kind != validation.Obj {
-		return validation.VNull()
-	}
-	for _, pair := range v.O {
-		if pair.K == key {
-			return pair.V
-		}
-	}
-	return validation.VNull()
-}
-
 // listOf is model.get(key, []) normalised to a non-nil slice.
 func listOf(model validation.Value, key string) []validation.Value {
-	v := objAt(model, key)
+	v := validation.ObjAt(model, key)
 	if v.Kind != validation.Arr || len(v.A) == 0 {
 		return []validation.Value{}
 	}
@@ -111,7 +98,7 @@ func listOf(model validation.Value, key string) []validation.Value {
 // has is _has: some asset declares this kind.
 func has(model validation.Value, kind string) bool {
 	for _, a := range listOf(model, "assets") {
-		if objAt(a, "kind").S == kind {
+		if validation.ObjAt(a, "kind").S == kind {
 			return true
 		}
 	}
@@ -125,7 +112,7 @@ func has(model validation.Value, kind string) bool {
 // matched and the transform silently never fired.
 func hasFlag(model validation.Value, flag string) bool {
 	for _, a := range protocolgraph.ExternalAssets(model) {
-		for _, f := range objAt(a, "flags").A {
+		for _, f := range validation.ObjAt(a, "flags").A {
 			// Python: `f == flag or f.startswith(flag + "-")`. A non-string
 			// flag can only satisfy the equality test, never startswith.
 			if f.Kind == validation.Str &&
@@ -156,7 +143,7 @@ func BuildEquations(model validation.Value) []validation.Value {
 	eqs := append([]validation.Value{}, listOf(model, "economic_relations")...)
 	have := map[string]bool{}
 	for _, e := range eqs {
-		have[objAt(e, "equation").S] = true
+		have[validation.ObjAt(e, "equation").S] = true
 	}
 	add := func(eq, meaning string, variables []string, breakable []string) {
 		if have[eq] {
@@ -220,11 +207,11 @@ func GenerateTransforms(model validation.Value) []validation.Value {
 func EquationGaps(model validation.Value) []validation.Value {
 	gaps := []validation.Value{}
 	for _, eq := range BuildEquations(model) {
-		if validation.PyTruthy(objAt(eq, "synthesized")) {
+		if validation.PyTruthy(validation.ObjAt(eq, "synthesized")) {
 			continue // a template ships with empty enforced_by by construction
 		}
-		enforced := validation.PyTruthy(objAt(eq, "enforced_by"))
-		breakable := validation.PyTruthy(objAt(eq, "breakable_by"))
+		enforced := validation.PyTruthy(validation.ObjAt(eq, "enforced_by"))
+		breakable := validation.PyTruthy(validation.ObjAt(eq, "breakable_by"))
 		if enforced && breakable {
 			continue
 		}
@@ -236,8 +223,8 @@ func EquationGaps(model validation.Value) []validation.Value {
 			missing = append(missing, validation.VStr("breakable_by"))
 		}
 		gaps = append(gaps, validation.VObj(
-			kv("equation_id", objAt(eq, "id")),
-			kv("equation", objAt(eq, "equation")),
+			kv("equation_id", validation.ObjAt(eq, "id")),
+			kv("equation", validation.ObjAt(eq, "equation")),
 			kv("missing", validation.VArr(missing...)),
 		))
 	}
@@ -250,11 +237,11 @@ func EquationGaps(model validation.Value) []validation.Value {
 func EconomicSummary(model validation.Value) validation.Value {
 	oracles := []validation.Value{}
 	for _, o := range protocolgraph.OracleChain(model) {
-		oracles = append(oracles, objAt(o, "id"))
+		oracles = append(oracles, validation.ObjAt(o, "id"))
 	}
 	names := []validation.Value{}
 	for _, tr := range GenerateTransforms(model) {
-		names = append(names, objAt(tr, "name"))
+		names = append(names, validation.ObjAt(tr, "name"))
 	}
 	return validation.VObj(
 		kv("accounting_vars", validation.VArr(protocolgraph.AccountingVars(model)...)),

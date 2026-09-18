@@ -5,6 +5,7 @@ package cli
 
 import (
 	"fmt"
+	"websec/internal/validation"
 
 	"websec/internal/sharedmem"
 )
@@ -40,26 +41,26 @@ func runShared(root string, args []string, r *Runner) int {
 		}
 		fmt.Fprintf(r.Out, "merged view: %s signature(s), %s approved "+
 			"memory row(s) (%s global-scope)\n",
-			pyIntText(objAt(v, "signature_count")),
-			pyIntText(objAt(v, "memory_count")),
-			pyIntText(objAt(v, "global_scope_memory_rows")))
-		for _, tier := range objAt(v, "tiers").A {
+			pyIntText(validation.ObjAt(v, "signature_count")),
+			pyIntText(validation.ObjAt(v, "memory_count")),
+			pyIntText(validation.ObjAt(v, "global_scope_memory_rows")))
+		for _, tier := range validation.ObjAt(v, "tiers").A {
 			flag := ""
-			if !objAt(tier, "exists").B {
+			if !validation.ObjAt(tier, "exists").B {
 				flag = "  (absent)"
 			}
-			fmt.Fprintf(r.Out, "  [%s] %s%s\n", objStr(tier, "tier"),
-				objStr(tier, "dir"), flag)
-			if objAt(tier, "exists").B {
+			fmt.Fprintf(r.Out, "  [%s] %s%s\n", validation.ObjStr(tier, "tier"),
+				validation.ObjStr(tier, "dir"), flag)
+			if validation.ObjAt(tier, "exists").B {
 				fmt.Fprintf(r.Out, "      signatures: %s   memory: %s   "+
 					"global-scope: %s   records: %s\n",
-					pyIntText(objAt(tier, "signature_count")),
-					pyIntText(objAt(tier, "memory_count")),
-					pyIntText(objAt(tier, "global_scope_rows")),
-					pyIntText(objAt(tier, "publish_records")))
+					pyIntText(validation.ObjAt(tier, "signature_count")),
+					pyIntText(validation.ObjAt(tier, "memory_count")),
+					pyIntText(validation.ObjAt(tier, "global_scope_rows")),
+					pyIntText(validation.ObjAt(tier, "publish_records")))
 			}
 		}
-		for _, p := range objAt(v, "programs").A {
+		for _, p := range validation.ObjAt(v, "programs").A {
 			fmt.Fprintf(r.Out, "  program: %s\n", scalarStr(p))
 		}
 		if sp.flags[0].set {
@@ -67,17 +68,17 @@ func runShared(root string, args []string, r *Runner) int {
 			if err != nil {
 				return err
 			}
-			if !objAt(rep, "exists").B {
-				fmt.Fprintf(r.Out, "  integrity: %s\n", objStr(rep, "note"))
+			if !validation.ObjAt(rep, "exists").B {
+				fmt.Fprintf(r.Out, "  integrity: %s\n", validation.ObjStr(rep, "note"))
 				return nil
 			}
 			verdict := "FAIL"
-			if objAt(rep, "ok").B {
+			if validation.ObjAt(rep, "ok").B {
 				verdict = "PASS"
 			}
 			fmt.Fprintf(r.Out, "  integrity: %s — %d problem(s)\n", verdict,
-				len(objAt(rep, "problems").A))
-			for _, p := range objAt(rep, "problems").A {
+				len(validation.ObjAt(rep, "problems").A))
+			for _, p := range validation.ObjAt(rep, "problems").A {
 				fmt.Fprintf(r.Out, "    %s\n", scalarStr(p))
 			}
 		}

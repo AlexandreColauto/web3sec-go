@@ -20,7 +20,7 @@ func TestRecallPrintsRowsAndRecordsCheck(t *testing.T) {
 	c, root := t15Campaign(t, "recall")
 	t15GlobalRow(t, "MEM-shared01", "logic-error")
 	f := t15Finding(t, c, "an inflation hypothesis", "logic-error")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	code, out, errS := run(t, "--root", root, "recall", c.CampaignID,
 		"--finding", fid, "--mode", "negative")
 	if code != 0 {
@@ -37,11 +37,11 @@ func TestRecallPrintsRowsAndRecordsCheck(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	checks := objAt(objAt(reloaded, "provenance"), "memory_checks")
+	checks := validation.ObjAt(validation.ObjAt(reloaded, "provenance"), "memory_checks")
 	if len(checks.A) != 1 {
 		t.Fatalf("memory_checks = %v", validation.DumpIndentedASCII(checks))
 	}
-	if got := strListCLI(objAt(checks.A[0], "memory_ids")); len(got) != 1 ||
+	if got := strListCLI(validation.ObjAt(checks.A[0], "memory_ids")); len(got) != 1 ||
 		got[0] != "MEM-shared01" {
 		t.Fatalf("recorded ids %v", got)
 	}
@@ -51,7 +51,7 @@ func TestRecallComparativeRequiresNote(t *testing.T) {
 	c, root := t15Campaign(t, "recall")
 	f := t15Finding(t, c, "an inflation hypothesis", "logic-error")
 	code, _, errS := run(t, "--root", root, "recall", c.CampaignID,
-		"--finding", objStr(f, "finding_id"), "--mode", "comparative")
+		"--finding", validation.ObjStr(f, "finding_id"), "--mode", "comparative")
 	if code != 2 {
 		t.Fatalf("exit %d, want 2", code)
 	}
@@ -91,7 +91,7 @@ func TestRecallCLIReportsTheRelevanceVerdict(t *testing.T) {
 	t15GlobalRow(t, "MEM-defi0001", "oracle-manipulation")
 	f := t15Finding(t, c, "an inflation hypothesis", "logic-error")
 	code, out, errS := run(t, "--root", root, "recall", c.CampaignID,
-		"--finding", objStr(f, "finding_id"))
+		"--finding", validation.ObjStr(f, "finding_id"))
 	if code != 0 {
 		t.Fatalf("exit %d: %q", code, errS)
 	}
@@ -108,7 +108,7 @@ func TestRecallCLINamesTheDiscountedCoarseClass(t *testing.T) {
 	t15GlobalRow(t, "MEM-coarse01", "logic-error")
 	f := t15Finding(t, c, "an inflation hypothesis", "logic-error")
 	code, out, errS := run(t, "--root", root, "recall", c.CampaignID,
-		"--finding", objStr(f, "finding_id"))
+		"--finding", validation.ObjStr(f, "finding_id"))
 	if code != 0 {
 		t.Fatalf("exit %d: %q", code, errS)
 	}
@@ -124,7 +124,7 @@ func TestRecallCLILegacyEntryIsNotRestamped(t *testing.T) {
 	c, root := t15Campaign(t, "test-program")
 	t15GlobalRow(t, "MEM-old00001", "logic-error")
 	f := t15Finding(t, c, "an inflation hypothesis", "logic-error")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	row, _ := findings.VisibleMemoryRows(c)
 	legacy := validation.VObj(
 		kvT("memory_ids", validation.VArr(validation.VStr("MEM-old00001"))),
@@ -134,7 +134,7 @@ func TestRecallCLILegacyEntryIsNotRestamped(t *testing.T) {
 			strings.Repeat("0", 64))),
 	)
 	found := f
-	prov := asDictCLI(objAt(found, "provenance"))
+	prov := asDictCLI(validation.ObjAt(found, "provenance"))
 	prov = setObjFieldCLI(prov, "memory_checks", validation.VArr(legacy))
 	found = setObjFieldCLI(found, "provenance", prov)
 	if err := findings.SaveFinding(c, &found); err != nil {
@@ -153,7 +153,7 @@ func TestRecallCLILegacyEntryIsNotRestamped(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	checks := objAt(objAt(stored, "provenance"), "memory_checks")
+	checks := validation.ObjAt(validation.ObjAt(stored, "provenance"), "memory_checks")
 	if len(checks.A) != 1 {
 		t.Fatalf("the legacy entry must dedupe the recording: %v",
 			validation.DumpIndentedASCII(checks))
@@ -164,7 +164,7 @@ func TestRecallRecordsDedupe(t *testing.T) {
 	c, root := t15Campaign(t, "test-program")
 	t15GlobalRow(t, "MEM-global01", "logic-error")
 	f := t15Finding(t, c, "Recall probe finding", "logic-error")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	for i := 0; i < 2; i++ {
 		code, _, errS := run(t, "--root", root, "recall", c.CampaignID,
 			"--finding", fid)
@@ -176,7 +176,7 @@ func TestRecallRecordsDedupe(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	checks := objAt(objAt(stored, "provenance"), "memory_checks")
+	checks := validation.ObjAt(validation.ObjAt(stored, "provenance"), "memory_checks")
 	if len(checks.A) != 1 {
 		t.Fatalf("the identical check must dedupe: %v", validation.DumpIndentedASCII(checks))
 	}
@@ -195,7 +195,7 @@ func TestRecallCLILabelOnlyGapDoesNotClaimCorpusSilence(t *testing.T) {
 	t15GlobalRow(t, "MEM-rollup01", "logic-error")
 	f := t15Finding(t, c, "an inflation hypothesis", "logic-error")
 	code, out, errS := run(t, "--root", root, "recall", c.CampaignID,
-		"--finding", objStr(f, "finding_id"))
+		"--finding", validation.ObjStr(f, "finding_id"))
 	if code != 0 {
 		t.Fatalf("exit %d: %q", code, errS)
 	}

@@ -83,20 +83,20 @@ type ToolRunner func(tool, root string) ([]validation.Value, error)
 func HeldOut(cases []validation.Value) []validation.Value {
 	excluded := map[string]bool{}
 	for _, e := range evalstore.PartitionHealthFull(cases).Excluded {
-		if orStr(objAt(e.Case, "partition")) != "held-out" {
+		if orStr(validation.ObjAt(e.Case, "partition")) != "held-out" {
 			continue
 		}
-		excluded[orStr(objAt(e.Case, "case_id"))] = true
+		excluded[orStr(validation.ObjAt(e.Case, "case_id"))] = true
 	}
 	var held []validation.Value
 	for _, c := range cases {
-		if !risk.IsAdjudicated(orStr(objAt(objAt(c, "gold"), "outcome"))) {
+		if !risk.IsAdjudicated(orStr(validation.ObjAt(validation.ObjAt(c, "gold"), "outcome"))) {
 			continue
 		}
-		if orStr(objAt(c, "partition")) != "held-out" {
+		if orStr(validation.ObjAt(c, "partition")) != "held-out" {
 			continue
 		}
-		if excluded[orStr(objAt(c, "case_id"))] {
+		if excluded[orStr(validation.ObjAt(c, "case_id"))] {
 			continue
 		}
 		held = append(held, c)
@@ -184,7 +184,7 @@ func acceptedCount(cases []validation.Value) int {
 
 // isAccepted is `gold.outcome == "confirmed-exploitable"`.
 func isAccepted(c validation.Value) bool {
-	return orStr(objAt(objAt(c, "gold"), "outcome")) == "confirmed-exploitable"
+	return orStr(validation.ObjAt(validation.ObjAt(c, "gold"), "outcome")) == "confirmed-exploitable"
 }
 
 // toolBaseline renders one SAST comparator: resolve the distinct roots,
@@ -301,7 +301,7 @@ func skippedLine(k, n int) string {
 //	anything else (URL, owner/name,
 //	commit-pinned external repo)    ⇒ not computable
 func baselineRoot(c validation.Value) (string, bool) {
-	repo := orStr(objAt(objAt(c, "code"), "repo"))
+	repo := orStr(validation.ObjAt(validation.ObjAt(c, "code"), "repo"))
 	if strings.HasPrefix(repo, "internal://") {
 		return "", true
 	}
@@ -315,7 +315,7 @@ func baselineRoot(c validation.Value) (string, bool) {
 
 // locations is gold.locations (an empty list for an absent key).
 func locations(c validation.Value) []validation.Value {
-	locs := objAt(objAt(c, "gold"), "locations")
+	locs := validation.ObjAt(validation.ObjAt(c, "gold"), "locations")
 	if locs.Kind != validation.Arr {
 		return nil
 	}
@@ -328,7 +328,7 @@ func locations(c validation.Value) []validation.Value {
 // reached through two layouts is the same anchor.
 func caseFlagged(c validation.Value, payloads map[string]bool) bool {
 	for _, loc := range locations(c) {
-		f := objStr(loc, "file")
+		f := validation.ObjStr(loc, "file")
 		if f == "" {
 			continue
 		}
@@ -345,12 +345,12 @@ func caseFlagged(c validation.Value, payloads map[string]bool) bool {
 func payloadBasenames(payloads []validation.Value) map[string]bool {
 	out := map[string]bool{}
 	for _, p := range payloads {
-		aff := objAt(p, "affected")
+		aff := validation.ObjAt(p, "affected")
 		if aff.Kind != validation.Arr {
 			continue
 		}
 		for _, a := range aff.A {
-			if f := objStr(a, "path"); f != "" {
+			if f := validation.ObjStr(a, "path"); f != "" {
 				out[filepath.Base(f)] = true
 			}
 		}
@@ -436,6 +436,3 @@ func logTail(s string) string {
 	}
 	return ": " + s
 }
-
-// objStr is objAt(v, key).S with "" for an absent or non-string value.
-func objStr(v validation.Value, key string) string { return orStr(objAt(v, key)) }

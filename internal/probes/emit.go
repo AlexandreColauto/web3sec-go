@@ -41,9 +41,9 @@ func probePriority(pid string, row validation.Value, surfaceSha string,
 		kv("id", validation.VStr(pid)),
 		kv("question", validation.VStr(question)),
 		kv("risk", validation.VFloat(risk)),
-		kv("required_context", strArr([]string{"structural_index",
+		kv("required_context", validation.StrArr([]string{"structural_index",
 			"protocol_model"})),
-		kv("trajectories", strArr([]string{"lifecycle"})),
+		kv("trajectories", validation.StrArr([]string{"lifecycle"})),
 		kv("status", validation.VStr("open")),
 		kv("probe", validation.VObj(
 			kv("row_id", vGet(row, "row_id")),
@@ -125,7 +125,7 @@ func EmitRows(c *state.Campaign, plan validation.Value, surface validation.Value
 		question, _ := RowQuestion(row, index)
 		vSet(&existing, "question", validation.VStr(question))
 		vSet(&existing, "risk", validation.VFloat(risk))
-		vSet(&existing, "trajectories", strArr([]string{"lifecycle"}))
+		vSet(&existing, "trajectories", validation.StrArr([]string{"lifecycle"}))
 		vSet(&provObj, "probe_id", vGet(row, "probe"))
 		vSet(&provObj, "axis", vGet(row, "axis"))
 		vSet(&provObj, "surface_sha", validation.VStr(surfaceSha))
@@ -151,11 +151,11 @@ func EmitRows(c *state.Campaign, plan validation.Value, surface validation.Value
 	}
 	summary := validation.VObj(
 		kv("surface_sha", validation.VStr(surfaceSha)),
-		kv("created", strArr(created)),
-		kv("updated", strArr(updated)),
-		kv("reopened", strArr(reopened)),
-		kv("kept", strArr(kept)),
-		kv("orphaned", strArr(orphaned)))
+		kv("created", validation.StrArr(created)),
+		kv("updated", validation.StrArr(updated)),
+		kv("reopened", validation.StrArr(reopened)),
+		kv("kept", validation.StrArr(kept)),
+		kv("orphaned", validation.StrArr(orphaned)))
 	if _, err := c.Log("probes.emit", nil, &summary); err != nil {
 		return validation.VNull(), err
 	}

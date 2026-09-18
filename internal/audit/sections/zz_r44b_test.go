@@ -62,7 +62,7 @@ func r44bPin(t *testing.T, c *state.Campaign) string {
 	if err != nil {
 		t.Fatalf("pin: %v", err)
 	}
-	return objStr(pinned, "snapshot_id")
+	return validation.ObjStr(pinned, "snapshot_id")
 }
 
 // TestR44bSnapshotsSectionRefusesUnreadableStore is the critic's repro: a
@@ -80,10 +80,10 @@ func TestR44bSnapshotsSectionRefusesUnreadableStore(t *testing.T) {
 	if err != nil {
 		t.Fatalf("green campaign refused: %v", err)
 	}
-	if n := objAt(before, "checked").I; n != 1 {
+	if n := validation.ObjAt(before, "checked").I; n != 1 {
 		t.Fatalf("BEFORE checked = %d, want 1", n)
 	}
-	if ok := objAt(before, "ok"); !ok.B {
+	if ok := validation.ObjAt(before, "ok"); !ok.B {
 		t.Fatalf("BEFORE ok = %v, want true", ok)
 	}
 
@@ -209,10 +209,10 @@ func TestR44bSnapshotsHonestShapesStayGreen(t *testing.T) {
 	if err != nil {
 		t.Fatalf("an absent snapshot store is an unpinned campaign: %v", err)
 	}
-	if n := objAt(got, "checked").I; n != 0 {
+	if n := validation.ObjAt(got, "checked").I; n != 0 {
 		t.Fatalf("absent store: checked = %d, want 0", n)
 	}
-	if ok := objAt(got, "ok"); !ok.B {
+	if ok := validation.ObjAt(got, "ok"); !ok.B {
 		t.Fatalf("absent store: ok = %v, want true", ok)
 	}
 
@@ -224,10 +224,10 @@ func TestR44bSnapshotsHonestShapesStayGreen(t *testing.T) {
 	if err != nil {
 		t.Fatalf("an empty snapshot store is an unpinned campaign: %v", err)
 	}
-	if n := objAt(got, "checked").I; n != 0 {
+	if n := validation.ObjAt(got, "checked").I; n != 0 {
 		t.Fatalf("empty store: checked = %d, want 0", n)
 	}
-	if ok := objAt(got, "ok"); !ok.B {
+	if ok := validation.ObjAt(got, "ok"); !ok.B {
 		t.Fatalf("empty store: ok = %v, want true", ok)
 	}
 }
@@ -244,7 +244,7 @@ func TestR44bSnapshotsMissingPinIdIsAProblemNotARefusal(t *testing.T) {
 	if err != nil {
 		t.Fatalf("a missing pin id is a problem, not a read failure: %v", err)
 	}
-	if ok := objAt(got, "ok"); ok.B {
+	if ok := validation.ObjAt(got, "ok"); ok.B {
 		t.Fatalf("a missing pin id must fail the section: %s",
 			validation.DumpsOrdered(got, false))
 	}

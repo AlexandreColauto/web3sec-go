@@ -54,9 +54,9 @@ func StaticReachability(c *state.Campaign, findingID string,
 		return validation.VNull(), err
 	}
 	targetFn := ""
-	if affected := objAt(f, "affected"); affected.Kind == validation.Arr &&
+	if affected := validation.ObjAt(f, "affected"); affected.Kind == validation.Arr &&
 		len(affected.A) > 0 {
-		targetFn = objStr(affected.A[0], "function")
+		targetFn = validation.ObjStr(affected.A[0], "function")
 	}
 	if targetFn == "" {
 		return validation.VObj(
@@ -66,8 +66,8 @@ func StaticReachability(c *state.Campaign, findingID string,
 		), nil
 	}
 	var fnNodes []validation.Value
-	for _, n := range objAt(index, "nodes").A {
-		if objStr(n, "kind") == "function" && objStr(n, "name") == targetFn {
+	for _, n := range validation.ObjAt(index, "nodes").A {
+		if validation.ObjStr(n, "kind") == "function" && validation.ObjStr(n, "name") == targetFn {
 			fnNodes = append(fnNodes, n)
 		}
 	}
@@ -82,7 +82,7 @@ func StaticReachability(c *state.Campaign, findingID string,
 	var witness []string
 	for _, entry := range structuralIndex.UnguardedEntryPoints(index) {
 		for _, fn := range fnNodes {
-			entryID, fnID := objStr(entry, "id"), objStr(fn, "id")
+			entryID, fnID := validation.ObjStr(entry, "id"), validation.ObjStr(fn, "id")
 			var p []string
 			var ok bool
 			if entryID == fnID {
@@ -99,10 +99,10 @@ func StaticReachability(c *state.Campaign, findingID string,
 			break
 		}
 	}
-	if truthy(objAt(fnNodes[0], "is_entry_point")) &&
-		!truthy(objAt(fnNodes[0], "guarded_by")) {
+	if truthy(validation.ObjAt(fnNodes[0], "is_entry_point")) &&
+		!truthy(validation.ObjAt(fnNodes[0], "guarded_by")) {
 		reachable = true
-		witness = []string{objStr(fnNodes[0], "id")}
+		witness = []string{validation.ObjStr(fnNodes[0], "id")}
 	}
 	reason := "no path from unguarded entry point"
 	if reachable {
@@ -128,8 +128,8 @@ func StaticReachability(c *state.Campaign, findingID string,
 			validation.KV{K: "type", V: validation.VStr("reachability")},
 			validation.KV{K: "description", V: validation.VStr(
 				"T0 static reachability: " + reason)},
-			validation.KV{K: "produced_at", V: validation.VStr(nowIso())},
-			validation.KV{K: "snapshot_id", V: objAt(objAt(f, "snapshot_ids"),
+			validation.KV{K: "produced_at", V: validation.VStr(state.NowIso())},
+			validation.KV{K: "snapshot_id", V: validation.ObjAt(validation.ObjAt(f, "snapshot_ids"),
 				"source")},
 		)
 		if _, err := findings.AddEvidence(c, findingID, item); err != nil {

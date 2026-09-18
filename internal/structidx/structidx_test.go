@@ -92,9 +92,9 @@ func TestIndexTreeGolden(t *testing.T) {
 
 func TestConceptKeysVectors(t *testing.T) {
 	vec := loadJSON(t, "testdata/vectors.json")
-	for _, c := range objList(objAt(vec, "concept_keys")) {
-		expr := objStr(c, "expr")
-		want := strList(objAt(c, "keys"))
+	for _, c := range objList(validation.ObjAt(vec, "concept_keys")) {
+		expr := validation.ObjStr(c, "expr")
+		want := strList(validation.ObjAt(c, "keys"))
 		got := ConceptKeys(expr)
 		if len(got) != len(want) {
 			t.Errorf("concept_keys(%q) = %v, want %v", expr, got, want)
@@ -111,9 +111,9 @@ func TestConceptKeysVectors(t *testing.T) {
 
 func TestSplitIdentVectors(t *testing.T) {
 	vec := loadJSON(t, "testdata/vectors.json")
-	for _, c := range objList(objAt(vec, "split_ident")) {
-		name := objStr(c, "name")
-		want := strList(objAt(c, "parts"))
+	for _, c := range objList(validation.ObjAt(vec, "split_ident")) {
+		name := validation.ObjStr(c, "name")
+		want := strList(validation.ObjAt(c, "parts"))
 		got := splitIdent(name)
 		if len(got) != len(want) {
 			t.Errorf("splitIdent(%q) = %v, want %v", name, got, want)
@@ -130,9 +130,9 @@ func TestSplitIdentVectors(t *testing.T) {
 
 func TestParamTypesVectors(t *testing.T) {
 	vec := loadJSON(t, "testdata/vectors.json")
-	for _, c := range objList(objAt(vec, "param_types")) {
-		params := objStr(c, "params")
-		want := objStr(c, "types")
+	for _, c := range objList(validation.ObjAt(vec, "param_types")) {
+		params := validation.ObjStr(c, "params")
+		want := validation.ObjStr(c, "types")
 		if got := paramTypes(params); got != want {
 			t.Errorf("paramTypes(%q) = %q, want %q", params, got, want)
 		}
@@ -141,9 +141,9 @@ func TestParamTypesVectors(t *testing.T) {
 
 func TestGuardStrengthVectors(t *testing.T) {
 	vec := loadJSON(t, "testdata/vectors.json")
-	for _, c := range objList(objAt(vec, "guard_strength")) {
-		cond := objStr(c, "cond")
-		want := objAt(c, "class")
+	for _, c := range objList(validation.ObjAt(vec, "guard_strength")) {
+		cond := validation.ObjStr(c, "cond")
+		want := validation.ObjAt(c, "class")
 		got := validation.VInt(guardStrength(cond))
 		if validation.CanonCompact(got) != validation.CanonCompact(want) {
 			t.Errorf("guardStrength(%q) = %v, want %v", cond, got, want)
@@ -158,18 +158,18 @@ func TestValueFlowGolden(t *testing.T) {
 	want := loadJSON(t, "testdata/value_flow.json")
 
 	canonEqual(t, "sink_functions", validation.VArr(SinkFunctions(sink)...),
-		validation.VArr(toValues(objList(objAt(want, "sink_functions")))...))
+		validation.VArr(toValues(objList(validation.ObjAt(want, "sink_functions")))...))
 	canonEqual(t, "backward_slice", validation.VArr(BackwardSlice(sink, 8)...),
-		validation.VArr(toValues(objList(objAt(want, "backward_slice")))...))
+		validation.VArr(toValues(objList(validation.ObjAt(want, "backward_slice")))...))
 	canonEqual(t, "sink2_functions", validation.VArr(SinkFunctions(sink2)...),
-		validation.VArr(toValues(objList(objAt(want, "sink2_functions")))...))
+		validation.VArr(toValues(objList(validation.ObjAt(want, "sink2_functions")))...))
 	canonEqual(t, "sink2_slice", validation.VArr(BackwardSlice(sink2, 8)...),
-		validation.VArr(toValues(objList(objAt(want, "sink2_slice")))...))
+		validation.VArr(toValues(objList(validation.ObjAt(want, "sink2_slice")))...))
 	amp := loadJSON(t, "testdata/amp_index.json")
 	canonEqual(t, "amplifier_signals", AmplifierSignals(amp),
-		objAt(want, "amplifier_signals"))
+		validation.ObjAt(want, "amplifier_signals"))
 	canonEqual(t, "amplifier_signals_v1", AmplifierSignals(v1),
-		objAt(want, "amplifier_signals_v1"))
+		validation.ObjAt(want, "amplifier_signals_v1"))
 }
 
 func toValues(xs []validation.Value) []validation.Value { return xs }
@@ -177,28 +177,28 @@ func toValues(xs []validation.Value) []validation.Value { return xs }
 func TestCriticalityGolden(t *testing.T) {
 	crit := loadJSON(t, "testdata/criticality.json")
 	for i, key := range []string{"model", "model2", "model3"} {
-		model := objAt(crit, key)
-		want := objAt(crit, []string{"rank", "rank2", "rank3"}[i])
+		model := validation.ObjAt(crit, key)
+		want := validation.ObjAt(crit, []string{"rank", "rank2", "rank3"}[i])
 		got := CriticalityRank(model, validation.VObj())
 		canonEqual(t, key, validation.VArr(got...),
 			validation.VArr(toValues(objList(want))...))
 	}
-	for _, c := range objList(objAt(crit, "crit_hit")) {
-		name := objStr(c, "name")
+	for _, c := range objList(validation.ObjAt(crit, "crit_hit")) {
+		name := validation.ObjStr(c, "name")
 		toks := map[string]bool{}
-		for _, s := range strList(objAt(c, "tokens")) {
+		for _, s := range strList(validation.ObjAt(c, "tokens")) {
 			toks[s] = true
 		}
-		want := objAt(c, "hit")
+		want := validation.ObjAt(c, "hit")
 		got := validation.VBool(critHit(name, toks))
 		if validation.CanonCompact(got) != validation.CanonCompact(want) {
 			t.Errorf("critHit(%q, %v) = %v, want %v", name,
-				strList(objAt(c, "tokens")), got, want)
+				strList(validation.ObjAt(c, "tokens")), got, want)
 		}
 	}
-	for _, c := range objList(objAt(crit, "index_sha")) {
-		idx := objAt(c, "index")
-		want := objStr(c, "sha")
+	for _, c := range objList(validation.ObjAt(crit, "index_sha")) {
+		idx := validation.ObjAt(c, "index")
+		want := validation.ObjStr(c, "sha")
 		if got := IndexSha(idx); got != want {
 			t.Errorf("IndexSha = %s, want %s", got, want)
 		}
@@ -334,16 +334,16 @@ func TestIndexValidatesAgainstSchema(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	nodes := objAt(idx, "nodes")
+	nodes := validation.ObjAt(idx, "nodes")
 	fnIdx, ctIdx := -1, -1
 	for i, n := range objList(nodes) {
-		if fnIdx < 0 && objStr(n, "kind") == "function" &&
-			len(objList(objAt(n, "guards"))) > 0 &&
-			len(objList(objAt(n, "uses"))) > 0 {
+		if fnIdx < 0 && validation.ObjStr(n, "kind") == "function" &&
+			len(objList(validation.ObjAt(n, "guards"))) > 0 &&
+			len(objList(validation.ObjAt(n, "uses"))) > 0 {
 			fnIdx = i
 		}
-		if ctIdx < 0 && objStr(n, "kind") == "contract" &&
-			len(objList(objAt(n, "contract_closure"))) > 0 {
+		if ctIdx < 0 && validation.ObjStr(n, "kind") == "contract" &&
+			len(objList(validation.ObjAt(n, "contract_closure"))) > 0 {
 			ctIdx = i
 		}
 	}
@@ -412,13 +412,13 @@ func TestNonSolidityTreeDegrades(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objAt(idx, "solidity_files"); got.Kind != validation.Int || got.I != 0 {
+	if got := validation.ObjAt(idx, "solidity_files"); got.Kind != validation.Int || got.I != 0 {
 		t.Fatalf("solidity_files = %v, want 0", got)
 	}
-	if got := objAt(idx, "other_files_listed"); got.Kind != validation.Int || got.I < 1 {
+	if got := validation.ObjAt(idx, "other_files_listed"); got.Kind != validation.Int || got.I < 1 {
 		t.Fatalf("other_files_listed = %v, want >= 1", got)
 	}
-	if nodes := objList(objAt(idx, "nodes")); len(nodes) != 0 {
+	if nodes := objList(validation.ObjAt(idx, "nodes")); len(nodes) != 0 {
 		t.Fatalf("nodes = %d, want 0", len(nodes))
 	}
 }

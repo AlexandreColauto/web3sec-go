@@ -76,9 +76,9 @@ func capList(v validation.Value) []string {
 
 // capBlock is `f.get("capabilities") or {}` normalized into granted/required.
 func capBlock(f validation.Value) ([]string, []string) {
-	caps := asDict(objAt(f, "capabilities"))
-	return capabilities.NormalizeLabels(capList(objAt(caps, "granted"))),
-		capabilities.NormalizeLabels(capList(objAt(caps, "required")))
+	caps := asDict(validation.ObjAt(f, "capabilities"))
+	return capabilities.NormalizeLabels(capList(validation.ObjAt(caps, "granted"))),
+		capabilities.NormalizeLabels(capList(validation.ObjAt(caps, "required")))
 }
 
 // capabilityIndex is build_capability_index(): granted -> [finding_ids],
@@ -260,8 +260,8 @@ func findChains(c *state.Campaign) ([]validation.Value, error) {
 				if _, ok := seen[key]; !ok {
 					seen[key] = struct{}{}
 					chains = append(chains, validation.VObj(
-						kvOf("members", strArr(frame.path)),
-						kvOf("capabilities", strArr(capsHeld(held)))))
+						kvOf("members", validation.StrArr(frame.path)),
+						kvOf("capabilities", validation.StrArr(capsHeld(held)))))
 				}
 			}
 			if len(seen) >= MaxProposals || len(frame.path) >= 5 {

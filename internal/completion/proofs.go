@@ -70,7 +70,7 @@ func (noForkPoc) ForkPocEvidence(_ *state.Campaign,
 		if e.Kind != validation.Obj {
 			continue
 		}
-		lvl := objStr(e, "level")
+		lvl := validation.ObjStr(e, "level")
 		if lvl == "E5" || lvl == "E6" {
 			reason = "evidence claims fork-level but no E5/E6 item traces to a " +
 				"SUCCEEDED fork-runner exec in the ledger — unit-harness " +
@@ -120,7 +120,7 @@ func proofProtocolModel(c *state.Campaign) (validation.Value, error) {
 		if inv.Kind != validation.Obj {
 			continue
 		}
-		if id := objStr(inv, "id"); id != "" {
+		if id := validation.ObjStr(inv, "id"); id != "" {
 			modelIDs = append(modelIDs, id)
 		}
 	}
@@ -133,7 +133,7 @@ func proofProtocolModel(c *state.Campaign) (validation.Value, error) {
 	if err != nil {
 		return validation.VNull(), err
 	}
-	reg := objAt(links, "invariants")
+	reg := validation.ObjAt(links, "invariants")
 	// Python guards `isinstance(k, str)`; a JSON object key is always a
 	// string, so every key counts.
 	normReg := map[string]bool{}
@@ -193,7 +193,7 @@ func proofCampaignPlanning(c *state.Campaign) (validation.Value, error) {
 			"no plan"), nil
 	}
 	priorities := listAt(plan, "priorities")
-	if !pyTruthyBigNonEmpty(objAt(plan, "priorities")) {
+	if !pyTruthyBigNonEmpty(validation.ObjAt(plan, "priorities")) {
 		return proofResult(false, []string{"plan has zero priorities"},
 			"empty plan"), nil
 	}
@@ -245,10 +245,10 @@ func proofDiscovery(c *state.Campaign) (validation.Value, error) {
 		}
 		actor := "operator"
 		if w, ok := wmap["*"]; ok {
-			actor = objStr(w, "actor")
+			actor = validation.ObjStr(w, "actor")
 		} else if w, ok := wmap["campaign plan (discovery consumes "+
 			"its queue)"]; ok {
-			actor = objStr(w, "actor")
+			actor = validation.ObjStr(w, "actor")
 		}
 		return proofResult(true, []string{},
 			"no plan — waived by "+actor), nil
@@ -259,8 +259,8 @@ func proofDiscovery(c *state.Campaign) (validation.Value, error) {
 	}
 	items := make([]proofItem, 0, len(queue))
 	for _, w := range queue {
-		items = append(items, proofItem{objStr(w, "priority_id"),
-			headRunes(objStr(w, "question"), 60)})
+		items = append(items, proofItem{validation.ObjStr(w, "priority_id"),
+			headRunes(validation.ObjStr(w, "question"), 60)})
 	}
 	divergence, err := planner.DivergenceStatusFor(c, plan, nil)
 	if err != nil {
@@ -268,7 +268,7 @@ func proofDiscovery(c *state.Campaign) (validation.Value, error) {
 	}
 	divMissing := listAt(divergence, "missing")
 	for _, m := range divMissing {
-		items = append(items, proofItem{objStr(m, "subject"), objStr(m, "what")})
+		items = append(items, proofItem{validation.ObjStr(m, "subject"), validation.ObjStr(m, "what")})
 	}
 	live, err := findingsWith(c, livenessOwedStatuses)
 	if err != nil {
@@ -293,8 +293,8 @@ func proofDiscovery(c *state.Campaign) (validation.Value, error) {
 		if len(deficits) == 0 {
 			continue
 		}
-		agItems = append(agItems, proofItem{objStr(f, "finding_id"),
-			livenessClauseWhat(cid, objStr(f, "finding_id"), deficits)})
+		agItems = append(agItems, proofItem{validation.ObjStr(f, "finding_id"),
+			livenessClauseWhat(cid, validation.ObjStr(f, "finding_id"), deficits)})
 	}
 	wmap, err := waiverMap(c, "discovery")
 	if err != nil {
@@ -352,9 +352,9 @@ func proofDedup(c *state.Campaign) (validation.Value, error) {
 		return validation.VNull(), err
 	}
 	for _, f := range live {
-		fid := objStr(f, "finding_id")
-		dd := orEmpty(objAt(f, "dedup"))
-		verdicts := orEmpty(objAt(dd, "candidate_verdicts"))
+		fid := validation.ObjStr(f, "finding_id")
+		dd := orEmpty(validation.ObjAt(f, "dedup"))
+		verdicts := orEmpty(validation.ObjAt(dd, "candidate_verdicts"))
 		for _, other := range listAt(dd, "possible_duplicate_of") {
 			// Python: verdicts.get(other) — a list/dict entry is
 			// unhashable and raises TypeError, which proof_status reports
@@ -363,7 +363,7 @@ func proofDedup(c *state.Campaign) (validation.Value, error) {
 				return validation.VNull(), fmt.Errorf("unhashable type: %s",
 					validation.PyReprStr(kindName(other)))
 			}
-			v := objAt(verdicts, other.S)
+			v := validation.ObjAt(verdicts, other.S)
 			if v.Kind == validation.Str && (v.S == "same" || v.S == "distinct") {
 				continue
 			}
@@ -393,10 +393,10 @@ func proofHostileReview(c *state.Campaign) (validation.Value, error) {
 	}
 	openItems := []proofItem{}
 	for _, f := range open {
-		verdict, ok := fieldAt(orEmpty(objAt(f, "verification")), "critic_verdict")
+		verdict, ok := fieldAt(orEmpty(validation.ObjAt(f, "verification")), "critic_verdict")
 		if !ok || verdict.Kind == validation.Null ||
 			(verdict.Kind == validation.Str && verdict.S == "pending") {
-			openItems = append(openItems, proofItem{objStr(f, "finding_id"),
+			openItems = append(openItems, proofItem{validation.ObjStr(f, "finding_id"),
 				"no critic verdict"})
 		}
 	}
@@ -422,14 +422,14 @@ func proofReproduction(c *state.Campaign) (validation.Value, error) {
 	}
 	items := []proofItem{}
 	for _, f := range possible {
-		ver := orEmpty(objAt(f, "verification"))
-		if objStr(ver, "critic_verdict") != "confirmed" {
+		ver := orEmpty(validation.ObjAt(f, "verification"))
+		if validation.ObjStr(ver, "critic_verdict") != "confirmed" {
 			continue
 		}
-		repro := orEmpty(objAt(ver, "reproduction"))
-		if objStr(repro, "status") != "reproduced" &&
-			!pyTruthyBigNonEmpty(objAt(repro, "attempts")) {
-			items = append(items, proofItem{objStr(f, "finding_id"),
+		repro := orEmpty(validation.ObjAt(ver, "reproduction"))
+		if validation.ObjStr(repro, "status") != "reproduced" &&
+			!pyTruthyBigNonEmpty(validation.ObjAt(repro, "attempts")) {
+			items = append(items, proofItem{validation.ObjStr(f, "finding_id"),
 				"no reproduction attempt recorded"})
 		}
 	}

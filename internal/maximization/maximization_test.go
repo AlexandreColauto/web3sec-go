@@ -89,7 +89,7 @@ func confirmedFinding(t *testing.T, c *state.Campaign, title string) validation.
 	if err != nil {
 		t.Fatalf("ingest: %v", err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	if _, err := findings.Transition(c, fid, "POSSIBLE", "triage", "triage",
 		"", false); err != nil {
 		t.Fatal(err)
@@ -100,8 +100,8 @@ func confirmedFinding(t *testing.T, c *state.Campaign, title string) validation.
 		kv("level", validation.VStr("E4")),
 		kv("type", validation.VStr("foundry-test")),
 		kv("description", validation.VStr("sandboxed unit PoC")),
-		kv("sandbox_profile", objAt(rec, "profile")),
-		kv("artifact_id", objAt(rec, "exec_id")))); err != nil {
+		kv("sandbox_profile", validation.ObjAt(rec, "profile")),
+		kv("artifact_id", validation.ObjAt(rec, "exec_id")))); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := findings.SetCriticVerdict(c, fid, "confirmed", "checked"); err != nil {
@@ -118,7 +118,7 @@ func confirmedFinding(t *testing.T, c *state.Campaign, title string) validation.
 	if err != nil {
 		t.Fatal(err)
 	}
-	ver := asObj(objAt(vf, "verification"))
+	ver := asObj(validation.ObjAt(vf, "verification"))
 	ver.O = validation.SetOrAppend(ver.O, "reproduction", validation.VObj(
 		kv("tier_reached", validation.VStr("T2")),
 		kv("status", validation.VStr("reproduced")),
@@ -163,7 +163,7 @@ func keysOf(v validation.Value) []string {
 func TestStartLadderBaseRungAndIdempotence(t *testing.T) {
 	c := newCampaign(t, "Acme")
 	f := confirmedFinding(t, c, "Rounding loss")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	lad, err := StartLadder(c, fid)
 	if err != nil {
 		t.Fatal(err)
@@ -174,8 +174,8 @@ func TestStartLadderBaseRungAndIdempotence(t *testing.T) {
 	if strings.Join(keysOf(lad), ",") != strings.Join(wantKeys, ",") {
 		t.Fatalf("ladder keys = %v", keysOf(lad))
 	}
-	if !strings.HasPrefix(objStr(lad, "ladder_id"), "LAD-") {
-		t.Fatalf("ladder_id = %s", objStr(lad, "ladder_id"))
+	if !strings.HasPrefix(validation.ObjStr(lad, "ladder_id"), "LAD-") {
+		t.Fatalf("ladder_id = %s", validation.ObjStr(lad, "ladder_id"))
 	}
 	base := listOf(lad, "variants").A[0]
 	wantRungKeys := []string{"rung_id", "name", "description", "axes",
@@ -185,25 +185,25 @@ func TestStartLadderBaseRungAndIdempotence(t *testing.T) {
 	if strings.Join(keysOf(base), ",") != strings.Join(wantRungKeys, ",") {
 		t.Fatalf("rung keys = %v", keysOf(base))
 	}
-	if objStr(base, "name") != "base" || objStr(base, "status") != "reproduced" {
+	if validation.ObjStr(base, "name") != "base" || validation.ObjStr(base, "status") != "reproduced" {
 		t.Fatalf("base = %s", validation.CanonCompact(base))
 	}
-	if objStr(base, "description") != "as claimed at reproduction: Rounding loss" {
-		t.Fatalf("description = %s", objStr(base, "description"))
+	if validation.ObjStr(base, "description") != "as claimed at reproduction: Rounding loss" {
+		t.Fatalf("description = %s", validation.ObjStr(base, "description"))
 	}
-	if !strings.HasPrefix(objStr(base, "exec_id"), "EXEC-") {
-		t.Fatalf("base exec_id = %s", objStr(base, "exec_id"))
+	if !strings.HasPrefix(validation.ObjStr(base, "exec_id"), "EXEC-") {
+		t.Fatalf("base exec_id = %s", validation.ObjStr(base, "exec_id"))
 	}
-	if objStr(asObj(objAt(lad, "disposition")), "state") != "open" {
-		t.Fatalf("disposition = %v", objAt(lad, "disposition"))
+	if validation.ObjStr(asObj(validation.ObjAt(lad, "disposition")), "state") != "open" {
+		t.Fatalf("disposition = %v", validation.ObjAt(lad, "disposition"))
 	}
 	f2, err := findings.LoadFinding(c, fid)
 	if err != nil {
 		t.Fatal(err)
 	}
-	mx := asObj(objAt(f2, "maximization"))
-	if objStr(mx, "ladder_id") != objStr(lad, "ladder_id") ||
-		objStr(mx, "disposition") != "open" {
+	mx := asObj(validation.ObjAt(f2, "maximization"))
+	if validation.ObjStr(mx, "ladder_id") != validation.ObjStr(lad, "ladder_id") ||
+		validation.ObjStr(mx, "disposition") != "open" {
 		t.Fatalf("finding.maximization = %v", mx)
 	}
 	// idempotent
@@ -211,7 +211,7 @@ func TestStartLadderBaseRungAndIdempotence(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(again, "ladder_id") != objStr(lad, "ladder_id") {
+	if validation.ObjStr(again, "ladder_id") != validation.ObjStr(lad, "ladder_id") {
 		t.Fatal("start_ladder is not idempotent")
 	}
 	// the ladder persisted on disk
@@ -219,7 +219,7 @@ func TestStartLadderBaseRungAndIdempotence(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(raw), objStr(lad, "ladder_id")) {
+	if !strings.Contains(string(raw), validation.ObjStr(lad, "ladder_id")) {
 		t.Fatal("ladder artifact missing")
 	}
 }
@@ -242,18 +242,18 @@ func TestStartLadderAssumedBaseWithoutReproduction(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	lad, err := StartLadder(c, objStr(f, "finding_id"))
+	lad, err := StartLadder(c, validation.ObjStr(f, "finding_id"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	base := listOf(lad, "variants").A[0]
-	if objStr(base, "status") != "assumed" {
-		t.Fatalf("status = %s", objStr(base, "status"))
+	if validation.ObjStr(base, "status") != "assumed" {
+		t.Fatalf("status = %s", validation.ObjStr(base, "status"))
 	}
-	if objStr(base, "exec_id") != "" {
-		t.Fatalf("exec_id = %v", objAt(base, "exec_id"))
+	if validation.ObjStr(base, "exec_id") != "" {
+		t.Fatalf("exec_id = %v", validation.ObjAt(base, "exec_id"))
 	}
-	if got := objAt(base, "capital_usd"); got.Kind != validation.Flt || got.F != 250000 {
+	if got := validation.ObjAt(base, "capital_usd"); got.Kind != validation.Flt || got.F != 250000 {
 		t.Fatalf("capital = %v", got)
 	}
 }
@@ -262,7 +262,7 @@ func TestStartLadderAssumedBaseWithoutReproduction(t *testing.T) {
 
 func TestAddVariantValidationsAndAxisBookkeeping(t *testing.T) {
 	c := newCampaign(t, "Acme")
-	fid := objStr(confirmedFinding(t, c, "Rounding loss"), "finding_id")
+	fid := validation.ObjStr(confirmedFinding(t, c, "Rounding loss"), "finding_id")
 	if _, err := AddVariant(c, fid, "dust", "dust the pool with one wei",
 		nil, nil, nil, nil, nil); err == nil ||
 		!strings.Contains(err.Error(), "must name the axis") {
@@ -290,7 +290,7 @@ func TestAddVariantValidationsAndAxisBookkeeping(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(rung, "status") != "assumed" || objStr(rung, "reason") != "" {
+	if validation.ObjStr(rung, "status") != "assumed" || validation.ObjStr(rung, "reason") != "" {
 		t.Fatalf("rung = %s", validation.CanonCompact(rung))
 	}
 	if got := listStrings(listOf(rung, "axes")); len(got) != 2 {
@@ -311,7 +311,7 @@ func TestAddVariantValidationsAndAxisBookkeeping(t *testing.T) {
 
 func TestAddVariantRefusedOnCompleteLadder(t *testing.T) {
 	c := newCampaign(t, "Acme")
-	fid := objStr(confirmedFinding(t, c, "Rounding loss"), "finding_id")
+	fid := validation.ObjStr(confirmedFinding(t, c, "Rounding loss"), "finding_id")
 	lad, err := StartLadder(c, fid)
 	if err != nil {
 		t.Fatal(err)
@@ -348,7 +348,7 @@ func TestAddVariantRefusedOnCompleteLadder(t *testing.T) {
 
 func TestExploreAxisRequiresWrittenNote(t *testing.T) {
 	c := newCampaign(t, "Acme")
-	fid := objStr(confirmedFinding(t, c, "Rounding loss"), "finding_id")
+	fid := validation.ObjStr(confirmedFinding(t, c, "Rounding loss"), "finding_id")
 	if _, err := StartLadder(c, fid); err != nil {
 		t.Fatal(err)
 	}
@@ -365,8 +365,8 @@ func TestExploreAxisRequiresWrittenNote(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	notes := asObj(objAt(lad, "axis_notes"))
-	if objStr(notes, "cap-saturation") != "no payout cap in this code path" {
+	notes := asObj(validation.ObjAt(lad, "axis_notes"))
+	if validation.ObjStr(notes, "cap-saturation") != "no payout cap in this code path" {
 		t.Fatalf("note = %v", notes)
 	}
 	if got := strings.Join(listStrings(listOf(lad, "axes_explored")), ","); got !=
@@ -379,7 +379,7 @@ func TestExploreAxisRequiresWrittenNote(t *testing.T) {
 
 func TestReproduceRungBindsExecAndEvidence(t *testing.T) {
 	c := newCampaign(t, "Acme")
-	fid := objStr(confirmedFinding(t, c, "Rounding loss"), "finding_id")
+	fid := validation.ObjStr(confirmedFinding(t, c, "Rounding loss"), "finding_id")
 	if _, err := StartLadder(c, fid); err != nil {
 		t.Fatal(err)
 	}
@@ -389,18 +389,18 @@ func TestReproduceRungBindsExecAndEvidence(t *testing.T) {
 		t.Fatal(err)
 	}
 	rec := registerExec(t, c, fid)
-	execID := objStr(rec, "exec_id")
-	got, err := ReproduceRung(c, fid, objStr(rung, "rung_id"), execID, nil)
+	execID := validation.ObjStr(rec, "exec_id")
+	got, err := ReproduceRung(c, fid, validation.ObjStr(rung, "rung_id"), execID, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(got, "status") != "reproduced" || objStr(got, "exec_id") != execID {
+	if validation.ObjStr(got, "status") != "reproduced" || validation.ObjStr(got, "exec_id") != execID {
 		t.Fatalf("rung = %s", validation.CanonCompact(got))
 	}
-	if !strings.HasPrefix(objStr(got, "evidence_id"), "EV-") {
-		t.Fatalf("evidence_id = %v", objAt(got, "evidence_id"))
+	if !strings.HasPrefix(validation.ObjStr(got, "evidence_id"), "EV-") {
+		t.Fatalf("evidence_id = %v", validation.ObjAt(got, "evidence_id"))
 	}
-	if objStr(got, "reproduced_at") == "" {
+	if validation.ObjStr(got, "reproduced_at") == "" {
 		t.Fatal("reproduced_at missing")
 	}
 	lad2, err := LoadLadder(c, fid)
@@ -408,22 +408,22 @@ func TestReproduceRungBindsExecAndEvidence(t *testing.T) {
 		t.Fatal(err)
 	}
 	hist := listOf(*lad2, "history").A
-	if len(hist) != 1 || objStr(hist[0], "event") != "reproduced" ||
-		objStr(hist[0], "exec_id") != execID {
+	if len(hist) != 1 || validation.ObjStr(hist[0], "event") != "reproduced" ||
+		validation.ObjStr(hist[0], "exec_id") != execID {
 		t.Fatalf("history = %v", hist)
 	}
 	// unknown rung: Python's KeyError text (str(e) is repr(message))
 	_, err = ReproduceRung(c, fid, "R-nope", execID, nil)
 	if err == nil || err.Error() != `"unknown rung 'R-nope'; rungs: [`+
-		validation.PyReprStr(objStr(listOf(*lad2, "variants").A[0], "rung_id"))+
-		`, `+validation.PyReprStr(objStr(rung, "rung_id"))+`]"` {
+		validation.PyReprStr(validation.ObjStr(listOf(*lad2, "variants").A[0], "rung_id"))+
+		`, `+validation.PyReprStr(validation.ObjStr(rung, "rung_id"))+`]"` {
 		t.Fatalf("unknown rung err = %v", err)
 	}
 }
 
 func TestDisproveRungRecordsNegativeMemory(t *testing.T) {
 	c := newCampaign(t, "Acme")
-	fid := objStr(confirmedFinding(t, c, "Rounding loss"), "finding_id")
+	fid := validation.ObjStr(confirmedFinding(t, c, "Rounding loss"), "finding_id")
 	if _, err := StartLadder(c, fid); err != nil {
 		t.Fatal(err)
 	}
@@ -432,7 +432,7 @@ func TestDisproveRungRecordsNegativeMemory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rungID := objStr(rung, "rung_id")
+	rungID := validation.ObjStr(rung, "rung_id")
 	if _, err := DisproveRung(c, fid, rungID, "short"); err == nil ||
 		!strings.Contains(err.Error(), "a disproof needs a written reason") {
 		t.Fatalf("err = %v", err)
@@ -448,8 +448,8 @@ func TestDisproveRungRecordsNegativeMemory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(out, "status") != "disproved" ||
-		objStr(out, "reason") != "the pool rejects 1 wei deposits (MIN_DEPOSIT)" {
+	if validation.ObjStr(out, "status") != "disproved" ||
+		validation.ObjStr(out, "reason") != "the pool rejects 1 wei deposits (MIN_DEPOSIT)" {
 		t.Fatalf("rung = %s", validation.CanonCompact(out))
 	}
 	if got.Kind != "disproved" || got.Status != "DISPROVED" ||
@@ -462,13 +462,13 @@ func TestDisproveRungRecordsNegativeMemory(t *testing.T) {
 	if got.EvidenceSummary != "the pool rejects 1 wei deposits (MIN_DEPOSIT)" {
 		t.Fatalf("evidence_summary = %s", got.EvidenceSummary)
 	}
-	if got.Negative == nil || objStr(*got.Negative, "why_safe") !=
+	if got.Negative == nil || validation.ObjStr(*got.Negative, "why_safe") !=
 		"the pool rejects 1 wei deposits (MIN_DEPOSIT)" {
 		t.Fatalf("negative = %v", got.Negative)
 	}
 	// a reproduced rung cannot be disproved
 	rec := registerExec(t, c, fid)
-	if _, err := ReproduceRung(c, fid, rungID, objStr(rec, "exec_id"), nil); err != nil {
+	if _, err := ReproduceRung(c, fid, rungID, validation.ObjStr(rec, "exec_id"), nil); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := DisproveRung(c, fid, rungID, "it actually works fine"); err == nil ||
@@ -481,7 +481,7 @@ func TestDisproveRungRecordsNegativeMemory(t *testing.T) {
 
 func TestSetMaximalPinsOnlyReproducedRungs(t *testing.T) {
 	c := newCampaign(t, "Acme")
-	fid := objStr(confirmedFinding(t, c, "Rounding loss"), "finding_id")
+	fid := validation.ObjStr(confirmedFinding(t, c, "Rounding loss"), "finding_id")
 	if _, err := StartLadder(c, fid); err != nil {
 		t.Fatal(err)
 	}
@@ -491,30 +491,30 @@ func TestSetMaximalPinsOnlyReproducedRungs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rungID := objStr(rung, "rung_id")
+	rungID := validation.ObjStr(rung, "rung_id")
 	_, err = SetMaximal(c, fid, rungID)
 	if err == nil || !strings.Contains(err.Error(), "is 'assumed'; the claim "+
 		"may only pin to a REPRODUCED rung") {
 		t.Fatalf("err = %v", err)
 	}
 	rec := registerExec(t, c, fid)
-	if _, err := ReproduceRung(c, fid, rungID, objStr(rec, "exec_id"), nil); err != nil {
+	if _, err := ReproduceRung(c, fid, rungID, validation.ObjStr(rec, "exec_id"), nil); err != nil {
 		t.Fatal(err)
 	}
 	f2, err := SetMaximal(c, fid, rungID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	mx := asObj(objAt(f2, "maximization"))
-	if objStr(mx, "maximal_rung_id") != rungID ||
-		objStr(mx, "claim_from") != rungID {
+	mx := asObj(validation.ObjAt(f2, "maximization"))
+	if validation.ObjStr(mx, "maximal_rung_id") != rungID ||
+		validation.ObjStr(mx, "claim_from") != rungID {
 		t.Fatalf("maximization = %v", mx)
 	}
-	if got := objAt(asObj(objAt(f2, "attacker")), "required_capital_usd"); got.Kind !=
+	if got := validation.ObjAt(asObj(validation.ObjAt(f2, "attacker")), "required_capital_usd"); got.Kind !=
 		validation.Flt || got.F != 1 {
 		t.Fatalf("capital = %v", got)
 	}
-	if got := objAt(asObj(objAt(f2, "economic_impact")), "extraction_ratio"); got.Kind !=
+	if got := validation.ObjAt(asObj(validation.ObjAt(f2, "economic_impact")), "extraction_ratio"); got.Kind !=
 		validation.Flt || got.F != 1 {
 		t.Fatalf("ratio = %v", got)
 	}
@@ -522,14 +522,14 @@ func TestSetMaximalPinsOnlyReproducedRungs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(*lad2, "maximal_rung_id") != rungID {
-		t.Fatalf("ladder maximal = %v", objAt(*lad2, "maximal_rung_id"))
+	if validation.ObjStr(*lad2, "maximal_rung_id") != rungID {
+		t.Fatalf("ladder maximal = %v", validation.ObjAt(*lad2, "maximal_rung_id"))
 	}
 }
 
 func TestCompleteLadderGatesAndSuccess(t *testing.T) {
 	c := newCampaign(t, "Acme")
-	fid := objStr(confirmedFinding(t, c, "Rounding loss"), "finding_id")
+	fid := validation.ObjStr(confirmedFinding(t, c, "Rounding loss"), "finding_id")
 	if _, err := StartLadder(c, fid); err != nil {
 		t.Fatal(err)
 	}
@@ -554,33 +554,33 @@ func TestCompleteLadderGatesAndSuccess(t *testing.T) {
 		t.Fatal(err)
 	}
 	rec := registerExec(t, c, fid)
-	if _, err := ReproduceRung(c, fid, objStr(rung, "rung_id"),
-		objStr(rec, "exec_id"), nil); err != nil {
+	if _, err := ReproduceRung(c, fid, validation.ObjStr(rung, "rung_id"),
+		validation.ObjStr(rec, "exec_id"), nil); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := SetMaximal(c, fid, objStr(rung, "rung_id")); err != nil {
+	if _, err := SetMaximal(c, fid, validation.ObjStr(rung, "rung_id")); err != nil {
 		t.Fatal(err)
 	}
 	lad, err := CompleteLadder(c, fid, "operator")
 	if err != nil {
 		t.Fatal(err)
 	}
-	disp := asObj(objAt(lad, "disposition"))
-	if objStr(disp, "state") != "complete" || objStr(disp, "actor") != "operator" {
+	disp := asObj(validation.ObjAt(lad, "disposition"))
+	if validation.ObjStr(disp, "state") != "complete" || validation.ObjStr(disp, "actor") != "operator" {
 		t.Fatalf("disposition = %v", disp)
 	}
 	f2, err := findings.LoadFinding(c, fid)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(asObj(objAt(f2, "maximization")), "disposition") != "complete" {
-		t.Fatalf("finding disposition = %v", objAt(f2, "maximization"))
+	if validation.ObjStr(asObj(validation.ObjAt(f2, "maximization")), "disposition") != "complete" {
+		t.Fatalf("finding disposition = %v", validation.ObjAt(f2, "maximization"))
 	}
 }
 
 func TestWaiveLadderIsAttributedAndRecordsWaiver(t *testing.T) {
 	c := newCampaign(t, "Acme")
-	fid := objStr(confirmedFinding(t, c, "Rounding loss"), "finding_id")
+	fid := validation.ObjStr(confirmedFinding(t, c, "Rounding loss"), "finding_id")
 	if _, err := StartLadder(c, fid); err != nil {
 		t.Fatal(err)
 	}
@@ -589,18 +589,18 @@ func TestWaiveLadderIsAttributedAndRecordsWaiver(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	disp := asObj(objAt(lad, "disposition"))
-	if objStr(disp, "state") != "waived" ||
-		objStr(disp, "reason") != "budget exhausted before the ladder closed" ||
-		objStr(disp, "actor") != "operator" {
+	disp := asObj(validation.ObjAt(lad, "disposition"))
+	if validation.ObjStr(disp, "state") != "waived" ||
+		validation.ObjStr(disp, "reason") != "budget exhausted before the ladder closed" ||
+		validation.ObjStr(disp, "actor") != "operator" {
 		t.Fatalf("disposition = %v", disp)
 	}
 	f2, err := findings.LoadFinding(c, fid)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(asObj(objAt(f2, "maximization")), "disposition") != "waived" {
-		t.Fatalf("finding disposition = %v", objAt(f2, "maximization"))
+	if validation.ObjStr(asObj(validation.ObjAt(f2, "maximization")), "disposition") != "waived" {
+		t.Fatalf("finding disposition = %v", validation.ObjAt(f2, "maximization"))
 	}
 	if _, err := os.Stat(filepath.Join(c.Dir, "waivers.jsonl")); err != nil {
 		t.Fatalf("waiver not recorded: %v", err)
@@ -613,7 +613,7 @@ func TestWaiveLadderIsAttributedAndRecordsWaiver(t *testing.T) {
 // accepts work again.
 func TestReopenLadder(t *testing.T) {
 	c := newCampaign(t, "Acme")
-	fid := objStr(confirmedFinding(t, c, "Rounding loss"), "finding_id")
+	fid := validation.ObjStr(confirmedFinding(t, c, "Rounding loss"), "finding_id")
 	if _, err := StartLadder(c, fid); err != nil {
 		t.Fatal(err)
 	}
@@ -634,11 +634,11 @@ func TestReopenLadder(t *testing.T) {
 		t.Fatal(err)
 	}
 	rec := registerExec(t, c, fid)
-	if _, err := ReproduceRung(c, fid, objStr(rung, "rung_id"),
-		objStr(rec, "exec_id"), nil); err != nil {
+	if _, err := ReproduceRung(c, fid, validation.ObjStr(rung, "rung_id"),
+		validation.ObjStr(rec, "exec_id"), nil); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := SetMaximal(c, fid, objStr(rung, "rung_id")); err != nil {
+	if _, err := SetMaximal(c, fid, validation.ObjStr(rung, "rung_id")); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := CompleteLadder(c, fid, "operator"); err != nil {
@@ -661,19 +661,19 @@ func TestReopenLadder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	disp := asObj(objAt(lad, "disposition"))
-	if objStr(disp, "state") != "open" || objStr(disp, "actor") != "op2" {
+	disp := asObj(validation.ObjAt(lad, "disposition"))
+	if validation.ObjStr(disp, "state") != "open" || validation.ObjStr(disp, "actor") != "op2" {
 		t.Fatalf("disposition = %v", disp)
 	}
-	if !strings.Contains(objStr(disp, "reason"), "cheaper rung") {
-		t.Fatalf("reason = %q", objStr(disp, "reason"))
+	if !strings.Contains(validation.ObjStr(disp, "reason"), "cheaper rung") {
+		t.Fatalf("reason = %q", validation.ObjStr(disp, "reason"))
 	}
 	f2, err := findings.LoadFinding(c, fid)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(asObj(objAt(f2, "maximization")), "disposition") != "open" {
-		t.Fatalf("finding disposition = %v", objAt(f2, "maximization"))
+	if validation.ObjStr(asObj(validation.ObjAt(f2, "maximization")), "disposition") != "open" {
+		t.Fatalf("finding disposition = %v", validation.ObjAt(f2, "maximization"))
 	}
 	// the reopened ladder accepts work again (requireOpen no longer refuses)
 	if _, err := AddVariant(c, fid, "dust2", "dust again",
@@ -686,7 +686,7 @@ func TestReopenLadder(t *testing.T) {
 
 func TestLadderReportDeltasAndUnexplored(t *testing.T) {
 	c := newCampaign(t, "Acme")
-	fid := objStr(confirmedFinding(t, c, "Rounding loss"), "finding_id")
+	fid := validation.ObjStr(confirmedFinding(t, c, "Rounding loss"), "finding_id")
 	lad, err := StartLadder(c, fid)
 	if err != nil {
 		t.Fatal(err)
@@ -713,20 +713,20 @@ func TestLadderReportDeltasAndUnexplored(t *testing.T) {
 	if len(rungs) != 2 {
 		t.Fatalf("rungs = %v", rungs)
 	}
-	if got := objAt(rungs[1], "capital_delta_usd"); got.Kind != validation.Flt ||
+	if got := validation.ObjAt(rungs[1], "capital_delta_usd"); got.Kind != validation.Flt ||
 		got.F != -99999 {
 		t.Fatalf("capital delta = %v", got)
 	}
-	if got := objAt(rungs[1], "extraction_delta"); got.Kind != validation.Flt ||
+	if got := validation.ObjAt(rungs[1], "extraction_delta"); got.Kind != validation.Flt ||
 		got.F != 0.5 {
 		t.Fatalf("extraction delta = %v", got)
 	}
-	if got := objAt(rungs[0], "capital_delta_usd"); got.Kind != validation.Flt ||
+	if got := validation.ObjAt(rungs[0], "capital_delta_usd"); got.Kind != validation.Flt ||
 		got.F != 0 {
 		t.Fatalf("base delta = %v", got)
 	}
-	if objAt(rep, "maximal").Kind != validation.Null {
-		t.Fatalf("maximal = %v", objAt(rep, "maximal"))
+	if validation.ObjAt(rep, "maximal").Kind != validation.Null {
+		t.Fatalf("maximal = %v", validation.ObjAt(rep, "maximal"))
 	}
 	if got := strings.Join(listStrings(listOf(rep, "unexplored_axes")), ","); got !=
 		"precondition-removal,role-conflation,ordering-permutation,cap-saturation" {
@@ -737,15 +737,15 @@ func TestLadderReportDeltasAndUnexplored(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objAt(other, "ladder").Kind != validation.Null ||
-		objStr(other, "finding_id") != "F-missing12345" {
+	if validation.ObjAt(other, "ladder").Kind != validation.Null ||
+		validation.ObjStr(other, "finding_id") != "F-missing12345" {
 		t.Fatalf("absent report = %s", validation.CanonCompact(other))
 	}
 }
 
 func TestLoadLadderValidatesStoredArtifact(t *testing.T) {
 	c := newCampaign(t, "Acme")
-	fid := objStr(confirmedFinding(t, c, "Rounding loss"), "finding_id")
+	fid := validation.ObjStr(confirmedFinding(t, c, "Rounding loss"), "finding_id")
 	if _, err := StartLadder(c, fid); err != nil {
 		t.Fatal(err)
 	}

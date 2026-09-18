@@ -29,7 +29,7 @@ func TestUncoveredCriticalSpansIDSpellings(t *testing.T) {
 	}
 	ids := []string{}
 	for _, e := range out {
-		ids = append(ids, objStr(e, "invariant_id"))
+		ids = append(ids, validation.ObjStr(e, "invariant_id"))
 	}
 	if len(ids) != 1 || ids[0] != "INV-1" {
 		t.Errorf("uncovered ids = %v, want [INV-1]", ids)

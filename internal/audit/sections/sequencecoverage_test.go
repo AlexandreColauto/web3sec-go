@@ -67,7 +67,7 @@ func sectionValue(t *testing.T, c *state.Campaign) validation.Value {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objAt(v, "required").Kind == validation.Null {
+	if validation.ObjAt(v, "required").Kind == validation.Null {
 		t.Fatalf("degraded section: %s", validation.DumpIndented(v))
 	}
 	return v
@@ -83,17 +83,17 @@ func TestNoForkTargetRowNotApplicableAndSectionOK(t *testing.T) {
 		intOfSection(sec, "not_applicable") != 1 {
 		t.Fatalf("counts = %s", validation.DumpIndented(sec))
 	}
-	row := objAt(sec, "rows").A[0]
-	if av := objAt(row, "applicable"); av.Kind != validation.Bool || av.B {
+	row := validation.ObjAt(sec, "rows").A[0]
+	if av := validation.ObjAt(row, "applicable"); av.Kind != validation.Bool || av.B {
 		t.Errorf("applicable = %v, want false", av)
 	}
-	if p := objAt(row, "problem"); p.Kind != validation.Null {
+	if p := validation.ObjAt(row, "problem"); p.Kind != validation.Null {
 		t.Errorf("problem = %v, want null", p)
 	}
-	if n := len(objAt(sec, "problems").A); n != 0 {
+	if n := len(validation.ObjAt(sec, "problems").A); n != 0 {
 		t.Errorf("problems = %d, want 0", n)
 	}
-	if ok := objAt(sec, "ok"); ok.Kind != validation.Bool || !ok.B {
+	if ok := validation.ObjAt(sec, "ok"); ok.Kind != validation.Bool || !ok.B {
 		t.Errorf("ok = %v, want true", ok)
 	}
 }
@@ -120,15 +120,15 @@ func TestForkTargetRowApplicableAndFlagged(t *testing.T) {
 		intOfSection(sec, "not_applicable") != 0 {
 		t.Fatalf("counts = %s", validation.DumpIndented(sec))
 	}
-	row := objAt(sec, "rows").A[0]
-	if av := objAt(row, "applicable"); av.Kind != validation.Bool || !av.B {
+	row := validation.ObjAt(sec, "rows").A[0]
+	if av := validation.ObjAt(row, "applicable"); av.Kind != validation.Bool || !av.B {
 		t.Errorf("applicable = %v, want true", av)
 	}
-	prob := objStr(row, "problem")
+	prob := validation.ObjStr(row, "problem")
 	if !strings.Contains(prob, "sequence PoC coverage missing") {
 		t.Errorf("problem = %q", prob)
 	}
-	if ok := objAt(sec, "ok"); ok.Kind != validation.Bool || ok.B {
+	if ok := validation.ObjAt(sec, "ok"); ok.Kind != validation.Bool || ok.B {
 		t.Errorf("ok = %v, want false", ok)
 	}
 }
@@ -149,16 +149,16 @@ func TestNonSequenceFindingAbsentFromSection(t *testing.T) {
 	}
 	sec := sectionValue(t, c)
 	if intOfSection(sec, "required") != 0 {
-		t.Errorf("required = %v, want 0", objAt(sec, "required"))
+		t.Errorf("required = %v, want 0", validation.ObjAt(sec, "required"))
 	}
-	if rows := objAt(sec, "rows"); rows.Kind != validation.Arr || len(rows.A) != 0 {
+	if rows := validation.ObjAt(sec, "rows"); rows.Kind != validation.Arr || len(rows.A) != 0 {
 		t.Errorf("rows = %v, want []", rows)
 	}
 }
 
 // intOfSection reads a section counter (Int).
 func intOfSection(v validation.Value, key string) int64 {
-	got := objAt(v, key)
+	got := validation.ObjAt(v, key)
 	if got.Kind == validation.Int {
 		if got.Big != "" {
 			n := int64(0)

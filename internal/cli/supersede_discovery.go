@@ -71,7 +71,7 @@ func dedupDiscoveryHint(report validation.Value, liveFindings int) string {
 		return ""
 	}
 	for _, k := range dedupActionKeys {
-		if len(objAt(report, k).A) > 0 {
+		if len(validation.ObjAt(report, k).A) > 0 {
 			return ""
 		}
 	}
@@ -98,12 +98,12 @@ const adjudicateFalsePositive = "false-positive"
 // that both lack a class are NOT duplicates of each other, so they must never
 // match — the empty key is refused rather than compared.
 func selfDuplicateKey(f validation.Value) string {
-	class := objStr(objAt(f, "root_cause"), "class")
-	affected := objAt(f, "affected")
+	class := validation.ObjStr(validation.ObjAt(f, "root_cause"), "class")
+	affected := validation.ObjAt(f, "affected")
 	if affected.Kind != validation.Arr || len(affected.A) == 0 {
 		return ""
 	}
-	path := objStr(affected.A[0], "path")
+	path := validation.ObjStr(affected.A[0], "path")
 	if class == "" || path == "" {
 		return ""
 	}
@@ -143,7 +143,7 @@ func selfDuplicateNudge(c *state.Campaign, rec evalscore.Adjudication) string {
 	}
 	key := ""
 	for _, f := range live {
-		if objStr(f, "finding_id") == rec.Finding {
+		if validation.ObjStr(f, "finding_id") == rec.Finding {
 			key = selfDuplicateKey(f)
 			break
 		}
@@ -153,7 +153,7 @@ func selfDuplicateNudge(c *state.Campaign, rec evalscore.Adjudication) string {
 	}
 	twin := ""
 	for _, f := range live {
-		id := objStr(f, "finding_id")
+		id := validation.ObjStr(f, "finding_id")
 		if id == "" || id == rec.Finding {
 			continue
 		}

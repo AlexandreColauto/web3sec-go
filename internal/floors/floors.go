@@ -162,11 +162,11 @@ func SetFloorPolicy(campaign *state.Campaign, bugClass, floor, actor,
 	if err != nil {
 		return validation.VNull(), err
 	}
-	policy := objAt(st, "floor_policy")
+	policy := validation.ObjAt(st, "floor_policy")
 	var remaining []validation.Value
 	replaced := false
 	for _, e := range policy.A {
-		if objStr(e, "class") == bugClass {
+		if validation.ObjStr(e, "class") == bugClass {
 			replaced = true
 			continue
 		}
@@ -214,10 +214,10 @@ func ClearFloorPolicy(campaign *state.Campaign, bugClass, actor, reason string) 
 	if err != nil {
 		return err
 	}
-	policy := objAt(st, "floor_policy")
+	policy := validation.ObjAt(st, "floor_policy")
 	remaining := make([]validation.Value, 0, len(policy.A))
 	for _, e := range policy.A {
-		if objStr(e, "class") == bugClass {
+		if validation.ObjStr(e, "class") == bugClass {
 			continue
 		}
 		remaining = append(remaining, e)
@@ -271,8 +271,8 @@ func FloorOverride(campaign *state.Campaign, bugClass string) (*string, error) {
 		return nil, err
 	}
 	for i := len(policy) - 1; i >= 0; i-- {
-		if objStr(policy[i], "class") == bugClass {
-			out := objStr(policy[i], "floor")
+		if validation.ObjStr(policy[i], "class") == bugClass {
+			out := validation.ObjStr(policy[i], "floor")
 			return &out, nil
 		}
 	}
@@ -307,7 +307,7 @@ func FloorTableReport(campaign *state.Campaign) (validation.Value, error) {
 	}
 	overrides := map[string]validation.Value{}
 	for _, e := range policy {
-		overrides[objStr(e, "class")] = e
+		overrides[validation.ObjStr(e, "class")] = e
 	}
 	classes := map[string]struct{}{}
 	for cls := range taxonomy.KnownClasses() {
@@ -333,11 +333,11 @@ func FloorTableReport(campaign *state.Campaign) (validation.Value, error) {
 		effective := defaultFloor
 		var override validation.Value = validation.VNull()
 		if hasOv {
-			effective = validation.VStr(objStr(ov, "floor"))
+			effective = validation.VStr(validation.ObjStr(ov, "floor"))
 			override = validation.VObj(
-				kv("actor", validation.VStr(objStr(ov, "actor"))),
-				kv("reason", validation.VStr(objStr(ov, "reason"))),
-				kv("at", validation.VStr(objStr(ov, "at"))),
+				kv("actor", validation.VStr(validation.ObjStr(ov, "actor"))),
+				kv("reason", validation.VStr(validation.ObjStr(ov, "reason"))),
+				kv("at", validation.VStr(validation.ObjStr(ov, "at"))),
 			)
 		}
 		rows = append(rows, validation.VObj(
@@ -429,7 +429,7 @@ func LoadPolicyFile(path string) ([]validation.Value, error) {
 	if err := refuseClassWeightKeys(doc); err != nil {
 		return nil, err
 	}
-	overrides := objAt(doc, "overrides")
+	overrides := validation.ObjAt(doc, "overrides")
 	if doc.Kind != validation.Obj || overrides.Kind != validation.Arr {
 		return nil, fmt.Errorf("floor policy file %s must be "+
 			`{"overrides": [{"class", "floor", "reason"}]}`, p)
@@ -455,8 +455,8 @@ func ApplyPolicyFile(campaign *state.Campaign, path string) ([]validation.Value,
 	}
 	out := make([]validation.Value, 0, len(overrides))
 	for _, ov := range overrides {
-		entry, err := setFloorFromValues(campaign, objAt(ov, "class"),
-			objAt(ov, "floor"), policyReason(ov, path))
+		entry, err := setFloorFromValues(campaign, validation.ObjAt(ov, "class"),
+			validation.ObjAt(ov, "floor"), policyReason(ov, path))
 		if err != nil {
 			return nil, err
 		}
@@ -489,7 +489,7 @@ func setFloorFromValues(campaign *state.Campaign, classV, floorV validation.Valu
 // a falsy value (null/false/0/""/[]/{}) takes the fallback, while a truthy
 // non-string becomes str(value) and must then satisfy the >= 10 char rule.
 func policyReason(ov validation.Value, path string) string {
-	reason := objAt(ov, "reason")
+	reason := validation.ObjAt(ov, "reason")
 	if reason.Kind == validation.Str && reason.S != "" {
 		return reason.S
 	}
@@ -515,7 +515,7 @@ func policyOf(campaign *state.Campaign) ([]validation.Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return objAt(st, "floor_policy").A, nil
+	return validation.ObjAt(st, "floor_policy").A, nil
 }
 
 // inEvidenceOrder is `floor in EVIDENCE_ORDER`.
@@ -536,29 +536,6 @@ func hasKey(v validation.Value, key string) bool {
 		}
 	}
 	return false
-}
-
-// objAt is the dict lookup: the value for key, or Null when absent.
-func objAt(v validation.Value, key string) validation.Value {
-	if v.Kind != validation.Obj {
-		return validation.VNull()
-	}
-	for _, kv := range v.O {
-		if kv.K == key {
-			return kv.V
-		}
-	}
-	return validation.VNull()
-}
-
-// objStr is the string flavor of objAt ("" when absent or not a string).
-func objStr(v validation.Value, key string) string {
-	for _, kv := range v.O {
-		if kv.K == key {
-			return kv.V.S
-		}
-	}
-	return ""
 }
 
 // kv is the keyed KV constructor (non-test code cannot use a test helper).

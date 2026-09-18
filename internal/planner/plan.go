@@ -242,12 +242,12 @@ func isCanonicalClass(cls string) bool {
 func nonCanonicalClasses(plan validation.Value) []string {
 	bad := []string{}
 	for _, p := range listOf(plan, "priorities") {
-		bc := objAt(p, "bug_class")
+		bc := validation.ObjAt(p, "bug_class")
 		if !pyTruthyBigNonEmpty(bc) {
 			continue
 		}
 		if bc.Kind != validation.Str || !isCanonicalClass(bc.S) {
-			bad = append(bad, objStr(p, "id")+" (bug_class "+
+			bad = append(bad, validation.ObjStr(p, "id")+" (bug_class "+
 				validation.PyRepr(bc)+")")
 		}
 	}
@@ -302,16 +302,16 @@ func (b *planBuilder) addWithID(id string, src validation.Value, question string
 		kv("id", validation.VStr(id)),
 		kv("question", validation.VStr(question)),
 		kv("risk", validation.VFloat(risk)),
-		kv("components", strArr(components)),
-		kv("invariant_ids", strArr(inv)),
-		kv("required_context", strArr([]string{"structural_index",
+		kv("components", validation.StrArr(components)),
+		kv("invariant_ids", validation.StrArr(inv)),
+		kv("required_context", validation.StrArr([]string{"structural_index",
 			"protocol_model"})),
-		kv("trajectories", strArr(trajectories)),
-		kv("recommended_stages", strArr(stages)),
+		kv("trajectories", validation.StrArr(trajectories)),
+		kv("recommended_stages", validation.StrArr(stages)),
 		kv("budget_class", validation.VStr(budget)),
 		kv("status", validation.VStr("open")),
 	)
-	if bc := objAt(src, "bug_class"); bc.Kind == validation.Str &&
+	if bc := validation.ObjAt(src, "bug_class"); bc.Kind == validation.Str &&
 		isCanonicalClass(bc.S) {
 		prio.O = validation.SetOrAppend(prio.O, "bug_class", bc)
 	}
@@ -364,7 +364,7 @@ func DefaultPlanFromModel(campaign *state.Campaign,
 	}
 	plan := validation.VObj(
 		kv("campaign_id", validation.VStr(campaign.CampaignID)),
-		kv("created_at", validation.VStr(nowIso())),
+		kv("created_at", validation.VStr(state.NowIso())),
 		kv("snapshot_id", validation.VStr(snapshotIDOrUnpinned(campaign))),
 		kv("strategy_note", validation.VStr("bootstrapped deterministically "+
 			"from protocol model; refine via the planner stage")),
@@ -387,7 +387,7 @@ func bootstrapPrivileged(b *planBuilder, campaign *state.Campaign,
 	if len(drains) > 0 {
 		ids := make([]string, 0, len(drains))
 		for _, a := range drains {
-			ids = append(ids, objStr(a, "id"))
+			ids = append(ids, validation.ObjStr(a, "id"))
 		}
 		b.add(validation.VNull(), "Can the drain-capable roles ("+
 			strings.Join(ids, ", ")+
@@ -396,23 +396,23 @@ func bootstrapPrivileged(b *planBuilder, campaign *state.Campaign,
 	}
 	var upgrades []validation.Value
 	for _, a := range listOf(model, "actors") {
-		if pyTruthyBigNonEmpty(objAt(a, "can_upgrade")) {
+		if pyTruthyBigNonEmpty(validation.ObjAt(a, "can_upgrade")) {
 			upgrades = append(upgrades, a)
 		}
 	}
 	if len(upgrades) > 0 {
 		ids := make([]string, 0, len(upgrades))
 		for _, a := range upgrades {
-			ids = append(ids, objStr(a, "id"))
+			ids = append(ids, validation.ObjStr(a, "id"))
 		}
 		b.add(validation.VNull(), "Can upgrade authorization be captured, "+
 			"front-run, or exercised on an already-initialized contract?", 0.85,
 			ids, []string{"code", "attacker"}, addOpts{budget: "cheap"})
 	}
 	for _, g := range protocolgraph.TrustBoundaryGaps(model) {
-		b.add(g, "Is the unvalidated trust boundary "+objStr(g, "from")+" -> "+
-			objStr(g, "to")+" ("+objStr(g, "crossing")+") exploitable?", 0.8,
-			[]string{objStr(g, "to")}, []string{"integration", "code"},
+		b.add(g, "Is the unvalidated trust boundary "+validation.ObjStr(g, "from")+" -> "+
+			validation.ObjStr(g, "to")+" ("+validation.ObjStr(g, "crossing")+") exploitable?", 0.8,
+			[]string{validation.ObjStr(g, "to")}, []string{"integration", "code"},
 			addOpts{})
 	}
 	components := []string{}
@@ -420,12 +420,12 @@ func bootstrapPrivileged(b *planBuilder, campaign *state.Campaign,
 		components = []string{"accounting"}
 	}
 	for _, t := range EcoTransforms(campaign, model) {
-		name := objStr(t, "name")
+		name := validation.ObjStr(t, "name")
 		budget := "standard"
 		if strings.Contains(name, "oracle") {
 			budget = "expensive"
 		}
-		b.add(t, "Economic transform "+name+": "+objStr(t, "question"), 0.75,
+		b.add(t, "Economic transform "+name+": "+validation.ObjStr(t, "question"), 0.75,
 			components, []string{"economic"}, addOpts{budget: budget})
 	}
 }
@@ -438,9 +438,9 @@ func bootstrapUncovered(b *planBuilder, uncovered []validation.Value) {
 			components = append(components, pyStr(a))
 		}
 		b.add(u, "Test the uncovered critical invariant: "+
-			objStr(u, "statement"), 0.7, components,
+			validation.ObjStr(u, "statement"), 0.7, components,
 			[]string{"code", "state-machine"}, addOpts{
-				invariantIDs: []string{objStr(u, "invariant_id")}})
+				invariantIDs: []string{validation.ObjStr(u, "invariant_id")}})
 	}
 }
 
@@ -448,7 +448,7 @@ func bootstrapUncovered(b *planBuilder, uncovered []validation.Value) {
 func bootstrapRisky(b *planBuilder, risky []validation.Value) {
 	assets := make([]string, 0, len(risky))
 	for _, r := range risky {
-		assets = append(assets, objStr(r, "asset"))
+		assets = append(assets, validation.ObjStr(r, "asset"))
 	}
 	b.add(validation.VNull(), "Do nonstandard token behaviors ("+
 		strings.Join(assets, ", ")+") break accounting assumptions?", 0.65,
@@ -467,12 +467,12 @@ func bootstrapRoles(b *planBuilder, model validation.Value) {
 		entries := surface[role]
 		caps := make([]string, 0, len(entries))
 		for _, e := range entries {
-			caps = append(caps, objStr(e, "capability"))
+			caps = append(caps, validation.ObjStr(e, "capability"))
 		}
 		sort.Strings(caps)
 		tl := "no"
 		for _, e := range entries {
-			if v := objAt(e, "timelocked"); v.Kind == validation.Bool && v.B {
+			if v := validation.ObjAt(e, "timelocked"); v.Kind == validation.Bool && v.B {
 				tl = "yes"
 				break
 			}
@@ -480,7 +480,7 @@ func bootstrapRoles(b *planBuilder, model validation.Value) {
 		th := "n/a"
 		var thresholds []float64
 		for _, e := range entries {
-			v := objAt(e, "multisig_threshold")
+			v := validation.ObjAt(e, "multisig_threshold")
 			if v.Kind == validation.Int || v.Kind == validation.Flt {
 				thresholds = append(thresholds, floatOrInt(v))
 			}
@@ -513,10 +513,10 @@ func bootstrapRoles(b *planBuilder, model validation.Value) {
 // <id> answered …` takes.
 func bootstrapOpenQuestions(b *planBuilder, model validation.Value) {
 	for _, q := range listOf(model, "open_questions") {
-		if pyTruthyBigNonEmpty(objAt(q, "resolved")) {
+		if pyTruthyBigNonEmpty(validation.ObjAt(q, "resolved")) {
 			continue
 		}
-		text := objStr(q, "question")
+		text := validation.ObjStr(q, "question")
 		if text == "" {
 			continue
 		}
@@ -583,7 +583,7 @@ type lifecycleSurface struct {
 func adversarialLifecycleSurfaces(model validation.Value) []lifecycleSurface {
 	out := []lifecycleSurface{}
 	for _, sm := range listOf(model, "state_machines") {
-		name := objStr(sm, "name")
+		name := validation.ObjStr(sm, "name")
 		if name == "" {
 			continue
 		}
@@ -625,12 +625,12 @@ func lifecycleMachineTokens(sm validation.Value) []string {
 			}
 		}
 	}
-	scan(objStr(sm, "name"))
+	scan(validation.ObjStr(sm, "name"))
 	for _, tr := range listOf(sm, "transitions") {
 		if tr.Kind != validation.Obj {
 			continue
 		}
-		scan(objStr(tr, "trigger"))
+		scan(validation.ObjStr(tr, "trigger"))
 	}
 	out := []string{}
 	for _, tok := range lifecycleVocabulary {
@@ -735,7 +735,7 @@ func lifecycleSurfaceCovered(name string, queue []validation.Value,
 	}
 	for _, f := range live {
 		for _, a := range listOf(f, "affected") {
-			if objStr(a, "contract") == name || objStr(a, "path") == name {
+			if validation.ObjStr(a, "contract") == name || validation.ObjStr(a, "path") == name {
 				return true
 			}
 		}
@@ -765,7 +765,7 @@ func maxThresholdText(entries []validation.Value) string {
 	bestVal := 0.0
 	first := true
 	for _, e := range entries {
-		v := objAt(e, "multisig_threshold")
+		v := validation.ObjAt(e, "multisig_threshold")
 		if v.Kind != validation.Int && v.Kind != validation.Flt {
 			continue
 		}
@@ -781,14 +781,14 @@ func maxThresholdText(entries []validation.Value) string {
 func coverageTargets(model validation.Value) validation.Value {
 	components := []string{}
 	for _, c := range listOf(model, "contracts") {
-		if pyTruthyBigNonEmpty(objAt(c, "in_scope")) {
-			components = append(components, objStr(c, "name"))
+		if pyTruthyBigNonEmpty(validation.ObjAt(c, "in_scope")) {
+			components = append(components, validation.ObjStr(c, "name"))
 		}
 	}
 	return validation.VObj(
 		kv("min_invariants", validation.VInt(1)),
 		kv("min_trajectories_per_critical_component", validation.VInt(2)),
-		kv("components_must_cover", strArr(components)),
+		kv("components_must_cover", validation.StrArr(components)),
 	)
 }
 

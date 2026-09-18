@@ -12,14 +12,14 @@ func TestEveryCanonicalClassPresentOnce(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	classes := objAt(doc, "classes")
+	classes := validation.ObjAt(doc, "classes")
 	known := taxonomy.CanonicalClasses()
 	for cls := range known {
-		if objAt(classes, cls).Kind == validation.Null {
+		if validation.ObjAt(classes, cls).Kind == validation.Null {
 			t.Fatalf("canonical class %s missing from class_weights.json", cls)
 		}
 	}
-	if objAt(classes, "unmapped").Kind == validation.Null {
+	if validation.ObjAt(classes, "unmapped").Kind == validation.Null {
 		t.Fatal("unmapped bucket missing")
 	}
 	if len(classes.O) != len(known)+1 {
@@ -32,20 +32,20 @@ func TestBootstrapNeutralAndProvenanceHygiene(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	classes := objAt(doc, "classes")
+	classes := validation.ObjAt(doc, "classes")
 	for _, kv := range classes.O {
-		if f := objAt(kv.V, "search").F; f != 1.0 {
+		if f := validation.ObjAt(kv.V, "search").F; f != 1.0 {
 			t.Fatalf("%s: search=%v — tranche-2 law: all 1.0 until a backtest wins", kv.K, f)
 		}
-		if f := objAt(kv.V, "acceptance").F; f != 1.0 {
+		if f := validation.ObjAt(kv.V, "acceptance").F; f != 1.0 {
 			t.Fatalf("%s: acceptance=%v — must stay 1.0 (G3 gate)", kv.K, f)
 		}
-		prov := objAt(kv.V, "provenance").A
+		prov := validation.ObjAt(kv.V, "provenance").A
 		if len(prov) == 0 {
 			t.Fatalf("%s: provenance rows required (G7)", kv.K)
 		}
 		for _, pr := range prov {
-			if objAt(pr, "checked_date").S == "" || objAt(pr, "source_url").S == "" {
+			if validation.ObjAt(pr, "checked_date").S == "" || validation.ObjAt(pr, "source_url").S == "" {
 				t.Fatalf("%s: provenance row incomplete", kv.K)
 			}
 		}

@@ -69,7 +69,7 @@ func portCampaign(t *testing.T, program string) *state.Campaign {
 
 // TestPortLensConstants is test_lens_constants.
 func TestPortLensConstants(t *testing.T) {
-	requireJSON(t, "LENS_IDS", strArr(LensIDs), jsonValue(t,
+	requireJSON(t, "LENS_IDS", validation.StrArr(LensIDs), jsonValue(t,
 		`["liveness","incentive-inversion","enforcement-timing",
 		  "primitive-symmetry"]`))
 	if MinDistinctClasses != 4 {
@@ -88,14 +88,14 @@ func TestPortDefaultPlanSeedsFourLenses(t *testing.T) {
 	}
 	ids := []string{}
 	for _, l := range listOf(plan, "lenses") {
-		ids = append(ids, objStr(l, "id"))
-		if objStr(l, "status") != "open" {
-			t.Fatalf("lens %s not open", objStr(l, "id"))
+		ids = append(ids, validation.ObjStr(l, "id"))
+		if validation.ObjStr(l, "status") != "open" {
+			t.Fatalf("lens %s not open", validation.ObjStr(l, "id"))
 		}
 	}
-	requireJSON(t, "lens ids", strArr(ids), jsonValue(t,
+	requireJSON(t, "lens ids", validation.StrArr(ids), jsonValue(t,
 		`["L-01","L-02","L-03","L-04"]`))
-	if !strings.Contains(objStr(listOf(plan, "lenses")[0], "question"),
+	if !strings.Contains(validation.ObjStr(listOf(plan, "lenses")[0], "question"),
 		"rollup-lifecycle") {
 		t.Fatalf("liveness question must name the model's state machine")
 	}
@@ -131,9 +131,9 @@ func TestPortSeedLensesHealsPreLensPlan(t *testing.T) {
 	added, _ := SeedLenses(plan, model)
 	ids := []string{}
 	for _, l := range added {
-		ids = append(ids, objStr(l, "id"))
+		ids = append(ids, validation.ObjStr(l, "id"))
 	}
-	requireJSON(t, "added", strArr(ids), jsonValue(t,
+	requireJSON(t, "added", validation.StrArr(ids), jsonValue(t,
 		`["L-01","L-02","L-03","L-04"]`))
 }
 
@@ -186,9 +186,9 @@ func TestPortMarkLensClosureAndReopen(t *testing.T) {
 		t.Fatalf("mark_lens: %v", err)
 	}
 	l1 := listOf(plan, "lenses")[0]
-	requireJSON(t, "status", objAt(l1, "status"), validation.VStr("answered"))
-	requireJSON(t, "closed_by", objAt(l1, "closed_by"), validation.VStr("pytest"))
-	requireJSON(t, "closed_ref", objAt(l1, "closed_ref"),
+	requireJSON(t, "status", validation.ObjAt(l1, "status"), validation.VStr("answered"))
+	requireJSON(t, "closed_by", validation.ObjAt(l1, "closed_by"), validation.VStr("pytest"))
+	requireJSON(t, "closed_ref", validation.ObjAt(l1, "closed_ref"),
 		validation.VStr("contracts/l2/Rollup.sol#L210"))
 	plan, err = MarkLens(camp, plan, "L-01", "open", LensOpts{Actor: "pytest"})
 	if err != nil {
@@ -211,16 +211,16 @@ func TestPortLensSchemaHasFamiliesAndReopenFields(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read schema: %v", err)
 	}
-	props := objAt(objAt(objAt(objAt(schema, "properties"), "lenses"),
+	props := validation.ObjAt(validation.ObjAt(validation.ObjAt(validation.ObjAt(schema, "properties"), "lenses"),
 		"items"), "properties")
 	for _, k := range []string{"families", "families_checked"} {
-		p := objAt(props, k)
-		requireJSON(t, k+" type", objAt(p, "type"), validation.VStr("array"))
-		requireJSON(t, k+" items", objAt(objAt(p, "items"), "type"),
+		p := validation.ObjAt(props, k)
+		requireJSON(t, k+" type", validation.ObjAt(p, "type"), validation.VStr("array"))
+		requireJSON(t, k+" items", validation.ObjAt(validation.ObjAt(p, "items"), "type"),
 			validation.VStr("string"))
 	}
 	for _, k := range []string{"reopen_reason", "reopened_at"} {
-		if !strings.Contains(validation.CanonCompact(objAt(objAt(props, k),
+		if !strings.Contains(validation.CanonCompact(validation.ObjAt(validation.ObjAt(props, k),
 			"type")), "null") {
 			t.Fatalf("%s must accept null", k)
 		}
@@ -253,7 +253,7 @@ func TestPortRound4LensEntryStillValidates(t *testing.T) {
 // test_lens_families_are_deterministic_and_per_lens.
 func TestPortLensFamiliesDeterministic(t *testing.T) {
 	fams := LensFamilies(portExhModel(t))
-	requireJSON(t, "liveness", objAt(fams, "liveness"), jsonValue(t,
+	requireJSON(t, "liveness", validation.ObjAt(fams, "liveness"), jsonValue(t,
 		`["rollup","staking"]`))
 	sym := []string{}
 	for _, f := range listOf(fams, "primitive-symmetry") {
@@ -277,15 +277,15 @@ func TestPortSeedLensesBackfillsFamilies(t *testing.T) {
 		"surface":"protocol","question":"xxxxxxxxxxxxxxxxxxxx",
 		"status":"open"}]}`)
 	_, plan = SeedLenses(plan, portExhModel(t))
-	requireJSON(t, "families", objAt(listOf(plan, "lenses")[0], "families"),
+	requireJSON(t, "families", validation.ObjAt(listOf(plan, "lenses")[0], "families"),
 		jsonValue(t, `["rollup","staking"]`))
 	// the pre-existing entry keeps its identity; the missing three are seeded
-	requireJSON(t, "id", objAt(listOf(plan, "lenses")[0], "id"),
+	requireJSON(t, "id", validation.ObjAt(listOf(plan, "lenses")[0], "id"),
 		validation.VStr("L-01"))
 	if n := len(listOf(plan, "lenses")); n != 4 {
 		t.Fatalf("expected 4 lenses after seeding, got %d", n)
 	}
-	requireJSON(t, "status", objAt(listOf(plan, "lenses")[0], "status"),
+	requireJSON(t, "status", validation.ObjAt(listOf(plan, "lenses")[0], "status"),
 		validation.VStr("open"))
 }
 
@@ -329,10 +329,10 @@ func portPlanWithLens(t *testing.T, families, checked []string,
 // the wanted substrings in its `what`.
 func missingFor(st validation.Value, subject string, subs ...string) bool {
 	for _, m := range listOf(st, "missing") {
-		if objStr(m, "subject") != subject {
+		if validation.ObjStr(m, "subject") != subject {
 			continue
 		}
-		what := objStr(m, "what")
+		what := validation.ObjStr(m, "what")
 		ok := true
 		for _, s := range subs {
 			ok = ok && strings.Contains(what, s)
@@ -349,7 +349,7 @@ func missingFor(st validation.Value, subject string, subs ...string) bool {
 func TestPortLensOpenUntilFamiliesAttested(t *testing.T) {
 	st := DivergenceStatus(portPlanWithLens(t, []string{"withdraw", "mint"},
 		[]string{"withdraw"}, "answered"), DivergenceOpts{})
-	if objAt(st, "closed").B {
+	if validation.ObjAt(st, "closed").B {
 		t.Fatalf("lens must stay open while mint is unattested")
 	}
 	if !missingFor(st, "L-04", "mint") {
@@ -363,7 +363,7 @@ func TestPortLensOpenUntilFamiliesAttested(t *testing.T) {
 func TestPortLensClosedWhenFamiliesCovered(t *testing.T) {
 	st := DivergenceStatus(portPlanWithLens(t, []string{"withdraw", "mint"},
 		[]string{"withdraw", "mint"}, "answered"), DivergenceOpts{})
-	if !objAt(st, "closed").B {
+	if !validation.ObjAt(st, "closed").B {
 		t.Fatalf("lens must close: %s", validation.CanonCompact(st))
 	}
 	if missingFor(st, "L-04") {
@@ -377,7 +377,7 @@ func TestPortLensClosedWhenFamiliesCovered(t *testing.T) {
 func TestPortNoneApplicableClosesNoFamilyLens(t *testing.T) {
 	st := DivergenceStatus(portPlanWithLens(t, []string{"protocol"},
 		[]string{"none-applicable"}, "answered"), DivergenceOpts{})
-	if !objAt(st, "closed").B {
+	if !validation.ObjAt(st, "closed").B {
 		t.Fatalf("none-applicable must close a protocol-only lens: %s",
 			validation.CanonCompact(st))
 	}
@@ -391,7 +391,7 @@ func TestPortNoneApplicableClosesNoFamilyLens(t *testing.T) {
 func TestPortNoneApplicableDoesNotSkipRealFamilies(t *testing.T) {
 	st := DivergenceStatus(portPlanWithLens(t, []string{"withdraw", "mint"},
 		[]string{"none-applicable"}, "answered"), DivergenceOpts{})
-	if objAt(st, "closed").B {
+	if validation.ObjAt(st, "closed").B {
 		t.Fatalf("none-applicable must not skip real families")
 	}
 	if !missingFor(st, "L-04", "mint", "withdraw") {
@@ -460,7 +460,7 @@ func portRichCampaign(t *testing.T, seed bool) (*state.Campaign,
 func constraintQuestions(plan validation.Value) []validation.Value {
 	out := []validation.Value{}
 	for _, p := range listOf(plan, "priorities") {
-		if strings.Contains(objStr(p, "question"),
+		if strings.Contains(validation.ObjStr(p, "question"),
 			"Within its stated constraints (") {
 			out = append(out, p)
 		}
@@ -490,7 +490,7 @@ func TestPortPerRoleQuestionsWithConstraints(t *testing.T) {
 	}
 	qs := []string{}
 	for _, p := range listOf(plan, "priorities") {
-		qs = append(qs, objStr(p, "question"))
+		qs = append(qs, validation.ObjStr(p, "question"))
 	}
 	if !inList("Within its stated constraints (timelocked=no, threshold=n/a), "+
 		"what can role `guardian` do via `rescue stranded funds` that "+
@@ -507,11 +507,11 @@ func TestPortPerRoleQuestionsWithConstraints(t *testing.T) {
 		t.Fatalf("expected 2 constraint questions, got %d", len(cq))
 	}
 	for _, p := range cq {
-		requireJSON(t, "trajectories", objAt(p, "trajectories"),
+		requireJSON(t, "trajectories", validation.ObjAt(p, "trajectories"),
 			jsonValue(t, `["attacker"]`))
-		requireJSON(t, "budget", objAt(p, "budget_class"),
+		requireJSON(t, "budget", validation.ObjAt(p, "budget_class"),
 			validation.VStr("cheap"))
-		requireJSON(t, "risk", objAt(p, "risk"), validation.VFloat(0.8))
+		requireJSON(t, "risk", validation.ObjAt(p, "risk"), validation.VFloat(0.8))
 	}
 }
 
@@ -532,7 +532,7 @@ func TestPortComponentsAreNormalizedRole(t *testing.T) {
 		}
 		got = append(got, pyStr(comps[0]))
 	}
-	requireJSON(t, "roles", strArr(got), jsonValue(t, `["governor","guardian"]`))
+	requireJSON(t, "roles", validation.StrArr(got), jsonValue(t, `["governor","guardian"]`))
 }
 
 // TestPortQuestionsAppendAfterExistingOnes is
@@ -547,8 +547,8 @@ func TestPortQuestionsAppendAfterExistingOnes(t *testing.T) {
 	firstNew := -1
 	ids := []string{}
 	for i, p := range listOf(plan, "priorities") {
-		ids = append(ids, objStr(p, "id"))
-		if firstNew < 0 && strings.Contains(objStr(p, "question"),
+		ids = append(ids, validation.ObjStr(p, "id"))
+		if firstNew < 0 && strings.Contains(validation.ObjStr(p, "question"),
 			"Within its stated constraints (") {
 			firstNew = i
 		}
@@ -560,7 +560,7 @@ func TestPortQuestionsAppendAfterExistingOnes(t *testing.T) {
 	for i := range ids {
 		wantIDs = append(wantIDs, qid(i+1))
 	}
-	requireJSON(t, "ids continue", strArr(ids), strArr(wantIDs))
+	requireJSON(t, "ids continue", validation.StrArr(ids), validation.StrArr(wantIDs))
 }
 
 // TestPortPreExistingQuestionsUnchanged is
@@ -577,7 +577,7 @@ func TestPortPreExistingQuestionsUnchanged(t *testing.T) {
 		t.Fatalf("plan shorter than the pre-3.1 list")
 	}
 	for i, q := range pre.A {
-		requireJSON(t, "pre_existing/"+itoa(i), objAt(prios[i], "question"), q)
+		requireJSON(t, "pre_existing/"+itoa(i), validation.ObjAt(prios[i], "question"), q)
 	}
 }
 
@@ -596,7 +596,7 @@ func TestPortNoPrivilegeSurfaceAddsNothing(t *testing.T) {
 	pre := at(t, oracles(t), "default_plan", "pre_existing")
 	qs := []validation.Value{}
 	for _, p := range listOf(plan, "priorities") {
-		qs = append(qs, objAt(p, "question"))
+		qs = append(qs, validation.ObjAt(p, "question"))
 	}
 	requireJSON(t, "questions", validation.VArr(qs...), pre)
 }
@@ -610,7 +610,7 @@ func TestPortMissingConstraintFieldsRenderNo(t *testing.T) {
 	if len(qs) != 1 {
 		t.Fatalf("expected 1 constraint question, got %d", len(qs))
 	}
-	requireJSON(t, "question", objAt(qs[0], "question"), validation.VStr(
+	requireJSON(t, "question", validation.ObjAt(qs[0], "question"), validation.VStr(
 		"Within its stated constraints (timelocked=no, threshold=n/a), "+
 			"what can role `owner` do via `everything` that violates user "+
 			"expectations?"))
@@ -626,10 +626,10 @@ func TestPortTimelockedFalseIsNoNotNa(t *testing.T) {
 	if len(qs) != 1 {
 		t.Fatalf("expected 1 constraint question, got %d", len(qs))
 	}
-	if !strings.HasPrefix(objStr(qs[0], "question"),
+	if !strings.HasPrefix(validation.ObjStr(qs[0], "question"),
 		"Within its stated constraints (timelocked=no, threshold=n/a), ") {
 		t.Fatalf("timelocked=false must render no: %q",
-			objStr(qs[0], "question"))
+			validation.ObjStr(qs[0], "question"))
 	}
 }
 
@@ -641,7 +641,7 @@ func TestPortThresholdTakesMaxRecorded(t *testing.T) {
 		{"role":"msa","capability":"two","multisig_threshold":5},
 		{"role":"msa","capability":"three","multisig_threshold":null}]`)
 	qs := constraintQuestions(plan)
-	q := objStr(qs[0], "question")
+	q := validation.ObjStr(qs[0], "question")
 	if !strings.HasPrefix(q,
 		"Within its stated constraints (timelocked=no, threshold=5), ") {
 		t.Fatalf("threshold must be the max recorded: %q", q)
@@ -659,7 +659,7 @@ func TestPortFloatThresholdRenders(t *testing.T) {
 		{"role":"nai","capability":"move funds","multisig_threshold":true}]`)
 	byRole := map[string]string{}
 	for _, p := range constraintQuestions(plan) {
-		byRole[pyStr(listOf(p, "components")[0])] = objStr(p, "question")
+		byRole[pyStr(listOf(p, "components")[0])] = validation.ObjStr(p, "question")
 	}
 	if !strings.HasPrefix(byRole["msa"],
 		"Within its stated constraints (timelocked=no, threshold=2.5), ") {
@@ -681,17 +681,17 @@ func TestPortRoleSpellingVariantsMerge(t *testing.T) {
 	for _, p := range qs {
 		roles = append(roles, pyStr(listOf(p, "components")[0]))
 	}
-	requireJSON(t, "roles", strArr(roles), jsonValue(t,
+	requireJSON(t, "roles", validation.StrArr(roles), jsonValue(t,
 		`["owner","owner_v2"]`))
-	if !strings.HasSuffix(objStr(qs[0], "question"),
+	if !strings.HasSuffix(validation.ObjStr(qs[0], "question"),
 		"what can role `owner` do via `b-second` that violates user "+
 			"expectations?") {
-		t.Fatalf("owner question: %q", objStr(qs[0], "question"))
+		t.Fatalf("owner question: %q", validation.ObjStr(qs[0], "question"))
 	}
-	if !strings.HasSuffix(objStr(qs[1], "question"),
+	if !strings.HasSuffix(validation.ObjStr(qs[1], "question"),
 		"what can role `owner_v2` do via `a-first` that violates user "+
 			"expectations?") {
-		t.Fatalf("owner_v2 question: %q", objStr(qs[1], "question"))
+		t.Fatalf("owner_v2 question: %q", validation.ObjStr(qs[1], "question"))
 	}
 }
 
@@ -708,7 +708,7 @@ func TestPortWorkQueueAcceptsNewRows(t *testing.T) {
 	}
 	rows := []validation.Value{}
 	for _, w := range queue {
-		if strings.Contains(objStr(w, "question"), "stated constraints") {
+		if strings.Contains(validation.ObjStr(w, "question"), "stated constraints") {
 			rows = append(rows, w)
 		}
 	}
@@ -716,9 +716,9 @@ func TestPortWorkQueueAcceptsNewRows(t *testing.T) {
 		t.Fatalf("expected 2 role rows in the queue, got %d", len(rows))
 	}
 	for _, w := range rows {
-		requireJSON(t, "cost", objAt(w, "cost"), validation.VStr("cheap"))
-		requireJSON(t, "risk", objAt(w, "risk"), validation.VFloat(0.8))
-		requireJSON(t, "slot", objAt(w, "slot"), validation.VStr("now"))
+		requireJSON(t, "cost", validation.ObjAt(w, "cost"), validation.VStr("cheap"))
+		requireJSON(t, "risk", validation.ObjAt(w, "risk"), validation.VFloat(0.8))
+		requireJSON(t, "slot", validation.ObjAt(w, "slot"), validation.VStr("now"))
 		if r := pyStr(listOf(w, "components")[0]); r != "governor" &&
 			r != "guardian" {
 			t.Fatalf("components[0] = %q", r)
@@ -787,11 +787,11 @@ func TestPortDisproofOfLifecycleFindingAddsSibling(t *testing.T) {
 	plan := mustReadPlan(t, camp)
 	sibs := []validation.Value{}
 	for _, p := range listOf(plan, "priorities") {
-		if objStr(p, "sibling_of") == "F-001" {
+		if validation.ObjStr(p, "sibling_of") == "F-001" {
 			sibs = append(sibs, p)
 		}
 	}
-	if len(sibs) != 1 || objStr(sibs[0], "status") != "open" {
+	if len(sibs) != 1 || validation.ObjStr(sibs[0], "status") != "open" {
 		t.Fatalf("expected one open sibling: %s", validation.CanonCompact(plan))
 	}
 }
@@ -809,7 +809,7 @@ func TestPortAdjacentClearAddsNoPriority(t *testing.T) {
 		t.Fatalf("clear returned pid %q", pid)
 	}
 	for _, p := range listOf(mustReadPlan(t, camp), "priorities") {
-		if objStr(p, "sibling_of") == "F-001" {
+		if validation.ObjStr(p, "sibling_of") == "F-001" {
 			t.Fatalf("clear must add no priority")
 		}
 	}
@@ -861,7 +861,7 @@ func TestPortTransitionRejectsLifecycleDisproofWithoutAdjacent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ingest: %v", err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	if _, err := findings.Transition(camp, fid, "POSSIBLE", "triage", "", "",
 		false); err != nil {
 		t.Fatalf("transition POSSIBLE: %v", err)
@@ -875,7 +875,7 @@ func TestPortTransitionRejectsLifecycleDisproofWithoutAdjacent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load finding: %v", err)
 	}
-	requireJSON(t, "status not persisted", objAt(loaded, "status"),
+	requireJSON(t, "status not persisted", validation.ObjAt(loaded, "status"),
 		validation.VStr("POSSIBLE"))
 }
 
@@ -894,7 +894,7 @@ func TestPortTransitionDisproofWithAdjacentSpawnsSibling(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ingest: %v", err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	if _, err := findings.Transition(camp, fid, "POSSIBLE", "triage", "", "",
 		false); err != nil {
 		t.Fatalf("transition POSSIBLE: %v", err)
@@ -907,11 +907,11 @@ func TestPortTransitionDisproofWithAdjacentSpawnsSibling(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load finding: %v", err)
 	}
-	requireJSON(t, "status", objAt(loaded, "status"),
+	requireJSON(t, "status", validation.ObjAt(loaded, "status"),
 		validation.VStr("DISPROVED"))
 	sibs := []validation.Value{}
 	for _, p := range listOf(mustReadPlan(t, camp), "priorities") {
-		if objStr(p, "sibling_of") == fid {
+		if validation.ObjStr(p, "sibling_of") == fid {
 			sibs = append(sibs, p)
 		}
 	}

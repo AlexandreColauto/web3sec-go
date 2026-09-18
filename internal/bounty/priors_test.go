@@ -137,19 +137,19 @@ func TestGatePolicyOffStoresNoPriorKeys(t *testing.T) {
 	)
 	writeFinding(t, c, f)
 	installSeams(t, submissionReadySeams())
-	if _, err := EvaluateBountyGate(c, objStr(f, "finding_id"),
+	if _, err := EvaluateBountyGate(c, validation.ObjStr(f, "finding_id"),
 		testPolicy(), true); err != nil {
 		t.Fatal(err)
 	}
 	stored, err := validation.ReadJson(filepath.Join(c.FindingsDir,
-		objStr(f, "finding_id")+".json"))
+		validation.ObjStr(f, "finding_id")+".json"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	walkKeys(t, stored)
 	// ... and the stored number IS today's deterministic score.
 	want, _ := risk.AcceptanceScore(f)
-	gotScore := objAt(objAt(stored, "risk"), "acceptance_score")
+	gotScore := validation.ObjAt(validation.ObjAt(stored, "risk"), "acceptance_score")
 	if gotScore.F != validation.PythonRound(want, 2) {
 		t.Fatalf("stored score = %v, want %v", gotScore.F,
 			validation.PythonRound(want, 2))

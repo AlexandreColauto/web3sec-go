@@ -60,16 +60,16 @@ func RecordDrifts(c *state.Campaign, snapshotID string,
 // hunting questions. Implementation-weaker drifts (code does less than
 // promised) rank first.
 func DriftHypotheses(report validation.Value) []validation.Value {
-	drifts := objAt(report, "drifts")
+	drifts := validation.ObjAt(report, "drifts")
 	out := make([]validation.Value, 0, len(drifts.A))
 	for _, d := range drifts.A {
 		risk := driftRisk(d)
-		question := objStr(d, "claim") + " is promised, but reality is: " +
-			objStr(d, "reality") +
+		question := validation.ObjStr(d, "claim") + " is promised, but reality is: " +
+			validation.ObjStr(d, "reality") +
 			". What attacker-position does the gap create?"
 		out = append(out, validation.VObj(
-			kv("source", validation.VStr("drift:"+objStr(d, "id"))),
-			kv("layer", objAt(d, "layer")),
+			kv("source", validation.VStr("drift:"+validation.ObjStr(d, "id"))),
+			kv("layer", validation.ObjAt(d, "layer")),
 			kv("question", validation.VStr(question)),
 			kv("risk", risk)))
 	}
@@ -84,7 +84,7 @@ func driftRisk(d validation.Value) validation.Value {
 	if r, ok := fieldAt(d, "risk"); ok {
 		return r
 	}
-	if objStr(d, "direction") == "divergent" {
+	if validation.ObjStr(d, "direction") == "divergent" {
 		return validation.VFloat(0.5)
 	}
 	return validation.VFloat(0.8)
@@ -92,7 +92,7 @@ func driftRisk(d validation.Value) validation.Value {
 
 // riskOf reads the numeric risk a hypothesis carries (built above).
 func riskOf(h validation.Value) float64 {
-	r := objAt(h, "risk")
+	r := validation.ObjAt(h, "risk")
 	switch r.Kind {
 	case validation.Flt:
 		return r.F
@@ -111,23 +111,6 @@ func fieldAt(v validation.Value, key string) (validation.Value, bool) {
 		}
 	}
 	return validation.VNull(), false
-}
-
-// objAt is `d.get(key)`.
-func objAt(v validation.Value, key string) validation.Value {
-	if f, ok := fieldAt(v, key); ok {
-		return f
-	}
-	return validation.VNull()
-}
-
-// objStr is a string field's value ("" when absent/non-string).
-func objStr(v validation.Value, key string) string {
-	f := objAt(v, key)
-	if f.Kind == validation.Str {
-		return f.S
-	}
-	return ""
 }
 
 // kv is the vet-clean keyed KV constructor.

@@ -43,7 +43,7 @@ func setBand(f *validation.Value, band string) {
 }
 
 func setReversibility(f *validation.Value, rv string) {
-	riskObj := orObj(objAt(*f, "risk"))
+	riskObj := orObj(validation.ObjAt(*f, "risk"))
 	riskObj.O = setOrAppendR(riskObj.O, "reversibility", validation.VStr(rv))
 	(*f).O = setOrAppendR((*f).O, "risk", riskObj)
 }
@@ -85,7 +85,7 @@ func setAcceptedRisk(f *validation.Value) {
 // MERGES into dedup_meta (setAck replaces the whole object, so a second
 // withKeyR would wipe the ack — stacking fixtures need the merge).
 func setMitigation(f *validation.Value) {
-	dm := orObj(objAt(*f, "dedup_meta"))
+	dm := orObj(validation.ObjAt(*f, "dedup_meta"))
 	dm.O = setOrAppendR(dm.O, "mitigation_present",
 		validation.VStr(findings.MitigRecord("cei-order", "src/Escrow.sol",
 			23, "last write at L23 precedes call at L26")))
@@ -493,9 +493,9 @@ func TestOutlookEnumSync(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tout := objAt(objAt(objAt(objAt(objAt(doc, "properties"),
+	tout := validation.ObjAt(validation.ObjAt(validation.ObjAt(validation.ObjAt(validation.ObjAt(doc, "properties"),
 		"verification"), "properties"), "triager_outlook"), "properties")
-	enums := objAt(objAt(tout, "outcome"), "enum").A
+	enums := validation.ObjAt(validation.ObjAt(tout, "outcome"), "enum").A
 	var got []string
 	for _, e := range enums {
 		got = append(got, e.S)
@@ -547,12 +547,12 @@ func TestCombinedFactors(t *testing.T) {
 func idsR(got []AcceptanceEntry) []string {
 	out := []string{}
 	for _, e := range got {
-		out = append(out, orStr(objAt(e.Finding, "finding_id")))
+		out = append(out, orStr(validation.ObjAt(e.Finding, "finding_id")))
 	}
 	return out
 }
 
-func idR(e AcceptanceEntry) string { return orStr(objAt(e.Finding, "finding_id")) }
+func idR(e AcceptanceEntry) string { return orStr(validation.ObjAt(e.Finding, "finding_id")) }
 
 // ---- G3 wPrior: policy-gated OFF beside the outlook nudge ----
 //
@@ -591,7 +591,7 @@ func TestAcceptanceWithPriorsNilIsIdentical(t *testing.T) {
 	setAck(&full)
 	setAcceptedRisk(&full)
 	full = withKeyR(full, "dedup_meta", validation.VObj(
-		kvR("in_code_ack", objAt(objAt(full, "dedup_meta"), "in_code_ack")),
+		kvR("in_code_ack", validation.ObjAt(validation.ObjAt(full, "dedup_meta"), "in_code_ack")),
 		kvR("corroborated_by", validation.VStr("F-t"))))
 	full = withKeyR(full, "verification", validation.VObj(
 		kvR("critic_verdict", validation.VStr("confirmed")),
@@ -798,7 +798,7 @@ func TestAcceptanceMitigationAndRiskNeverShareAField(t *testing.T) {
 	}
 	// Field level: the mitigation JSON string carries no policy key.
 	var m map[string]string
-	ms := objStr(orObj(objAt(f, "dedup_meta")), "mitigation_present")
+	ms := validation.ObjStr(orObj(validation.ObjAt(f, "dedup_meta")), "mitigation_present")
 	if err := json.Unmarshal([]byte(ms), &m); err != nil {
 		t.Fatalf("mitigation_present must decode: %v", err)
 	}
@@ -809,7 +809,7 @@ func TestAcceptanceMitigationAndRiskNeverShareAField(t *testing.T) {
 		}
 	}
 	// Field level: the accepted-risk object carries no soundness key.
-	ar := objAt(orObj(objAt(f, "bounty")), "accepted_risk")
+	ar := validation.ObjAt(orObj(validation.ObjAt(f, "bounty")), "accepted_risk")
 	for _, banned := range []string{"file", "line", "evidence",
 		"mitigation_present"} {
 		if _, ok := fieldAtR(ar, banned); ok {

@@ -138,7 +138,7 @@ func TestStandaloneAndInlinedAssumptionSchemasCannotDrift(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assumptionDef, ok := lookupKey(objAt(finding, "definitions"), "assumption")
+	assumptionDef, ok := lookupKey(validation.ObjAt(finding, "definitions"), "assumption")
 	if !ok {
 		t.Fatal("finding.schema.json has no definitions.assumption")
 	}
@@ -182,7 +182,7 @@ func TestExistingFindingsLoadWithoutMigrationErrors(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	reloaded, err := LoadFinding(c, objStr(f, "finding_id"))
+	reloaded, err := LoadFinding(c, validation.ObjStr(f, "finding_id"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -210,7 +210,7 @@ func TestSetAssumptionsInstallsAndValidates(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	cv := int64(1)
 	got, err := SetAssumptions(c, fid, []validation.Value{
 		assumptionPayload(),
@@ -223,23 +223,23 @@ func TestSetAssumptionsInstallsAndValidates(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assumptions := objAt(got, "assumptions")
+	assumptions := validation.ObjAt(got, "assumptions")
 	if len(assumptions.A) != 2 {
 		t.Fatalf("assumptions = %d, want 2", len(assumptions.A))
 	}
-	if id := objStr(assumptions.A[0], "id"); id != "A1" {
+	if id := validation.ObjStr(assumptions.A[0], "id"); id != "A1" {
 		t.Errorf("assumptions[0].id = %q", id)
 	}
 	for _, a := range assumptions.A {
-		if st := objStr(a, "status"); st != "UNKNOWN" {
+		if st := validation.ObjStr(a, "status"); st != "UNKNOWN" {
 			t.Errorf("installed status = %q, want UNKNOWN", st)
 		}
 	}
-	if deps := objAt(assumptions.A[1], "dependencies"); len(deps.A) != 1 ||
+	if deps := validation.ObjAt(assumptions.A[1], "dependencies"); len(deps.A) != 1 ||
 		deps.A[0].S != "A1" {
 		t.Errorf("A2.dependencies = %v", deps)
 	}
-	if got := objAt(got, "claim_version").I; got != 1 {
+	if got := validation.ObjAt(got, "claim_version").I; got != 1 {
 		t.Errorf("claim_version = %d, want 1", got)
 	}
 	if err := validation.Validate(got, "finding", 1); err != nil {
@@ -251,7 +251,7 @@ func TestSetAssumptionsInstallsAndValidates(t *testing.T) {
 func TestSetAssumptionsRejectsPreEvidencedStatus(t *testing.T) {
 	c := ingestCamp(t)
 	f, _ := IngestHypothesis(c, assumptionHypo(), "code", "", "")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	_, err := SetAssumptions(c, fid, []validation.Value{
 		assumptionPayload(kv("status", validation.VStr("SUPPORTED")))}, nil, "")
 	wantErr(t, err, "start UNKNOWN")
@@ -274,7 +274,7 @@ func TestSetAssumptionsRejectsPreEvidencedStatus(t *testing.T) {
 func TestFlipWithOnlyModelBeliefIsRejected(t *testing.T) {
 	c := ingestCamp(t)
 	f, _ := IngestHypothesis(c, assumptionHypo(), "code", "", "")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	cv := int64(1)
 	if _, err := SetAssumptions(c, fid, []validation.Value{
 		assumptionPayload(kv("model_belief", validation.VFloat(0.99)))},
@@ -299,7 +299,7 @@ func TestFlipWithOnlyModelBeliefIsRejected(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if st := objStr(objAt(got, "assumptions").A[0], "status"); st != "UNKNOWN" {
+	if st := validation.ObjStr(validation.ObjAt(got, "assumptions").A[0], "status"); st != "UNKNOWN" {
 		t.Fatalf("status = %q, want UNKNOWN", st)
 	}
 }
@@ -308,7 +308,7 @@ func TestFlipWithOnlyModelBeliefIsRejected(t *testing.T) {
 func TestFlipWithHallucinatedArtifactIsRejected(t *testing.T) {
 	c := ingestCamp(t)
 	f, _ := IngestHypothesis(c, assumptionHypo(), "code", "", "")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	if _, err := SetAssumptions(c, fid, []validation.Value{
 		assumptionPayload()}, nil, ""); err != nil {
 		t.Fatal(err)
@@ -325,7 +325,7 @@ func TestFlipWithHallucinatedArtifactIsRejected(t *testing.T) {
 func TestFlipWithRealEvidenceSucceedsAndRecordsProvenance(t *testing.T) {
 	c := ingestCamp(t)
 	f, _ := IngestHypothesis(c, assumptionHypo(), "code", "", "")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	cv := int64(1)
 	if _, err := SetAssumptions(c, fid, []validation.Value{
 		assumptionPayload()}, &cv, ""); err != nil {
@@ -340,11 +340,11 @@ func TestFlipWithRealEvidenceSucceedsAndRecordsProvenance(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	a := objAt(got, "assumptions").A[0]
-	if st := objStr(a, "status"); st != "SUPPORTED" {
+	a := validation.ObjAt(got, "assumptions").A[0]
+	if st := validation.ObjStr(a, "status"); st != "SUPPORTED" {
 		t.Errorf("status = %q, want SUPPORTED", st)
 	}
-	if sup := objAt(a, "support"); len(sup.A) != 1 || sup.A[0].S != "EV-A1" {
+	if sup := validation.ObjAt(a, "support"); len(sup.A) != 1 || sup.A[0].S != "EV-A1" {
 		t.Errorf("support = %v", sup)
 	}
 	// the transition is in the hash-chained log
@@ -354,7 +354,7 @@ func TestFlipWithRealEvidenceSucceedsAndRecordsProvenance(t *testing.T) {
 	}
 	found := false
 	for _, e := range events {
-		if objStr(e, "type") == "finding.assumption_transition" {
+		if validation.ObjStr(e, "type") == "finding.assumption_transition" {
 			found = true
 		}
 	}
@@ -367,7 +367,7 @@ func TestFlipWithRealEvidenceSucceedsAndRecordsProvenance(t *testing.T) {
 func TestExecRecordAlwaysSatisfiesProvenance(t *testing.T) {
 	c := ingestCamp(t)
 	f, _ := IngestHypothesis(c, assumptionHypo(), "code", "", "")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	if _, err := SetAssumptions(c, fid, []validation.Value{
 		assumptionPayload(kv("type", validation.VStr("reachability")))},
 		nil, ""); err != nil {
@@ -375,14 +375,14 @@ func TestExecRecordAlwaysSatisfiesProvenance(t *testing.T) {
 	}
 	rec := testExec(t, c, "docker-networkless", fid, 0, "PASS: test_exploit\n")
 	if _, err := AssumptionTransition(c, fid, "A1", "SUPPORTED",
-		[]string{objStr(rec, "exec_id")}, ""); err != nil {
+		[]string{validation.ObjStr(rec, "exec_id")}, ""); err != nil {
 		t.Fatal(err)
 	}
 	got, err := LoadFinding(c, fid)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if st := objStr(objAt(got, "assumptions").A[0], "status"); st != "SUPPORTED" {
+	if st := validation.ObjStr(validation.ObjAt(got, "assumptions").A[0], "status"); st != "SUPPORTED" {
 		t.Fatalf("status = %q, want SUPPORTED", st)
 	}
 }
@@ -391,7 +391,7 @@ func TestExecRecordAlwaysSatisfiesProvenance(t *testing.T) {
 func TestSupportedToRefutedRequiresContradiction(t *testing.T) {
 	c := ingestCamp(t)
 	f, _ := IngestHypothesis(c, assumptionHypo(), "code", "", "")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	if _, err := SetAssumptions(c, fid, []validation.Value{
 		assumptionPayload()}, nil, ""); err != nil {
 		t.Fatal(err)
@@ -418,16 +418,16 @@ func TestSupportedToRefutedRequiresContradiction(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	a := objAt(got, "assumptions").A[0]
-	if st := objStr(a, "status"); st != "REFUTED" {
+	a := validation.ObjAt(got, "assumptions").A[0]
+	if st := validation.ObjStr(a, "status"); st != "REFUTED" {
 		t.Errorf("status = %q, want REFUTED", st)
 	}
-	if cs := objAt(a, "contradictions"); len(cs.A) != 1 ||
+	if cs := validation.ObjAt(a, "contradictions"); len(cs.A) != 1 ||
 		cs.A[0].S != "EV-X1" {
 		t.Errorf("contradictions = %v", cs)
 	}
 	// both sides remain on record
-	if sup := objAt(a, "support"); len(sup.A) != 1 || sup.A[0].S != "EV-A1" {
+	if sup := validation.ObjAt(a, "support"); len(sup.A) != 1 || sup.A[0].S != "EV-A1" {
 		t.Errorf("support = %v", sup)
 	}
 }
@@ -436,7 +436,7 @@ func TestSupportedToRefutedRequiresContradiction(t *testing.T) {
 func TestRefutedToSupportedIsLegalWithNewProvenance(t *testing.T) {
 	c := ingestCamp(t)
 	f, _ := IngestHypothesis(c, assumptionHypo(), "code", "", "")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	if _, err := SetAssumptions(c, fid, []validation.Value{
 		assumptionPayload()}, nil, ""); err != nil {
 		t.Fatal(err)
@@ -452,7 +452,7 @@ func TestRefutedToSupportedIsLegalWithNewProvenance(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if st := objStr(objAt(got, "assumptions").A[0], "status"); st != "SUPPORTED" {
+	if st := validation.ObjStr(validation.ObjAt(got, "assumptions").A[0], "status"); st != "SUPPORTED" {
 		t.Fatalf("status = %q, want SUPPORTED", st)
 	}
 }
@@ -461,7 +461,7 @@ func TestRefutedToSupportedIsLegalWithNewProvenance(t *testing.T) {
 func TestIllegalMovesAndUnknownIDsRejected(t *testing.T) {
 	c := ingestCamp(t)
 	f, _ := IngestHypothesis(c, assumptionHypo(), "code", "", "")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	if _, err := SetAssumptions(c, fid, []validation.Value{
 		assumptionPayload()}, nil, ""); err != nil {
 		t.Fatal(err)
@@ -488,7 +488,7 @@ func TestIllegalMovesAndUnknownIDsRejected(t *testing.T) {
 func TestTransitionEventCarriesVersionsAndKinds(t *testing.T) {
 	c := ingestCamp(t)
 	f, _ := IngestHypothesis(c, assumptionHypo(), "code", "", "")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	cv := int64(3)
 	if _, err := SetAssumptions(c, fid, []validation.Value{
 		assumptionPayload()}, &cv, ""); err != nil {
@@ -506,7 +506,7 @@ func TestTransitionEventCarriesVersionsAndKinds(t *testing.T) {
 	var ev validation.Value
 	found := false
 	for _, e := range events {
-		if objStr(e, "type") == "finding.assumption_transition" {
+		if validation.ObjStr(e, "type") == "finding.assumption_transition" {
 			ev, found = e, true
 			break
 		}
@@ -514,15 +514,15 @@ func TestTransitionEventCarriesVersionsAndKinds(t *testing.T) {
 	if !found {
 		t.Fatal("no finding.assumption_transition event")
 	}
-	data := objAt(ev, "data")
-	if got := objAt(data, "claim_version").I; got != 3 {
+	data := validation.ObjAt(ev, "data")
+	if got := validation.ObjAt(data, "claim_version").I; got != 3 {
 		t.Errorf("claim_version = %d, want 3", got)
 	}
-	if kinds := objAt(data, "kinds"); len(kinds.A) != 1 ||
+	if kinds := validation.ObjAt(data, "kinds"); len(kinds.A) != 1 ||
 		kinds.A[0].S != "evidence" {
 		t.Errorf("kinds = %v", kinds)
 	}
-	if ids := objAt(data, "evidence_ids"); len(ids.A) != 1 ||
+	if ids := validation.ObjAt(data, "evidence_ids"); len(ids.A) != 1 ||
 		ids.A[0].S != "EV-A1" {
 		t.Errorf("evidence_ids = %v", ids)
 	}

@@ -117,9 +117,9 @@ func showLoadedModel(c *state.Campaign, stdout io.Writer, asJSON bool) error {
 		return nil
 	}
 	fmt.Fprintf(stdout, "model: %d actors, %d assets, %d invariants, "+
-		"%d relations\n", t14PyLen(objAt(m, "actors")),
-		t14PyLen(objAt(m, "assets")), t14PyLen(objAt(m, "invariants")),
-		t14PyLen(objAt(m, "relations")))
+		"%d relations\n", t14PyLen(validation.ObjAt(m, "actors")),
+		t14PyLen(validation.ObjAt(m, "assets")), t14PyLen(validation.ObjAt(m, "invariants")),
+		t14PyLen(validation.ObjAt(m, "relations")))
 	return nil
 }
 
@@ -153,10 +153,10 @@ func loadModelFile(c *state.Campaign, path string, stdout, stderr io.Writer,
 		t14PrintJSON(stdout, res)
 		return nil
 	}
-	m := objAt(res, "model")
+	m := validation.ObjAt(res, "model")
 	fmt.Fprintf(stdout, "model loaded: %d actors, %d assets, %d invariants\n",
-		t14PyLen(objAt(m, "actors")), t14PyLen(objAt(m, "assets")),
-		t14PyLen(objAt(m, "invariants")))
+		t14PyLen(validation.ObjAt(m, "actors")), t14PyLen(validation.ObjAt(m, "assets")),
+		t14PyLen(validation.ObjAt(m, "invariants")))
 	seeded := objInt(res, "invariants_seeded")
 	registered := objInt(res, "invariants_registered")
 	if seeded == 0 {
@@ -168,8 +168,8 @@ func loadModelFile(c *state.Campaign, path string, stdout, stderr io.Writer,
 		fmt.Fprintf(stdout, "  invariant registry: %d invariant(s) "+
 			"(%d from this load)\n", registered, seeded)
 	}
-	recon := objAt(res, "invariant_reconciliation")
-	missing := objAt(recon, "missing_from_model")
+	recon := validation.ObjAt(res, "invariant_reconciliation")
+	missing := validation.ObjAt(recon, "missing_from_model")
 	if t14PyLen(missing) > 0 {
 		names := make([]string, 0, len(missing.A))
 		for _, v := range missing.A {
@@ -177,9 +177,9 @@ func loadModelFile(c *state.Campaign, path string, stdout, stderr io.Writer,
 		}
 		fmt.Fprintf(stdout, "  RECONCILIATION: documented invariants missing "+
 			"from the model: %s\n", strings.Join(names, ", "))
-		fmt.Fprintf(stdout, "      %s\n", objStr(recon, "note"))
+		fmt.Fprintf(stdout, "      %s\n", validation.ObjStr(recon, "note"))
 	} else {
-		fmt.Fprintf(stdout, "  reconciliation: %s\n", objStr(recon, "note"))
+		fmt.Fprintf(stdout, "  reconciliation: %s\n", validation.ObjStr(recon, "note"))
 	}
 	if merged {
 		// I4: the merge summary is additive output — every line above is

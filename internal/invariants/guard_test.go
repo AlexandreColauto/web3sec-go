@@ -208,7 +208,7 @@ func TestGuardrailBlocksLevelRiseOnUnverifiedModelInvariant(t *testing.T) {
 		t.Fatal(err)
 	}
 	f := findingWithInvariant(t, c, "INV-2")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	if _, err := findings.Transition(c, fid, "POSSIBLE", "triage",
 		"", "", false); err != nil {
 		t.Fatal(err)
@@ -226,7 +226,7 @@ func TestGuardrailPassesAfterVerification(t *testing.T) {
 		t.Fatal(err)
 	}
 	f := findingWithInvariant(t, c, "INV-2")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	artID := registeredArtifact(t, c, "inv-check.md", "INV-2 checked\n")
 	if _, err := VerifyInvariantStatement(c, "INV-2", artID); err != nil {
 		t.Fatal(err)
@@ -241,7 +241,7 @@ func TestGuardrailPassesAfterVerification(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := len(objAt(out, "evidence").A); got != 1 {
+	if got := len(validation.ObjAt(out, "evidence").A); got != 1 {
 		t.Errorf("evidence count = %d, want 1", got)
 	}
 }
@@ -254,7 +254,7 @@ func TestGuardrailExemptsDocumentedInvariants(t *testing.T) {
 		t.Fatal(err)
 	}
 	f := findingWithInvariant(t, c, "INV-2") // now source == documented
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	if _, err := findings.Transition(c, fid, "POSSIBLE", "triage",
 		"", "", false); err != nil {
 		t.Fatal(err)
@@ -265,7 +265,7 @@ func TestGuardrailExemptsDocumentedInvariants(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := len(objAt(out, "evidence").A); got != 1 {
+	if got := len(validation.ObjAt(out, "evidence").A); got != 1 {
 		t.Errorf("evidence count = %d, want 1", got)
 	}
 }
@@ -277,12 +277,12 @@ func TestLevelNeutralAddOnUnverifiedModelInvariantAllowed(t *testing.T) {
 		t.Fatal(err)
 	}
 	f := findingWithInvariant(t, c, "INV-2")
-	out, err := findings.AddEvidence(c, objStr(f, "finding_id"),
+	out, err := findings.AddEvidence(c, validation.ObjStr(f, "finding_id"),
 		manualNote("EV-note", "E0"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := len(objAt(out, "evidence").A); got != 1 {
+	if got := len(validation.ObjAt(out, "evidence").A); got != 1 {
 		t.Errorf("evidence count = %d, want 1", got)
 	}
 }
@@ -294,7 +294,7 @@ func TestSubE4RiseOnUnverifiedModelInvariantBlocked(t *testing.T) {
 		t.Fatal(err)
 	}
 	f := findingWithInvariant(t, c, "INV-2")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	if _, err := findings.Transition(c, fid, "POSSIBLE", "triage",
 		"", "", false); err != nil {
 		t.Fatal(err)
@@ -381,8 +381,8 @@ func TestHandEditedContradictedWithoutEventBlocks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	reg := objAt(links, "invariants")
-	entry := objAt(reg, "INV-2")
+	reg := validation.ObjAt(links, "invariants")
+	entry := validation.ObjAt(reg, "INV-2")
 	entry.O = validation.SetOrAppend(entry.O, "status", validation.VStr("CONTRADICTED"))
 	entry.O = validation.SetOrAppend(entry.O, "contradiction",
 		validation.VStr("src/V.sol#L40"))
@@ -483,8 +483,8 @@ func TestHandEditedCheckedWithRegisteredArtifactBlocked(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	reg := objAt(links, "invariants")
-	entry := objAt(reg, "INV-2")
+	reg := validation.ObjAt(links, "invariants")
+	entry := validation.ObjAt(reg, "INV-2")
 	entry.O = validation.SetOrAppend(entry.O, "status",
 		validation.VStr("CHECKED_AGAINST_CODE"))
 	entry.O = validation.SetOrAppend(entry.O, "verified_by", validation.VStr(artID))
@@ -511,7 +511,7 @@ func TestUnknownInvariantIDBlocksBothHalves(t *testing.T) {
 		t.Fatal(err)
 	}
 	f := findingWithInvariant(t, c, "INV-999")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	if _, err := findings.Transition(c, fid, "POSSIBLE", "triage",
 		"", "", false); err != nil {
 		t.Fatal(err)
@@ -552,13 +552,13 @@ func TestLegacyEntryMigratesOnRead(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(e, "test_status"); got != "held" {
+	if got := validation.ObjStr(e, "test_status"); got != "held" {
 		t.Errorf("test_status = %q, want held (old axis preserved)", got)
 	}
-	if got := objStr(e, "status"); got != "UNVERIFIED" {
+	if got := validation.ObjStr(e, "status"); got != "UNVERIFIED" {
 		t.Errorf("status = %q, want UNVERIFIED", got)
 	}
-	if got := objStr(e, "source"); got != "model" {
+	if got := validation.ObjStr(e, "source"); got != "model" {
 		t.Errorf("source = %q, want model", got)
 	}
 	events := mustEvents(t, c)
@@ -573,7 +573,7 @@ func TestLegacyEntryMigratesOnRead(t *testing.T) {
 		t.Errorf("invariant.migrated events = %d, want 1", n)
 	}
 	f := findingWithInvariant(t, c, "INV-9")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	if _, err := findings.Transition(c, fid, "POSSIBLE", "triage",
 		"", "", false); err != nil {
 		t.Fatal(err)
@@ -595,8 +595,8 @@ func mustEvents(t *testing.T, c *state.Campaign) []validation.Value {
 
 func hasMigrated(events []validation.Value, ref string) bool {
 	for _, ev := range events {
-		if objStr(ev, "type") == "invariant.migrated" &&
-			objStr(ev, "ref") == ref {
+		if validation.ObjStr(ev, "type") == "invariant.migrated" &&
+			validation.ObjStr(ev, "ref") == ref {
 			return true
 		}
 	}
@@ -606,7 +606,7 @@ func hasMigrated(events []validation.Value, ref string) bool {
 func countMigrated(events []validation.Value) int {
 	n := 0
 	for _, ev := range events {
-		if objStr(ev, "type") == "invariant.migrated" {
+		if validation.ObjStr(ev, "type") == "invariant.migrated" {
 			n++
 		}
 	}
@@ -646,7 +646,7 @@ func TestZeroPaddedCitationGetsDocumentedExemption(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	if _, err := findings.Transition(c, fid, "POSSIBLE", "triage",
 		"", "", false); err != nil {
 		t.Fatal(err)
@@ -657,7 +657,7 @@ func TestZeroPaddedCitationGetsDocumentedExemption(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := len(objAt(out, "evidence").A); got != 1 {
+	if got := len(validation.ObjAt(out, "evidence").A); got != 1 {
 		t.Errorf("evidence count = %d, want 1", got)
 	}
 }
@@ -669,7 +669,7 @@ func TestZeroPaddedCitationStillBlockedWhenUnverified(t *testing.T) {
 		t.Fatal(err)
 	}
 	f := findingWithInvariant(t, c, "INV-001")
-	_, err := findings.AddEvidence(c, objStr(f, "finding_id"),
+	_, err := findings.AddEvidence(c, validation.ObjStr(f, "finding_id"),
 		manualNote("EV-note", "E1"))
 	wantErr(t, err, "invariant")
 }
@@ -682,19 +682,19 @@ func TestZeroPaddedRegistryKeyMatchesNormalizedDoc(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	entry := objAt(objAt(links, "invariants"), "INV-001")
-	if got := objStr(entry, "source"); got != "documented" {
+	entry := validation.ObjAt(validation.ObjAt(links, "invariants"), "INV-001")
+	if got := validation.ObjStr(entry, "source"); got != "documented" {
 		t.Fatalf("INV-001 source = %q, want documented", got)
 	}
 	for _, cited := range []string{"INV-001", "INV-1"} {
 		f := findingWithInvariant(t, c, cited)
 		eid := "EV-" + strings.ReplaceAll(cited, "-", "")
-		out, err := findings.AddEvidence(c, objStr(f, "finding_id"),
+		out, err := findings.AddEvidence(c, validation.ObjStr(f, "finding_id"),
 			manualNote(eid, "E1"))
 		if err != nil {
 			t.Fatal(err)
 		}
-		if got := len(objAt(out, "evidence").A); got != 1 {
+		if got := len(validation.ObjAt(out, "evidence").A); got != 1 {
 			t.Errorf("%s: evidence count = %d, want 1", cited, got)
 		}
 	}
@@ -806,7 +806,7 @@ func TestGuardMessagesMatchGoPin(t *testing.T) {
 	}
 	for i, tc := range cases {
 		row := want.A[i]
-		if got := objStr(row, "label"); got != tc.label {
+		if got := validation.ObjStr(row, "label"); got != tc.label {
 			t.Fatalf("golden row %d label = %q, want %q", i, got, tc.label)
 		}
 		got := ""
@@ -821,7 +821,7 @@ func TestGuardMessagesMatchGoPin(t *testing.T) {
 		t.Fatal(err)
 	}
 	last := want.A[len(want.A)-1]
-	if got := objStr(last, "label"); got != "verified_passes" {
+	if got := validation.ObjStr(last, "label"); got != "verified_passes" {
 		t.Fatalf("last golden label = %q, want verified_passes", got)
 	}
 	if err := AssertInvariantsVerified(c, invCite("INV-2")); err != nil {
@@ -833,7 +833,7 @@ func TestGuardMessagesMatchGoPin(t *testing.T) {
 
 // errText reads a {label, error} golden row, mapping JSON null to "".
 func errText(row validation.Value) string {
-	v := objAt(row, "error")
+	v := validation.ObjAt(row, "error")
 	if v.Kind != validation.Str {
 		return ""
 	}

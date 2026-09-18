@@ -71,11 +71,11 @@ func runComplete(root string, args []string, r *Runner) int {
 			if pr.Kind != validation.Obj {
 				continue
 			}
-			if !t14Truthy(objAt(pr, "authoritative")) ||
-				t14Truthy(objAt(pr, "done")) {
+			if !t14Truthy(validation.ObjAt(pr, "authoritative")) ||
+				t14Truthy(validation.ObjAt(pr, "done")) {
 				continue
 			}
-			missing := t31Strings(objAt(pr, "missing"))
+			missing := t31Strings(validation.ObjAt(pr, "missing"))
 			if len(missing) > 2 {
 				missing = missing[:2]
 			}

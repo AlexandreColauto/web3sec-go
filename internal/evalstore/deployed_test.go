@@ -42,18 +42,18 @@ func TestAddCaseKeepsSuppliedDeployedAt(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AddCase: %v", err)
 	}
-	if got := objAt(stored, "deployed_at"); got.Kind != validation.Str || got.S != "2024-03-14" {
+	if got := validation.ObjAt(stored, "deployed_at"); got.Kind != validation.Str || got.S != "2024-03-14" {
 		t.Fatalf("supplied deployed_at not preserved: %s", validation.CanonCompact(got))
 	}
 	// The ingestion stamp is still AddCase's own, distinct from deployed_at.
-	if got := objAt(stored, "created_at"); got.Kind != validation.Str || got.S == "2024-03-14" {
+	if got := validation.ObjAt(stored, "created_at"); got.Kind != validation.Str || got.S == "2024-03-14" {
 		t.Fatalf("created_at overwritten by deployed_at: %s", validation.CanonCompact(got))
 	}
 	loaded, err := LoadCase(id)
 	if err != nil {
 		t.Fatalf("LoadCase: %v", err)
 	}
-	if got := objAt(loaded, "deployed_at"); got.Kind != validation.Str || got.S != "2024-03-14" {
+	if got := validation.ObjAt(loaded, "deployed_at"); got.Kind != validation.Str || got.S != "2024-03-14" {
 		t.Fatalf("deployed_at lost on the on-disk round-trip: %s", validation.CanonCompact(got))
 	}
 	if got := VerifyEvalStore(); !got.OK {
@@ -71,14 +71,14 @@ func TestAddCaseWithoutDeployedAtStaysAbsent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AddCase without deployed_at: %v", err)
 	}
-	if got := objAt(stored, "deployed_at"); got.Kind != validation.Null {
+	if got := validation.ObjAt(stored, "deployed_at"); got.Kind != validation.Null {
 		t.Fatalf("absent deployed_at was defaulted: %s", validation.CanonCompact(got))
 	}
 	loaded, err := LoadCase(id)
 	if err != nil {
 		t.Fatalf("LoadCase: %v", err)
 	}
-	if got := objAt(loaded, "deployed_at"); got.Kind != validation.Null {
+	if got := validation.ObjAt(loaded, "deployed_at"); got.Kind != validation.Null {
 		t.Fatalf("absent deployed_at appeared on disk: %s", validation.CanonCompact(got))
 	}
 }
@@ -101,9 +101,9 @@ func TestEvalSuiteRowsCarryDeployedAt(t *testing.T) {
 		if err := validation.Validate(c, "evaluation_case", 1); err != nil {
 			t.Fatalf("suite row %d invalid under the amended schema: %v", i, err)
 		}
-		dep := objAt(c, "deployed_at")
+		dep := validation.ObjAt(c, "deployed_at")
 		if dep.Kind != validation.Str {
-			t.Fatalf("suite row %d (%s) has no deployed_at", i, objAt(c, "case_id").S)
+			t.Fatalf("suite row %d (%s) has no deployed_at", i, validation.ObjAt(c, "case_id").S)
 		}
 		if !ymd.MatchString(dep.S) {
 			t.Fatalf("suite row %d deployed_at %q is not YYYY-MM-DD",

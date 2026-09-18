@@ -42,7 +42,7 @@ func mkBareHypothesis(t *testing.T, camp *state.Campaign, title string) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return objStr(f, "finding_id")
+	return validation.ObjStr(f, "finding_id")
 }
 
 // persistAcceptanceScore emulates the gate storing the A3 score on a
@@ -55,7 +55,7 @@ func persistAcceptanceScore(t *testing.T, camp *state.Campaign,
 	if err != nil {
 		t.Fatal(err)
 	}
-	r := objAt(f, "risk")
+	r := validation.ObjAt(f, "risk")
 	if r.Kind != validation.Obj {
 		r = validation.VObj()
 	}
@@ -72,7 +72,7 @@ func TestReportPrecisionBlock(t *testing.T) {
 	// f1: full CONFIRMED finding — critic confirmed, E4+E7 (clears the E4
 	// floor): critic-confirmed AND evidence-confirmed.
 	f1 := mk(t, camp, "d1", "deposit", "Empty-pool 1:1 mint via deposit")
-	fid1 := objStr(f1, "finding_id")
+	fid1 := validation.ObjStr(f1, "finding_id")
 
 	// f2: bare HYPOTHESIS with a confirmed critic — critic-confirmed but
 	// zero evidence (not evidence-confirmed).
@@ -161,9 +161,9 @@ func tableRegion(text, header string) string {
 func TestReportPrecisionBudget(t *testing.T) {
 	camp := clusterCamp(t)
 	f1 := mk(t, camp, "d1", "deposit", "Empty-pool 1:1 mint via deposit")
-	fid1 := objStr(f1, "finding_id")
+	fid1 := validation.ObjStr(f1, "finding_id")
 	f2 := mk(t, camp, "d2", "deposit", "Deposit share-price set by first actor")
-	fid2 := objStr(f2, "finding_id")
+	fid2 := validation.ObjStr(f2, "finding_id")
 
 	patchPolicy := func(t *testing.T, budget validation.Value) {
 		t.Helper()
@@ -243,7 +243,7 @@ func TestReportPrecisionAbsence(t *testing.T) {
 func mkEvidenceOnlyFinding(t *testing.T, camp *state.Campaign, hint,
 	function, title, verdict string) string {
 	t.Helper()
-	fid := objStr(mk(t, camp, hint, function, title), "finding_id")
+	fid := validation.ObjStr(mk(t, camp, hint, function, title), "finding_id")
 	if _, err := findings.SetCriticVerdict(camp, fid, verdict,
 		"the claimed mechanism does not carry the exploit"); err != nil {
 		t.Fatal(err)
@@ -298,7 +298,7 @@ func TestReportPrecisionRatioNeverNegative(t *testing.T) {
 			// printed (1-2)/1 = -100.0%.
 			name: "evidence-confirmed exceeds critic-confirmed",
 			seed: func(t *testing.T, camp *state.Campaign) {
-				fid := objStr(mk(t, camp, "d1", "deposit",
+				fid := validation.ObjStr(mk(t, camp, "d1", "deposit",
 					"Empty-pool 1:1 mint via deposit"), "finding_id")
 				persistAcceptanceScore(t, camp, fid, 4.5)
 				mkEvidenceOnlyFinding(t, camp, "d2", "deposit",
@@ -311,7 +311,7 @@ func TestReportPrecisionRatioNeverNegative(t *testing.T) {
 			// findings never cleared the floor.
 			name: "half the critic-confirmed findings lack evidence",
 			seed: func(t *testing.T, camp *state.Campaign) {
-				fid := objStr(mk(t, camp, "d1", "deposit",
+				fid := validation.ObjStr(mk(t, camp, "d1", "deposit",
 					"Empty-pool 1:1 mint via deposit"), "finding_id")
 				persistAcceptanceScore(t, camp, fid, 4.5)
 				bare := mkBareHypothesis(t, camp,
@@ -390,10 +390,10 @@ func TestReportPrecisionRatioNoCriticConfirmed(t *testing.T) {
 func TestReportPrecisionExcludesSuperseded(t *testing.T) {
 	camp := clusterCamp(t)
 	f1 := mk(t, camp, "d1", "deposit", "Empty-pool 1:1 mint via deposit")
-	fid1 := objStr(f1, "finding_id")
+	fid1 := validation.ObjStr(f1, "finding_id")
 	old := mk(t, camp, "d2", "deposit",
 		"Deposit share-price set by first actor")
-	oldID := objStr(old, "finding_id")
+	oldID := validation.ObjStr(old, "finding_id")
 	newID := mkBareHypothesis(t, camp, "ShareVault restated inflation")
 	if _, err := findings.Supersede(camp, newID, oldID, "model"); err != nil {
 		t.Fatal(err)

@@ -83,21 +83,21 @@ func TestSweepFlagsSharePriceInflation(t *testing.T) {
 	}
 	var spi validation.Value
 	for _, r := range listAt(report, "class_exposure") {
-		if objStr(r, "bug_class") == "share-price-inflation" {
+		if validation.ObjStr(r, "bug_class") == "share-price-inflation" {
 			spi = r
 		}
 	}
 	if spi.Kind != validation.Obj {
 		t.Fatal("share-price-inflation must be probed")
 	}
-	if !objAt(spi, "exposed").B {
+	if !validation.ObjAt(spi, "exposed").B {
 		t.Fatalf("delegated ratio site (_previewDeposit) not detected: %v",
 			listAt(spi, "hits"))
 	}
 	// the hit must point at the ratio site or its entry caller
 	var ids []string
 	for _, h := range listAt(spi, "hits") {
-		ids = append(ids, objStr(h, "node_id"))
+		ids = append(ids, validation.ObjStr(h, "node_id"))
 	}
 	joined := strings.Join(ids, " ")
 	if !strings.Contains(joined, "_previewDeposit") && !strings.Contains(joined, "deposit") {
@@ -136,8 +136,8 @@ func TestNoModelCallsAnywhereInSweep(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(report, "campaign_id") != c.CampaignID {
-		t.Fatalf("campaign_id = %q, want %q", objStr(report, "campaign_id"),
+	if validation.ObjStr(report, "campaign_id") != c.CampaignID {
+		t.Fatalf("campaign_id = %q, want %q", validation.ObjStr(report, "campaign_id"),
 			c.CampaignID)
 	}
 }

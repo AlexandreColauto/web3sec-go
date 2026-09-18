@@ -92,27 +92,27 @@ func IngestRecord(record validation.Value, maps *validation.Value) (Result, erro
 	if record.Kind != validation.Obj {
 		return Result{}, errors.New("an ingestion record must be a dict")
 	}
-	dataset := objStr(record, "dataset")
+	dataset := validation.ObjStr(record, "dataset")
 	if !inList(dataset, datasets) {
 		return Result{}, fmt.Errorf("record %s: unknown dataset %s",
-			validation.PyRepr(objAt(record, "id")),
-			validation.PyRepr(objAt(record, "dataset")))
+			validation.PyRepr(validation.ObjAt(record, "id")),
+			validation.PyRepr(validation.ObjAt(record, "dataset")))
 	}
-	rid := objAt(record, "id")
+	rid := validation.ObjAt(record, "id")
 	if rid.Kind != validation.Str || rid.S == "" {
 		return Result{}, errors.New("record 'id' must be a non-empty string")
 	}
-	outcome := objStr(record, "outcome")
+	outcome := validation.ObjStr(record, "outcome")
 	if !inList(outcome, Outcomes) {
 		return Result{}, fmt.Errorf("record %s: unknown outcome %s; expected "+
 			"one of %s", validation.PyReprStr(rid.S),
-			validation.PyRepr(objAt(record, "outcome")), pyTuple(Outcomes))
+			validation.PyRepr(validation.ObjAt(record, "outcome")), pyTuple(Outcomes))
 	}
-	partition := objStr(record, "partition")
+	partition := validation.ObjStr(record, "partition")
 	if !inList(partition, []string{"dev", "held-out", "training"}) {
 		return Result{}, fmt.Errorf("record %s: unknown partition %s",
 			validation.PyReprStr(rid.S),
-			validation.PyRepr(objAt(record, "partition")))
+			validation.PyRepr(validation.ObjAt(record, "partition")))
 	}
 	title, err := requireStr(record, "title", 5, 500)
 	if err != nil {
@@ -126,14 +126,14 @@ func IngestRecord(record validation.Value, maps *validation.Value) (Result, erro
 	if err != nil {
 		return Result{}, err
 	}
-	negative := truthy(objAt(record, "negative"))
-	prior := truthy(objAt(record, "prior"))
+	negative := truthy(validation.ObjAt(record, "negative"))
+	prior := truthy(validation.ObjAt(record, "prior"))
 	if negative && prior {
 		return Result{}, fmt.Errorf(
 			"record %s: 'negative' and 'prior' are mutually exclusive",
 			validation.PyReprStr(rid.S))
 	}
-	pattern := objAt(record, "pattern")
+	pattern := validation.ObjAt(record, "pattern")
 	if negative || prior {
 		n := utf8.RuneCountInString(pattern.S)
 		if pattern.Kind != validation.Str || n < 10 || n > 500 {
@@ -142,14 +142,14 @@ func IngestRecord(record validation.Value, maps *validation.Value) (Result, erro
 					"'negative' or 'prior' is set", validation.PyReprStr(rid.S))
 		}
 	}
-	program := objAt(record, "program")
-	programName := objStr(program, "program")
+	program := validation.ObjAt(record, "program")
+	programName := validation.ObjStr(program, "program")
 	if programName == "" {
 		return Result{}, fmt.Errorf(
 			"record %s: program.program must be non-empty",
 			validation.PyReprStr(rid.S))
 	}
-	label := strOrNil(objAt(record, "bug_class_label"))
+	label := strOrNil(validation.ObjAt(record, "bug_class_label"))
 	canonical, mapped, err := taxonomy.NormalizeClass(label, maps)
 	if err != nil {
 		return Result{}, err
@@ -159,15 +159,15 @@ func IngestRecord(record validation.Value, maps *validation.Value) (Result, erro
 		{K: "dataset", V: validation.VStr(dataset)},
 		{K: "record_id", V: validation.VStr(rid.S)},
 	}
-	if u := objAt(record, "url"); truthy(u) {
+	if u := validation.ObjAt(record, "url"); truthy(u) {
 		source = append(source, validation.KV{K: "url", V: u})
 	}
 	locations, err := buildLocations(record, rid.S)
 	if err != nil {
 		return Result{}, err
 	}
-	codeIn := objAt(record, "code")
-	repo := objStr(codeIn, "repo")
+	codeIn := validation.ObjAt(record, "code")
+	repo := validation.ObjStr(codeIn, "repo")
 	if repo == "" {
 		return Result{}, fmt.Errorf("record %s: code.repo must be non-empty",
 			validation.PyReprStr(rid.S))
@@ -179,7 +179,7 @@ func IngestRecord(record validation.Value, maps *validation.Value) (Result, erro
 	evalCase := buildEvalCase(evalCaseArgs{
 		caseID: caseID, source: source, partition: partition,
 		program: program, programName: programName, outcome: outcome,
-		canonical: canonical, severity: objAt(record, "severity"),
+		canonical: canonical, severity: validation.ObjAt(record, "severity"),
 		rootCause: rootCause, locations: locations, code: code,
 		notes: truncRunes(title+"\n\n"+description, 1000),
 	})
@@ -200,7 +200,7 @@ func IngestRecord(record validation.Value, maps *validation.Value) (Result, erro
 			validation.KV{K: "repo", V: validation.VStr(repo)},
 			validation.KV{K: "commit", V: nullIfAbsent(codeIn, "commit")},
 			validation.KV{K: "focus_files", V: validation.VArr(
-				valsOf(objAt(codeIn, "files"))...)},
+				valsOf(validation.ObjAt(codeIn, "files"))...)},
 			validation.KV{K: "expected", V: validation.VObj(
 				validation.KV{K: "outcome", V: validation.VStr(outcome)},
 				validation.KV{K: "bug_class", V: validation.VStr(canonical)},
@@ -215,14 +215,14 @@ func IngestRecord(record validation.Value, maps *validation.Value) (Result, erro
 
 func buildLocations(record validation.Value, rid string) ([]validation.Value, error) {
 	out := []validation.Value{}
-	for _, loc := range valsOf(objAt(record, "locations")) {
-		file := objStr(loc, "file")
+	for _, loc := range valsOf(validation.ObjAt(record, "locations")) {
+		file := validation.ObjStr(loc, "file")
 		if loc.Kind != validation.Obj || file == "" {
 			return nil, fmt.Errorf("record %s: each location needs a 'file'",
 				validation.PyReprStr(rid))
 		}
 		entry := []validation.KV{{K: "file", V: validation.VStr(file)}}
-		if line := objAt(loc, "line"); line.Kind != validation.Null {
+		if line := validation.ObjAt(loc, "line"); line.Kind != validation.Null {
 			entry = append(entry, validation.KV{K: "line", V: line})
 		}
 		out = append(out, validation.VObj(entry...))
@@ -232,14 +232,14 @@ func buildLocations(record validation.Value, rid string) ([]validation.Value, er
 
 func buildCode(codeIn validation.Value, repo string) (validation.Value, error) {
 	out := []validation.KV{{K: "repo", V: validation.VStr(repo)}}
-	if v := objAt(codeIn, "commit"); truthy(v) {
+	if v := validation.ObjAt(codeIn, "commit"); truthy(v) {
 		out = append(out, validation.KV{K: "commit", V: v})
 	}
-	if v := objAt(codeIn, "files"); truthy(v) {
+	if v := validation.ObjAt(codeIn, "files"); truthy(v) {
 		out = append(out, validation.KV{K: "files", V: validation.VArr(
 			valsOf(v)...)})
 	}
-	if v := objAt(codeIn, "snapshot_note"); truthy(v) {
+	if v := validation.ObjAt(codeIn, "snapshot_note"); truthy(v) {
 		out = append(out, validation.KV{K: "snapshot_note", V: v})
 	}
 	return validation.VObj(out...), nil
@@ -269,7 +269,7 @@ func buildEvalCase(a evalCaseArgs) validation.Value {
 			validation.KV{K: "program", V: validation.VStr(a.programName)},
 			validation.KV{K: "platform", V: nullIfAbsent(a.program, "platform")},
 			validation.KV{K: "chains", V: validation.VArr(
-				valsOf(objAt(a.program, "chains"))...)})},
+				valsOf(validation.ObjAt(a.program, "chains"))...)})},
 		validation.KV{K: "gold", V: validation.VObj(
 			validation.KV{K: "outcome", V: validation.VStr(a.outcome)},
 			validation.KV{K: "bug_class", V: validation.VStr(a.canonical)},
@@ -418,17 +418,17 @@ func ReplaceProgramKey(programKey string, newWrappers []validation.Value,
 		if err := validation.Validate(w, "shared_memory_row", 1); err != nil {
 			return validation.VNull(), err
 		}
-		row := objAt(w, "row")
+		row := validation.ObjAt(w, "row")
 		if err := validation.Validate(row, "memory", 1); err != nil {
 			return validation.VNull(), err
 		}
 		// Leakage guard (constraint 4): replace_program_key is a first-class
 		// store mutation — a non-dev row must not enter the shared store.
-		if orDev(objStr(row, "partition")) != "dev" {
+		if orDev(validation.ObjStr(row, "partition")) != "dev" {
 			return validation.VNull(), fmt.Errorf("row %s: partition %s is "+
 				"not 'dev' — non-dev rows must not enter the shared store",
-				validation.PyRepr(objAt(row, "memory_id")),
-				validation.PyRepr(objAt(row, "partition")))
+				validation.PyRepr(validation.ObjAt(row, "memory_id")),
+				validation.PyRepr(validation.ObjAt(row, "partition")))
 		}
 	}
 	existing, err := sharedmem.TierMemory(store)
@@ -438,8 +438,8 @@ func ReplaceProgramKey(programKey string, newWrappers []validation.Value,
 	mems := []validation.Value{}
 	removed := []string{}
 	for _, w := range existing {
-		if objStr(w, "program_key") == programKey {
-			if mid := objStr(objAt(w, "row"), "memory_id"); mid != "" {
+		if validation.ObjStr(w, "program_key") == programKey {
+			if mid := validation.ObjStr(validation.ObjAt(w, "row"), "memory_id"); mid != "" {
 				removed = append(removed, mid)
 			}
 			continue
@@ -457,7 +457,7 @@ func ReplaceProgramKey(programKey string, newWrappers []validation.Value,
 	}
 	added := make([]string, 0, len(wrappers))
 	for _, w := range wrappers {
-		added = append(added, objStr(objAt(w, "row"), "memory_id"))
+		added = append(added, validation.ObjStr(validation.ObjAt(w, "row"), "memory_id"))
 	}
 	sort.Strings(added)
 	record := validation.VObj(
@@ -518,14 +518,14 @@ func PublishIngested(results []Result, dataset string, programKey *string,
 		if programKey != nil {
 			key = *programKey
 		} else {
-			k, _, err := sharedmem.ProgramKey(objAt(result.EvalCase, "program"))
+			k, _, err := sharedmem.ProgramKey(validation.ObjAt(result.EvalCase, "program"))
 			if err != nil {
 				return summary, err
 			}
 			key = k
 		}
 		for _, row := range result.MemoryRows {
-			if orDev(objStr(row, "partition")) != "dev" {
+			if orDev(validation.ObjStr(row, "partition")) != "dev" {
 				continue // eval-only: the case is stored, the row is not
 			}
 			g, ok := byKey[key]
@@ -598,26 +598,6 @@ func truthy(v validation.Value) bool {
 	return false
 }
 
-func objAt(v validation.Value, key string) validation.Value {
-	if v.Kind != validation.Obj {
-		return validation.VNull()
-	}
-	for _, kv := range v.O {
-		if kv.K == key {
-			return kv.V
-		}
-	}
-	return validation.VNull()
-}
-
-func objStr(v validation.Value, key string) string {
-	x := objAt(v, key)
-	if x.Kind == validation.Str {
-		return x.S
-	}
-	return ""
-}
-
 func valsOf(v validation.Value) []validation.Value {
 	if v.Kind != validation.Arr {
 		return nil
@@ -626,7 +606,7 @@ func valsOf(v validation.Value) []validation.Value {
 }
 
 func nullIfAbsent(v validation.Value, key string) validation.Value {
-	x := objAt(v, key)
+	x := validation.ObjAt(v, key)
 	if x.Kind == validation.Null {
 		return validation.VNull()
 	}
@@ -643,16 +623,16 @@ func strOrNil(v validation.Value) *string {
 
 // requireStr is _require_str.
 func requireStr(record validation.Value, key string, lo, hi int) (string, error) {
-	value := objAt(record, key)
+	value := validation.ObjAt(record, key)
 	if value.Kind != validation.Str {
 		return "", fmt.Errorf("record %s: %s must be a string of %d-%d chars",
-			validation.PyRepr(objAt(record, "id")), validation.PyReprStr(key),
+			validation.PyRepr(validation.ObjAt(record, "id")), validation.PyReprStr(key),
 			lo, hi)
 	}
 	n := utf8.RuneCountInString(value.S)
 	if n < lo || n > hi {
 		return "", fmt.Errorf("record %s: %s must be a string of %d-%d chars",
-			validation.PyRepr(objAt(record, "id")), validation.PyReprStr(key),
+			validation.PyRepr(validation.ObjAt(record, "id")), validation.PyReprStr(key),
 			lo, hi)
 	}
 	return value.S, nil

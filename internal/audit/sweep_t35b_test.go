@@ -61,7 +61,7 @@ func TestAuditProjectionFlagsPhantomSnapshot(t *testing.T) {
 		kv("registered_at",
 			validation.VStr("2026-09-02T00:00:00.000000+00:00")),
 	)
-	snaps := objAt(st, "snapshots")
+	snaps := validation.ObjAt(st, "snapshots")
 	snaps.A = append(snaps.A, phantom)
 	for i := range st.O {
 		if st.O[i].K == "snapshots" {

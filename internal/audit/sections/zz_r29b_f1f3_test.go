@@ -46,14 +46,14 @@ func zzR29bBackEventWithKind(t *testing.T, c *state.Campaign, iid string,
 	t.Helper()
 	data := validation.VObj(
 		KV("kind", validation.VStr(kind)),
-		KV("rung", validation.VStr(objStr(h, "rung"))),
-		KV("exec", validation.VStr(objStr(h, "exec"))),
+		KV("rung", validation.VStr(validation.ObjStr(h, "rung"))),
+		KV("exec", validation.VStr(validation.ObjStr(h, "exec"))),
 		KV("invariant", validation.VStr(iid)),
-		KV("summary", validation.VStr(objStr(h, "summary"))),
-		KV("bounded_k", objAt(h, "bounded_k")),
+		KV("summary", validation.VStr(validation.ObjStr(h, "summary"))),
+		KV("bounded_k", validation.ObjAt(h, "bounded_k")),
 		KV("proof_sha256", validation.VStr(
 			hexText(sha256.Sum256([]byte(validation.CanonCompact(
-				objAt(h, "proof"))))))),
+				validation.ObjAt(h, "proof"))))))),
 	)
 	ref := iid
 	if _, err := c.Log("harness_run", &ref, &data); err != nil {
@@ -70,8 +70,8 @@ func zzR29bSetStatement(t *testing.T, c *state.Campaign, iid,
 	if err != nil {
 		t.Fatal(err)
 	}
-	reg := objAt(links, "invariants")
-	e := objAt(reg, iid)
+	reg := validation.ObjAt(links, "invariants")
+	e := validation.ObjAt(reg, iid)
 	if e.Kind != validation.Obj {
 		t.Fatalf("no %s entry", iid)
 	}
@@ -94,7 +94,7 @@ func zzR29bRegisterScaffold(t *testing.T, c *state.Campaign,
 	if err != nil {
 		t.Fatal(err)
 	}
-	entry := objAt(objAt(links, "invariants"), iid)
+	entry := validation.ObjAt(validation.ObjAt(links, "invariants"), iid)
 	if entry.Kind != validation.Obj {
 		t.Fatalf("no %s entry", iid)
 	}
@@ -155,7 +155,7 @@ func TestZZR29BForgedKindBurnsInSectionEleven(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if objAt(v, "ok").B {
+			if validation.ObjAt(v, "ok").B {
 				t.Fatalf("a forged kind must not bless: %s",
 					r28bHead(validation.CanonCompact(v)))
 			}
@@ -168,7 +168,7 @@ func TestZZR29BForgedKindBurnsInSectionEleven(t *testing.T) {
 				t.Fatalf("the burn must name the kind %q, got %q",
 					tc.kind, joined)
 			}
-			runs := objAt(v, "harness_runs")
+			runs := validation.ObjAt(v, "harness_runs")
 			if runs.Kind != validation.Arr || len(runs.A) != 1 ||
 				!strings.Contains(runs.A[0].S, tc.kind) ||
 				!strings.HasSuffix(runs.A[0].S, " (UNBACKED)") {
@@ -189,11 +189,11 @@ func TestZZR29BForgedKindBurnsInSectionEleven(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !objAt(v, "ok").B {
+		if !validation.ObjAt(v, "ok").B {
 			t.Fatalf("an honest kind must stay green: %s",
 				r28bHead(validation.CanonCompact(v)))
 		}
-		runs := objAt(v, "harness_runs")
+		runs := validation.ObjAt(v, "harness_runs")
 		if runs.Kind != validation.Arr || len(runs.A) != 1 ||
 			runs.A[0].S != "INV-3: PROVEN-BOUNDED (minicertora, k=4, EXEC-71)" {
 			t.Fatalf("harness_runs = %s", validation.CanonCompact(runs))
@@ -231,7 +231,7 @@ func TestZZR29BPrunedScaffoldRowNamesTheRealState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objAt(v, "ok").B {
+	if validation.ObjAt(v, "ok").B {
 		t.Fatalf("a hash-carrying rung with no scaffold row must not "+
 			"bless: %s", r28bHead(validation.CanonCompact(v)))
 	}
@@ -281,7 +281,7 @@ func TestZZR29BStdoutDigestsAreNotHarnessFileEvidence(t *testing.T) {
 		t.Fatalf("a record whose only hashes are its own capture digests "+
 			"carries no harness-file hash, got %q", joined)
 	}
-	if !objAt(v, "ok").B {
+	if !validation.ObjAt(v, "ok").B {
 		t.Fatalf("the unbound arm must still reproduce the mapping: %s",
 			r28bHead(validation.CanonCompact(v)))
 	}
@@ -308,7 +308,7 @@ func TestZZR29BHashlessDriftedClaimBurns(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !objAt(v, "ok").B {
+	if !validation.ObjAt(v, "ok").B {
 		t.Fatalf("baseline must be green: %s",
 			r28bHead(validation.CanonCompact(v)))
 	}
@@ -345,7 +345,7 @@ func TestZZR29BHashlessDriftedClaimBurns(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objAt(v, "ok").B {
+	if validation.ObjAt(v, "ok").B {
 		t.Fatalf("a hash-less drifted claim must burn, not bless: %s",
 			r28bHead(validation.CanonCompact(v)))
 	}

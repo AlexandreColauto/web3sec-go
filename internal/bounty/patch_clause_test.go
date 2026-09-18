@@ -18,7 +18,7 @@ import (
 // set ("" removes the key entirely — the default path).
 func policyWithPatchClause(mode string) validation.Value {
 	p := testPolicy()
-	req := objAt(p, "poc_requirements")
+	req := validation.ObjAt(p, "poc_requirements")
 	if mode == "" {
 		return p
 	}
@@ -36,7 +36,7 @@ func setVerification(t *testing.T, c *state.Campaign, fid string,
 	if err != nil {
 		t.Fatal(err)
 	}
-	ver := objAt(f, "verification")
+	ver := validation.ObjAt(f, "verification")
 	if ver.Kind != validation.Obj {
 		ver = validation.VObj()
 	}
@@ -52,8 +52,8 @@ func setVerification(t *testing.T, c *state.Campaign, fid string,
 // immunizationRow returns the gate's immunization check row.
 func immunizationRow(t *testing.T, result validation.Value) validation.Value {
 	t.Helper()
-	for _, ck := range objAt(result, "policy_checks").A {
-		if objStr(ck, "check") == "immunization" {
+	for _, ck := range validation.ObjAt(result, "policy_checks").A {
+		if validation.ObjStr(ck, "check") == "immunization" {
 			return ck
 		}
 	}
@@ -62,13 +62,13 @@ func immunizationRow(t *testing.T, result validation.Value) validation.Value {
 }
 
 func readyOf(result validation.Value) bool {
-	return objAt(result, "submission_ready").Kind == validation.Bool &&
-		objAt(result, "submission_ready").B
+	return validation.ObjAt(result, "submission_ready").Kind == validation.Bool &&
+		validation.ObjAt(result, "submission_ready").B
 }
 
 func blockersOf(result validation.Value) []string {
 	var out []string
-	if br := objAt(result, "blocking_reasons"); br.Kind == validation.Arr {
+	if br := validation.ObjAt(result, "blocking_reasons"); br.Kind == validation.Arr {
 		for _, v := range br.A {
 			out = append(out, v.S)
 		}
@@ -78,7 +78,7 @@ func blockersOf(result validation.Value) []string {
 
 func advisoriesOf(result validation.Value) []string {
 	var out []string
-	if a := objAt(result, "advisories"); a.Kind == validation.Arr {
+	if a := validation.ObjAt(result, "advisories"); a.Kind == validation.Arr {
 		for _, v := range a.A {
 			out = append(out, v.S)
 		}
@@ -104,10 +104,10 @@ func TestPatchClauseAbsentMeansVerification(t *testing.T) {
 	if readyOf(result) {
 		t.Error("submission_ready = True without a patch record (default mode)")
 	}
-	if row := immunizationRow(t, result); objStr(row, "result") != "fail" {
-		t.Errorf("immunization = %s, want fail", objStr(row, "result"))
+	if row := immunizationRow(t, result); validation.ObjStr(row, "result") != "fail" {
+		t.Errorf("immunization = %s, want fail", validation.ObjStr(row, "result"))
 	}
-	if !anyContains(objAt(result, "blocking_reasons"), "not immunized") {
+	if !anyContains(validation.ObjAt(result, "blocking_reasons"), "not immunized") {
 		t.Errorf("blockers = %v, want the immunization blocker",
 			blockersOf(result))
 	}
@@ -135,10 +135,10 @@ func TestPatchClauseNoneRequiresNothing(t *testing.T) {
 			blockersOf(result))
 	}
 	row := immunizationRow(t, result)
-	if objStr(row, "result") != "pass" {
-		t.Fatalf("immunization = %s, want pass", objStr(row, "result"))
+	if validation.ObjStr(row, "result") != "pass" {
+		t.Fatalf("immunization = %s, want pass", validation.ObjStr(row, "result"))
 	}
-	detail := objStr(row, "detail")
+	detail := validation.ObjStr(row, "detail")
 	for _, want := range []string{"no fix requested", "Acme Protocol Immunefi", "none"} {
 		if !strings.Contains(detail, want) {
 			t.Errorf("detail %q missing %q", detail, want)
@@ -179,17 +179,17 @@ func TestPatchClauseProseNeedsRecommendation(t *testing.T) {
 			}
 			row := immunizationRow(t, result)
 			if tc.wantRun {
-				if objStr(row, "result") != "pass" {
-					t.Fatalf("immunization = %s, want pass", objStr(row, "result"))
+				if validation.ObjStr(row, "result") != "pass" {
+					t.Fatalf("immunization = %s, want pass", validation.ObjStr(row, "result"))
 				}
-				if !strings.Contains(objStr(row, "detail"), "recommendation recorded") {
-					t.Errorf("detail = %q", objStr(row, "detail"))
+				if !strings.Contains(validation.ObjStr(row, "detail"), "recommendation recorded") {
+					t.Errorf("detail = %q", validation.ObjStr(row, "detail"))
 				}
 			} else {
-				if objStr(row, "result") != "fail" {
-					t.Fatalf("immunization = %s, want fail", objStr(row, "result"))
+				if validation.ObjStr(row, "result") != "fail" {
+					t.Fatalf("immunization = %s, want fail", validation.ObjStr(row, "result"))
 				}
-				if !anyContains(objAt(result, "blocking_reasons"),
+				if !anyContains(validation.ObjAt(result, "blocking_reasons"),
 					"no written recommendation") {
 					t.Errorf("blockers = %v", blockersOf(result))
 				}
@@ -229,7 +229,7 @@ func TestPatchClauseProseBoundaryMutationsAreAdvisory(t *testing.T) {
 	if len(adv) != 1 || !strings.Contains(adv[0], "still extracts") {
 		t.Errorf("advisories = %v, want the boundary-bypass note", adv)
 	}
-	if anyContains(objAt(result, "blocking_reasons"), "immunized") {
+	if anyContains(validation.ObjAt(result, "blocking_reasons"), "immunized") {
 		t.Errorf("the advisory leaked into blockers: %v", blockersOf(result))
 	}
 }
@@ -297,7 +297,7 @@ func TestPatchClauseWaiverStillWorks(t *testing.T) {
 		t.Errorf("submission_ready = False with an immunization waiver; blockers %v",
 			blockersOf(result))
 	}
-	if row := immunizationRow(t, result); !strings.Contains(objStr(row, "detail"), "waived by alice") {
-		t.Errorf("immunization detail = %q", objStr(row, "detail"))
+	if row := immunizationRow(t, result); !strings.Contains(validation.ObjStr(row, "detail"), "waived by alice") {
+		t.Errorf("immunization detail = %q", validation.ObjStr(row, "detail"))
 	}
 }

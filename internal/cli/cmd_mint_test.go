@@ -117,7 +117,7 @@ func TestMintMissingExecIsGenericError(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	repro := objAt(objAt(objAt(finding, "verification"), "reproduction"),
+	repro := validation.ObjAt(validation.ObjAt(validation.ObjAt(finding, "verification"), "reproduction"),
 		"attempts")
 	if len(repro.A) != 0 {
 		t.Fatalf("attempts not rolled back: %s", validation.DumpIndentedASCII(repro))

@@ -17,7 +17,7 @@ import (
 
 // doneIs reports whether the proof's "done" field equals want.
 func doneIs(p validation.Value, want bool) bool {
-	v := objAt(p, "done")
+	v := validation.ObjAt(p, "done")
 	return v.Kind == validation.Bool && v.B == want
 }
 
@@ -32,7 +32,7 @@ func a8ReportLikeGenerate(t *testing.T, c *state.Campaign) {
 	}
 	headHash := ""
 	if len(events) > 0 {
-		headHash = objAt(events[len(events)-1], "event_hash").S
+		headHash = validation.ObjAt(events[len(events)-1], "event_hash").S
 	}
 	body := "<!-- state-head: " + headHash + " -->\n# Security Research Report\n"
 	if err := os.WriteFile(filepath.Join(c.Dir, "report.md"),
@@ -67,7 +67,7 @@ func TestProofReportFreshWhenHeadIsItsOwnGeneration(t *testing.T) {
 	if !doneIs(p, true) {
 		t.Fatalf("proof = %s, want done", validation.DumpIndented(p))
 	}
-	if got := objStr(p, "note"); got != "report fresh" {
+	if got := validation.ObjStr(p, "note"); got != "report fresh" {
 		t.Fatalf("note = %q", got)
 	}
 }
@@ -94,7 +94,7 @@ func TestProofReportStaleWhenSomethingLogsAfterGeneration(t *testing.T) {
 	if !doneIs(p, false) {
 		t.Fatalf("proof = %s, want not done", validation.DumpIndented(p))
 	}
-	missing := objAt(p, "missing")
+	missing := validation.ObjAt(p, "missing")
 	if len(missing.A) != 1 || !strings.Contains(missing.A[0].S,
 		"report.md is stale") {
 		t.Fatalf("missing = %s", validation.DumpIndented(missing))
@@ -125,7 +125,7 @@ func TestProofReportStaleMessageKeepsTheStampRepr(t *testing.T) {
 	if !doneIs(p, false) {
 		t.Fatalf("proof = %s, want not done", validation.DumpIndented(p))
 	}
-	missing := objAt(p, "missing")
+	missing := validation.ObjAt(p, "missing")
 	if len(missing.A) != 1 ||
 		!strings.Contains(missing.A[0].S,
 			"generated at log head None") {
@@ -150,7 +150,7 @@ func TestProofReportWithoutGenerationEventIsStale(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	headHash := objAt(events[len(events)-1], "event_hash").S
+	headHash := validation.ObjAt(events[len(events)-1], "event_hash").S
 	body := "<!-- state-head: " + headHash + " -->\n# hand report\n"
 	if err := os.WriteFile(filepath.Join(c.Dir, "report.md"),
 		[]byte(body), 0o644); err != nil {
@@ -164,7 +164,7 @@ func TestProofReportWithoutGenerationEventIsStale(t *testing.T) {
 	if !doneIs(p, false) {
 		t.Fatalf("proof = %s, want stale", validation.DumpIndented(p))
 	}
-	missing := objAt(p, "missing")
+	missing := validation.ObjAt(p, "missing")
 	if len(missing.A) != 1 || !strings.Contains(missing.A[0].S,
 		"report.md is stale") {
 		t.Fatalf("missing = %s", validation.DumpIndented(missing))

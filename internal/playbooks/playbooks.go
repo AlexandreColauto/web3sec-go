@@ -150,7 +150,7 @@ func AvailablePlaybooks() ([]string, error) {
 		if err := validation.Validate(data, "playbook", 1); err != nil {
 			continue
 		}
-		declared := objAt(data, "bug_class")
+		declared := validation.ObjAt(data, "bug_class")
 		stem := strings.TrimSuffix(name, ".yaml")
 		if declared.Kind != validation.Str || declared.S != stem {
 			return nil, fmt.Errorf(
@@ -169,7 +169,7 @@ func AvailablePlaybooks() ([]string, error) {
 // JSON Schema cannot express (spec 3.2 §4.1). A broken simulation block is a
 // deployment error — fail loud, same contract as schema validation.
 func checkSimulationBlock(filename string, data validation.Value) error {
-	sim := objAt(data, "simulation")
+	sim := validation.ObjAt(data, "simulation")
 	if sim.Kind != validation.Obj {
 		return nil
 	}
@@ -179,8 +179,8 @@ func checkSimulationBlock(filename string, data validation.Value) error {
 		if a.Kind != validation.Obj {
 			continue
 		}
-		names = append(names, pyRepr(objAt(a, "name")))
-		if c := objAt(a, "behavior_class"); c.Kind == validation.Str {
+		names = append(names, pyRepr(validation.ObjAt(a, "name")))
+		if c := validation.ObjAt(a, "behavior_class"); c.Kind == validation.Str {
 			classes = append(classes, c.S)
 		}
 	}
@@ -196,13 +196,13 @@ func checkSimulationBlock(filename string, data validation.Value) error {
 			"cast is a deployment error (got %s)",
 			filename, pyReprList(classes))
 	}
-	ref := objAt(sim, "expectation_violated")
+	ref := validation.ObjAt(sim, "expectation_violated")
 	invIDs := []string{}
 	for _, inv := range listAt(data, "invariants") {
 		if inv.Kind != validation.Obj {
 			continue
 		}
-		if id := objAt(inv, "id"); id.Kind == validation.Str {
+		if id := validation.ObjAt(inv, "id"); id.Kind == validation.Str {
 			invIDs = append(invIDs, id.S)
 		}
 	}
@@ -235,7 +235,7 @@ func CuratedInvariantIDs() []string {
 			if inv.Kind != validation.Obj {
 				continue
 			}
-			if id := objAt(inv, "id"); id.Kind == validation.Str && id.S != "" {
+			if id := validation.ObjAt(inv, "id"); id.Kind == validation.Str && id.S != "" {
 				seen[id.S] = true
 			}
 		}
@@ -250,20 +250,8 @@ func init() { invariants.SetCuratedInvariantIDs(CuratedInvariantIDs) }
 
 // ---- helpers -------------------------------------------------------------
 
-func objAt(v validation.Value, key string) validation.Value {
-	if v.Kind != validation.Obj {
-		return validation.VNull()
-	}
-	for _, kv := range v.O {
-		if kv.K == key {
-			return kv.V
-		}
-	}
-	return validation.VNull()
-}
-
 func listAt(v validation.Value, key string) []validation.Value {
-	x := objAt(v, key)
+	x := validation.ObjAt(v, key)
 	if x.Kind != validation.Arr {
 		return nil
 	}

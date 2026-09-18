@@ -58,20 +58,20 @@ func IsLivenessFinding(f validation.Value) bool {
 
 // objStrAt is a two-level object string read (absent = "").
 func objStrAt(v validation.Value, k1, k2 string) string {
-	sub := objAt(v, k1)
+	sub := validation.ObjAt(v, k1)
 	if sub.Kind != validation.Obj {
 		return ""
 	}
-	return objStr(sub, k2)
+	return validation.ObjStr(sub, k2)
 }
 
 // strListAt is a two-level string-array read (absent = empty).
 func strListAt(v validation.Value, k1, k2 string) []string {
-	sub := objAt(v, k1)
+	sub := validation.ObjAt(v, k1)
 	if sub.Kind != validation.Obj {
 		return nil
 	}
-	arr := objAt(sub, k2)
+	arr := validation.ObjAt(sub, k2)
 	if arr.Kind != validation.Arr {
 		return nil
 	}
@@ -89,13 +89,13 @@ func strListAt(v validation.Value, k1, k2 string) []string {
 // the clause is complete (or the finding does not owe one — the caller
 // checks IsLivenessFinding first).
 func AdversarialGameDeficits(f validation.Value) []string {
-	ag := objAt(f, "adversarial_game")
+	ag := validation.ObjAt(f, "adversarial_game")
 	if ag.Kind != validation.Obj {
 		return []string{"missing"}
 	}
 	out := []string{}
 	for _, key := range AdversarialGameFields {
-		v := objAt(ag, key)
+		v := validation.ObjAt(ag, key)
 		if v.Kind != validation.Str ||
 			len([]rune(v.S)) < AdversarialGameFieldMin {
 			out = append(out, key)

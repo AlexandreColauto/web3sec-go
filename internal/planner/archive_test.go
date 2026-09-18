@@ -52,11 +52,11 @@ func TestValidatePlanSeedsWithoutTouchingDisk(t *testing.T) {
 	if err != nil {
 		t.Fatalf("validate_plan: %v", err)
 	}
-	requireJSON(t, "seeded plan", got, objAt(want, "seeded"))
+	requireJSON(t, "seeded plan", got, validation.ObjAt(want, "seeded"))
 	_, statErr := os.Stat(filepath.Join(camp.ArtifactsDir,
 		"campaign_plan.json"))
 	requireJSON(t, "plan on disk", validation.VBool(statErr == nil),
-		objAt(want, "plan_exists"))
+		validation.ObjAt(want, "plan_exists"))
 	if n := len(listOf(got, "lenses")); n != 4 {
 		t.Fatalf("seeded %d lenses, want 4", n)
 	}
@@ -79,7 +79,7 @@ func TestValidatePlanRejectsNonCanonicalClass(t *testing.T) {
 	)))
 	_, err := ValidatePlan(camp, bad)
 	requireErr(t, "validate_plan bad class", err,
-		campaignNamed(t, objAt(want, "error"), camp.CampaignID))
+		campaignNamed(t, validation.ObjAt(want, "error"), camp.CampaignID))
 	if _, statErr := os.Stat(filepath.Join(camp.ArtifactsDir,
 		"campaign_plan.json")); !os.IsNotExist(statErr) {
 		t.Fatalf("validate_plan wrote a plan file (stat err=%v)", statErr)
@@ -106,7 +106,7 @@ func TestArchivePlanByteIdenticalAndRegistered(t *testing.T) {
 		t.Fatalf("archive plan: %v", err)
 	}
 	requireJSON(t, "dest", validation.VStr(dest),
-		validation.VStr(realRoot(t, camp, objStr(want, "dest1"))))
+		validation.VStr(realRoot(t, camp, validation.ObjStr(want, "dest1"))))
 	archived, err := os.ReadFile(dest)
 	if err != nil {
 		t.Fatal(err)
@@ -115,23 +115,23 @@ func TestArchivePlanByteIdenticalAndRegistered(t *testing.T) {
 		t.Fatalf("archive is not byte-identical")
 	}
 	requireJSON(t, "byte_identical", validation.VBool(true),
-		objAt(want, "byte_identical"))
+		validation.ObjAt(want, "byte_identical"))
 	events, err := camp.Events()
 	if err != nil {
 		t.Fatal(err)
 	}
 	last := events[len(events)-1]
-	requireJSON(t, "event type", objAt(last, "type"),
-		objAt(at(t, root, "archive_plan", "event"), "type"))
-	requireJSON(t, "event data", normalizePaths(objAt(last, "data"),
-		camp.Root), objAt(at(t, root, "archive_plan", "event"), "data"))
+	requireJSON(t, "event type", validation.ObjAt(last, "type"),
+		validation.ObjAt(at(t, root, "archive_plan", "event"), "type"))
+	requireJSON(t, "event data", normalizePaths(validation.ObjAt(last, "data"),
+		camp.Root), validation.ObjAt(at(t, root, "archive_plan", "event"), "data"))
 	st, err := camp.State()
 	if err != nil {
 		t.Fatal(err)
 	}
 	rows := []validation.Value{}
 	for _, a := range listOf(st, "artifacts") {
-		if objStr(a, "kind") == "plan.superseded" {
+		if validation.ObjStr(a, "kind") == "plan.superseded" {
 			rows = append(rows, projectArtifact(a))
 		}
 	}
@@ -169,15 +169,15 @@ func TestArchivePlanMonotonicAndNeverReusesANumber(t *testing.T) {
 		}
 	}
 	requireJSON(t, "dest2", validation.VStr(dest2),
-		validation.VStr(realRoot(t, camp, objStr(want, "dest2"))))
+		validation.VStr(realRoot(t, camp, validation.ObjStr(want, "dest2"))))
 	requireJSON(t, "dest3", validation.VStr(dest3),
-		validation.VStr(realRoot(t, camp, objStr(want, "dest3"))))
+		validation.VStr(realRoot(t, camp, validation.ObjStr(want, "dest3"))))
 	got := []string{}
 	for _, p := range SupersededPaths(camp) {
 		got = append(got, strings.ReplaceAll(p, camp.Root, "<ROOT>"))
 	}
-	requireJSON(t, "superseded_paths", strArr(got),
-		objAt(want, "superseded_paths"))
+	requireJSON(t, "superseded_paths", validation.StrArr(got),
+		validation.ObjAt(want, "superseded_paths"))
 	if len(got) != 2 {
 		t.Fatalf("expected 2 surviving archives, got %d", len(got))
 	}
@@ -187,7 +187,7 @@ func TestArchivePlanMonotonicAndNeverReusesANumber(t *testing.T) {
 // plan that is not there never writes an empty record.
 func TestArchivePlanMissingPlanRaises(t *testing.T) {
 	root := oracles(t)
-	want := objAt(at(t, root, "archive_plan"), "missing_error")
+	want := validation.ObjAt(at(t, root, "archive_plan"), "missing_error")
 	t.Setenv("WEBV2_NOW", "2026-09-09T12:00:00.000000+00:00")
 	camp, err := state.Init(t.TempDir(), "T9 va2", state.InitOpts{
 		CampaignID: "C-f41b989d19"})
@@ -196,7 +196,7 @@ func TestArchivePlanMissingPlanRaises(t *testing.T) {
 	}
 	dest, err := ArchivePlan(camp, ArchiveOpts{})
 	requireErr(t, "archive missing", err, validation.VObj(
-		kv("msg", validation.VStr(strings.ReplaceAll(objStr(want, "msg"),
+		kv("msg", validation.VStr(strings.ReplaceAll(validation.ObjStr(want, "msg"),
 			"<ROOT>", camp.Root)))))
 	if dest != "" {
 		t.Fatalf("dest = %q, want empty", dest)

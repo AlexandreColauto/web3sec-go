@@ -142,13 +142,13 @@ func confirmed(t *testing.T, c *state.Campaign, title string, granted,
 			kv("function", validation.VStr("rescue"))))),
 		kv("attacker", attacker),
 		kv("capabilities", validation.VObj(
-			kv("granted", strArr(granted)),
-			kv("required", strArr(required)))),
+			kv("granted", validation.StrArr(granted)),
+			kv("required", validation.StrArr(required)))),
 	), "attacker", "06", "")
 	if err != nil {
 		t.Fatalf("ingest: %v", err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	driveToConfirmed(t, c, fid, extractable, blast)
 	out, err := findings.LoadFinding(c, fid)
 	if err != nil {
@@ -186,8 +186,8 @@ func driveToConfirmed(t *testing.T, c *state.Campaign, fid string,
 		kv("level", validation.VStr("E4")),
 		kv("type", validation.VStr("foundry-test")),
 		kv("description", validation.VStr("sandboxed unit PoC")),
-		kv("sandbox_profile", objAt(rec, "profile")),
-		kv("artifact_id", objAt(rec, "exec_id")))); err != nil {
+		kv("sandbox_profile", validation.ObjAt(rec, "profile")),
+		kv("artifact_id", validation.ObjAt(rec, "exec_id")))); err != nil {
 		t.Fatalf("add unit evidence: %v", err)
 	}
 	if _, err := findings.SetCriticVerdict(c, fid, "confirmed",
@@ -223,7 +223,7 @@ func pinReproduction(t *testing.T, c *state.Campaign, fid, tier, blast string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ver := objAt(vf, "verification")
+	ver := validation.ObjAt(vf, "verification")
 	if ver.Kind != validation.Obj {
 		ver = validation.VObj()
 	}
@@ -233,7 +233,7 @@ func pinReproduction(t *testing.T, c *state.Campaign, fid, tier, blast string) {
 		kv("attempts", validation.VArr())))
 	vf.O = validation.SetOrAppend(vf.O, "verification", ver)
 	if blast != "" {
-		ei := objAt(vf, "economic_impact")
+		ei := validation.ObjAt(vf, "economic_impact")
 		if ei.Kind != validation.Obj {
 			ei = validation.VObj()
 		}
@@ -312,9 +312,9 @@ func TestEOATerminalReportUnaffectedByRoleRequiredFindings(t *testing.T) {
 		[]string{"drain_treasury"}, nil, "", nil, nil)
 	roleOnly := confirmed(t, b, "Governor drains the vault",
 		[]string{"drain_treasury"}, []string{"role_governor"}, "", nil, nil)
-	if objStr(sharedB, "finding_id") != objStr(sharedA, "finding_id") {
+	if validation.ObjStr(sharedB, "finding_id") != validation.ObjStr(sharedA, "finding_id") {
 		t.Fatalf("twins minted different ids: %s vs %s",
-			objStr(sharedA, "finding_id"), objStr(sharedB, "finding_id"))
+			validation.ObjStr(sharedA, "finding_id"), validation.ObjStr(sharedB, "finding_id"))
 	}
 	ra, err := chainengine.TerminalReport(a, nil)
 	if err != nil {
@@ -331,8 +331,8 @@ func TestEOATerminalReportUnaffectedByRoleRequiredFindings(t *testing.T) {
 	if len(listOf(ra, "direct").A) == 0 {
 		t.Fatal("shared finding must be a real EOA terminal path")
 	}
-	if objStr(listOf(ra, "direct").A[0], "terminal_finding") !=
-		objStr(sharedA, "finding_id") {
+	if validation.ObjStr(listOf(ra, "direct").A[0], "terminal_finding") !=
+		validation.ObjStr(sharedA, "finding_id") {
 		t.Fatalf("direct = %v", listOf(ra, "direct"))
 	}
 	exp, err := PrivilegedExposure(b)
@@ -340,12 +340,12 @@ func TestEOATerminalReportUnaffectedByRoleRequiredFindings(t *testing.T) {
 		t.Fatal(err)
 	}
 	roles := listOf(exp, "roles").A
-	if len(roles) != 1 || objStr(roles[0], "role") != "governor" {
+	if len(roles) != 1 || validation.ObjStr(roles[0], "role") != "governor" {
 		t.Fatalf("roles = %v", roles)
 	}
 	found := false
 	for _, p := range listOf(roles[0], "direct").A {
-		if objStr(p, "terminal_finding") == objStr(roleOnly, "finding_id") {
+		if validation.ObjStr(p, "terminal_finding") == validation.ObjStr(roleOnly, "finding_id") {
 			found = true
 		}
 	}
@@ -370,8 +370,8 @@ func TestRoleCaptureChainComposesOnEOATrack(t *testing.T) {
 	found := false
 	for _, p := range listOf(rep, "shortest_by_terminal").A {
 		ps := listOf(p, "path").A
-		if len(ps) == 2 && pyStr(ps[0]) == objStr(fCap, "finding_id") &&
-			pyStr(ps[1]) == objStr(fDrain, "finding_id") {
+		if len(ps) == 2 && pyStr(ps[0]) == validation.ObjStr(fCap, "finding_id") &&
+			pyStr(ps[1]) == validation.ObjStr(fDrain, "finding_id") {
 			found = true
 		}
 	}
@@ -414,7 +414,7 @@ func constraint(kw map[string]validation.Value) validation.Value {
 			out = append(out, kv(k, v))
 			continue
 		}
-		out = append(out, kv(k, objAt(base, k)))
+		out = append(out, kv(k, validation.ObjAt(base, k)))
 	}
 	return validation.VObj(out...)
 }
@@ -467,8 +467,8 @@ func TestPathConstraintsSortedAndFiltered(t *testing.T) {
 		validation.VObj(kv("role", validation.VStr("governor")),
 			kv("capability", validation.VStr("b-upgrade"))))))
 	cs := PathConstraints(model, "Owner")
-	if len(cs) != 2 || objStr(cs[0], "capability") != "a-pause" ||
-		objStr(cs[1], "capability") != "z-drain" {
+	if len(cs) != 2 || validation.ObjStr(cs[0], "capability") != "a-pause" ||
+		validation.ObjStr(cs[1], "capability") != "z-drain" {
 		t.Fatalf("constraints = %v", cs)
 	}
 	if len(PathConstraints(model, "nobody")) != 0 {
@@ -518,11 +518,11 @@ func TestPathOrderingIsSeverityFirstExtractableSecond(t *testing.T) {
 	want := []string{"drain_treasury", "extract_protocol_liquidity",
 		"withdraw_unbacked_assets"}
 	for i, w := range want {
-		if got := objStr(direct[i], "terminal_capability"); got != w {
+		if got := validation.ObjStr(direct[i], "terminal_capability"); got != w {
 			t.Fatalf("direct[%d] = %s, want %s (all: %v)", i, got, w, direct)
 		}
 	}
-	if got := objAt(direct[2], "total_capital_required_usd"); got.Kind !=
+	if got := validation.ObjAt(direct[2], "total_capital_required_usd"); got.Kind !=
 		validation.Flt || got.F != 10000000 {
 		t.Fatalf("last path capital = %v, want 1e7", got)
 	}
@@ -547,11 +547,11 @@ func TestExposureEnrichmentCarriesBandConstraintsBlast(t *testing.T) {
 		t.Fatalf("roles = %v", roles)
 	}
 	role := roles[0]
-	if objStr(role, "exposure_band") != "timelocked" {
-		t.Fatalf("band = %s", objStr(role, "exposure_band"))
+	if validation.ObjStr(role, "exposure_band") != "timelocked" {
+		t.Fatalf("band = %s", validation.ObjStr(role, "exposure_band"))
 	}
 	cs := listOf(role, "constraints").A
-	if len(cs) != 1 || objStr(cs[0], "capability") != "drain vault" {
+	if len(cs) != 1 || validation.ObjStr(cs[0], "capability") != "drain vault" {
 		t.Fatalf("constraints = %v", cs)
 	}
 	if len(listOf(role, "direct").A) != 1 {
@@ -560,15 +560,15 @@ func TestExposureEnrichmentCarriesBandConstraintsBlast(t *testing.T) {
 	for _, key := range []string{"direct", "terminal_chains",
 		"shortest_by_terminal"} {
 		for _, p := range listOf(role, key).A {
-			if objStr(p, "exposure_band") != "timelocked" {
-				t.Fatalf("%s band = %s", key, objStr(p, "exposure_band"))
+			if validation.ObjStr(p, "exposure_band") != "timelocked" {
+				t.Fatalf("%s band = %s", key, validation.ObjStr(p, "exposure_band"))
 			}
-			if validation.CanonCompact(objAt(p, "constraints")) !=
+			if validation.CanonCompact(validation.ObjAt(p, "constraints")) !=
 				validation.CanonCompact(validation.VArr(cs...)) {
-				t.Fatalf("%s constraints = %v", key, objAt(p, "constraints"))
+				t.Fatalf("%s constraints = %v", key, validation.ObjAt(p, "constraints"))
 			}
-			if objStr(p, "blast_radius") != "all-users" {
-				t.Fatalf("%s blast = %s", key, objStr(p, "blast_radius"))
+			if validation.ObjStr(p, "blast_radius") != "all-users" {
+				t.Fatalf("%s blast = %s", key, validation.ObjStr(p, "blast_radius"))
 			}
 		}
 	}

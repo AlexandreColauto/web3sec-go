@@ -98,10 +98,10 @@ func TestPublishDisclosureLineRecordsTheEmbargo(t *testing.T) {
 		t.Fatalf("output lacks the disclosure line %q:\n%s", want, out)
 	}
 	rec := discRecord(t, root)
-	if got := objStr(rec, "disclosure_sha256"); got != sha {
+	if got := validation.ObjStr(rec, "disclosure_sha256"); got != sha {
 		t.Errorf("record disclosure_sha256 = %q, want %q", got, sha)
 	}
-	if got := objStr(rec, "disclosure_embargo_until"); got != "2026-10-01" {
+	if got := validation.ObjStr(rec, "disclosure_embargo_until"); got != "2026-10-01" {
 		t.Errorf("record disclosure_embargo_until = %q, want 2026-10-01", got)
 	}
 	// The prose never rides the store: grep the written store tree.
@@ -127,7 +127,7 @@ func TestPublishDisclosureLineWithoutEmbargo(t *testing.T) {
 		t.Fatalf("output lacks the disclosure line %q:\n%s", want, out)
 	}
 	rec := discRecord(t, root)
-	if got := objAt(rec, "disclosure_embargo_until"); got.Kind != validation.Null {
+	if got := validation.ObjAt(rec, "disclosure_embargo_until"); got.Kind != validation.Null {
 		t.Errorf("record disclosure_embargo_until = %#v, want null", got)
 	}
 }

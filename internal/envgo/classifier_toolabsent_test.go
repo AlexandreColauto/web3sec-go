@@ -138,12 +138,12 @@ func TestToolchainAbsenceClassifiesEnvironment(t *testing.T) {
 			rec := r38Record(t, "t9-"+tc.name, tc.profile, tc.stdout, "",
 				tc.exit)
 			res := ClassifyFailure(rec)
-			if got := objStr(res, "class"); got != tc.class {
+			if got := validation.ObjStr(res, "class"); got != tc.class {
 				t.Fatalf("class = %q, want %q (signals %s, note %q)", got,
-					tc.class, strings.Join(strList(objAt(res, "signals")), "|"),
-					objStr(res, "note"))
+					tc.class, strings.Join(strList(validation.ObjAt(res, "signals")), "|"),
+					validation.ObjStr(res, "note"))
 			}
-			note := objStr(res, "note")
+			note := validation.ObjStr(res, "note")
 			if note == "" {
 				t.Fatalf("empty note")
 			}
@@ -169,7 +169,7 @@ func TestToolchainAbsenceSignalIsRecorded(t *testing.T) {
 		"Error: solc 0.8.24 is not installed. Install it with "+
 			"`svm install 0.8.24`\n", "", 1)
 	res := ClassifyFailure(rec)
-	signals := strings.Join(strList(objAt(res, "signals")), "|")
+	signals := strings.Join(strList(validation.ObjAt(res, "signals")), "|")
 	if !strings.Contains(signals, "toolchain binary absent") {
 		t.Errorf("signals = %q, want the toolchain-absent signal", signals)
 	}
@@ -177,7 +177,7 @@ func TestToolchainAbsenceSignalIsRecorded(t *testing.T) {
 	lib := ClassifyFailure(r38Record(t, "t9-signal-lib", "docker-networkless",
 		"Error: Source \"forge-std/Test.sol\" not found: File not found.\n",
 		"", 1))
-	if got := strings.Join(strList(objAt(lib, "signals")), "|"); strings.Contains(
+	if got := strings.Join(strList(validation.ObjAt(lib, "signals")), "|"); strings.Contains(
 		got, "toolchain binary absent") {
 		t.Errorf("library failure signals = %q, want no toolchain-absent signal",
 			got)
@@ -186,7 +186,7 @@ func TestToolchainAbsenceSignalIsRecorded(t *testing.T) {
 	// must not be invented for a missing broadcast artifact either.
 	bc := ClassifyFailure(r38Record(t, "t9-signal-broadcast", "docker-networkless",
 		"Error: broadcast not found for script deploy\n", "", 1))
-	if got := strings.Join(strList(objAt(bc, "signals")), "|"); strings.Contains(
+	if got := strings.Join(strList(validation.ObjAt(bc, "signals")), "|"); strings.Contains(
 		got, "toolchain binary absent") {
 		t.Errorf("broadcast failure signals = %q, want no toolchain-absent signal",
 			got)

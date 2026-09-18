@@ -14,7 +14,7 @@ func TestIngestRefusesEscapingAffectedPaths(t *testing.T) {
 		"src/../secrets/key.pem", "weird//double", "trailing/"} {
 		c := ingestCamp(t)
 		p := hypoPayload()
-		aff := objAt(p, "affected")
+		aff := validation.ObjAt(p, "affected")
 		aff.A[0].O = validation.SetOrAppend(aff.A[0].O, "path",
 			validation.VStr(bad))
 		_, err := IngestHypothesis(c, p, "code", "", "")
@@ -26,7 +26,7 @@ func TestIngestRefusesEscapingAffectedPaths(t *testing.T) {
 	// In-tree oddities stay legal (dot-names included — they are real).
 	c := ingestCamp(t)
 	p := hypoPayload()
-	aff := objAt(p, "affected")
+	aff := validation.ObjAt(p, "affected")
 	aff.A[0].O = validation.SetOrAppend(aff.A[0].O, "path",
 		validation.VStr(".github/workflows/ci.yml"))
 	if _, err := IngestHypothesis(c, p, "code", "", ""); err != nil {

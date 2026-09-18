@@ -153,15 +153,15 @@ func TestBriefCarriesDivergenceAndNextAction(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	div := objAt(b, "divergence")
+	div := validation.ObjAt(b, "divergence")
 	if div.Kind != validation.Obj {
 		t.Fatalf("divergence = %v, want an object", div)
 	}
-	if v := objAt(div, "closed"); v.Kind != validation.Bool || v.B {
+	if v := validation.ObjAt(div, "closed"); v.Kind != validation.Bool || v.B {
 		t.Fatalf("divergence.closed = %v, want false", v)
 	}
 	found := false
-	for _, a := range strListOf(objAt(b, "next_actions")) {
+	for _, a := range strListOf(validation.ObjAt(b, "next_actions")) {
 		if strings.Contains(a, "L-01") {
 			found = true
 		}
@@ -177,10 +177,10 @@ func TestBriefNoPlanIsUnchanged(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if v := objAt(b, "divergence"); v.Kind != validation.Null {
+	if v := validation.ObjAt(b, "divergence"); v.Kind != validation.Null {
 		t.Fatalf("divergence = %v, want null", v)
 	}
-	for _, a := range strListOf(objAt(b, "next_actions")) {
+	for _, a := range strListOf(validation.ObjAt(b, "next_actions")) {
 		if strings.Contains(a, "divergence gate") {
 			t.Fatalf("a plan-less brief gained divergence guidance: %q", a)
 		}
@@ -196,7 +196,7 @@ func pinnedTreeOf(t *testing.T, c *state.Campaign) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	aid := objStr(st, "active_snapshot_id")
+	aid := validation.ObjStr(st, "active_snapshot_id")
 	if aid == "" {
 		// Unpinned fixture: the sink tree is fine — nothing to claim.
 		return filepath.Join("..", "structidx", "testdata", "sink")
@@ -206,7 +206,7 @@ func pinnedTreeOf(t *testing.T, c *state.Campaign) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	root := objStr(objAt(meta, "source"), "root")
+	root := validation.ObjStr(validation.ObjAt(meta, "source"), "root")
 	if root == "" {
 		t.Fatal("pin manifest has no source.root")
 	}

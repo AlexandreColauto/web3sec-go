@@ -67,12 +67,12 @@ func runCost(root string, args []string, r *Runner) error {
 	if err != nil {
 		return err
 	}
-	line := "recorded " + objStr(e, "cost_id") + " " + objStr(e, "kind") +
+	line := "recorded " + validation.ObjStr(e, "cost_id") + " " + validation.ObjStr(e, "kind") +
 		" $" + pyFixed2(objFlt(e, "amount_usd"))
-	if traj := objStr(e, "trajectory"); traj != "" {
+	if traj := validation.ObjStr(e, "trajectory"); traj != "" {
 		line += " trajectory=" + traj
 	}
-	if lens := objStr(e, "lens"); lens != "" {
+	if lens := validation.ObjStr(e, "lens"); lens != "" {
 		line += " lens=" + lens
 	}
 	fmt.Fprintln(r.Out, line)

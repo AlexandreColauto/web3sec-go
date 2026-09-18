@@ -98,8 +98,8 @@ func TestMineGitHistoryFindsFix(t *testing.T) {
 		t.Fatal(err)
 	}
 	subs := []string{}
-	for _, k := range objAt(report, "security_relevant_commits").A {
-		subs = append(subs, objStr(k, "subject"))
+	for _, k := range validation.ObjAt(report, "security_relevant_commits").A {
+		subs = append(subs, validation.ObjStr(k, "subject"))
 	}
 	found := false
 	for _, s := range subs {
@@ -128,14 +128,14 @@ func TestPatchDeltaHypotheses(t *testing.T) {
 		t.Fatalf("no hypotheses")
 	}
 	for _, h := range hyps {
-		if !strings.Contains(objStr(h, "question"), "sibling") {
-			t.Errorf("question = %q, want sibling", objStr(h, "question"))
+		if !strings.Contains(validation.ObjStr(h, "question"), "sibling") {
+			t.Errorf("question = %q, want sibling", validation.ObjStr(h, "question"))
 		}
 	}
-	if f := objStr(hyps[0], "file"); !strings.HasSuffix(f, "Vault.sol") {
+	if f := validation.ObjStr(hyps[0], "file"); !strings.HasSuffix(f, "Vault.sol") {
 		t.Errorf("file = %q, want Vault.sol", f)
 	}
-	if id := objStr(hyps[0], "hypothesis_id"); !strings.HasPrefix(id, "PD-001-") {
+	if id := validation.ObjStr(hyps[0], "hypothesis_id"); !strings.HasPrefix(id, "PD-001-") {
 		t.Errorf("hypothesis_id = %q, want PD-001-*", id)
 	}
 }
@@ -151,7 +151,7 @@ func TestDeploymentVerificationVerdicts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sid := objStr(snap, "snapshot_id")
+	sid := validation.ObjStr(snap, "snapshot_id")
 	deployed := []validation.Value{
 		validation.VObj(
 			validation.KV{K: "name", V: validation.VStr("Vault")},
@@ -172,13 +172,13 @@ func TestDeploymentVerificationVerdicts(t *testing.T) {
 		t.Fatal(err)
 	}
 	matches := map[string]string{}
-	for _, k := range objAt(objAt(pin, "deployment"), "contracts").A {
-		matches[objStr(k, "name")] = objStr(k, "source_match")
+	for _, k := range validation.ObjAt(validation.ObjAt(pin, "deployment"), "contracts").A {
+		matches[validation.ObjStr(k, "name")] = validation.ObjStr(k, "source_match")
 	}
 	if matches["Vault"] != "verified" || matches["Ghost"] != "unverified" {
 		t.Errorf("matches = %v, want Vault=verified Ghost=unverified", matches)
 	}
-	if r := floatField(objAt(pin, "deployment"), "verification_ratio"); r != 0.5 {
+	if r := floatField(validation.ObjAt(pin, "deployment"), "verification_ratio"); r != 0.5 {
 		t.Errorf("verification_ratio = %v, want 0.5", r)
 	}
 	notes := DeploymentRiskNotes(pin)
@@ -254,8 +254,8 @@ func TestRecencyScoresRankFreshExposedFirst(t *testing.T) {
 		t.Fatal(err)
 	}
 	byPath := map[string]validation.Value{}
-	for _, r := range objAt(rep, "files").A {
-		byPath[objStr(r, "path")] = r
+	for _, r := range validation.ObjAt(rep, "files").A {
+		byPath[validation.ObjStr(r, "path")] = r
 	}
 	hot, cold := byPath["src/hot.sol"], byPath["src/cold.sol"]
 	if d := intField(hot, "days_ago"); d < 4 || d > 6 {
@@ -274,10 +274,10 @@ func TestRecencyScoresRankFreshExposedFirst(t *testing.T) {
 		t.Errorf("hot score %v <= cold score %v (cold is beyond the 90-day "+
 			"horizon)", floatField(hot, "score"), floatField(cold, "score"))
 	}
-	if p := objStr(objAt(rep, "hot_files").A[0], "path"); p != "src/hot.sol" {
+	if p := validation.ObjStr(validation.ObjAt(rep, "hot_files").A[0], "path"); p != "src/hot.sol" {
 		t.Errorf("hot_files[0] = %q, want src/hot.sol", p)
 	}
-	stats := objAt(rep, "stats")
+	stats := validation.ObjAt(rep, "stats")
 	if got := intField(stats, "files"); got != 2 {
 		t.Errorf("stats.files = %d, want 2", got)
 	}
@@ -339,8 +339,8 @@ func TestChangedInWindowExcludesStaleButScannedFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 	byPath := map[string]validation.Value{}
-	for _, r := range objAt(rep, "files").A {
-		byPath[objStr(r, "path")] = r
+	for _, r := range validation.ObjAt(rep, "files").A {
+		byPath[validation.ObjStr(r, "path")] = r
 	}
 	stale, fresh := byPath["src/stale.sol"], byPath["src/fresh.sol"]
 	if d := intField(stale, "days_ago"); d == 0 || d <= 90 {
@@ -355,7 +355,7 @@ func TestChangedInWindowExcludesStaleButScannedFiles(t *testing.T) {
 	if s := floatField(fresh, "score"); s <= 0.0 {
 		t.Errorf("fresh score = %v, want > 0", s)
 	}
-	if got := intField(objAt(rep, "stats"), "changed_in_window"); got != 1 {
+	if got := intField(validation.ObjAt(rep, "stats"), "changed_in_window"); got != 1 {
 		t.Errorf("stats.changed_in_window = %d, want 1", got)
 	}
 	if v, err := c.VerifyLog(); err != nil || !v.OK {
@@ -372,19 +372,19 @@ func TestRecencyScoresWithoutGitHistory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, r := range objAt(rep, "files").A {
+	for _, r := range validation.ObjAt(rep, "files").A {
 		if s := floatField(r, "score"); s != 0.0 {
 			t.Errorf("score for %s = %v, want 0.0",
-				objStr(r, "path"), s)
+				validation.ObjStr(r, "path"), s)
 		}
 	}
-	if n := len(objAt(rep, "files").A); n != 2 {
+	if n := len(validation.ObjAt(rep, "files").A); n != 2 {
 		t.Errorf("files = %d, want 2 (the snapshot tree still lists them)", n)
 	}
 }
 
 func intField(v validation.Value, key string) int64 {
-	f := objAt(v, key)
+	f := validation.ObjAt(v, key)
 	if f.Kind == validation.Int {
 		return f.I
 	}

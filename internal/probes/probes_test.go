@@ -105,7 +105,7 @@ func t29Clone(t *testing.T, v validation.Value) validation.Value {
 func t29JSON(v validation.Value) string { return validation.DumpsOrdered(v, false) }
 
 // t29StrJSON compares two string slices as Python lists.
-func t29StrJSON(items []string) string { return t29JSON(strArr(items)) }
+func t29StrJSON(items []string) string { return t29JSON(validation.StrArr(items)) }
 
 // t29SetOf is `{v[k] for v in items}`.
 func t29SetOf(items []validation.Value, key string) map[string]struct{} {

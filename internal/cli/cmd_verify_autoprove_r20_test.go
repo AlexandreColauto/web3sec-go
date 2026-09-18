@@ -1373,9 +1373,9 @@ func t28RegistryRows(t *testing.T, c *state.Campaign) string {
 		t.Fatal(err)
 	}
 	out := ""
-	for _, row := range objAt(st, "artifacts").A {
-		out += objStr(row, "artifact_id") + " " +
-			objStr(row, "sha256") + "\n"
+	for _, row := range validation.ObjAt(st, "artifacts").A {
+		out += validation.ObjStr(row, "artifact_id") + " " +
+			validation.ObjStr(row, "sha256") + "\n"
 	}
 	return out
 }

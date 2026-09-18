@@ -3,6 +3,8 @@
 // API; these keep the Python row mapping 1:1.)
 package state
 
+import "websec/internal/validation"
+
 import "testing"
 
 func TestCompleteSetsPhaseAndRecordsDecision(t *testing.T) {
@@ -19,13 +21,13 @@ func TestCompleteSetsPhaseAndRecordsDecision(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(st, "phase"); got != "COMPLETE" {
+	if got := validation.ObjStr(st, "phase"); got != "COMPLETE" {
 		t.Errorf("phase = %q, want COMPLETE", got)
 	}
-	if got := objStr(st, "completed_by"); got != "alice" {
+	if got := validation.ObjStr(st, "completed_by"); got != "alice" {
 		t.Errorf("completed_by = %q, want alice", got)
 	}
-	reason := objStr(st, "completed_reason")
+	reason := validation.ObjStr(st, "completed_reason")
 	if len(reason) < 10 || reason[:11] != "pass closed" {
 		t.Errorf("completed_reason = %q, want it to start with 'pass closed'",
 			reason)
@@ -37,14 +39,14 @@ func TestCompleteSetsPhaseAndRecordsDecision(t *testing.T) {
 	completed := 0
 	transition := false
 	for _, e := range events {
-		if objStr(e, "type") == "campaign.completed" {
+		if validation.ObjStr(e, "type") == "campaign.completed" {
 			completed++
-			if got := objStr(objAt(e, "data"), "actor"); got != "alice" {
+			if got := validation.ObjStr(validation.ObjAt(e, "data"), "actor"); got != "alice" {
 				t.Errorf("campaign.completed actor = %q, want alice", got)
 			}
 		}
-		if objStr(e, "type") == "phase.transition" &&
-			objStr(e, "ref") == "COMPLETE" {
+		if validation.ObjStr(e, "type") == "phase.transition" &&
+			validation.ObjStr(e, "ref") == "COMPLETE" {
 			transition = true
 		}
 	}
@@ -72,7 +74,7 @@ func TestCompleteRequiresActorAndWrittenReason(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(st, "phase"); got == "COMPLETE" {
+	if got := validation.ObjStr(st, "phase"); got == "COMPLETE" {
 		t.Errorf("phase = COMPLETE after rejected completions")
 	}
 }

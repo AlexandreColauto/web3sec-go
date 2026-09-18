@@ -110,13 +110,13 @@ func preconditionExclusive(args []string) error {
 // whose description contains (or is contained by) the argument.
 func preconditionValue(f validation.Value, description string) (string, bool) {
 	for _, p := range objListAt(f, "preconditions") {
-		desc := objStr(p, "description")
+		desc := validation.ObjStr(p, "description")
 		if desc == "" {
 			continue
 		}
 		if strings.Contains(desc, description) ||
 			strings.Contains(description, desc) {
-			v := objAt(p, "enforced_by_poc")
+			v := validation.ObjAt(p, "enforced_by_poc")
 			if v.Kind == validation.Null {
 				continue
 			}

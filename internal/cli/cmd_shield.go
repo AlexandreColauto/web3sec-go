@@ -58,11 +58,11 @@ func runShield(root string, args []string, r *Runner) int {
 		if err != nil {
 			return err
 		}
-		adj := objAt(objAt(f, "verification"), "shield_adjudication")
+		adj := validation.ObjAt(validation.ObjAt(f, "verification"), "shield_adjudication")
 		fmt.Fprintf(r.Out, "%s: shield adjudicated — "+
 			"extraction_despite_intent=%s (actor %s)\n", finding,
-			pyBoolLower(objAt(adj, "extraction_despite_intent")),
-			objStr(adj, "actor"))
+			pyBoolLower(validation.ObjAt(adj, "extraction_despite_intent")),
+			validation.ObjStr(adj, "actor"))
 		return nil
 	})
 }

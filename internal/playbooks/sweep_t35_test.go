@@ -79,10 +79,10 @@ func TestNewPlaybooksLoadAndValidate(t *testing.T) {
 			if err != nil || !found {
 				t.Fatalf("playbook_for_class(%q) = %v, %v", cls, found, err)
 			}
-			if got := objAt(pb, "bug_class"); got.S != cls {
+			if got := validation.ObjAt(pb, "bug_class"); got.S != cls {
 				t.Errorf("bug_class = %q, want %q", got.S, cls)
 			}
-			if got := objAt(pb, "evidence_floor"); got.S != floor {
+			if got := validation.ObjAt(pb, "evidence_floor"); got.S != floor {
 				t.Errorf("evidence_floor = %q, want %q", got.S, floor)
 			}
 		})

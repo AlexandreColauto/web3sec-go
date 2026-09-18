@@ -86,9 +86,9 @@ func ShapeIndexFromValue(v validation.Value) ShapeIndex {
 		shapes := make([]Shape, 0, len(kv.V.A))
 		for _, e := range kv.V.A {
 			shapes = append(shapes, Shape{
-				Callee:       objStr(e, "callee"),
-				ParamTypes:   objStr(e, "param_types"),
-				ReceiverHint: objStr(e, "receiver_hint"),
+				Callee:       validation.ObjStr(e, "callee"),
+				ParamTypes:   validation.ObjStr(e, "param_types"),
+				ReceiverHint: validation.ObjStr(e, "receiver_hint"),
 			})
 		}
 		out[kv.K] = shapes
@@ -266,13 +266,13 @@ func LoadOrBuildPocShapes(c *state.Campaign, pocRoot *string) (ShapeDoc, error) 
 	if _, err := os.Stat(cachePath); err == nil {
 		cached, rerr := validation.ReadJson(cachePath)
 		if rerr == nil {
-			cachedShapes := ShapeIndexFromValue(objAt(cached, "shapes"))
-			if objStr(cached, "dataset_head") == *head &&
+			cachedShapes := ShapeIndexFromValue(validation.ObjAt(cached, "shapes"))
+			if validation.ObjStr(cached, "dataset_head") == *head &&
 				sameFiles(cachedShapes.SortedFiles(), files) {
 				return ShapeDoc{
-					DatasetHead: objStr(cached, "dataset_head"),
+					DatasetHead: validation.ObjStr(cached, "dataset_head"),
 					PocCount:    intAt(cached, "poc_count"),
-					GeneratedAt: objStr(cached, "generated_at"),
+					GeneratedAt: validation.ObjStr(cached, "generated_at"),
 					Shapes:      cachedShapes,
 				}, nil
 			}
@@ -287,7 +287,7 @@ func LoadOrBuildPocShapes(c *state.Campaign, pocRoot *string) (ShapeDoc, error) 
 		shapes[rel] = ExtractCallShapes(text)
 	}
 	doc := ShapeDoc{DatasetHead: *head, PocCount: int64(len(files)),
-		GeneratedAt: nowIso(), Shapes: shapes}
+		GeneratedAt: state.NowIso(), Shapes: shapes}
 	if err := validation.WriteJson(cachePath, doc.Value(), ""); err != nil {
 		return ShapeDoc{}, err
 	}
@@ -319,7 +319,7 @@ func TargetSurfaceKeys(index validation.Value) (map[[2]string]bool, []string) {
 	keys := map[[2]string]bool{}
 	names := map[string]bool{}
 	for _, n := range structidx.ExternalSurface(index) {
-		sel := objStr(n, "selector")
+		sel := validation.ObjStr(n, "selector")
 		if sel == "" {
 			continue
 		}
@@ -378,8 +378,8 @@ func MatchShapes(index validation.Value, shapesByFile ShapeIndex) []validation.V
 			continue
 		}
 		sort.SliceStable(exact, func(i, j int) bool {
-			a := [2]string{objStr(exact[i], "callee"), objStr(exact[i], "param_types")}
-			b := [2]string{objStr(exact[j], "callee"), objStr(exact[j], "param_types")}
+			a := [2]string{validation.ObjStr(exact[i], "callee"), validation.ObjStr(exact[i], "param_types")}
+			b := [2]string{validation.ObjStr(exact[j], "callee"), validation.ObjStr(exact[j], "param_types")}
 			return a[0] < b[0] || (a[0] == b[0] && a[1] < b[1])
 		})
 		sort.SliceStable(near, func(i, j int) bool {
@@ -387,7 +387,7 @@ func MatchShapes(index validation.Value, shapesByFile ShapeIndex) []validation.V
 			if si != sj {
 				return si > sj
 			}
-			return objStr(near[i], "callee") < objStr(near[j], "callee")
+			return validation.ObjStr(near[i], "callee") < validation.ObjStr(near[j], "callee")
 		})
 		if len(near) > 10 {
 			near = near[:10]

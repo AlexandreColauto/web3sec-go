@@ -57,7 +57,7 @@ func lagLedger(t *testing.T, c *state.Campaign) {
 	if err != nil {
 		t.Fatalf("read mirror: %v", err)
 	}
-	mirror := objAt(st, "events")
+	mirror := validation.ObjAt(st, "events")
 	if mirror.Kind != validation.Arr || len(mirror.A) <= len(kept) {
 		t.Fatalf("mirror holds %d event(s) and the ledger now %d — the "+
 			"fixture must leave the MIRROR longer", len(mirror.A), len(kept))
@@ -448,7 +448,7 @@ func TestR39TimedOutCreatedContainerLeavesNoDebris(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	execID := objStr(rec, "exec_id")
+	execID := validation.ObjStr(rec, "exec_id")
 	name := "webv2-exec-" + strings.ToLower(execID)
 	stderrLog, err := os.ReadFile(filepath.Join(c.ExecsDir, execID,
 		"stderr.log"))
@@ -493,7 +493,7 @@ func TestR39UnremovableDebrisIsDisclosed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	execID := objStr(rec, "exec_id")
+	execID := validation.ObjStr(rec, "exec_id")
 	stderrLog, err := os.ReadFile(filepath.Join(c.ExecsDir, execID,
 		"stderr.log"))
 	if err != nil {
@@ -527,7 +527,7 @@ func TestR39AbsentContainerIsDisclosedNotProven(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	execID := objStr(rec, "exec_id")
+	execID := validation.ObjStr(rec, "exec_id")
 	name := "webv2-exec-" + strings.ToLower(execID)
 	stderrLog, err := os.ReadFile(filepath.Join(c.ExecsDir, execID,
 		"stderr.log"))

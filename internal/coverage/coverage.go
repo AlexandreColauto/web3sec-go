@@ -30,7 +30,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	"websec/internal/findings"
 	"websec/internal/invariants"
@@ -86,7 +85,7 @@ func Load(c *state.Campaign) (validation.Value, error) {
 // with json.dumps(indent=2), and return the path. The caller's Value is
 // mutated in place, as Python mutates the dict it was handed.
 func Save(c *state.Campaign, cov *validation.Value) (string, error) {
-	cov.O = validation.SetOrAppend(cov.O, "updated_at", validation.VStr(nowIso()))
+	cov.O = validation.SetOrAppend(cov.O, "updated_at", validation.VStr(state.NowIso()))
 	if err := validation.Validate(*cov, "coverage", 1); err != nil {
 		return "", err
 	}
@@ -167,7 +166,7 @@ func InitFromIndex(c *state.Campaign, index, model validation.Value) (validation
 	cov := validation.VObj(
 		kv("campaign_id", validation.VStr(c.CampaignID)),
 		kv("snapshot_id", getOr(index, "snapshot_id", validation.VStr("unpinned"))),
-		kv("updated_at", validation.VStr(nowIso())),
+		kv("updated_at", validation.VStr(state.NowIso())),
 		kv("contracts", validation.VArr(contracts...)),
 		kv("surfaces", surfaces),
 		kv("funnel", validation.VObj()),
@@ -420,21 +419,21 @@ func sweepRow(row validation.Value, trajectory string, opts SweepOpts) (validati
 	if counts.Kind != validation.Obj {
 		counts = validation.VObj()
 	}
-	n := numOrZero(objAt(counts, trajectory)).addInt(1)
+	n := numOrZero(validation.ObjAt(counts, trajectory)).addInt(1)
 	counts.O = validation.SetOrAppend(counts.O, trajectory, n.value())
 	row.O = validation.SetOrAppend(row.O, "trajectory_counts", counts)
 
-	epr := numOrZero(objAt(row, "entry_points_reviewed")).addInt(opts.EntryPointsReviewed)
+	epr := numOrZero(validation.ObjAt(row, "entry_points_reviewed")).addInt(opts.EntryPointsReviewed)
 	eprCap := numInt(opts.EntryPointsReviewed)
-	if validation.PyTruthy(objAt(row, "entry_points_total")) {
-		eprCap = numOf(objAt(row, "entry_points_total"))
+	if validation.PyTruthy(validation.ObjAt(row, "entry_points_total")) {
+		eprCap = numOf(validation.ObjAt(row, "entry_points_total"))
 	}
 	row.O = validation.SetOrAppend(row.O, "entry_points_reviewed", epr.min(eprCap).value())
 
-	fr := numOrZero(objAt(row, "functions_reviewed")).addInt(opts.FunctionsReviewed)
+	fr := numOrZero(validation.ObjAt(row, "functions_reviewed")).addInt(opts.FunctionsReviewed)
 	frCap := numInt(opts.FunctionsReviewed)
-	if validation.PyTruthy(objAt(row, "functions_total")) {
-		frCap = numOf(objAt(row, "functions_total"))
+	if validation.PyTruthy(validation.ObjAt(row, "functions_total")) {
+		frCap = numOf(validation.ObjAt(row, "functions_total"))
 	}
 	row.O = validation.SetOrAppend(row.O, "functions_reviewed", fr.min(frCap).value())
 
@@ -449,8 +448,8 @@ func sweepRow(row validation.Value, trajectory string, opts SweepOpts) (validati
 			row.O = validation.SetOrAppend(row.O, "status", validation.VStr("in-progress"))
 		}
 	}
-	row.O = validation.SetOrAppend(row.O, "thoroughness", thoroughness(objAt(row, "entry_points_reviewed"),
-		objAt(row, "entry_points_total")))
+	row.O = validation.SetOrAppend(row.O, "thoroughness", thoroughness(validation.ObjAt(row, "entry_points_reviewed"),
+		validation.ObjAt(row, "entry_points_total")))
 	return row, nil
 }
 
@@ -525,7 +524,7 @@ func ThinCoverage(c *state.Campaign, minTrajectories int64) ([]validation.Value,
 			kv("path", validation.VStr(path.S)),
 			kv("status", status),
 			kv("trajectories", sortedKeys(counts)),
-			kv("thoroughness", objAt(row, "thoroughness")),
+			kv("thoroughness", validation.ObjAt(row, "thoroughness")),
 		))
 	}
 	return out, nil
@@ -573,7 +572,7 @@ func RefreshGaps(c *state.Campaign, model validation.Value) ([]validation.Value,
 		switch {
 		case status.S == "unknown":
 			priority := 0.5
-			if validation.PyTruthy(objAt(row, "entry_points_total")) {
+			if validation.PyTruthy(validation.ObjAt(row, "entry_points_total")) {
 				priority = 0.9
 			}
 			gaps = append(gaps, gapRow(path.S+" has never been swept",
@@ -590,11 +589,11 @@ func RefreshGaps(c *state.Campaign, model validation.Value) ([]validation.Value,
 	if validation.PyTruthy(dep) {
 		if unverified := unverifiedContracts(dep); unverified > 0 {
 			gaps = append(gaps, gapRow(fmt.Sprintf("%d deployed contracts have unverified source",
-				unverified), "unverified-deployment", objAt(dep, "network"), 0.8))
+				unverified), "unverified-deployment", validation.ObjAt(dep, "network"), 0.8))
 		}
 	}
 	for _, q := range listField(model, "open_questions") {
-		if validation.PyTruthy(objAt(q, "resolved")) {
+		if validation.PyTruthy(validation.ObjAt(q, "resolved")) {
 			continue
 		}
 		question, err := reqKey(q, "question")
@@ -602,7 +601,7 @@ func RefreshGaps(c *state.Campaign, model validation.Value) ([]validation.Value,
 			return nil, err
 		}
 		gaps = append(gaps, gapRow("open question: "+question.S, "open-question",
-			validation.VStr(joinBlocks(objAt(q, "blocks"))), 0.4))
+			validation.VStr(joinBlocks(validation.ObjAt(q, "blocks"))), 0.4))
 	}
 	cov.O = validation.SetOrAppend(cov.O, "gaps", validation.VArr(gaps...))
 	if _, err := Save(c, &cov); err != nil {
@@ -627,7 +626,7 @@ func gapRow(description, kind string, component validation.Value,
 func unverifiedContracts(dep validation.Value) int {
 	n := 0
 	for _, k := range listField(dep, "contracts") {
-		if objStr(k, "source_match") == "unverified" {
+		if validation.ObjStr(k, "source_match") == "unverified" {
 			n++
 		}
 	}
@@ -650,7 +649,7 @@ func activeDeployment(c *state.Campaign) (validation.Value, error) {
 	if err != nil {
 		return validation.VNull(), err
 	}
-	sid := objAt(st, "active_snapshot_id")
+	sid := validation.ObjAt(st, "active_snapshot_id")
 	if !validation.PyTruthy(sid) {
 		return validation.VNull(), nil
 	}
@@ -665,7 +664,7 @@ func activeDeployment(c *state.Campaign) (validation.Value, error) {
 	if !validation.PyTruthy(doc) {
 		doc = validation.VObj()
 	}
-	return objAt(doc, "deployment"), nil
+	return validation.ObjAt(doc, "deployment"), nil
 }
 
 // UpdateFunnel is update_funnel: project the candidate funnel from findings +
@@ -684,10 +683,10 @@ func UpdateFunnel(c *state.Campaign) (validation.Value, error) {
 	funnel := validation.VObj(
 		kv("hypotheses_generated", validation.VInt(int64(len(found)))),
 		kv("after_dedupe", validation.VInt(countFindings(found, func(f validation.Value) bool {
-			return objStr(f, "status") != "DUPLICATE"
+			return validation.ObjStr(f, "status") != "DUPLICATE"
 		}))),
 		kv("after_review", validation.VInt(countFindings(found, func(f validation.Value) bool {
-			switch objStr(f, "status") {
+			switch validation.ObjStr(f, "status") {
 			case "POSSIBLE", "CONFIRMED", "CHAIN":
 				return true
 			}
@@ -697,14 +696,14 @@ func UpdateFunnel(c *state.Campaign) (validation.Value, error) {
 			return reproductionStatus(f) == "reproduced"
 		}))),
 		kv("confirmed", validation.VInt(countFindings(found, func(f validation.Value) bool {
-			return objStr(f, "status") == "CONFIRMED"
+			return validation.ObjStr(f, "status") == "CONFIRMED"
 		}))),
 		kv("disproved", validation.VInt(countFindings(found, func(f validation.Value) bool {
-			return objStr(f, "status") == "DISPROVED"
+			return validation.ObjStr(f, "status") == "DISPROVED"
 		}))),
 		kv("submission_ready", validation.VInt(countFindings(found,
 			func(f validation.Value) bool {
-				return validation.PyTruthy(objAt(objAt(f, "bounty"), "submission_ready"))
+				return validation.PyTruthy(validation.ObjAt(validation.ObjAt(f, "bounty"), "submission_ready"))
 			}))),
 	)
 	cov, err := Load(c)
@@ -732,7 +731,7 @@ func countFindings(found []validation.Value, pred func(validation.Value) bool) i
 // reproductionStatus is (f.get("verification") or {}).get("reproduction",
 // {}).get("status"): "" when any link is absent or falsy.
 func reproductionStatus(f validation.Value) string {
-	verification := objAt(f, "verification")
+	verification := validation.ObjAt(f, "verification")
 	if !validation.PyTruthy(verification) {
 		return ""
 	}
@@ -740,7 +739,7 @@ func reproductionStatus(f validation.Value) string {
 	if !ok || repro.Kind != validation.Obj {
 		return ""
 	}
-	return objStr(repro, "status")
+	return validation.ObjStr(repro, "status")
 }
 
 // BuildSummary is build_summary: the one-glance numbers, stamped into the
@@ -847,7 +846,7 @@ func invariantText(invCov validation.Value) (string, validation.Value, error) {
 func sumField(rows []validation.Value, key string) pynum {
 	acc := numInt(0)
 	for _, row := range rows {
-		acc = acc.add(numOrZero(objAt(row, key)))
+		acc = acc.add(numOrZero(validation.ObjAt(row, key)))
 	}
 	return acc
 }
@@ -873,36 +872,11 @@ func surfaceText(cov validation.Value, surface string) (string, error) {
 	return numOrZero(reviewed).text() + "/" + numOrZero(total).text(), nil
 }
 
-// nowIso is now_iso (mirrors state.nowIso, unexported there). WEBV2_NOW pins
-// the clock for the golden suite; unset = real clock.
-func nowIso() string {
-	if v := os.Getenv("WEBV2_NOW"); v != "" {
-		return v
-	}
-	now := time.Now().UTC()
-	return fmt.Sprintf("%s.%06d+00:00", now.Format("2006-01-02T15:04:05"),
-		now.Nanosecond()/1000)
-}
-
 // ---- Python value helpers ------------------------------------------------
 
 // kv is the vet-clean keyed KV constructor.
 func kv(k string, v validation.Value) validation.KV {
 	return validation.KV{K: k, V: v}
-}
-
-// objAt is dict.get(key): the value for key, or Null when absent (or the
-// receiver is not an object).
-func objAt(v validation.Value, key string) validation.Value {
-	if v.Kind != validation.Obj {
-		return validation.VNull()
-	}
-	for _, pair := range v.O {
-		if pair.K == key {
-			return pair.V
-		}
-	}
-	return validation.VNull()
 }
 
 // lookup is the `key in dict` + indexing pair: found reports whether the key
@@ -929,15 +903,10 @@ func reqKey(v validation.Value, key string) (validation.Value, error) {
 	return val, nil
 }
 
-// objStr returns a string field's value ("" when absent/non-string).
-func objStr(v validation.Value, key string) string {
-	return objAt(v, key).S
-}
-
 // listField is dict.get(key, []): the array's elements, empty when the key is
 // absent or the value is not an array.
 func listField(v validation.Value, key string) []validation.Value {
-	return objAt(v, key).A
+	return validation.ObjAt(v, key).A
 }
 
 // getOr is dict.get(key, default): the default only when the key is ABSENT.

@@ -76,13 +76,13 @@ func StateHealth(campaign *state.Campaign) (validation.Value, error) {
 		capped string
 	}
 	var pending []pendingNote
-	if stages := objAt(st, "stages"); stages.Kind == validation.Obj {
+	if stages := validation.ObjAt(st, "stages"); stages.Kind == validation.Obj {
 		for i := range stages.O {
 			entry := stages.O[i].V
 			if entry.Kind != validation.Obj {
 				continue
 			}
-			note := objAt(entry, "note")
+			note := validation.ObjAt(entry, "note")
 			if note.Kind != validation.Str {
 				continue
 			}
@@ -108,13 +108,13 @@ func StateHealth(campaign *state.Campaign) (validation.Value, error) {
 	// notes_truncated report; the fixed-point test is what keeps them from
 	// being re-capped on every run.
 	artifactsRepaired := 0
-	if arts := objAt(st, "artifacts"); arts.Kind == validation.Arr {
+	if arts := validation.ObjAt(st, "artifacts"); arts.Kind == validation.Arr {
 		for i := range arts.A {
 			art := arts.A[i]
 			if art.Kind != validation.Obj {
 				continue
 			}
-			note := objAt(art, "note")
+			note := validation.ObjAt(art, "note")
 			if note.Kind != validation.Str {
 				continue
 			}
@@ -141,7 +141,7 @@ func StateHealth(campaign *state.Campaign) (validation.Value, error) {
 		// does not veto the note-cap repair (an oversized note still
 		// gets capped; the mirror stays as-is, visible to verify).
 		mirrorRefusal = merr.Error()
-	} else if validation.CanonSpaced(objAt(st, "events")) !=
+	} else if validation.CanonSpaced(validation.ObjAt(st, "events")) !=
 		validation.CanonSpaced(validation.Value{Kind: validation.Arr,
 			A: fresh}) {
 		// r16: capture the OLD mirror BEFORE cand is built —
@@ -149,7 +149,7 @@ func StateHealth(campaign *state.Campaign) (validation.Value, error) {
 		// so st["events"] reads the NEW value once cand exists (and a
 		// delta computed from st afterwards is zero by construction
 		// — it was, until a pin caught it).
-		oldMirror := objAt(st, "events")
+		oldMirror := validation.ObjAt(st, "events")
 		cand := st
 		cand.O = validation.SetOrAppend(cand.O, "events",
 			validation.Value{Kind: validation.Arr, A: fresh})
@@ -217,13 +217,13 @@ func StateHealth(campaign *state.Campaign) (validation.Value, error) {
 	}
 	if len(pending) > 0 {
 		if persisted, perr := validation.ReadJson(path); perr == nil {
-			stages := objAt(persisted, "stages")
+			stages := validation.ObjAt(persisted, "stages")
 			for i, p := range pending {
-				entry := objAt(stages, p.stage)
+				entry := validation.ObjAt(stages, p.stage)
 				if entry.Kind != validation.Obj {
 					continue
 				}
-				if note := objAt(entry, "note"); note.Kind == validation.Str {
+				if note := validation.ObjAt(entry, "note"); note.Kind == validation.Str {
 					afterLens[i] = runeLen(note)
 				}
 			}
@@ -439,7 +439,7 @@ func SnapshotScope(campaign *state.Campaign) (validation.Value, error) {
 			"re-pin with --exclude or a tighter target")
 	}
 	var rootV validation.Value = validation.VNull()
-	if r := objStr(objAt(meta, "source"), "root"); r != "" {
+	if r := validation.ObjStr(validation.ObjAt(meta, "source"), "root"); r != "" {
 		rootV = validation.VStr(r)
 	}
 	return validation.VObj(
@@ -525,23 +525,6 @@ func splitPath(rel string) []string {
 		out = append(out, cur)
 	}
 	return out
-}
-
-func objAt(v validation.Value, key string) validation.Value {
-	for _, kv := range v.O {
-		if kv.K == key {
-			return kv.V
-		}
-	}
-	return validation.VNull()
-}
-
-func objStr(v validation.Value, key string) string {
-	f := objAt(v, key)
-	if f.Kind == validation.Str {
-		return f.S
-	}
-	return ""
 }
 
 // setKey replaces key in place (Python's dict assignment keeps position).

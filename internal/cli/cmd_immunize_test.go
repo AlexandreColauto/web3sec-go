@@ -72,7 +72,7 @@ func t21Confirm(t *testing.T, c *state.Campaign, execID,
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	if _, err := findings.Transition(c, fid, "POSSIBLE", "triage", "triage",
 		"", false); err != nil {
 		t.Fatal(err)
@@ -97,7 +97,7 @@ func t21Confirm(t *testing.T, c *state.Campaign, execID,
 	if err != nil {
 		t.Fatal(err)
 	}
-	ver := asDictCLI(objAt(vf, "verification"))
+	ver := asDictCLI(validation.ObjAt(vf, "verification"))
 	ver = setObjFieldCLI(ver, "reproduction", validation.VObj(
 		kvT("tier_reached", validation.VStr("T1")),
 		kvT("status", validation.VStr("reproduced")),
@@ -159,8 +159,8 @@ func t21Evidence(rec validation.Value, level, typ, desc, eid string) validation.
 		kvT("level", validation.VStr(level)),
 		kvT("type", validation.VStr(typ)),
 		kvT("description", validation.VStr(desc)),
-		kvT("sandbox_profile", objAt(rec, "profile")),
-		kvT("artifact_id", objAt(rec, "exec_id")),
+		kvT("sandbox_profile", validation.ObjAt(rec, "profile")),
+		kvT("artifact_id", validation.ObjAt(rec, "exec_id")),
 	)
 }
 

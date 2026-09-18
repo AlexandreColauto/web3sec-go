@@ -108,7 +108,7 @@ func RoleFromLabel(label string) (string, bool) {
 
 // Granted is granted: the finding's normalized granted-capability list.
 func Granted(finding validation.Value) []string {
-	return NormalizeLabels(strList(objAt(objAt(finding, "capabilities"), "granted")))
+	return NormalizeLabels(strList(validation.ObjAt(validation.ObjAt(finding, "capabilities"), "granted")))
 }
 
 // Required is required: what the attacker must already hold. Falls back to
@@ -116,11 +116,11 @@ func Granted(finding validation.Value) []string {
 // preconditions are prose, so the fallback is best-effort and flagged as
 // such (they land in capability_delta's unclassified bucket).
 func Required(finding validation.Value) []string {
-	caps := objAt(finding, "capabilities")
-	if req := strList(objAt(caps, "required")); len(req) > 0 {
+	caps := validation.ObjAt(finding, "capabilities")
+	if req := strList(validation.ObjAt(caps, "required")); len(req) > 0 {
 		return NormalizeLabels(req)
 	}
-	return NormalizeLabels(strList(objAt(finding, "preconditions")))
+	return NormalizeLabels(strList(validation.ObjAt(finding, "preconditions")))
 }
 
 // KindOf is kind_of: which taxonomy bucket a label belongs to. The second
@@ -195,11 +195,11 @@ func CapabilityDelta(finding validation.Value) validation.Value {
 	sort.Strings(retained)
 	sort.Strings(unclassified)
 	return validation.VObj(
-		kv("gained", strArr(gained)),
-		kv("retained", strArr(retained)),
-		kv("required", strArr(keysOf(before))),
-		kv("kinds", strArr(keysOf(kinds))),
-		kv("unclassified", strArr(unclassified)),
+		kv("gained", validation.StrArr(gained)),
+		kv("retained", validation.StrArr(retained)),
+		kv("required", validation.StrArr(keysOf(before))),
+		kv("kinds", validation.StrArr(keysOf(kinds))),
+		kv("unclassified", validation.StrArr(unclassified)),
 	)
 }
 
@@ -222,15 +222,6 @@ func keysOf(s map[string]struct{}) []string {
 	}
 	sort.Strings(out)
 	return out
-}
-
-// strArr renders a []string as a JSON array Value.
-func strArr(items []string) validation.Value {
-	out := make([]validation.Value, len(items))
-	for i, s := range items {
-		out[i] = validation.VStr(s)
-	}
-	return validation.VArr(out...)
 }
 
 // strList extracts the string elements of a list Value. Python iterates
@@ -260,19 +251,6 @@ func strList(v validation.Value) []string {
 		return out
 	}
 	return nil
-}
-
-// objAt is the dict lookup: the value for key, or Null when absent.
-func objAt(v validation.Value, key string) validation.Value {
-	if v.Kind != validation.Obj {
-		return validation.VNull()
-	}
-	for _, kv := range v.O {
-		if kv.K == key {
-			return kv.V
-		}
-	}
-	return validation.VNull()
 }
 
 // kv is the keyed KV constructor (non-test code cannot use a test helper).

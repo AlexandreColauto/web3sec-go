@@ -28,7 +28,7 @@ func TestPolicyCheckAllowsHalmos(t *testing.T) {
 	}
 	if !boolAt(v, "allowed") {
 		t.Errorf("allowed = false (violations %s), want true",
-			validation.CanonCompact(objAt(v, "violations")))
+			validation.CanonCompact(validation.ObjAt(v, "violations")))
 	}
 }
 
@@ -42,7 +42,7 @@ func TestPolicyCheckAllowsForgeFuzz(t *testing.T) {
 	}
 	if !boolAt(v, "allowed") {
 		t.Errorf("allowed = false (violations %s), want true",
-			validation.CanonCompact(objAt(v, "violations")))
+			validation.CanonCompact(validation.ObjAt(v, "violations")))
 	}
 }
 
@@ -56,9 +56,9 @@ func TestPolicyCheckHalmosRejectsSmuggledDestructive(t *testing.T) {
 	if boolAt(v, "allowed") {
 		t.Error("allowed = true, want false")
 	}
-	if !containsStrValue(objAt(v, "violations"), "destructive-path") {
+	if !containsStrValue(validation.ObjAt(v, "violations"), "destructive-path") {
 		t.Errorf("violations = %s, want destructive-path",
-			validation.CanonCompact(objAt(v, "violations")))
+			validation.CanonCompact(validation.ObjAt(v, "violations")))
 	}
 }
 
@@ -113,9 +113,9 @@ func TestHalmosProfileRunsOnHost(t *testing.T) {
 		gotArgv[2] != "halmos check --root ." {
 		t.Fatalf("host argv = %v, want [/bin/sh -c command]", gotArgv)
 	}
-	if objAt(rec, "container").Kind != validation.Null {
+	if validation.ObjAt(rec, "container").Kind != validation.Null {
 		t.Errorf("container = %s, want null",
-			validation.CanonCompact(objAt(rec, "container")))
+			validation.CanonCompact(validation.ObjAt(rec, "container")))
 	}
 	if got := intAt(rec, "exit_status"); got != 0 {
 		t.Errorf("exit_status = %d, want 0", got)
@@ -146,7 +146,7 @@ func TestToolVersionsProbesHalmos(t *testing.T) {
 
 	empty := t.TempDir()
 	t.Setenv("PATH", empty)
-	if v := objAt(toolVersions(), "halmos"); v.Kind != validation.Null {
+	if v := validation.ObjAt(toolVersions(), "halmos"); v.Kind != validation.Null {
 		t.Errorf("absent halmos must be omitted, got %s",
 			validation.CanonCompact(v))
 	}
@@ -164,7 +164,7 @@ func TestMinicertoraProfilePolicy(t *testing.T) {
 	}
 	if !boolAt(v, "allowed") {
 		t.Errorf("allowed = false (violations %s), want true",
-			validation.CanonCompact(objAt(v, "violations")))
+			validation.CanonCompact(validation.ObjAt(v, "violations")))
 	}
 	if network := networkLabel("minicertora"); !strings.Contains(network, "unconfined") {
 		t.Errorf("minicertora network = %q, want an unconfined-host "+
@@ -198,9 +198,9 @@ func TestMinicertoraProfileRejectsSmuggledDestructive(t *testing.T) {
 	if boolAt(v, "allowed") {
 		t.Error("allowed = true, want false")
 	}
-	if !containsStrValue(objAt(v, "violations"), "destructive-path") {
+	if !containsStrValue(validation.ObjAt(v, "violations"), "destructive-path") {
 		t.Errorf("violations = %s, want destructive-path",
-			validation.CanonCompact(objAt(v, "violations")))
+			validation.CanonCompact(validation.ObjAt(v, "violations")))
 	}
 }
 
@@ -228,7 +228,7 @@ func TestToolVersionsProbesMinicertora(t *testing.T) {
 
 	empty := t.TempDir()
 	t.Setenv("PATH", empty)
-	if v := objAt(toolVersions(), "minicertora"); v.Kind != validation.Null {
+	if v := validation.ObjAt(toolVersions(), "minicertora"); v.Kind != validation.Null {
 		t.Errorf("absent minicertora must be omitted, got %s",
 			validation.CanonCompact(v))
 	}
@@ -253,7 +253,7 @@ func TestTimeoutMarkerExplainsTheRecord(t *testing.T) {
 		t.Fatal(err)
 	}
 	raw, rerr := os.ReadFile(filepath.Join(c.ExecsDir,
-		objStr(rec, "exec_id"), "stderr.log"))
+		validation.ObjStr(rec, "exec_id"), "stderr.log"))
 	if rerr != nil {
 		t.Fatal(rerr)
 	}
@@ -273,7 +273,7 @@ func TestTimeoutMarkerExplainsTheRecord(t *testing.T) {
 		t.Fatal(err)
 	}
 	raw2, rerr := os.ReadFile(filepath.Join(c.ExecsDir,
-		objStr(rec2, "exec_id"), "stderr.log"))
+		validation.ObjStr(rec2, "exec_id"), "stderr.log"))
 	if rerr != nil {
 		t.Fatal(rerr)
 	}

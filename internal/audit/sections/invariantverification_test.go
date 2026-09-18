@@ -49,9 +49,9 @@ func harnessLinks(t *testing.T, c *state.Campaign,
 	if err != nil {
 		t.Fatal(err)
 	}
-	reg := objAt(links, "invariants")
+	reg := validation.ObjAt(links, "invariants")
 	for iid, h := range fields {
-		e := objAt(reg, iid)
+		e := validation.ObjAt(reg, iid)
 		e.O = validation.SetOrAppend(e.O, "verification",
 			validation.VObj(KV("harness", h)))
 		reg.O = validation.SetOrAppend(reg.O, iid, e)
@@ -75,7 +75,7 @@ func harnessLinks(t *testing.T, c *state.Campaign,
 func backEvent(t *testing.T, c *state.Campaign, iid string,
 	h validation.Value) {
 	t.Helper()
-	if objStr(h, "exec") == "" {
+	if validation.ObjStr(h, "exec") == "" {
 		return // malformed: no line, no event (skip arm's world)
 	}
 	data := validation.VObj(
@@ -84,16 +84,16 @@ func backEvent(t *testing.T, c *state.Campaign, iid string,
 		// refuses a slot whose kind no event carries (the r29b fixture
 		// file already had to write it by hand, which is how this
 		// omission was found).
-		KV("kind", validation.VStr(objStr(h, "kind"))),
-		KV("rung", validation.VStr(objStr(h, "rung"))),
-		KV("exec", validation.VStr(objStr(h, "exec"))),
+		KV("kind", validation.VStr(validation.ObjStr(h, "kind"))),
+		KV("rung", validation.VStr(validation.ObjStr(h, "rung"))),
+		KV("exec", validation.VStr(validation.ObjStr(h, "exec"))),
 		KV("invariant", validation.VStr(iid)),
-		KV("summary", validation.VStr(objStr(h, "summary"))),
-		KV("bounded_k", objAt(h, "bounded_k")),
+		KV("summary", validation.VStr(validation.ObjStr(h, "summary"))),
+		KV("bounded_k", validation.ObjAt(h, "bounded_k")),
 		// Mirror the mapper r23 F1: proof subtree rides as a digest.
 		KV("proof_sha256", validation.VStr(
 			hexText(sha256.Sum256([]byte(validation.CanonCompact(
-				objAt(h, "proof"))))))),
+				validation.ObjAt(h, "proof"))))))),
 	)
 	ref := iid
 	if _, err := c.Log("harness_run", &ref, &data); err != nil {
@@ -102,16 +102,16 @@ func backEvent(t *testing.T, c *state.Campaign, iid string,
 	// r24: blessing rungs get their EVIDENCE too — the audit re-derives
 	// minicertora claims from the exec ledger, so a fixture that
 	// displays PROVEN-BOUNDED must own a stdout that re-maps to it.
-	if objStr(h, "kind") == "minicertora" &&
-		strings.HasPrefix(objStr(h, "exec"), "EXEC-") &&
-		(objStr(h, "rung") == "proved-bounded" ||
-			objStr(h, "rung") == "counterexample") {
+	if validation.ObjStr(h, "kind") == "minicertora" &&
+		strings.HasPrefix(validation.ObjStr(h, "exec"), "EXEC-") &&
+		(validation.ObjStr(h, "rung") == "proved-bounded" ||
+			validation.ObjStr(h, "rung") == "counterexample") {
 		mintExecEvidence(t, c, iid, h)
 	}
-	if (objStr(h, "kind") == "halmos" ||
-		objStr(h, "kind") == "forge-fuzz") &&
-		(objStr(h, "rung") == "proved-bounded" ||
-			objStr(h, "rung") == "counterexample") {
+	if (validation.ObjStr(h, "kind") == "halmos" ||
+		validation.ObjStr(h, "kind") == "forge-fuzz") &&
+		(validation.ObjStr(h, "rung") == "proved-bounded" ||
+			validation.ObjStr(h, "rung") == "counterexample") {
 		mintMapRunEvidence(t, c, iid, h)
 	}
 }
@@ -122,14 +122,14 @@ func mintExecEvidence(t *testing.T, c *state.Campaign, iid string,
 	h validation.Value) {
 	t.Helper()
 	rule := harness.MspecRuleName(iid)
-	exec := objStr(h, "exec")
+	exec := validation.ObjStr(h, "exec")
 	dir := filepath.Join(c.ExecsDir, exec)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
 	}
 	var line string
 	exit := 0
-	if objStr(h, "rung") == "proved-bounded" {
+	if validation.ObjStr(h, "rung") == "proved-bounded" {
 		exit = 0
 		line = fmt.Sprintf(
 			`{"rule": %s, "verdict": "PROVEN", `+
@@ -138,9 +138,9 @@ func mintExecEvidence(t *testing.T, c *state.Campaign, iid string,
 				`"warnings": [], "ghosts": [], "invariant": null, `+
 				`"calls": []}`,
 			validation.CanonCompact(validation.VStr(rule)),
-			validation.CanonCompact(objAt(h, "bounded_k")))
+			validation.CanonCompact(validation.ObjAt(h, "bounded_k")))
 		// bounded_k null? the fixture only uses ints here.
-		if objAt(h, "bounded_k").Kind != validation.Int {
+		if validation.ObjAt(h, "bounded_k").Kind != validation.Int {
 			line = fmt.Sprintf(
 				`{"rule": %s, "verdict": "PROVEN", "reason": null, `+
 					`"assumptions": [], "warnings": [], "ghosts": [], `+
@@ -194,13 +194,13 @@ func TestInvariantVerificationUnbackedSlotBurns(t *testing.T) {
 	})
 	// (a) drift: strengthen the slot after the event landed.
 	links, _ := invariants.LoadLinks(c)
-	e := objAt(objAt(links, "invariants"), "INV-3")
-	h := objAt(objAt(e, "verification"), "harness")
+	e := validation.ObjAt(validation.ObjAt(links, "invariants"), "INV-3")
+	h := validation.ObjAt(validation.ObjAt(e, "verification"), "harness")
 	h.O = validation.SetOrAppend(h.O, "summary",
 		validation.VStr("proved bounded (k=999999)"))
 	e.O = validation.SetOrAppend(e.O, "verification",
 		validation.VObj(KV("harness", h)))
-	reg := objAt(links, "invariants")
+	reg := validation.ObjAt(links, "invariants")
 	reg.O = validation.SetOrAppend(reg.O, "INV-3", e)
 	links.O = validation.SetOrAppend(links.O, "invariants", reg)
 	if _, err := invariants.SaveLinks(c, links); err != nil {
@@ -210,7 +210,7 @@ func TestInvariantVerificationUnbackedSlotBurns(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objAt(v, "ok").B {
+	if validation.ObjAt(v, "ok").B {
 		t.Fatalf("drifted slot must burn: %s", validation.CanonCompact(v))
 	}
 }
@@ -274,7 +274,7 @@ func TestInvariantVerificationHarnessLines(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	runs := objAt(v, "harness_runs")
+	runs := validation.ObjAt(v, "harness_runs")
 	if runs.Kind != validation.Arr || len(runs.A) != 2 {
 		t.Fatalf("harness_runs = %s, want 2 lines",
 			validation.CanonCompact(runs))
@@ -288,7 +288,7 @@ func TestInvariantVerificationHarnessLines(t *testing.T) {
 		t.Fatalf("line 1 = %q", got)
 	}
 	// The rung lines never disturb the verdict halves.
-	if !objAt(v, "ok").B {
+	if !validation.ObjAt(v, "ok").B {
 		t.Fatalf("ok must stay true: %s", validation.CanonCompact(v))
 	}
 }
@@ -316,16 +316,16 @@ func TestInvariantVerificationHarnessSkipsMalformed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if h := objAt(v, "harness_runs"); h.Kind != validation.Null {
+	if h := validation.ObjAt(v, "harness_runs"); h.Kind != validation.Null {
 		t.Fatalf("an unrenderable rung must contribute no line, got %s",
 			validation.CanonCompact(h))
 	}
-	if objAt(v, "ok").B {
+	if validation.ObjAt(v, "ok").B {
 		t.Fatalf("a stated rung with a blank exec must burn: %s",
 			validation.CanonCompact(v))
 	}
 	joined := ""
-	for _, p := range objAt(v, "problems").A {
+	for _, p := range validation.ObjAt(v, "problems").A {
 		joined += p.S
 	}
 	if !strings.Contains(joined, "carries no exec") {
@@ -684,7 +684,7 @@ func r27SetExecCommand(t *testing.T, c *state.Campaign, exec, cmd string) {
 // r27JoinedProblems concatenates the section's problem strings.
 func r27JoinedProblems(v validation.Value) string {
 	joined := ""
-	for _, p := range objAt(v, "problems").A {
+	for _, p := range validation.ObjAt(v, "problems").A {
 		joined += p.S
 	}
 	return joined
@@ -715,7 +715,7 @@ func TestR27LegacyDegenerateBindBurns(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if objAt(v, "ok").B {
+		if validation.ObjAt(v, "ok").B {
 			t.Fatalf("a k=0 blessing must burn: %s",
 				validation.CanonCompact(v)[:400])
 		}
@@ -743,7 +743,7 @@ func TestR27LegacyDegenerateBindBurns(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if objAt(v, "ok").B {
+		if validation.ObjAt(v, "ok").B {
 			t.Fatalf("a degenerate-invocation blessing must burn: %s",
 				validation.CanonCompact(v)[:400])
 		}
@@ -768,7 +768,7 @@ func TestR27LegacyDegenerateBindBurns(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !objAt(v, "ok").B {
+		if !validation.ObjAt(v, "ok").B {
 			t.Fatalf("the same fixture at an honest bound must stay "+
 				"green: %s", validation.CanonCompact(v)[:400])
 		}
@@ -804,12 +804,12 @@ func TestInvariantVerificationRecheckCatchesAForgedPair(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objAt(v, "ok").B {
+	if validation.ObjAt(v, "ok").B {
 		t.Fatalf("conspiring pair must burn on re-derivation: %s",
 			validation.CanonCompact(v)[:400])
 	}
 	joined := ""
-	for _, p := range objAt(v, "problems").A {
+	for _, p := range validation.ObjAt(v, "problems").A {
 		joined += p.S
 	}
 	if !strings.Contains(joined, "re-derives bounded_k 4; the event pins 100") {
@@ -823,9 +823,9 @@ func TestInvariantVerificationRecheckCatchesAForgedPair(t *testing.T) {
 func mintMapRunEvidence(t *testing.T, c *state.Campaign, iid string,
 	h validation.Value) {
 	t.Helper()
-	exec := objStr(h, "exec")
-	k := objAt(h, "bounded_k")
-	if k.Kind != validation.Int && objStr(h, "rung") == "proved-bounded" {
+	exec := validation.ObjStr(h, "exec")
+	k := validation.ObjAt(h, "bounded_k")
+	if k.Kind != validation.Int && validation.ObjStr(h, "rung") == "proved-bounded" {
 		return // no bound claimed: nothing for recheck to reproduce
 	}
 	if k.Kind != validation.Int {
@@ -837,9 +837,9 @@ func mintMapRunEvidence(t *testing.T, c *state.Campaign, iid string,
 	}
 	var stdout, cmd string
 	exitOverride := 0
-	switch objStr(h, "kind") {
+	switch validation.ObjStr(h, "kind") {
 	case "halmos":
-		if objStr(h, "rung") == "counterexample" {
+		if validation.ObjStr(h, "rung") == "counterexample" {
 			stdout = "Status: fail\nCounterexample:\n  a = 5\n"
 			cmd = "halmos"
 			exitOverride = 1
@@ -852,7 +852,7 @@ func mintMapRunEvidence(t *testing.T, c *state.Campaign, iid string,
 	case "forge-fuzz":
 		stdout = "Suite result: ok.\n1 passed; 0 failed;\n"
 		cmd = "forge test --fuzz-runs " + validation.IntText(k)
-		if objStr(h, "rung") == "counterexample" {
+		if validation.ObjStr(h, "rung") == "counterexample" {
 			stdout = "[FAIL]InvariantTest.testTotal() (fuzz test, " +
 				"seed: 5)\n"
 			cmd = "forge test --fuzz-runs 10000"
@@ -918,12 +918,12 @@ func TestInvariantVerificationFabricatedAdviceBurns(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objAt(v, "ok").B {
+	if validation.ObjAt(v, "ok").B {
 		t.Fatalf("fabricated advice must burn: %s",
 			validation.CanonCompact(v))
 	}
 	joined := ""
-	for _, pr := range objAt(v, "problems").A {
+	for _, pr := range validation.ObjAt(v, "problems").A {
 		joined += pr.S
 	}
 	if !strings.Contains(joined, "the bound pair claims") {
@@ -940,7 +940,7 @@ func TestInvariantVerificationFabricatedAdviceBurns(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, pr := range objAt(v2, "problems").A {
+	for _, pr := range validation.ObjAt(v2, "problems").A {
 		if strings.Contains(pr.S, "the bound pair claims") {
 			t.Fatalf("missing witness must skip, not burn: %q", pr.S)
 		}
@@ -988,7 +988,7 @@ func TestInvariantVerificationDecoratedInconclusiveStaysQuiet(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !objAt(v, "ok").B {
+	if !validation.ObjAt(v, "ok").B {
 		t.Fatalf("a decorated honest bind must not burn: %s",
 			validation.CanonCompact(v))
 	}
@@ -1021,7 +1021,7 @@ func TestInvariantVerificationDecoratedInconclusiveStaysQuiet(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !objAt(v2, "ok").B {
+	if !validation.ObjAt(v2, "ok").B {
 		t.Fatalf("a timed-out honest bind must not burn: %s",
 			validation.CanonCompact(v2))
 	}
@@ -1048,11 +1048,11 @@ func TestAutoprovePropResolutionLaw(t *testing.T) {
 			KV("p", viol),
 			KV("P", proven))))
 	got, ok := harness.ReportProperty(rep, "P")
-	if !ok || objStr(got, "outcome") != "PROVEN" {
+	if !ok || validation.ObjStr(got, "outcome") != "PROVEN" {
 		t.Fatalf("exact key must win: %v %v", got, ok)
 	}
 	if got, ok := harness.ReportProperty(rep, "p"); !ok ||
-		objStr(got, "outcome") != "VIOLATED" {
+		validation.ObjStr(got, "outcome") != "VIOLATED" {
 		t.Fatalf("lowercase exact key must win too: %v %v", got, ok)
 	}
 	// One fold-equal spelling only: the bind's fieldOf finds NOTHING here,
@@ -1097,11 +1097,11 @@ func TestInvariantVerificationUnbackedBlessingLineIsQualified(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objAt(v, "ok").B {
+	if validation.ObjAt(v, "ok").B {
 		t.Fatalf("an unbacked blessing must burn: %s",
 			validation.CanonCompact(v))
 	}
-	runs := objAt(v, "harness_runs")
+	runs := validation.ObjAt(v, "harness_runs")
 	if runs.Kind != validation.Arr || len(runs.A) != 1 {
 		t.Fatalf("harness_runs = %s, want 1 line",
 			validation.CanonCompact(runs))
@@ -1114,7 +1114,7 @@ func TestInvariantVerificationUnbackedBlessingLineIsQualified(t *testing.T) {
 	// The burn itself still names the exact state observed: the problem
 	// names the EXEC the ledger does not hold.
 	joined := ""
-	for _, p := range objAt(v, "problems").A {
+	for _, p := range validation.ObjAt(v, "problems").A {
 		joined += p.S
 	}
 	if !strings.Contains(joined, "EXEC-77") {
@@ -1138,11 +1138,11 @@ func TestInvariantVerificationBackedBlessingLineUnchanged(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !objAt(v, "ok").B {
+	if !validation.ObjAt(v, "ok").B {
 		t.Fatalf("a backed blessing must not burn: %s",
 			validation.CanonCompact(v))
 	}
-	runs := objAt(v, "harness_runs")
+	runs := validation.ObjAt(v, "harness_runs")
 	if runs.Kind != validation.Arr || len(runs.A) != 1 {
 		t.Fatalf("harness_runs = %s, want 1 line",
 			validation.CanonCompact(runs))

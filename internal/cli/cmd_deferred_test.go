@@ -183,7 +183,7 @@ func TestDeferredSweepSkipsReemittedRows(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, r := range t14List(surface, "rows").A {
-		if objStr(r, "row_id") == "81dfad6492" {
+		if validation.ObjStr(r, "row_id") == "81dfad6492" {
 			r.O = validation.SetOrAppend(r.O, "row_id",
 				validation.VStr("ffffffffffff"))
 		}
@@ -243,7 +243,7 @@ func TestDeferredJSONWithSkipsIsOneDocument(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, r := range t14List(surface, "rows").A {
-		if objStr(r, "row_id") == "81dfad6492" {
+		if validation.ObjStr(r, "row_id") == "81dfad6492" {
 			r.O = validation.SetOrAppend(r.O, "row_id",
 				validation.VStr("ffffffffffff"))
 		}

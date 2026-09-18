@@ -272,7 +272,7 @@ func (c *Campaign) VerifyLog() (LogVerdict, error) {
 
 	// Seq contiguity (broken contiguity does NOT stop chain checks).
 	for i, e := range events {
-		seq := objAt(e, "seq")
+		seq := validation.ObjAt(e, "seq")
 		if seq.Kind != validation.Int || seq.I != int64(i) {
 			problems = append(problems,
 				fmt.Sprintf("event %d has seq=%s", i, pyStr(seq)))
@@ -284,12 +284,12 @@ func (c *Campaign) VerifyLog() (LogVerdict, error) {
 	expectedPrev := GenesisHash
 	chained := 0
 	for i, e := range events {
-		eh := objAt(e, "event_hash")
+		eh := validation.ObjAt(e, "event_hash")
 		if eh.Kind != validation.Str {
 			expectedPrev = legacyAnchor(e)
 			continue
 		}
-		if got := objAt(e, "prev_hash").S; got != expectedPrev {
+		if got := validation.ObjAt(e, "prev_hash").S; got != expectedPrev {
 			problems = append(problems,
 				fmt.Sprintf("event %d: prev_hash breaks the chain", i))
 		}
@@ -306,7 +306,7 @@ func (c *Campaign) VerifyLog() (LogVerdict, error) {
 	if err != nil {
 		return LogVerdict{}, err
 	}
-	stTail := objAt(st, "events")
+	stTail := validation.ObjAt(st, "events")
 	if stTail.Kind == validation.Arr {
 		// The mirror rule (tailEvents) keeps exactly min(E, mirrorCap)
 		// events, so length is part of the invariant — comparing CONTENT
@@ -400,17 +400,17 @@ func (c *Campaign) VerifyLog() (LogVerdict, error) {
 	} else {
 		evWaived := map[[2]string]int{}
 		for _, e := range events {
-			if objAt(e, "type").Kind != validation.Str ||
-				objAt(e, "type").S != "completion.waived" {
+			if validation.ObjAt(e, "type").Kind != validation.Str ||
+				validation.ObjAt(e, "type").S != "completion.waived" {
 				continue
 			}
-			key := [2]string{objStr(e, "ref"),
-				objStr(objAt(e, "data"), "subject")}
+			key := [2]string{validation.ObjStr(e, "ref"),
+				validation.ObjStr(validation.ObjAt(e, "data"), "subject")}
 			evWaived[key]++
 		}
 		rowWaived := map[[2]string]int{}
 		for _, w := range wrows {
-			key := [2]string{objStr(w, "stage"), objStr(w, "subject")}
+			key := [2]string{validation.ObjStr(w, "stage"), validation.ObjStr(w, "subject")}
 			rowWaived[key]++
 		}
 		for key, n := range rowWaived {

@@ -8,7 +8,7 @@ import "websec/internal/validation"
 
 // listAtCLI returns v[key] when it is an array, else nil.
 func listAtCLI(v validation.Value, key string) []validation.Value {
-	if f := objAt(v, key); f.Kind == validation.Arr {
+	if f := validation.ObjAt(v, key); f.Kind == validation.Arr {
 		return f.A
 	}
 	return nil
@@ -16,13 +16,13 @@ func listAtCLI(v validation.Value, key string) []validation.Value {
 
 // boolAtCLI returns v[key] when it is a bool, else false.
 func boolAtCLI(v validation.Value, key string) bool {
-	f := objAt(v, key)
+	f := validation.ObjAt(v, key)
 	return f.Kind == validation.Bool && f.B
 }
 
 // floatAtCLI returns v[key] as a float64 (ints widen), else 0.
 func floatAtCLI(v validation.Value, key string) float64 {
-	f := objAt(v, key)
+	f := validation.ObjAt(v, key)
 	switch f.Kind {
 	case validation.Flt:
 		return f.F

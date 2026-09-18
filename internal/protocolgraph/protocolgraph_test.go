@@ -150,7 +150,7 @@ func TestGoldenQueriesMatchPythonVectors(t *testing.T) {
 	checked := 0
 	for _, name := range goldenModels {
 		model := readTestJson(t, name+"_model.json")
-		want := objAt(golden, name)
+		want := validation.ObjAt(golden, name)
 		if want.Kind != validation.Obj {
 			t.Fatalf("golden has no %s group", name)
 		}
@@ -265,7 +265,7 @@ func TestExternalAssetsFlagFamilies(t *testing.T) {
 	}
 	// flag order is fixed: fee-on-transfer, rebasing, erc777, erc4626,
 	// odd-decimals, then the declared nonstandard_behaviors
-	flags := objAt(sink[1], "flags")
+	flags := validation.ObjAt(sink[1], "flags")
 	if dump(flags) != `[
   "fee-on-transfer",
   "odd-decimals-7"
@@ -358,11 +358,11 @@ func TestLoadModelRegistersArtifactAndLogsEvent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	arts := objAt(st, "artifacts").A
+	arts := validation.ObjAt(st, "artifacts").A
 	if len(arts) != 1 {
 		t.Fatalf("artifact rows = %d, want 1", len(arts))
 	}
-	wantArt := objAt(golden, "artifact")
+	wantArt := validation.ObjAt(golden, "artifact")
 	if dump(rowOf(arts[0], "kind", "snapshot_id", "note")) != dump(wantArt) {
 		t.Errorf("artifact row\n got: %s\nwant: %s",
 			dump(rowOf(arts[0], "kind", "snapshot_id", "note")), dump(wantArt))
@@ -387,11 +387,11 @@ func TestLoadModelRegistersArtifactAndLogsEvent(t *testing.T) {
 	if len(loaded) != 1 {
 		t.Fatalf("protocol_model.loaded events = %d, want 1", len(loaded))
 	}
-	wantEv := objAt(golden, "load_event")
+	wantEv := validation.ObjAt(golden, "load_event")
 	gotEv := validation.VObj(
-		kv("data", objAt(loaded[0], "data")),
-		kv("ref", objAt(loaded[0], "ref")),
-		kv("type", objAt(loaded[0], "type")),
+		kv("data", validation.ObjAt(loaded[0], "data")),
+		kv("ref", validation.ObjAt(loaded[0], "ref")),
+		kv("type", validation.ObjAt(loaded[0], "type")),
 	)
 	if dump(gotEv) != dump(wantEv) {
 		t.Errorf("load event\n got: %s\nwant: %s", dump(gotEv), dump(wantEv))
@@ -405,7 +405,7 @@ func TestLoadModelRegistersArtifactAndLogsEvent(t *testing.T) {
 func rowOf(v validation.Value, keys ...string) validation.Value {
 	out := make([]validation.KV, 0, len(keys))
 	for _, k := range keys {
-		out = append(out, kv(k, objAt(v, k)))
+		out = append(out, kv(k, validation.ObjAt(v, k)))
 	}
 	return validation.VObj(out...)
 }
@@ -440,13 +440,13 @@ func TestLoadModelSecondLoadRefreshes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	arts := objAt(st, "artifacts").A
+	arts := validation.ObjAt(st, "artifacts").A
 	if len(arts) != 1 {
 		t.Fatalf("artifact rows = %d, want 1 (no ghost row)", len(arts))
 	}
-	if dump(objAt(arts[0], "refresh_count")) != dump(objAt(golden, "refresh_count")) {
-		t.Errorf("refresh_count = %s, want %s", dump(objAt(arts[0], "refresh_count")),
-			dump(objAt(golden, "refresh_count")))
+	if dump(validation.ObjAt(arts[0], "refresh_count")) != dump(validation.ObjAt(golden, "refresh_count")) {
+		t.Errorf("refresh_count = %s, want %s", dump(validation.ObjAt(arts[0], "refresh_count")),
+			dump(validation.ObjAt(golden, "refresh_count")))
 	}
 	if objStrOf(arts[0], "refresh_reason") != objStrOf(golden, "refresh_reason") {
 		t.Errorf("refresh_reason = %q, want %q", objStrOf(arts[0], "refresh_reason"),
@@ -459,9 +459,9 @@ func TestLoadModelSecondLoadRefreshes(t *testing.T) {
 	if got := len(eventsOfType(evs, "protocol_model.loaded")); got != 2 {
 		t.Errorf("protocol_model.loaded events = %d, want 2", got)
 	}
-	if got := eventTypes(evs); dump(got) != dump(objAt(golden, "event_types_after_two_loads")) {
+	if got := eventTypes(evs); dump(got) != dump(validation.ObjAt(golden, "event_types_after_two_loads")) {
 		t.Errorf("event types\n got: %s\nwant: %s", dump(got),
-			dump(objAt(golden, "event_types_after_two_loads")))
+			dump(validation.ObjAt(golden, "event_types_after_two_loads")))
 	}
 }
 
@@ -469,7 +469,7 @@ func TestLoadModelSecondLoadRefreshes(t *testing.T) {
 func eventTypes(evs []validation.Value) validation.Value {
 	out := make([]validation.Value, 0, len(evs))
 	for _, e := range evs {
-		out = append(out, objAt(e, "type"))
+		out = append(out, validation.ObjAt(e, "type"))
 	}
 	return validation.VArr(out...)
 }
@@ -498,12 +498,12 @@ func TestSaveModelDefaultPathAndRefresh(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	arts := objAt(st, "artifacts").A
+	arts := validation.ObjAt(st, "artifacts").A
 	if len(arts) != 1 {
 		t.Fatalf("artifact rows = %d, want 1", len(arts))
 	}
 	// first save: registered, no refresh reason yet
-	if got := objAt(arts[0], "refresh_reason"); got.Kind != validation.Null {
+	if got := validation.ObjAt(arts[0], "refresh_reason"); got.Kind != validation.Null {
 		t.Errorf("refresh_reason after first save = %s, want null", dump(got))
 	}
 	if objStrOf(arts[0], "kind") != objStrOf(golden, "fresh_save_kind") ||
@@ -518,7 +518,7 @@ func TestSaveModelDefaultPathAndRefresh(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	arts = objAt(st, "artifacts").A
+	arts = validation.ObjAt(st, "artifacts").A
 	if len(arts) != 1 {
 		t.Fatalf("artifact rows after second save = %d, want 1", len(arts))
 	}
@@ -526,18 +526,18 @@ func TestSaveModelDefaultPathAndRefresh(t *testing.T) {
 		t.Errorf("refresh_reason = %q, want %q", objStrOf(arts[0], "refresh_reason"),
 			objStrOf(golden, "fresh_second_save_reason"))
 	}
-	if dump(objAt(arts[0], "refresh_count")) !=
-		dump(objAt(golden, "fresh_second_save_refresh_count")) {
-		t.Errorf("refresh_count = %s, want %s", dump(objAt(arts[0], "refresh_count")),
-			dump(objAt(golden, "fresh_second_save_refresh_count")))
+	if dump(validation.ObjAt(arts[0], "refresh_count")) !=
+		dump(validation.ObjAt(golden, "fresh_second_save_refresh_count")) {
+		t.Errorf("refresh_count = %s, want %s", dump(validation.ObjAt(arts[0], "refresh_count")),
+			dump(validation.ObjAt(golden, "fresh_second_save_refresh_count")))
 	}
 	evs, err := camp.Events()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(evs) != int(objAt(golden, "fresh_second_save_events").I) {
+	if len(evs) != int(validation.ObjAt(golden, "fresh_second_save_events").I) {
 		t.Errorf("event count = %d, want %d", len(evs),
-			objAt(golden, "fresh_second_save_events").I)
+			validation.ObjAt(golden, "fresh_second_save_events").I)
 	}
 	if got := eventTypes(evs); dump(got) != dump(validation.VArr(
 		validation.VStr("campaign.created"),
@@ -564,7 +564,7 @@ func TestSaveModelExplicitPathRegistersSeparateRow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := len(objAt(st, "artifacts").A); got != 1 {
+	if got := len(validation.ObjAt(st, "artifacts").A); got != 1 {
 		t.Errorf("artifact rows = %d, want 1", got)
 	}
 	if _, err := SaveModel(camp, model, ""); err != nil {
@@ -574,7 +574,7 @@ func TestSaveModelExplicitPathRegistersSeparateRow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := len(objAt(st, "artifacts").A); got != 2 {
+	if got := len(validation.ObjAt(st, "artifacts").A); got != 2 {
 		t.Errorf("artifact rows after second path = %d, want 2", got)
 	}
 }
@@ -606,7 +606,7 @@ func TestSaveModelValidatesBeforeWriting(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := len(objAt(st, "artifacts").A); got != 0 {
+	if got := len(validation.ObjAt(st, "artifacts").A); got != 0 {
 		t.Errorf("artifact rows = %d, want 0", got)
 	}
 }
@@ -644,7 +644,7 @@ func TestLoadModelSchemaErrors(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if got := len(objAt(st, "artifacts").A); got != 0 {
+		if got := len(validation.ObjAt(st, "artifacts").A); got != 0 {
 			t.Errorf("%s: registered %d artifacts despite the schema error", tc.key, got)
 		}
 	}
@@ -671,17 +671,17 @@ func TestGatewayModelArtifactRoundTrip(t *testing.T) {
 	if len(StateMachines(loaded)) != 1 {
 		t.Errorf("state machines = %s", dump(validation.VArr(StateMachines(loaded)...)))
 	}
-	if got := len(objAt(loaded, "contracts").A); got != 2 {
+	if got := len(validation.ObjAt(loaded, "contracts").A); got != 2 {
 		t.Errorf("contracts = %d, want 2", got)
 	}
 	// the fixture exists in the Python test because the lens re-open pass
 	// reads withdraw-family tokens out of the STORED model
 	sm := StateMachines(loaded)[0]
-	trigger := objStrOf(objAt(sm, "transitions").A[0], "trigger")
+	trigger := objStrOf(validation.ObjAt(sm, "transitions").A[0], "trigger")
 	if trigger != "withdraw" {
 		t.Errorf("transition trigger = %q, want withdraw", trigger)
 	}
-	entry := objAt(objAt(loaded, "contracts").A[1], "entry_points")
+	entry := validation.ObjAt(validation.ObjAt(loaded, "contracts").A[1], "entry_points")
 	if !containsValue(entry.A, validation.VStr("withdraw")) {
 		t.Errorf("second contract entry_points = %s, want withdraw", dump(entry))
 	}

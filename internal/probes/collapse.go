@@ -211,7 +211,7 @@ func foldRow(rec *foldState, probeID string, paths map[string]string) validation
 	row := copyObj(rep.row)
 	vSet(&row, "assertion_gap", validation.VInt(int64(rec.gap)))
 	vSet(&row, "siblings", siblingSites(row, rec, paths))
-	vSet(&row, "concept_keys", strArr(sortedStrSet(rec.concepts)))
+	vSet(&row, "concept_keys", validation.StrArr(sortedStrSet(rec.concepts)))
 	withProbe := copyObj(row)
 	vSet(&withProbe, "probe", validation.VStr(probeID))
 	vSet(&row, "row_id", validation.VStr(RowIDFor(withProbe)))

@@ -69,7 +69,7 @@ func r35Cite(t *testing.T, c *Campaign, id string) (bool, string) {
 // r35Sha is the row's pinned sha256.
 func r35Sha(t *testing.T, c *Campaign, id string) string {
 	t.Helper()
-	return objStr(mustArtifact(t, c, id), "sha256")
+	return validation.ObjStr(mustArtifact(t, c, id), "sha256")
 }
 
 // r35ExecRecord writes one exec record whose input_hashes pin name -> sha.
@@ -411,7 +411,7 @@ func r35RegisterAt(t *testing.T, c *Campaign, p, body string,
 // r35Rows is the registry's current rows.
 func r35Rows(t *testing.T, c *Campaign) []validation.Value {
 	t.Helper()
-	return objAt(mustState(t, c), "artifacts").A
+	return validation.ObjAt(mustState(t, c), "artifacts").A
 }
 
 // TestR35KeptGhostSurvivesAndUncitedGhostStillPrunes is the auditor's repro at
@@ -478,7 +478,7 @@ func TestR35KeptGhostSurvivesAndUncitedGhostStillPrunes(t *testing.T) {
 	rows := r35Rows(t, c)
 	live := map[string]bool{}
 	for _, r := range rows {
-		live[objStr(r, "artifact_id")] = true
+		live[validation.ObjStr(r, "artifact_id")] = true
 	}
 	if len(rows) != 2 || !live[scaffold] || !live[newest] {
 		t.Fatalf("rows after the re-registration: %v (want the cited scaffold "+
@@ -495,10 +495,10 @@ func TestR35KeptGhostSurvivesAndUncitedGhostStillPrunes(t *testing.T) {
 	}
 	pruned := false
 	for _, ev := range events {
-		if objStr(ev, "type") == "artifact.pruned" &&
-			objStr(ev, "ref") == dup {
+		if validation.ObjStr(ev, "type") == "artifact.pruned" &&
+			validation.ObjStr(ev, "ref") == dup {
 			pruned = true
-			if got := objStr(objAt(ev, "data"), "reason"); got !=
+			if got := validation.ObjStr(validation.ObjAt(ev, "data"), "reason"); got !=
 				"superseded: same path re-registered as kind harness" {
 				t.Fatalf("prune reason: %q", got)
 			}
@@ -568,7 +568,7 @@ func TestR35UnreadableCitationSourceIsNotAClearance(t *testing.T) {
 	}
 	live := map[string]bool{}
 	for _, r := range r35Rows(t, c2) {
-		live[objStr(r, "artifact_id")] = true
+		live[validation.ObjStr(r, "artifact_id")] = true
 	}
 	if !live[ghost] {
 		t.Fatalf("the row must survive an unreadable cite check: %v", live)

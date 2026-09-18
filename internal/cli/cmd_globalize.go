@@ -60,10 +60,10 @@ func runGlobalize(root string, args []string, r *Runner) int {
 		}
 		fmt.Fprintf(r.Out, "%s: scope=global on %s memory row(s) and %s "+
 			"signature(s) [%s tier, selector=%s]\n",
-			objStr(rep, "record_id"), pyIntText(objAt(rep, "memory_updated")),
-			pyIntText(objAt(rep, "signatures_updated")), objStr(rep, "tier"),
-			scalarStr(objAt(rep, "program_key")))
-		fmt.Fprintf(r.Out, "store: %s\n", objStr(rep, "store"))
+			validation.ObjStr(rep, "record_id"), pyIntText(validation.ObjAt(rep, "memory_updated")),
+			pyIntText(validation.ObjAt(rep, "signatures_updated")), validation.ObjStr(rep, "tier"),
+			scalarStr(validation.ObjAt(rep, "program_key")))
+		fmt.Fprintf(r.Out, "store: %s\n", validation.ObjStr(rep, "store"))
 		return nil
 	})
 }

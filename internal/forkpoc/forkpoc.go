@@ -76,7 +76,7 @@ func execLookup(campaign *state.Campaign) (map[string]validation.Value, error) {
 	}
 	out := map[string]validation.Value{}
 	for _, r := range all {
-		if id := objStr(r, "exec_id"); id != "" {
+		if id := validation.ObjStr(r, "exec_id"); id != "" {
 			out[id] = r
 		}
 	}
@@ -96,7 +96,7 @@ func isForkLevel(level string) bool {
 // exitIsZero is `rec.get("exit_status") != 0` negated, with Python's
 // None/False semantics (None != 0 is True; False == 0 is True).
 func exitIsZero(rec validation.Value) bool {
-	v := objAt(rec, "exit_status")
+	v := validation.ObjAt(rec, "exit_status")
 	switch v.Kind {
 	case validation.Int:
 		return v.Big == "" && v.I == 0
@@ -126,7 +126,7 @@ func ForkPocEvidence(campaign *state.Campaign,
 		if e.Kind != validation.Obj {
 			continue
 		}
-		if !isForkLevel(objStr(e, "level")) {
+		if !isForkLevel(validation.ObjStr(e, "level")) {
 			continue
 		}
 		candidates = append(candidates, e)
@@ -137,14 +137,14 @@ func ForkPocEvidence(campaign *state.Campaign,
 			"fork-runner) and mint it (webv2 mint --type fork-test)"), nil
 	}
 	for _, e := range candidates {
-		if objStr(e, "sandbox_profile") != ForkProfile {
+		if validation.ObjStr(e, "sandbox_profile") != ForkProfile {
 			continue
 		}
-		rec, ok := execs[objStr(e, "artifact_id")]
+		rec, ok := execs[validation.ObjStr(e, "artifact_id")]
 		if !ok {
 			continue // claimed but not in the ledger: not proven
 		}
-		if objStr(rec, "profile") != ForkProfile {
+		if validation.ObjStr(rec, "profile") != ForkProfile {
 			continue // the ledger disagrees with the claim: not proven
 		}
 		if !exitIsZero(rec) {
@@ -185,8 +185,8 @@ func ForkPocStatus(campaign *state.Campaign,
 		return false, "", err
 	}
 	if item.Kind != validation.Null {
-		return true, "fork PoC proven: " + objStr(item, "level") +
-			" fork-test from " + pyStrOr(objAt(item, "artifact_id")) +
+		return true, "fork PoC proven: " + validation.ObjStr(item, "level") +
+			" fork-test from " + pyStrOr(validation.ObjAt(item, "artifact_id")) +
 			" (fork-runner, exit 0)", nil
 	}
 	if reason != nil && *reason != "" {
@@ -205,7 +205,7 @@ func ForkPocGaps(campaign *state.Campaign) ([]string, error) {
 	}
 	gaps := []string{}
 	for _, f := range all {
-		status := objStr(f, "status")
+		status := validation.ObjStr(f, "status")
 		if status != "CONFIRMED" && status != "CHAIN" {
 			continue
 		}
@@ -218,7 +218,7 @@ func ForkPocGaps(campaign *state.Campaign) ([]string, error) {
 			if reason != nil {
 				text = *reason
 			}
-			gaps = append(gaps, objStr(f, "finding_id")+": "+text)
+			gaps = append(gaps, validation.ObjStr(f, "finding_id")+": "+text)
 		}
 	}
 	return gaps, nil
@@ -227,31 +227,13 @@ func ForkPocGaps(campaign *state.Campaign) ([]string, error) {
 // reasonPtr renders an f-string reason and returns its pointer.
 func reasonPtr(s string) *string { return &s }
 
-// objAt is the dict lookup: the value, or Null (Python's .get default).
-func objAt(v validation.Value, key string) validation.Value {
-	for _, kv := range v.O {
-		if kv.K == key {
-			return kv.V
-		}
-	}
-	return validation.VNull()
-}
-
 // listAt is `v.get(key) or []` for list-shaped fields: a non-list reads as
 // empty, exactly as Python's `(evidence or [])` iteration would.
 func listAt(v validation.Value, key string) []validation.Value {
-	if got := objAt(v, key); got.Kind == validation.Arr {
+	if got := validation.ObjAt(v, key); got.Kind == validation.Arr {
 		return got.A
 	}
 	return nil
-}
-
-// objStr is the dict string lookup ("" when absent or not a string).
-func objStr(v validation.Value, key string) string {
-	if got := objAt(v, key); got.Kind == validation.Str {
-		return got.S
-	}
-	return ""
 }
 
 // pyStrOr renders an f-string interpolation of a JSON scalar (the

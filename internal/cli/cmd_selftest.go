@@ -551,8 +551,8 @@ func checkEvalsuiteSelfcheck() (bool, string) {
 	seen := map[string]bool{}
 	live := map[string][]validation.Value{}
 	for _, cs := range cases {
-		prog := objStr(objAt(cs, "program"), "program")
-		gold := objAt(cs, "gold")
+		prog := validation.ObjStr(validation.ObjAt(cs, "program"), "program")
+		gold := validation.ObjAt(cs, "gold")
 		if !seen[prog] {
 			seen[prog] = true
 			programs = append(programs, prog)
@@ -560,12 +560,12 @@ func checkEvalsuiteSelfcheck() (bool, string) {
 		if _, ok := live[prog]; !ok {
 			live[prog] = []validation.Value{}
 		}
-		if objStr(gold, "outcome") == evalNotExploitable {
+		if validation.ObjStr(gold, "outcome") == evalNotExploitable {
 			continue
 		}
 		path := ""
-		for _, l := range objAt(gold, "locations").A {
-			if f := objStr(l, "file"); f != "" {
+		for _, l := range validation.ObjAt(gold, "locations").A {
+			if f := validation.ObjStr(l, "file"); f != "" {
 				if i := strings.LastIndex(f, "/"); i >= 0 {
 					f = f[i+1:]
 				}
@@ -575,7 +575,7 @@ func checkEvalsuiteSelfcheck() (bool, string) {
 		}
 		live[prog] = append(live[prog], validation.VObj(
 			validation.KV{K: "root_cause", V: validation.VObj(
-				validation.KV{K: "class", V: validation.VStr(objStr(gold, "bug_class"))})},
+				validation.KV{K: "class", V: validation.VStr(validation.ObjStr(gold, "bug_class"))})},
 			validation.KV{K: "affected", V: validation.VArr(validation.VObj(
 				validation.KV{K: "path", V: validation.VStr(path)}))},
 		))

@@ -140,21 +140,21 @@ func TestInventoryCountsBothStores(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	r := objAt(objAt(inv, "classes"), "reentrancy")
+	r := validation.ObjAt(validation.ObjAt(inv, "classes"), "reentrancy")
 	if intAt(r, "memory_rows") != 1 || intAt(r, "eval_cases") != 1 {
 		t.Fatalf("reentrancy = %v, want 1 memory row + 1 eval case", r)
 	}
 	if floatAt(r, "loss_usd_sum") != 5000.0 {
 		t.Fatalf("loss_usd_sum = %v, want 5000.0 (comma parsed)", floatAt(r, "loss_usd_sum"))
 	}
-	if got := validation.CanonCompact(objAt(r, "severity_counts")); got != `{"high":1}` {
+	if got := validation.CanonCompact(validation.ObjAt(r, "severity_counts")); got != `{"high":1}` {
 		t.Fatalf("severity_counts = %s", got)
 	}
-	if intAt(objAt(objAt(inv, "classes"), "logic-error"), "memory_rows") != 0 {
+	if intAt(validation.ObjAt(validation.ObjAt(inv, "classes"), "logic-error"), "memory_rows") != 0 {
 		t.Fatal("logic-error must have zero memory rows")
 	}
 	if intAt(inv, "unmapped_confirmed_exploitable") != 1 {
-		t.Fatalf("unmapped = %v, want 1", objAt(inv, "unmapped_confirmed_exploitable"))
+		t.Fatalf("unmapped = %v, want 1", validation.ObjAt(inv, "unmapped_confirmed_exploitable"))
 	}
 }
 
@@ -166,7 +166,7 @@ func TestInventoryIgnoresNonExploitableOutcomes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := findKey(objAt(inv, "classes"), "reentrancy"); ok {
+	if _, ok := findKey(validation.ObjAt(inv, "classes"), "reentrancy"); ok {
 		t.Fatal("a non-exploitable outcome must not create a class entry")
 	}
 	if intAt(inv, "unmapped_confirmed_exploitable") != 0 {
@@ -186,14 +186,14 @@ func TestInventoryCountsEvalOnlyCases(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	r := objAt(objAt(inv, "classes"), "flash-loan")
+	r := validation.ObjAt(validation.ObjAt(inv, "classes"), "flash-loan")
 	if intAt(r, "eval_cases") != 2 {
 		t.Fatalf("eval_cases = %v, want 2 (only confirmed-exploitable)", r)
 	}
 	if intAt(r, "memory_rows") != 0 {
 		t.Fatal("nothing came from shared memory")
 	}
-	if got := validation.CanonCompact(objAt(r, "severity_counts")); got != `{"high":1,"low":1}` {
+	if got := validation.CanonCompact(validation.ObjAt(r, "severity_counts")); got != `{"high":1,"low":1}` {
 		t.Fatalf("severity_counts = %s", got)
 	}
 	if floatAt(r, "loss_usd_sum") != 0.0 {
@@ -208,7 +208,7 @@ func TestLossParseFailureIsZero(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	r := objAt(objAt(inv, "classes"), "reentrancy")
+	r := validation.ObjAt(validation.ObjAt(inv, "classes"), "reentrancy")
 	if floatAt(r, "loss_usd_sum") != 0.0 {
 		t.Fatalf("loss_usd_sum = %v, want 0.0", floatAt(r, "loss_usd_sum"))
 	}
@@ -226,7 +226,7 @@ func TestLossParseDegenerateCommasIsZero(t *testing.T) {
 	if err != nil {
 		t.Fatalf("class_inventory must not raise: %v", err)
 	}
-	r := objAt(objAt(inv, "classes"), "reentrancy")
+	r := validation.ObjAt(validation.ObjAt(inv, "classes"), "reentrancy")
 	if floatAt(r, "loss_usd_sum") != 0.0 {
 		t.Fatalf("loss_usd_sum = %v, want 0.0", floatAt(r, "loss_usd_sum"))
 	}
@@ -252,9 +252,9 @@ func TestInventoryDeterministic(t *testing.T) {
 	if validation.DumpsOrdered(a, false) != validation.DumpsOrdered(b, false) {
 		t.Fatal("class_inventory is not deterministic")
 	}
-	if len(objAt(a, "classes").O) != 2 {
+	if len(validation.ObjAt(a, "classes").O) != 2 {
 		t.Fatalf("classes = %v, want reentrancy + oracle-manipulation",
-			objAt(a, "classes"))
+			validation.ObjAt(a, "classes"))
 	}
 }
 
@@ -281,21 +281,21 @@ func TestBothTiersVisible(t *testing.T) {
 	}
 	ids := map[string]bool{}
 	for _, r := range listAt(block, "rows") {
-		ids[objStr(r, "memory_id")] = true
+		ids[validation.ObjStr(r, "memory_id")] = true
 	}
 	if !ids["MEM-root0001"] || !ids["MEM-glob0001"] {
 		t.Fatalf("rows = %v, want both tiers", ids)
 	}
 	if intAt(block, "total_visible") != 2 {
-		t.Fatalf("total_visible = %v, want 2", objAt(block, "total_visible"))
+		t.Fatalf("total_visible = %v, want 2", validation.ObjAt(block, "total_visible"))
 	}
 	inv, err := ClassInventory(c)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if intAt(objAt(objAt(inv, "classes"), "reentrancy"), "memory_rows") != 1 ||
-		intAt(objAt(objAt(inv, "classes"), "logic-error"), "memory_rows") != 1 {
-		t.Fatalf("inventory = %v", objAt(inv, "classes"))
+	if intAt(validation.ObjAt(validation.ObjAt(inv, "classes"), "reentrancy"), "memory_rows") != 1 ||
+		intAt(validation.ObjAt(validation.ObjAt(inv, "classes"), "logic-error"), "memory_rows") != 1 {
+		t.Fatalf("inventory = %v", validation.ObjAt(inv, "classes"))
 	}
 }
 
@@ -337,7 +337,7 @@ func TestScoreFormula(t *testing.T) {
 			validation.PythonRound(expected, 6))
 	}
 	if intAt(rows[0], "corpus_weight") != 5 {
-		t.Fatalf("corpus_weight = %v, want 5", objAt(rows[0], "corpus_weight"))
+		t.Fatalf("corpus_weight = %v, want 5", validation.ObjAt(rows[0], "corpus_weight"))
 	}
 }
 
@@ -363,8 +363,8 @@ func TestRankingOrderAndTiebreak(t *testing.T) {
 	}
 	rows := ExposureRows(inv, probed)
 	// equal score -> loss tiebreak: b (900) before a (50)
-	if objStr(rows[0], "bug_class") != "b" || objStr(rows[1], "bug_class") != "a" {
-		t.Fatalf("order = %v, %v", objStr(rows[0], "bug_class"), objStr(rows[1], "bug_class"))
+	if validation.ObjStr(rows[0], "bug_class") != "b" || validation.ObjStr(rows[1], "bug_class") != "a" {
+		t.Fatalf("order = %v, %v", validation.ObjStr(rows[0], "bug_class"), validation.ObjStr(rows[1], "bug_class"))
 	}
 	if rows[0].O[6].V.F != rows[1].O[6].V.F {
 		t.Fatal("the fixture must produce an exact score tie")
@@ -378,7 +378,7 @@ func TestNoHitsScoresZeroButStaysListed(t *testing.T) {
 	if len(rows) != 1 {
 		t.Fatalf("rows = %d, want the class still listed", len(rows))
 	}
-	if rows[0].O[6].V.F != 0.0 || objAt(rows[0], "exposed").B {
+	if rows[0].O[6].V.F != 0.0 || validation.ObjAt(rows[0], "exposed").B {
 		t.Fatalf("row = %v, want score 0.0 and exposed false", rows[0])
 	}
 }
@@ -401,8 +401,8 @@ func TestExposureDeterministic(t *testing.T) {
 func scoreOf(t *testing.T, rows []validation.Value, cls string) float64 {
 	t.Helper()
 	for _, r := range rows {
-		if objStr(r, "bug_class") == cls {
-			return objAt(r, "score").F
+		if validation.ObjStr(r, "bug_class") == cls {
+			return validation.ObjAt(r, "score").F
 		}
 	}
 	t.Fatalf("no exposure row for class %q", cls)
@@ -496,11 +496,11 @@ func TestReportShapeAndDeterminism(t *testing.T) {
 	}
 	var spi validation.Value
 	for _, r := range listAt(a, "class_exposure") {
-		if objStr(r, "bug_class") == "share-price-inflation" {
+		if validation.ObjStr(r, "bug_class") == "share-price-inflation" {
 			spi = r
 		}
 	}
-	if spi.Kind != validation.Obj || !objAt(spi, "exposed").B {
+	if spi.Kind != validation.Obj || !validation.ObjAt(spi, "exposed").B {
 		t.Fatalf("share-price-inflation = %v, want exposed", spi)
 	}
 }
@@ -528,8 +528,8 @@ func TestCLIWritesAndRegistersArtifactShape(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(doc, "campaign_id") != c.CampaignID {
-		t.Fatalf("campaign_id = %q, want %q", objStr(doc, "campaign_id"), c.CampaignID)
+	if validation.ObjStr(doc, "campaign_id") != c.CampaignID {
+		t.Fatalf("campaign_id = %q, want %q", validation.ObjStr(doc, "campaign_id"), c.CampaignID)
 	}
 	if len(listAt(doc, "class_exposure")) == 0 {
 		t.Fatal("the artifact carries no class exposure")
@@ -600,13 +600,13 @@ func TestSharedMemoryBlockFiltersByBugClass(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(listAt(block, "rows")) != 1 ||
-		objStr(listAt(block, "rows")[0], "memory_id") != "MEM-b0001" {
+		validation.ObjStr(listAt(block, "rows")[0], "memory_id") != "MEM-b0001" {
 		t.Fatalf("rows = %v, want only MEM-b0001", listAt(block, "rows"))
 	}
 	if intAt(block, "total_visible") != 2 {
-		t.Fatalf("total_visible = %v, want 2", objAt(block, "total_visible"))
+		t.Fatalf("total_visible = %v, want 2", validation.ObjAt(block, "total_visible"))
 	}
-	if !objAt(block, "filtered_by_bug_class").B {
+	if !validation.ObjAt(block, "filtered_by_bug_class").B {
 		t.Fatal("filtered_by_bug_class must be true")
 	}
 }
@@ -629,7 +629,7 @@ func TestSharedMemoryBlockClipsSummaryByRunes(t *testing.T) {
 	if len(rows) != 1 {
 		t.Fatalf("rows = %d, want 1", len(rows))
 	}
-	got := objStr(rows[0], "evidence_summary")
+	got := validation.ObjStr(rows[0], "evidence_summary")
 	if n := len([]rune(got)); n != 300 {
 		t.Fatalf("summary runes = %d, want 300 (byte-sliced?)", n)
 	}
@@ -649,7 +649,7 @@ func TestSharedMemoryBlockFallbackWhenClassUnknown(t *testing.T) {
 	if len(listAt(block, "rows")) != 1 {
 		t.Fatalf("rows = %v, want the single row", listAt(block, "rows"))
 	}
-	if objAt(block, "filtered_by_bug_class").B {
+	if validation.ObjAt(block, "filtered_by_bug_class").B {
 		t.Fatal("filtered_by_bug_class must be false without a bug_class")
 	}
 }

@@ -230,7 +230,7 @@ func closePriority(p validation.Value, opts AnsweredOpts, ref *string,
 	if ref != nil {
 		p.O = validation.SetOrAppend(p.O, "closed_ref", validation.VStr(*ref))
 	}
-	p.O = validation.SetOrAppend(p.O, "closed_at", validation.VStr(nowIso()))
+	p.O = validation.SetOrAppend(p.O, "closed_at", validation.VStr(state.NowIso()))
 	p.O = validation.SetOrAppend(p.O, "closed_by", validation.VStr(actorOr(opts.Actor)))
 	// The value that passes the row's sentinel check is part of the closure
 	// record — the same way closed_ref is. A value too short to be one is not
@@ -305,7 +305,7 @@ func statusData(outcome string, opts AnsweredOpts, ref *string, anchorSet bool,
 // probeProvenance is `p.get("probe") if isinstance(p.get("probe"), dict)
 // else None`.
 func probeProvenance(p validation.Value) (validation.Value, bool) {
-	prov := objAt(p, "probe")
+	prov := validation.ObjAt(p, "probe")
 	if prov.Kind != validation.Obj {
 		return validation.VNull(), false
 	}
@@ -330,9 +330,9 @@ func checkAnchorless(priorityID, outcome string, prov validation.Value,
 	if !hasProv || anchor != nil || !inList(outcome, ProbeRowDispositioned) {
 		return nil
 	}
-	allowed := probeAnchors(objStr(prov, "probe_id"))
+	allowed := probeAnchors(validation.ObjStr(prov, "probe_id"))
 	msg := "priority " + priorityID + " is probe row " +
-		validation.PyReprStr(objStr(prov, "row_id")) + ": " +
+		validation.PyReprStr(validation.ObjStr(prov, "row_id")) + ": " +
 		validation.PyReprStr(outcome) + " dispositions it, so the closure " +
 		"must name the field it claims is safe — pass anchor=<field>"
 	if len(allowed) > 0 {
@@ -353,7 +353,7 @@ func resolveAnchor(campaign *state.Campaign, priorityID string,
 			"disposition claims is safe")
 	}
 	anchor := *opts.Anchor
-	rid := objStr(prov, "row_id")
+	rid := validation.ObjStr(prov, "row_id")
 	surface, err := PB().CampaignSurface(campaign)
 	if err != nil {
 		return nil, validation.VNull(), err
@@ -370,7 +370,7 @@ func resolveAnchor(campaign *state.Campaign, priorityID string,
 			validation.PyReprStr(rid) + " is not in the current surface — " +
 			"re-run `webv2 probes " + campaign.CampaignID + " run --emit`")
 	}
-	probeID := objStr(row, "probe")
+	probeID := validation.ObjStr(row, "probe")
 	if !PB().AnchorAllowed(probeID, anchor) {
 		return nil, validation.VNull(), errValue("anchor " +
 			validation.PyReprStr(anchor) + " is not produced by probe " +
@@ -416,7 +416,7 @@ func resolveAnchor(campaign *state.Campaign, priorityID string,
 // rid), None)`.
 func findRow(surface validation.Value, rid string) (validation.Value, bool) {
 	for _, r := range listOf(surface, "rows") {
-		if objStr(r, "row_id") == rid {
+		if validation.ObjStr(r, "row_id") == rid {
 			return r, true
 		}
 	}
@@ -430,7 +430,7 @@ func pyAnchorsRepr(probeID string) string {
 	if !ok || spec.Anchors == nil {
 		return "None"
 	}
-	return validation.PyRepr(strArr(*spec.Anchors))
+	return validation.PyRepr(validation.StrArr(*spec.Anchors))
 }
 
 // inList is `x in items`.
@@ -464,13 +464,13 @@ func SiblingRescan(campaign *state.Campaign, finding validation.Value,
 	if len(toks) == 0 {
 		return "", nil
 	}
-	fid := objStr(finding, "finding_id")
+	fid := validation.ObjStr(finding, "finding_id")
 	actor := actorOr(opts.Actor)
 	if opts.Clear {
 		data := validation.VObj(
 			kv("reason", optStr(opts.Reason)),
 			kv("actor", validation.VStr(actor)),
-			kv("families", strArr(sortedKeys(toks))),
+			kv("families", validation.StrArr(sortedKeys(toks))),
 		)
 		if _, err := campaign.Log("plan.sibling_cleared", &fid,
 			&data); err != nil {
@@ -496,7 +496,7 @@ func SiblingRescan(campaign *state.Campaign, finding validation.Value,
 		kv("question", validation.VStr("Check the adjacent unchecked "+
 			"property: "+pyStrip(opts.Adjacent))),
 		kv("risk", validation.VFloat(0.6)),
-		kv("trajectories", strArr([]string{"lifecycle"})),
+		kv("trajectories", validation.StrArr([]string{"lifecycle"})),
 		kv("status", validation.VStr("open")),
 		kv("bug_class", validation.VStr(cls)),
 		kv("sibling_of", validation.VStr(fid)),
@@ -505,7 +505,7 @@ func SiblingRescan(campaign *state.Campaign, finding validation.Value,
 	data := validation.VObj(
 		kv("priority_id", validation.VStr(pid)),
 		kv("adjacent", validation.VStr(pyStrip(opts.Adjacent))),
-		kv("families", strArr(sortedKeys(toks))),
+		kv("families", validation.StrArr(sortedKeys(toks))),
 		kv("actor", validation.VStr(actor)),
 	)
 	// r40e: the spawned sibling is a plan mutation; a refused
@@ -522,7 +522,7 @@ func SiblingRescan(campaign *state.Campaign, finding validation.Value,
 // hasPriorityID is `any(p.get("id") == pid for p in prios)`.
 func hasPriorityID(prios []validation.Value, pid string) bool {
 	for _, p := range prios {
-		if objStr(p, "id") == pid {
+		if validation.ObjStr(p, "id") == pid {
 			return true
 		}
 	}
@@ -544,10 +544,10 @@ func nextPriorityID(pid string) string {
 // finding.get("bug_class")`, falling back to "logic-error" when it is not a
 // canonical class.
 func findingClass(finding validation.Value) string {
-	rootCause := objAt(finding, "root_cause")
-	cls := objAt(rootCause, "class")
+	rootCause := validation.ObjAt(finding, "root_cause")
+	cls := validation.ObjAt(rootCause, "class")
 	if !pyTruthyBigNonEmpty(cls) {
-		cls = objAt(finding, "bug_class")
+		cls = validation.ObjAt(finding, "bug_class")
 	}
 	known := taxonomy.KnownClasses()
 	if cls.Kind == validation.Str {

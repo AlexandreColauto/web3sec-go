@@ -8,29 +8,12 @@ import (
 	"websec/internal/validation"
 )
 
-func objAt(v validation.Value, key string) validation.Value {
-	for _, kv := range v.O {
-		if kv.K == key {
-			return kv.V
-		}
-	}
-	return validation.VNull()
-}
-
-func objStr(v validation.Value, key string) string {
-	f := objAt(v, key)
-	if f.Kind == validation.Str {
-		return f.S
-	}
-	return ""
-}
-
 func boolAt(v validation.Value, key string) bool {
-	f := objAt(v, key)
+	f := validation.ObjAt(v, key)
 	return f.Kind == validation.Bool && f.B
 }
 
-func strAt(v validation.Value, key string) string { return objStr(v, key) }
+func strAt(v validation.Value, key string) string { return validation.ObjStr(v, key) }
 
 // setKey replaces key in place (Python's dict assignment keeps the original
 // insertion position).

@@ -123,8 +123,8 @@ func evidenceItem(rec validation.Value, level, typ, desc, eid string) validation
 		kv("level", validation.VStr(level)),
 		kv("type", validation.VStr(typ)),
 		kv("description", validation.VStr(desc)),
-		kv("sandbox_profile", objAt(rec, "profile")),
-		kv("artifact_id", objAt(rec, "exec_id")),
+		kv("sandbox_profile", validation.ObjAt(rec, "profile")),
+		kv("artifact_id", validation.ObjAt(rec, "exec_id")),
 	)
 }
 
@@ -187,7 +187,7 @@ func confirmUnitOnly(t *testing.T, c *state.Campaign) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	if _, err := findings.Transition(c, fid, "POSSIBLE", "triage", "triage",
 		"", false); err != nil {
 		t.Fatal(err)
@@ -213,7 +213,7 @@ func confirmUnitOnly(t *testing.T, c *state.Campaign) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ver := objAt(vf, "verification")
+	ver := validation.ObjAt(vf, "verification")
 	if ver.Kind != validation.Obj {
 		ver = validation.VObj()
 	}
@@ -261,7 +261,7 @@ func gateCheck(t *testing.T, c *state.Campaign, fid,
 		t.Fatal(err)
 	}
 	for _, row := range listAt(r, "policy_checks") {
-		if objStr(row, "check") == check {
+		if validation.ObjStr(row, "check") == check {
 			return row
 		}
 	}
@@ -280,7 +280,7 @@ func TestImmunizeRejectsUnitTestBasis(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err := Immunize(c, fid, Options{Patch: "add the missing role check",
-		POCExecID: objStr(rec, "exec_id"), Mutations: muts(),
+		POCExecID: validation.ObjStr(rec, "exec_id"), Mutations: muts(),
 		Actor: "auditor"})
 	if err == nil {
 		t.Fatal("a unit-test basis must be refused")
@@ -296,7 +296,7 @@ func TestImmunizeRequiresMintedForkEvidence(t *testing.T) {
 	fid := confirmUnitOnly(t, c)
 	rec := forkExec(t, c, fid) // ran, but never minted on the finding
 	_, err := Immunize(c, fid, Options{Patch: "add the missing role check",
-		POCExecID: objStr(rec, "exec_id"), Mutations: muts(),
+		POCExecID: validation.ObjStr(rec, "exec_id"), Mutations: muts(),
 		Actor: "auditor"})
 	if err == nil {
 		t.Fatal("an unminted fork exec must be refused")
@@ -318,7 +318,7 @@ func TestImmunizeRequiresExactlyThreeMutations(t *testing.T) {
 		}
 		_, err := Immunize(c, fid, Options{
 			Patch:     "add the missing role check",
-			POCExecID: objStr(rec, "exec_id"), Mutations: m,
+			POCExecID: validation.ObjStr(rec, "exec_id"), Mutations: m,
 			Actor: "auditor"})
 		if err == nil {
 			t.Fatalf("n=%d: must be refused", n)
@@ -336,7 +336,7 @@ func TestImmunizeSuccessRecordsTheForkBasis(t *testing.T) {
 	rec := mintedFork(t, c, fid)
 	f, err := Immunize(c, fid, Options{
 		Patch:     "add the missing role check to rescue()",
-		POCExecID: objStr(rec, "exec_id"), Mutations: muts(),
+		POCExecID: validation.ObjStr(rec, "exec_id"), Mutations: muts(),
 		Actor: "auditor"})
 	if err != nil {
 		t.Fatal(err)
@@ -346,14 +346,14 @@ func TestImmunizeSuccessRecordsTheForkBasis(t *testing.T) {
 	}
 	stateName, detail := ImmunizationDetail(f)
 	if stateName != "immunized" ||
-		!strings.Contains(detail, objStr(rec, "exec_id")) {
+		!strings.Contains(detail, validation.ObjStr(rec, "exec_id")) {
 		t.Fatalf("detail = %q %q", stateName, detail)
 	}
-	pv := objAt(objAt(f, "verification"), "patch_verified")
-	if !isTrue(objAt(pv, "patch_blocks_poc")) ||
-		!intEq(objAt(pv, "boundary_mutations_tested"), 3) ||
-		!isFalse(objAt(pv, "boundary_bypass_found")) ||
-		objStr(pv, "artifact_id") != objStr(rec, "exec_id") {
+	pv := validation.ObjAt(validation.ObjAt(f, "verification"), "patch_verified")
+	if !isTrue(validation.ObjAt(pv, "patch_blocks_poc")) ||
+		!intEq(validation.ObjAt(pv, "boundary_mutations_tested"), 3) ||
+		!isFalse(validation.ObjAt(pv, "boundary_bypass_found")) ||
+		validation.ObjStr(pv, "artifact_id") != validation.ObjStr(rec, "exec_id") {
 		t.Fatalf("patch_verified = %s", validation.PyRepr(pv))
 	}
 	if got := listAt(pv, "mutations"); len(got) != 3 {
@@ -376,7 +376,7 @@ func TestImmunizeBypassFailsTheGate(t *testing.T) {
 	bypass := "delegatecall variant still drains 2.1M"
 	if _, err := Immunize(c, fid, Options{
 		Patch:     "add the missing role check to rescue()",
-		POCExecID: objStr(rec, "exec_id"), Mutations: muts(),
+		POCExecID: validation.ObjStr(rec, "exec_id"), Mutations: muts(),
 		Actor: "auditor", Bypass: &bypass}); err != nil {
 		t.Fatal(err)
 	}
@@ -392,12 +392,12 @@ func TestImmunizeBypassFailsTheGate(t *testing.T) {
 		t.Fatalf("detail = %q %q", stateName, detail)
 	}
 	row := gateCheck(t, c, fid, "immunization")
-	if objStr(row, "result") != "fail" {
+	if validation.ObjStr(row, "result") != "fail" {
 		t.Fatalf("immunization result = %q, want fail",
-			objStr(row, "result"))
+			validation.ObjStr(row, "result"))
 	}
-	if !strings.Contains(objStr(row, "detail"), "bypass") {
-		t.Fatalf("detail = %q, want 'bypass'", objStr(row, "detail"))
+	if !strings.Contains(validation.ObjStr(row, "detail"), "bypass") {
+		t.Fatalf("detail = %q, want 'bypass'", validation.ObjStr(row, "detail"))
 	}
 }
 
@@ -409,9 +409,9 @@ func TestGateBlocksWithoutForkPocAndImmunization(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !isFalse(objAt(r, "submission_ready")) {
+	if !isFalse(validation.ObjAt(r, "submission_ready")) {
 		t.Fatalf("submission_ready = %s, want false",
-			validation.PyRepr(objAt(r, "submission_ready")))
+			validation.PyRepr(validation.ObjAt(r, "submission_ready")))
 	}
 	for _, tc := range []struct {
 		cid      string
@@ -422,17 +422,17 @@ func TestGateBlocksWithoutForkPocAndImmunization(t *testing.T) {
 	} {
 		cid := tc.cid
 		row := gateCheck(t, c, fid, cid)
-		if objStr(row, "result") != "fail" {
-			t.Fatalf("%s result = %q, want fail", cid, objStr(row, "result"))
+		if validation.ObjStr(row, "result") != "fail" {
+			t.Fatalf("%s result = %q, want fail", cid, validation.ObjStr(row, "result"))
 		}
 		ex, err := bounty.GateExplain(cid)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if objStr(ex, "gate") != "bounty" {
-			t.Fatalf("%s gate = %q, want bounty", cid, objStr(ex, "gate"))
+		if validation.ObjStr(ex, "gate") != "bounty" {
+			t.Fatalf("%s gate = %q, want bounty", cid, validation.ObjStr(ex, "gate"))
 		}
-		if len(objStr(ex, "remediation")) < 10 {
+		if len(validation.ObjStr(ex, "remediation")) < 10 {
 			t.Fatalf("%s remediation too short", cid)
 		}
 		// gate explain is the campaign-less catalog; the gate itself names
@@ -442,7 +442,7 @@ func TestGateBlocksWithoutForkPocAndImmunization(t *testing.T) {
 		// would compare that string with itself. Each row is asserted on its
 		// own, so one row silently losing the metavariable cannot lean on
 		// another's.
-		rawRem := objStr(ex, "remediation")
+		rawRem := validation.ObjStr(ex, "remediation")
 		if got := strings.Contains(rawRem, campaignToken); got != tc.template {
 			t.Fatalf("%s catalog carries the campaign metavariable = %v, "+
 				"want %v", cid, got, tc.template)
@@ -451,10 +451,10 @@ func TestGateBlocksWithoutForkPocAndImmunization(t *testing.T) {
 		if tc.template {
 			wantRem = strings.ReplaceAll(rawRem, campaignToken, c.CampaignID)
 		}
-		if objStr(row, "remediation") != wantRem {
+		if validation.ObjStr(row, "remediation") != wantRem {
 			t.Fatalf("%s remediation differs from gate explain", cid)
 		}
-		if strings.Contains(objStr(row, "remediation"), campaignToken) {
+		if strings.Contains(validation.ObjStr(row, "remediation"), campaignToken) {
 			t.Fatalf("%s remediation still carries the metavariable", cid)
 		}
 	}
@@ -471,18 +471,18 @@ func TestGatePassesWithForkPocAndImmunization(t *testing.T) {
 	rec := mintedFork(t, c, fid)
 	if _, err := Immunize(c, fid, Options{
 		Patch:     "add the missing role check to rescue()",
-		POCExecID: objStr(rec, "exec_id"), Mutations: muts(),
+		POCExecID: validation.ObjStr(rec, "exec_id"), Mutations: muts(),
 		Actor: "auditor"}); err != nil {
 		t.Fatal(err)
 	}
 	fork := gateCheck(t, c, fid, "mainnet-fork-poc")
-	if objStr(fork, "result") != "pass" {
+	if validation.ObjStr(fork, "result") != "pass" {
 		t.Fatalf("mainnet-fork-poc result = %q, want pass",
-			objStr(fork, "result"))
+			validation.ObjStr(fork, "result"))
 	}
 	imm := gateCheck(t, c, fid, "immunization")
-	if objStr(imm, "result") != "pass" {
-		t.Fatalf("immunization result = %q, want pass", objStr(imm, "result"))
+	if validation.ObjStr(imm, "result") != "pass" {
+		t.Fatalf("immunization result = %q, want pass", validation.ObjStr(imm, "result"))
 	}
 }
 
@@ -547,11 +547,11 @@ func TestPipelineBlocksOnMissingForkPoc(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(summary, "status") != "needs-model" {
-		t.Fatalf("status = %q, want needs-model", objStr(summary, "status"))
+	if validation.ObjStr(summary, "status") != "needs-model" {
+		t.Fatalf("status = %q, want needs-model", validation.ObjStr(summary, "status"))
 	}
-	if objStr(objAt(summary, "needs_model"), "stage") != "mainnet-fork-poc" {
-		t.Fatalf("needs_model.stage = %q", objStr(objAt(summary,
+	if validation.ObjStr(validation.ObjAt(summary, "needs_model"), "stage") != "mainnet-fork-poc" {
+		t.Fatalf("needs_model.stage = %q", validation.ObjStr(validation.ObjAt(summary,
 			"needs_model"), "stage"))
 	}
 	blocked := false
@@ -562,13 +562,13 @@ func TestPipelineBlocksOnMissingForkPoc(t *testing.T) {
 	}
 	if !blocked {
 		t.Fatalf("blocked_stages = %s, want mainnet-fork-poc",
-			validation.PyRepr(objAt(summary, "blocked_stages")))
+			validation.PyRepr(validation.ObjAt(summary, "blocked_stages")))
 	}
 	st, err := c.State()
 	if err != nil {
 		t.Fatal(err)
 	}
-	note := objStr(objAt(objAt(st, "stages"), "mainnet-fork-poc"), "note")
+	note := validation.ObjStr(validation.ObjAt(validation.ObjAt(st, "stages"), "mainnet-fork-poc"), "note")
 	if !strings.Contains(note, fid) {
 		t.Fatalf("stage note = %q, want the finding id %s", note, fid)
 	}
@@ -581,7 +581,7 @@ func TestPipelineAutoCompletesForkStage(t *testing.T) {
 	rec := mintedFork(t, c, fid)
 	if _, err := Immunize(c, fid, Options{
 		Patch:     "add the missing role check to rescue()",
-		POCExecID: objStr(rec, "exec_id"), Mutations: muts(),
+		POCExecID: validation.ObjStr(rec, "exec_id"), Mutations: muts(),
 		Actor: "auditor"}); err != nil {
 		t.Fatal(err)
 	}
@@ -590,8 +590,8 @@ func TestPipelineAutoCompletesForkStage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(summary, "status") != "complete" {
-		t.Fatalf("status = %q, want complete", objStr(summary, "status"))
+	if validation.ObjStr(summary, "status") != "complete" {
+		t.Fatalf("status = %q, want complete", validation.ObjStr(summary, "status"))
 	}
 	done := false
 	for _, s := range listAt(summary, "auto_completed") {
@@ -601,15 +601,15 @@ func TestPipelineAutoCompletesForkStage(t *testing.T) {
 	}
 	if !done {
 		t.Fatalf("auto_completed = %s, want mainnet-fork-poc",
-			validation.PyRepr(objAt(summary, "auto_completed")))
+			validation.PyRepr(validation.ObjAt(summary, "auto_completed")))
 	}
 	st, err := c.State()
 	if err != nil {
 		t.Fatal(err)
 	}
-	entry := objAt(objAt(st, "stages"), "mainnet-fork-poc")
-	if objStr(entry, "status") != "done" ||
-		objStr(entry, "executor") != "derived" {
+	entry := validation.ObjAt(validation.ObjAt(st, "stages"), "mainnet-fork-poc")
+	if validation.ObjStr(entry, "status") != "done" ||
+		validation.ObjStr(entry, "executor") != "derived" {
 		t.Fatalf("stage = %s", validation.PyRepr(entry))
 	}
 }
@@ -627,17 +627,17 @@ func TestWaiverSatisfiesTheStageProof(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !isTrue(objAt(proof, "done")) {
+	if !isTrue(validation.ObjAt(proof, "done")) {
 		t.Fatalf("done = %s, want true",
-			validation.PyRepr(objAt(proof, "done")))
+			validation.PyRepr(validation.ObjAt(proof, "done")))
 	}
 	row := gateCheck(t, c, fid, "mainnet-fork-poc")
-	if objStr(row, "result") != "pass" {
+	if validation.ObjStr(row, "result") != "pass" {
 		t.Fatalf("mainnet-fork-poc result = %q, want pass",
-			objStr(row, "result"))
+			validation.ObjStr(row, "result"))
 	}
-	if !strings.Contains(objStr(row, "detail"), "waived") {
-		t.Fatalf("detail = %q, want 'waived'", objStr(row, "detail"))
+	if !strings.Contains(validation.ObjStr(row, "detail"), "waived") {
+		t.Fatalf("detail = %q, want 'waived'", validation.ObjStr(row, "detail"))
 	}
 }
 
@@ -673,7 +673,7 @@ func TestDockerImmunizeAgainstTheForkPoc(t *testing.T) {
 	}
 	f, err := Immunize(c, fid, Options{
 		Patch:     "add the missing role check to rescue()",
-		POCExecID: objStr(rec, "exec_id"), Mutations: muts(),
+		POCExecID: validation.ObjStr(rec, "exec_id"), Mutations: muts(),
 		Actor: "auditor"})
 	if err != nil {
 		t.Fatal(err)
@@ -682,8 +682,8 @@ func TestDockerImmunizeAgainstTheForkPoc(t *testing.T) {
 		t.Fatal("the docker-backed verification must read as immunized")
 	}
 	row := gateCheck(t, c, fid, "immunization")
-	if objStr(row, "result") != "pass" {
-		t.Fatalf("immunization result = %q, want pass", objStr(row, "result"))
+	if validation.ObjStr(row, "result") != "pass" {
+		t.Fatalf("immunization result = %q, want pass", validation.ObjStr(row, "result"))
 	}
 }
 

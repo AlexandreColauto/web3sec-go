@@ -140,7 +140,7 @@ func harnessEntry(t *testing.T, c *state.Campaign) validation.Value {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return objAt(objAt(links, "invariants"), "INV-1")
+	return validation.ObjAt(validation.ObjAt(links, "invariants"), "INV-1")
 }
 
 // harnessEventsOf returns parsed data payloads of one event type.
@@ -197,21 +197,21 @@ func TestVerifyHarnessResultHappyPath(t *testing.T) {
 		!strings.Contains(out, "k=100") {
 		t.Fatalf("output %q must name the rung and bound", out)
 	}
-	h := objAt(objAt(harnessEntry(t, c), "verification"), "harness")
-	if objStr(h, "kind") != "halmos" || objStr(h, "rung") != "proved-bounded" ||
-		objStr(h, "exec") != execID {
+	h := validation.ObjAt(validation.ObjAt(harnessEntry(t, c), "verification"), "harness")
+	if validation.ObjStr(h, "kind") != "halmos" || validation.ObjStr(h, "rung") != "proved-bounded" ||
+		validation.ObjStr(h, "exec") != execID {
 		t.Fatalf("harness object = %s",
 			validation.CanonCompact(h))
 	}
-	if bk := objAt(h, "bounded_k"); bk.Kind != validation.Int || bk.I != 100 {
+	if bk := validation.ObjAt(h, "bounded_k"); bk.Kind != validation.Int || bk.I != 100 {
 		t.Fatalf("bounded_k = %s, want 100", validation.CanonCompact(bk))
 	}
-	if !strings.Contains(objStr(h, "summary"), "k=100") {
-		t.Fatalf("summary %q must carry the bound", objStr(h, "summary"))
+	if !strings.Contains(validation.ObjStr(h, "summary"), "k=100") {
+		t.Fatalf("summary %q must carry the bound", validation.ObjStr(h, "summary"))
 	}
-	if strings.Contains(objStr(h, "summary"), "unbound") {
+	if strings.Contains(validation.ObjStr(h, "summary"), "unbound") {
 		t.Fatalf("bound run must not carry the unbound suffix: %q",
-			objStr(h, "summary"))
+			validation.ObjStr(h, "summary"))
 	}
 	evs := harnessEventsOf(t, c, "harness_run")
 	if len(evs) != 1 {
@@ -227,9 +227,9 @@ func TestVerifyHarnessResultHappyPath(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rt := objAt(objAt(objAt(objAt(links, "invariants"), "INV-1"),
+	rt := validation.ObjAt(validation.ObjAt(validation.ObjAt(validation.ObjAt(links, "invariants"), "INV-1"),
 		"verification"), "harness")
-	if objStr(rt, "rung") != "proved-bounded" {
+	if validation.ObjStr(rt, "rung") != "proved-bounded" {
 		t.Fatal("field must survive a LoadLinks round-trip")
 	}
 }
@@ -252,16 +252,16 @@ func TestVerifyHarnessResultUnboundSuffix(t *testing.T) {
 	if !strings.Contains(out, "counterexample") {
 		t.Fatalf("output %q must name the rung", out)
 	}
-	h := objAt(objAt(harnessEntry(t, c), "verification"), "harness")
-	if objStr(h, "rung") != "counterexample" {
+	h := validation.ObjAt(validation.ObjAt(harnessEntry(t, c), "verification"), "harness")
+	if validation.ObjStr(h, "rung") != "counterexample" {
 		t.Fatalf("rung = %s", validation.CanonCompact(h))
 	}
-	if !strings.Contains(objStr(h, "summary"),
+	if !strings.Contains(validation.ObjStr(h, "summary"),
 		" (unbound: harness file hash not recorded)") {
 		t.Fatalf("summary %q lacks the unbound suffix",
-			objStr(h, "summary"))
+			validation.ObjStr(h, "summary"))
 	}
-	if bk := objAt(h, "bounded_k"); bk.Kind != validation.Null {
+	if bk := validation.ObjAt(h, "bounded_k"); bk.Kind != validation.Null {
 		t.Fatalf("counterexample bounded_k = %s, want null",
 			validation.CanonCompact(bk))
 	}
@@ -287,14 +287,14 @@ func TestVerifyHarnessResultBoundViolation(t *testing.T) {
 	if !strings.Contains(out, "inconclusive") {
 		t.Fatalf("output %q must name the rung", out)
 	}
-	h := objAt(objAt(harnessEntry(t, c), "verification"), "harness")
-	if objStr(h, "rung") != "inconclusive" {
+	h := validation.ObjAt(validation.ObjAt(harnessEntry(t, c), "verification"), "harness")
+	if validation.ObjStr(h, "rung") != "inconclusive" {
 		t.Fatalf("rung = %s", validation.CanonCompact(h))
 	}
 	want := "scaffold-bound violation: harness file hash differs " +
 		"from stored scaffold"
-	if objStr(h, "summary") != want {
-		t.Fatalf("summary %q, want %q", objStr(h, "summary"), want)
+	if validation.ObjStr(h, "summary") != want {
+		t.Fatalf("summary %q, want %q", validation.ObjStr(h, "summary"), want)
 	}
 }
 
@@ -320,8 +320,8 @@ func TestVerifyHarnessResultKilledStatus(t *testing.T) {
 	if out != "INV-1: inconclusive (halmos, EXEC-0000000013)\n" {
 		t.Fatalf("stdout = %q, want the inconclusive print", out)
 	}
-	h := objAt(objAt(harnessEntry(t, c), "verification"), "harness")
-	if objStr(h, "rung") != "inconclusive" {
+	h := validation.ObjAt(validation.ObjAt(harnessEntry(t, c), "verification"), "harness")
+	if validation.ObjStr(h, "rung") != "inconclusive" {
 		t.Fatalf("rung = %s, want the timeout branch (a killed run's "+
 			"bytes are partial by definition)", validation.CanonCompact(h))
 	}
@@ -330,15 +330,15 @@ func TestVerifyHarnessResultKilledStatus(t *testing.T) {
 	// slot, and this record's wall clock was never 8s. MapRun holds no
 	// record, so it has no real elapsed time to report and says so
 	// without a number.
-	if objStr(h, "summary") != "inconclusive (timeout)" {
+	if validation.ObjStr(h, "summary") != "inconclusive (timeout)" {
 		t.Fatalf("summary = %q, want the numberless timeout wording",
-			objStr(h, "summary"))
+			validation.ObjStr(h, "summary"))
 	}
-	if strings.Contains(objStr(h, "summary"), "8") {
+	if strings.Contains(validation.ObjStr(h, "summary"), "8") {
 		t.Fatalf("the timeout summary printed the BOUND as a duration: %q",
-			objStr(h, "summary"))
+			validation.ObjStr(h, "summary"))
 	}
-	if bk := objAt(h, "bounded_k"); bk.Kind != validation.Null {
+	if bk := validation.ObjAt(h, "bounded_k"); bk.Kind != validation.Null {
 		t.Fatalf("bounded_k = %s, want null", validation.CanonCompact(bk))
 	}
 }
@@ -456,8 +456,8 @@ func harnessDriftStatement(t *testing.T, c *state.Campaign, invID,
 	if err != nil {
 		t.Fatal(err)
 	}
-	reg := objAt(links, "invariants")
-	entry := objAt(reg, invID)
+	reg := validation.ObjAt(links, "invariants")
+	entry := validation.ObjAt(reg, invID)
 	if entry.Kind != validation.Obj {
 		t.Fatalf("no registry entry for %s", invID)
 	}
@@ -615,12 +615,12 @@ func TestVerifyHarnessResultScaffoldValidate(t *testing.T) {
 			if out != wantOut {
 				t.Fatalf("stdout = %q, want %q", out, wantOut)
 			}
-			h := objAt(objAt(harnessEntry(t, c), "verification"), "harness")
-			if objStr(h, "rung") != tc.wantRung {
+			h := validation.ObjAt(validation.ObjAt(harnessEntry(t, c), "verification"), "harness")
+			if validation.ObjStr(h, "rung") != tc.wantRung {
 				t.Fatalf("rung = %s, want %s", validation.CanonCompact(h),
 					tc.wantRung)
 			}
-			summary := objStr(h, "summary")
+			summary := validation.ObjStr(h, "summary")
 			if tc.wantSummary != "" && summary != tc.wantSummary {
 				t.Fatalf("summary = %q, want %q", summary, tc.wantSummary)
 			}
@@ -637,7 +637,7 @@ func TestVerifyHarnessResultScaffoldValidate(t *testing.T) {
 				if objHasKey(h, "proof") {
 					t.Fatal("a refusal stores no proof key")
 				}
-				if bk := objAt(h, "bounded_k"); bk.Kind != validation.Null {
+				if bk := validation.ObjAt(h, "bounded_k"); bk.Kind != validation.Null {
 					t.Fatalf("bounded_k = %s, want null",
 						validation.CanonCompact(bk))
 				}
@@ -740,12 +740,12 @@ func TestVerifyHarnessResultUnboundScaffoldValidate(t *testing.T) {
 			if out != wantOut {
 				t.Fatalf("stdout = %q, want %q", out, wantOut)
 			}
-			h := objAt(objAt(harnessEntry(t, c), "verification"), "harness")
-			if objStr(h, "rung") != tc.wantRung {
+			h := validation.ObjAt(validation.ObjAt(harnessEntry(t, c), "verification"), "harness")
+			if validation.ObjStr(h, "rung") != tc.wantRung {
 				t.Fatalf("rung = %s, want %s", validation.CanonCompact(h),
 					tc.wantRung)
 			}
-			summary := objStr(h, "summary")
+			summary := validation.ObjStr(h, "summary")
 			if tc.wantSummary != "" && summary != tc.wantSummary {
 				t.Fatalf("summary = %q, want %q", summary, tc.wantSummary)
 			}
@@ -758,7 +758,7 @@ func TestVerifyHarnessResultUnboundScaffoldValidate(t *testing.T) {
 				if objHasKey(h, "proof") {
 					t.Fatal("a refusal stores no proof key")
 				}
-				if bk := objAt(h, "bounded_k"); bk.Kind != validation.Null {
+				if bk := validation.ObjAt(h, "bounded_k"); bk.Kind != validation.Null {
 					t.Fatalf("bounded_k = %s, want null",
 						validation.CanonCompact(bk))
 				}
@@ -800,15 +800,15 @@ func TestR26DegenerateBoundFloorsTheExecPath(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit %d: out=%q err=%q", code, out, errS)
 	}
-	h := objAt(objAt(harnessEntry(t, c), "verification"), "harness")
-	if objStr(h, "rung") != "inconclusive" {
+	h := validation.ObjAt(validation.ObjAt(harnessEntry(t, c), "verification"), "harness")
+	if validation.ObjStr(h, "rung") != "inconclusive" {
 		t.Fatalf("a degenerate bound must NOT bless: %s",
 			validation.CanonCompact(h))
 	}
-	if !strings.Contains(objStr(h, "summary"), "degenerate-bound") {
-		t.Fatalf("the floor must be named: %q", objStr(h, "summary"))
+	if !strings.Contains(validation.ObjStr(h, "summary"), "degenerate-bound") {
+		t.Fatalf("the floor must be named: %q", validation.ObjStr(h, "summary"))
 	}
-	if bk := objAt(h, "bounded_k"); bk.Kind != validation.Null {
+	if bk := validation.ObjAt(h, "bounded_k"); bk.Kind != validation.Null {
 		t.Fatalf("bounded_k must be null, got %s",
 			validation.CanonCompact(bk))
 	}
@@ -831,16 +831,16 @@ func TestR26UnstatedBoundIsNotZero(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit %d: out=%q err=%q", code, out, errS)
 	}
-	h := objAt(objAt(harnessEntry(t, c), "verification"), "harness")
-	if objStr(h, "rung") != "proved-bounded" {
+	h := validation.ObjAt(validation.ObjAt(harnessEntry(t, c), "verification"), "harness")
+	if validation.ObjStr(h, "rung") != "proved-bounded" {
 		t.Fatalf("an honest unstated-bound pass must still prove: %s",
 			validation.CanonCompact(h))
 	}
-	if bk := objAt(h, "bounded_k"); bk.Kind != validation.Null {
+	if bk := validation.ObjAt(h, "bounded_k"); bk.Kind != validation.Null {
 		t.Fatalf("an unstated bound must not ride the slot as k=0: %s",
 			validation.CanonCompact(bk))
 	}
-	if s := objStr(h, "summary"); strings.Contains(s, "k=0") ||
+	if s := validation.ObjStr(h, "summary"); strings.Contains(s, "k=0") ||
 		!strings.Contains(s, "UNSTATED") {
 		t.Fatalf("summary %q must say UNSTATED, never k=0", s)
 	}
@@ -901,14 +901,14 @@ func TestR27MinicertoraDegenerateBoundFloorsTheBind(t *testing.T) {
 				t.Fatalf("stdout = %q, want %q", out, want)
 			}
 			h := mcHarness(t, c)
-			if rung := objStr(h, "rung"); rung != "inconclusive" {
+			if rung := validation.ObjStr(h, "rung"); rung != "inconclusive" {
 				t.Fatalf("loop_bound %s must not bless: %s", bound,
 					validation.CanonCompact(h))
 			}
-			if s := objStr(h, "summary"); s != r27McRunFloor {
+			if s := validation.ObjStr(h, "summary"); s != r27McRunFloor {
 				t.Fatalf("summary = %q, want %q", s, r27McRunFloor)
 			}
-			if bk := objAt(h, "bounded_k"); bk.Kind != validation.Null {
+			if bk := validation.ObjAt(h, "bounded_k"); bk.Kind != validation.Null {
 				t.Fatalf("bounded_k must never ride a degenerate bound: %s",
 					validation.CanonCompact(bk))
 			}
@@ -917,10 +917,10 @@ func TestR27MinicertoraDegenerateBoundFloorsTheBind(t *testing.T) {
 			}
 			// The advice class the tally reads must be escalate-bound,
 			// not a second wording class of our own.
-			if cls, _, ok := harness.Disposition(objStr(h, "summary")); !ok ||
+			if cls, _, ok := harness.Disposition(validation.ObjStr(h, "summary")); !ok ||
 				cls != harness.EscalateBound {
 				t.Fatalf("Disposition(%q) = %q ok=%v, want escalate-bound",
-					objStr(h, "summary"), cls, ok)
+					validation.ObjStr(h, "summary"), cls, ok)
 			}
 			// bind==audit: the audit re-derives through the same entry
 			// point, so the floored bind must not burn its own campaign.
@@ -956,13 +956,13 @@ func TestR27MinicertoraDegenerateInvocationFloorsTheBind(t *testing.T) {
 		t.Fatalf("stdout = %q, want %q", out, want)
 	}
 	h := mcHarness(t, c)
-	if objStr(h, "rung") != "inconclusive" {
+	if validation.ObjStr(h, "rung") != "inconclusive" {
 		t.Fatalf("rung = %s", validation.CanonCompact(h))
 	}
-	if s := objStr(h, "summary"); s != r27McInvocFloor {
+	if s := validation.ObjStr(h, "summary"); s != r27McInvocFloor {
 		t.Fatalf("summary = %q, want %q", s, r27McInvocFloor)
 	}
-	if bk := objAt(h, "bounded_k"); bk.Kind != validation.Null {
+	if bk := validation.ObjAt(h, "bounded_k"); bk.Kind != validation.Null {
 		t.Fatalf("bounded_k must be null, got %s",
 			validation.CanonCompact(bk))
 	}
@@ -992,22 +992,22 @@ func TestR27MinicertoraHonestRunIsByteUnchanged(t *testing.T) {
 		t.Fatalf("stdout = %q, want %q", out, want)
 	}
 	h := mcHarness(t, c)
-	if rung := objStr(h, "rung"); rung != "proved-bounded" {
+	if rung := validation.ObjStr(h, "rung"); rung != "proved-bounded" {
 		t.Fatalf("an honest run must still prove: %s",
 			validation.CanonCompact(h))
 	}
-	if s := objStr(h, "summary"); s != "proved bounded (k=4)" {
+	if s := validation.ObjStr(h, "summary"); s != "proved bounded (k=4)" {
 		t.Fatalf("summary = %q, want %q", s, "proved bounded (k=4)")
 	}
-	if bk := objAt(h, "bounded_k"); bk.Kind != validation.Int || bk.I != 4 {
+	if bk := validation.ObjAt(h, "bounded_k"); bk.Kind != validation.Int || bk.I != 4 {
 		t.Fatalf("bounded_k = %s, want 4", validation.CanonCompact(bk))
 	}
-	p := objAt(h, "proof")
+	p := validation.ObjAt(h, "proof")
 	if p.Kind != validation.Obj {
 		t.Fatalf("an attributed PROVEN line keeps its sidecar: %s",
 			validation.CanonCompact(h))
 	}
-	if lb := objAt(objAt(p, "bounds"), "loop_bound"); lb.Kind != validation.Int ||
+	if lb := validation.ObjAt(validation.ObjAt(p, "bounds"), "loop_bound"); lb.Kind != validation.Int ||
 		lb.I != 4 {
 		t.Fatalf("proof.bounds.loop_bound = %s, want 4",
 			validation.CanonCompact(lb))
@@ -1122,13 +1122,13 @@ func TestR32ForgeBoundFollowsForgeEndToEnd(t *testing.T) {
 				t.Fatalf("no forge ran under %q, so nothing may be "+
 					"bounded: %q", tc.cmd, out)
 			}
-			h := objAt(objAt(harnessEntry(t, c), "verification"),
+			h := validation.ObjAt(validation.ObjAt(harnessEntry(t, c), "verification"),
 				"harness")
-			if objStr(h, "rung") != "inconclusive" {
+			if validation.ObjStr(h, "rung") != "inconclusive" {
 				t.Fatalf("rung = %s, want the floor",
 					validation.CanonCompact(h))
 			}
-			summary := objStr(h, "summary")
+			summary := validation.ObjStr(h, "summary")
 			if !strings.Contains(summary, "degenerate-bound") ||
 				!strings.Contains(summary, "forge") ||
 				!strings.Contains(summary, tc.reason) {
@@ -1136,7 +1136,7 @@ func TestR32ForgeBoundFollowsForgeEndToEnd(t *testing.T) {
 					"vocabulary naming forge and %q", summary,
 					tc.reason)
 			}
-			if bk := objAt(h, "bounded_k"); bk.Kind != validation.Null {
+			if bk := validation.ObjAt(h, "bounded_k"); bk.Kind != validation.Null {
 				t.Fatalf("bounded_k = %s, want null",
 					validation.CanonCompact(bk))
 			}
@@ -1164,12 +1164,12 @@ func TestR32ForgeBoundFollowsForgeEndToEnd(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit %d: out=%q err=%q", code, out, errS)
 	}
-	h := objAt(objAt(harnessEntry(t, c), "verification"), "harness")
-	if objStr(h, "rung") != "proved-bounded" {
+	h := validation.ObjAt(validation.ObjAt(harnessEntry(t, c), "verification"), "harness")
+	if validation.ObjStr(h, "rung") != "proved-bounded" {
 		t.Fatalf("an accepted forge value must still bind: %s",
 			validation.CanonCompact(h))
 	}
-	if bk := objAt(h, "bounded_k"); bk.Kind != validation.Int || bk.I != 500 {
+	if bk := validation.ObjAt(h, "bounded_k"); bk.Kind != validation.Int || bk.I != 500 {
 		t.Fatalf("bounded_k = %s, want 500", validation.CanonCompact(bk))
 	}
 }
@@ -1196,9 +1196,9 @@ func TestR32ForeignBoundFlagEndToEnd(t *testing.T) {
 			t.Fatalf("forge refuses --loop, so nothing may be bounded: %q",
 				out)
 		}
-		h := objAt(objAt(harnessEntry(t, c), "verification"), "harness")
-		summary := objStr(h, "summary")
-		if objStr(h, "rung") != "inconclusive" ||
+		h := validation.ObjAt(validation.ObjAt(harnessEntry(t, c), "verification"), "harness")
+		summary := validation.ObjStr(h, "summary")
+		if validation.ObjStr(h, "rung") != "inconclusive" ||
 			!strings.Contains(summary, "--loop") ||
 			!strings.Contains(summary, "forge") ||
 			!strings.Contains(summary, "unexpected argument") {
@@ -1229,9 +1229,9 @@ func TestR32ForeignBoundFlagEndToEnd(t *testing.T) {
 			t.Fatalf("halmos refuses --fuzz-runs, so nothing may be "+
 				"bounded: %q", out)
 		}
-		h := objAt(objAt(harnessEntry(t, c), "verification"), "harness")
-		summary := objStr(h, "summary")
-		if objStr(h, "rung") != "inconclusive" ||
+		h := validation.ObjAt(validation.ObjAt(harnessEntry(t, c), "verification"), "harness")
+		summary := validation.ObjStr(h, "summary")
+		if validation.ObjStr(h, "rung") != "inconclusive" ||
 			!strings.Contains(summary, "--fuzz-runs") ||
 			!strings.Contains(summary, "halmos") ||
 			!strings.Contains(summary, "unrecognized arguments") {
@@ -1263,8 +1263,8 @@ func TestR32ForeignBoundFlagEndToEnd(t *testing.T) {
 				"bounded: %q", out)
 		}
 		h := mcHarness(t, c)
-		summary := objStr(h, "summary")
-		if objStr(h, "rung") != "inconclusive" ||
+		summary := validation.ObjStr(h, "summary")
+		if validation.ObjStr(h, "rung") != "inconclusive" ||
 			!strings.Contains(summary, "--fuzz-runs") ||
 			!strings.Contains(summary, "minicertora") ||
 			!strings.Contains(summary, "No such option") {
@@ -1330,10 +1330,10 @@ func TestR32NonStringCommandEndToEnd(t *testing.T) {
 				t.Fatalf("a stated-but-unreadable invocation must not "+
 					"be bounded: %q", out)
 			}
-			h := objAt(objAt(harnessEntry(t, c), "verification"),
+			h := validation.ObjAt(validation.ObjAt(harnessEntry(t, c), "verification"),
 				"harness")
-			summary := objStr(h, "summary")
-			if objStr(h, "rung") != "inconclusive" {
+			summary := validation.ObjStr(h, "summary")
+			if validation.ObjStr(h, "rung") != "inconclusive" {
 				t.Fatalf("rung = %s, want the floor",
 					validation.CanonCompact(h))
 			}
@@ -1343,7 +1343,7 @@ func TestR32NonStringCommandEndToEnd(t *testing.T) {
 				t.Fatalf("the floor must name the shape %q: %q",
 					tc.shape, summary)
 			}
-			if bk := objAt(h, "bounded_k"); bk.Kind != validation.Null {
+			if bk := validation.ObjAt(h, "bounded_k"); bk.Kind != validation.Null {
 				t.Fatalf("bounded_k = %s, want null",
 					validation.CanonCompact(bk))
 			}
@@ -1389,15 +1389,15 @@ func TestR32NonStringCommandEndToEnd(t *testing.T) {
 			if code != 0 {
 				t.Fatalf("exit %d: out=%q err=%q", code, out, errS)
 			}
-			h := objAt(objAt(harnessEntry(t, c), "verification"),
+			h := validation.ObjAt(validation.ObjAt(harnessEntry(t, c), "verification"),
 				"harness")
-			if objStr(h, "rung") != "proved-bounded" ||
-				!strings.Contains(objStr(h, "summary"), "UNSTATED") {
+			if validation.ObjStr(h, "rung") != "proved-bounded" ||
+				!strings.Contains(validation.ObjStr(h, "summary"), "UNSTATED") {
 				t.Fatalf("a record with no command maps with an "+
 					"UNSTATED bound: %s",
 					validation.CanonCompact(h))
 			}
-			if bk := objAt(h, "bounded_k"); bk.Kind != validation.Null {
+			if bk := validation.ObjAt(h, "bounded_k"); bk.Kind != validation.Null {
 				t.Fatalf("an UNSTATED bound must not ride the slot: %s",
 					validation.CanonCompact(bk))
 			}
@@ -1438,10 +1438,10 @@ func TestR32TimeoutNoLongerPrintsTheBoundAsSeconds(t *testing.T) {
 			if code != 0 {
 				t.Fatalf("exit %d: out=%q err=%q", code, out, errS)
 			}
-			h := objAt(objAt(harnessEntry(t, c), "verification"),
+			h := validation.ObjAt(validation.ObjAt(harnessEntry(t, c), "verification"),
 				"harness")
-			summary := objStr(h, "summary")
-			if objStr(h, "rung") != "inconclusive" {
+			summary := validation.ObjStr(h, "summary")
+			if validation.ObjStr(h, "rung") != "inconclusive" {
 				t.Fatalf("a killed run never binds a rung: %s",
 					validation.CanonCompact(h))
 			}
@@ -1458,7 +1458,7 @@ func TestR32TimeoutNoLongerPrintsTheBoundAsSeconds(t *testing.T) {
 				t.Fatalf("summary %q carries the bound %q as seconds",
 					summary, tc.mustFail)
 			}
-			if bk := objAt(h, "bounded_k"); bk.Kind != validation.Null {
+			if bk := validation.ObjAt(h, "bounded_k"); bk.Kind != validation.Null {
 				t.Fatalf("bounded_k = %s, want null",
 					validation.CanonCompact(bk))
 			}
@@ -1487,8 +1487,8 @@ func TestR32TimeoutNoLongerPrintsTheBoundAsSeconds(t *testing.T) {
 			t.Fatalf("exit %d: out=%q err=%q", code, out, errS)
 		}
 		h := mcHarness(t, c)
-		summary := objStr(h, "summary")
-		if objStr(h, "rung") != "inconclusive" {
+		summary := validation.ObjStr(h, "summary")
+		if validation.ObjStr(h, "rung") != "inconclusive" {
 			t.Fatalf("a killed run never binds: %s",
 				validation.CanonCompact(h))
 		}

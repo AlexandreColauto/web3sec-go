@@ -139,7 +139,7 @@ func schemaSubtree(t *testing.T, schema string, path ...string) validation.Value
 	}
 	node := doc
 	for _, key := range path {
-		node = objAt(node, key)
+		node = validation.ObjAt(node, key)
 	}
 	if node.Kind != validation.Obj {
 		t.Fatalf("%s: subtree %v is not an object", schema, path)
@@ -280,25 +280,25 @@ func TestApplyFactsPreservesOrderAndIsIdempotent(t *testing.T) {
 		counts.Components != 3 {
 		t.Fatalf("counts = %+v", counts)
 	}
-	comps := objAt(merged, "components")
+	comps := validation.ObjAt(merged, "components")
 	if comps.Kind != validation.Arr || len(comps.A) != 3 {
 		t.Fatalf("components = %s", jval.CanonCompact(comps))
 	}
 	// order preserved: the same kinds, in the same order
 	wantKinds := []string{"frontend", "offchain-service", "keeper-service"}
 	for i, k := range wantKinds {
-		if got := objAt(comps.A[i], "kind").S; got != k {
+		if got := validation.ObjAt(comps.A[i], "kind").S; got != k {
 			t.Fatalf("components[%d].kind = %q, want %q", i, got, k)
 		}
 	}
-	if objAt(comps.A[0], "dns").Kind != validation.Obj {
+	if validation.ObjAt(comps.A[0], "dns").Kind != validation.Obj {
 		t.Fatalf("components[0] did not receive the dns fact: %s",
 			jval.CanonCompact(comps.A[0]))
 	}
-	if objAt(comps.A[1], "dependency").Kind != validation.Obj {
+	if validation.ObjAt(comps.A[1], "dependency").Kind != validation.Obj {
 		t.Fatalf("components[1] did not receive the dependency fact")
 	}
-	if objAt(comps.A[2], "dependency").Kind != validation.Obj {
+	if validation.ObjAt(comps.A[2], "dependency").Kind != validation.Obj {
 		t.Fatalf("components[2] did not receive the dependency fact")
 	}
 	// every source model field survives the merge: the input model plus the
@@ -306,13 +306,13 @@ func TestApplyFactsPreservesOrderAndIsIdempotent(t *testing.T) {
 	// key-order independent, so an added/removed field fails this).
 	expect := parseFactsFixture(t, `{"protocol_id":"factsdemo","name":"Facts Demo","components":[`+
 		`{"kind":"frontend","url":"https://app.example","trust":"semi-trusted",`+
-		`"in_scope":true,"paid_for":true,"dns":`+jval.CanonCompact(objAt(comps.A[0], "dns"))+`},`+
+		`"in_scope":true,"paid_for":true,"dns":`+jval.CanonCompact(validation.ObjAt(comps.A[0], "dns"))+`},`+
 		`{"kind":"offchain-service","path":"@openzeppelin/contracts",`+
 		`"trust":"trusted","in_scope":true,"paid_for":false,"dependency":`+
-		jval.CanonCompact(objAt(comps.A[1], "dependency"))+`},`+
+		jval.CanonCompact(validation.ObjAt(comps.A[1], "dependency"))+`},`+
 		`{"kind":"keeper-service","path":"apps/keeper","trust":"semi-trusted",`+
 		`"in_scope":true,"paid_for":false,"dependency":`+
-		jval.CanonCompact(objAt(comps.A[2], "dependency"))+`}],`+
+		jval.CanonCompact(validation.ObjAt(comps.A[2], "dependency"))+`}],`+
 		`"contracts":[{"name":"Vault","path":"src/Vault.sol"}],`+
 		`"actors":[{"id":"user","kind":"EOA"}],`+
 		`"assets":[{"id":"share","kind":"share"}],`+
@@ -355,25 +355,25 @@ func TestFactsFromDirRemappings(t *testing.T) {
 	if err := validation.Validate(doc, "operator_facts", 1); err != nil {
 		t.Fatalf("extracted document is not schema-valid: %v", err)
 	}
-	facts := objAt(doc, "facts")
+	facts := validation.ObjAt(doc, "facts")
 	if facts.Kind != validation.Arr || len(facts.A) != 2 {
 		t.Fatalf("facts = %s", jval.CanonCompact(facts))
 	}
-	d0 := objAt(facts.A[0], "dependency")
-	if objAt(d0, "package").S != "@openzeppelin/contracts" ||
-		objAt(d0, "version").S != "v4.9.3" ||
-		objAt(d0, "observed_at").S != "2026-01-02" ||
-		objAt(d0, "source").S != "operator-supplied manifest" ||
-		objAt(d0, "resolved_from").S != "remappings.txt" ||
-		objAt(d0, "pin").S != "@openzeppelin/contracts/=lib/openzeppelin-contracts@v4.9.3/" {
+	d0 := validation.ObjAt(facts.A[0], "dependency")
+	if validation.ObjAt(d0, "package").S != "@openzeppelin/contracts" ||
+		validation.ObjAt(d0, "version").S != "v4.9.3" ||
+		validation.ObjAt(d0, "observed_at").S != "2026-01-02" ||
+		validation.ObjAt(d0, "source").S != "operator-supplied manifest" ||
+		validation.ObjAt(d0, "resolved_from").S != "remappings.txt" ||
+		validation.ObjAt(d0, "pin").S != "@openzeppelin/contracts/=lib/openzeppelin-contracts@v4.9.3/" {
 		t.Fatalf("fact[0] = %s", jval.CanonCompact(facts.A[0]))
 	}
-	if objAt(facts.A[0], "target").Kind != validation.Obj {
+	if validation.ObjAt(facts.A[0], "target").Kind != validation.Obj {
 		t.Fatalf("fact[0] has no target")
 	}
-	d1 := objAt(facts.A[1], "dependency")
-	if objAt(d1, "package").S != "forge-std" || objAt(d1, "version").S != "" ||
-		objAt(d1, "pin").S != "forge-std/=lib/forge-std/src/" {
+	d1 := validation.ObjAt(facts.A[1], "dependency")
+	if validation.ObjAt(d1, "package").S != "forge-std" || validation.ObjAt(d1, "version").S != "" ||
+		validation.ObjAt(d1, "pin").S != "forge-std/=lib/forge-std/src/" {
 		t.Fatalf("fact[1] = %s", jval.CanonCompact(facts.A[1]))
 	}
 }
@@ -501,11 +501,11 @@ version = "2.0.60"
 	}
 	type got struct{ pkg, ver, from string }
 	var seen []got
-	facts := objAt(doc, "facts")
+	facts := validation.ObjAt(doc, "facts")
 	for _, f := range facts.A {
-		d := objAt(f, "dependency")
-		seen = append(seen, got{objAt(d, "package").S, objAt(d, "version").S,
-			objAt(d, "resolved_from").S})
+		d := validation.ObjAt(f, "dependency")
+		seen = append(seen, got{validation.ObjAt(d, "package").S, validation.ObjAt(d, "version").S,
+			validation.ObjAt(d, "resolved_from").S})
 	}
 	want := []got{
 		{"lodash", "4.17.21", "package-lock.json"},

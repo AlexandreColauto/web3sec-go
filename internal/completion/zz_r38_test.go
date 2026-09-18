@@ -19,6 +19,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"websec/internal/validation"
 
 	"websec/internal/state"
 )
@@ -87,7 +88,7 @@ func p22WaivedEvents(t *testing.T, c *state.Campaign) int {
 	}
 	n := 0
 	for _, e := range evs {
-		if objStr(e, "type") == "completion.waived" {
+		if validation.ObjStr(e, "type") == "completion.waived" {
 			n++
 		}
 	}
@@ -245,7 +246,7 @@ func TestP22WaiveSuccessLandsOnceWithItsEvent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("waive: %v", err)
 	}
-	if got, want := objStr(row, "subject"), "*"; got != want {
+	if got, want := validation.ObjStr(row, "subject"), "*"; got != want {
 		t.Fatalf("row subject = %q, want %q", got, want)
 	}
 	rows, werr := Waivers(c, "dedup")

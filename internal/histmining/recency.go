@@ -55,7 +55,7 @@ func notWiredSinks(validation.Value) []validation.Value { return nil }
 // behaviour instead of silently reporting that nothing writes storage.
 func rawWriters(_ validation.Value, n validation.Value) []string {
 	out := []string{}
-	for _, v := range objAt(n, "writes_storage").A {
+	for _, v := range validation.ObjAt(n, "writes_storage").A {
 		if v.Kind == validation.Str {
 			out = append(out, v.S)
 		}
@@ -103,29 +103,29 @@ func RecencyScores(c *state.Campaign, target, snapshotRoot string) (
 		return validation.VNull(), err
 	}
 	var fns []validation.Value
-	for _, n := range objAt(idx, "nodes").A {
-		if objStr(n, "kind") == "function" {
+	for _, n := range validation.ObjAt(idx, "nodes").A {
+		if validation.ObjStr(n, "kind") == "function" {
 			fns = append(fns, n)
 		}
 	}
 	sinkFiles := map[string]bool{}
 	for _, s := range indexAPI.SinkFunctions(idx) {
-		sinkFiles[strings.SplitN(objStr(s, "function_id"), "#", 2)[0]] = true
+		sinkFiles[strings.SplitN(validation.ObjStr(s, "function_id"), "#", 2)[0]] = true
 	}
 	assetWriterFiles := map[string]bool{}
 	for _, n := range fns {
 		// C0: reconciled writers (the raw writes_storage omits statement writes).
 		for _, v := range indexAPI.WritersOf(idx, n) {
 			if assetVarRe.MatchString(v) {
-				assetWriterFiles[strings.SplitN(objStr(n, "id"), "#", 2)[0]] = true
+				assetWriterFiles[strings.SplitN(validation.ObjStr(n, "id"), "#", 2)[0]] = true
 				break
 			}
 		}
 	}
 	entryFiles := map[string]bool{}
 	for _, n := range fns {
-		if truthy(objAt(n, "is_entry_point")) {
-			entryFiles[objStr(n, "path")] = true
+		if truthy(validation.ObjAt(n, "is_entry_point")) {
+			entryFiles[validation.ObjStr(n, "path")] = true
 		}
 	}
 
@@ -161,8 +161,8 @@ func RecencyScores(c *state.Campaign, target, snapshotRoot string) (
 	}
 	paths := []string{}
 	seenPath := map[string]bool{}
-	for _, n := range objAt(idx, "nodes").A {
-		p := objStr(n, "path")
+	for _, n := range validation.ObjAt(idx, "nodes").A {
+		p := validation.ObjStr(n, "path")
 		if p == "" || seenPath[p] {
 			continue
 		}
@@ -214,7 +214,7 @@ func RecencyScores(c *state.Campaign, target, snapshotRoot string) (
 		if si != sj {
 			return si > sj
 		}
-		return objStr(filesOut[i], "path") < objStr(filesOut[j], "path")
+		return validation.ObjStr(filesOut[i], "path") < validation.ObjStr(filesOut[j], "path")
 	})
 	hot := filesOut
 	if len(hot) > 25 {

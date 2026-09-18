@@ -178,7 +178,7 @@ func TestR45bSandboxPinnedCompilerRefusesUnreadablePin(t *testing.T) {
 	if perr != nil {
 		t.Fatal(perr)
 	}
-	solc := objAt(objAt(pre, "checks"), "solc")
+	solc := validation.ObjAt(validation.ObjAt(pre, "checks"), "solc")
 	if strAt(solc, "status") != "fail" ||
 		!strings.Contains(strAt(solc, "detail"), pinPath) {
 		t.Errorf("preflight solc row = %s", validation.CanonCompact(solc))

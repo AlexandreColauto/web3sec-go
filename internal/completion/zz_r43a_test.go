@@ -49,7 +49,7 @@ func r43aProofDone(t *testing.T, c *state.Campaign, stage string) (bool, validat
 	if err != nil {
 		t.Fatalf("ProofStatus(%s): %v", stage, err)
 	}
-	return pyTruthyBigNonEmpty(objAt(pr, "done")), pr
+	return pyTruthyBigNonEmpty(validation.ObjAt(pr, "done")), pr
 }
 
 func TestR43aProofsStayOpenOnUnreadableFindingsStore(t *testing.T) {
@@ -65,7 +65,7 @@ func TestR43aProofsStayOpenOnUnreadableFindingsStore(t *testing.T) {
 			t.Errorf("%s certified DONE with an unreadable findings store", stage)
 		}
 		joined := ""
-		for _, m := range objAt(pr, "missing").A {
+		for _, m := range validation.ObjAt(pr, "missing").A {
 			joined += m.S + "\n"
 		}
 		if !strings.Contains(joined, "proof error: the findings store") ||
@@ -108,7 +108,7 @@ func TestR43aLearningProofRefusesUnreadableMemoryStore(t *testing.T) {
 		t.Fatal("learning certified DONE with an unreadable memory store")
 	}
 	joined := ""
-	for _, m := range objAt(pr, "missing").A {
+	for _, m := range validation.ObjAt(pr, "missing").A {
 		joined += m.S + "\n"
 	}
 	if !strings.Contains(joined, "cannot be listed") {

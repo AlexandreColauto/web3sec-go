@@ -45,12 +45,12 @@ func AssertInvariantsVerified(c *state.Campaign, finding validation.Value) error
 				"registry — seed it or correct the id", iid))
 			continue
 		}
-		if hasKey(doc, iid) || objStr(e, "source") == "documented" {
+		if hasKey(doc, iid) || validation.ObjStr(e, "source") == "documented" {
 			continue
 		}
 		if !IsVerified(e, c, iid, events) {
 			bad = append(bad, fmt.Sprintf("%s (%s)", iid,
-				pyStr(objAt(e, "status"))))
+				pyStr(validation.ObjAt(e, "status"))))
 		}
 	}
 	if len(bad) > 0 {
@@ -81,9 +81,9 @@ func IsVerified(entry validation.Value, c *state.Campaign, invariantID string,
 	if entry.Kind != validation.Obj {
 		return false
 	}
-	switch objStr(entry, "status") {
+	switch validation.ObjStr(entry, "status") {
 	case "CONTRADICTED":
-		evid := objStr(entry, "contradiction")
+		evid := validation.ObjStr(entry, "contradiction")
 		if evid == "" {
 			return false
 		}
@@ -94,19 +94,19 @@ func IsVerified(entry validation.Value, c *state.Campaign, invariantID string,
 		}
 		want := NormalizeInvID(invariantID)
 		for _, ev := range events {
-			if objStr(ev, "type") != "invariant.contradicted" {
+			if validation.ObjStr(ev, "type") != "invariant.contradicted" {
 				continue
 			}
-			if NormalizeInvID(pyStr(objAt(ev, "ref"))) != want {
+			if NormalizeInvID(pyStr(validation.ObjAt(ev, "ref"))) != want {
 				continue
 			}
-			if objStr(objAt(ev, "data"), "evidence") == evid {
+			if validation.ObjStr(validation.ObjAt(ev, "data"), "evidence") == evid {
 				return true
 			}
 		}
 		return false
 	case "CHECKED_AGAINST_CODE":
-		artID := objStr(entry, "verified_by")
+		artID := validation.ObjStr(entry, "verified_by")
 		if artID == "" {
 			return false
 		}
@@ -115,13 +115,13 @@ func IsVerified(entry validation.Value, c *state.Campaign, invariantID string,
 		}
 		want := NormalizeInvID(invariantID)
 		for _, ev := range events {
-			if objStr(ev, "type") != "invariant.verified" {
+			if validation.ObjStr(ev, "type") != "invariant.verified" {
 				continue
 			}
-			if NormalizeInvID(pyStr(objAt(ev, "ref"))) != want {
+			if NormalizeInvID(pyStr(validation.ObjAt(ev, "ref"))) != want {
 				continue
 			}
-			if objStr(objAt(ev, "data"), "artifact") == artID {
+			if validation.ObjStr(validation.ObjAt(ev, "data"), "artifact") == artID {
 				return true
 			}
 		}
@@ -159,12 +159,12 @@ func isArtifactID(s string) bool {
 // (singular + structured list), canonicalized and deduplicated in order.
 func invariantIDs(finding validation.Value) []string {
 	var ids []string
-	if inv := objAt(finding, "invariant"); inv.Kind == validation.Obj {
+	if inv := validation.ObjAt(finding, "invariant"); inv.Kind == validation.Obj {
 		if id, ok := fieldAt(inv, "id"); ok && validation.PyTruthy(id) {
 			ids = append(ids, normalizeValue(id))
 		}
 	}
-	sec := objAt(finding, "security_invariants")
+	sec := validation.ObjAt(finding, "security_invariants")
 	if sec.Kind != validation.Arr {
 		return ids
 	}

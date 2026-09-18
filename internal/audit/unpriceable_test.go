@@ -44,7 +44,7 @@ func unpFinding(t *testing.T, c *state.Campaign) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return objStr(f, "finding_id")
+	return validation.ObjStr(f, "finding_id")
 }
 
 // unpSection returns the unpriceable section of an audit report.
@@ -54,7 +54,7 @@ func unpSection(t *testing.T, c *state.Campaign) validation.Value {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return objAt(objAt(report, "sections"), "unpriceable")
+	return validation.ObjAt(validation.ObjAt(report, "sections"), "unpriceable")
 }
 
 // TestAuditUnpriceableCleanThenCatchesAHandEdit is the Python test: a
@@ -70,10 +70,10 @@ func TestAuditUnpriceableCleanThenCatchesAHandEdit(t *testing.T) {
 		t.Fatal(err)
 	}
 	sec := unpSection(t, c)
-	if !objAt(sec, "ok").B {
+	if !validation.ObjAt(sec, "ok").B {
 		t.Fatalf("unpriceable section not ok: %s", validation.DumpIndented(sec))
 	}
-	if got := objAt(sec, "checked"); got.Kind != validation.Int || got.I != 1 {
+	if got := validation.ObjAt(sec, "checked"); got.Kind != validation.Int || got.I != 1 {
 		t.Errorf("checked = %v; want 1", got)
 	}
 	report, err := AuditCampaign(c)
@@ -99,7 +99,7 @@ func TestAuditUnpriceableCleanThenCatchesAHandEdit(t *testing.T) {
 		t.Fatal(err)
 	}
 	sec = unpSection(t, c)
-	if objAt(sec, "ok").B {
+	if validation.ObjAt(sec, "ok").B {
 		t.Fatalf("hand-edited ceiling not flagged: %s",
 			validation.DumpIndented(sec))
 	}
@@ -183,7 +183,7 @@ func TestAuditUnpriceableCatchesAStaleProjection(t *testing.T) {
 func unpProblems(t *testing.T, section validation.Value) []string {
 	t.Helper()
 	var out []string
-	for _, p := range objAt(section, "problems").A {
+	for _, p := range validation.ObjAt(section, "problems").A {
 		out = append(out, p.S)
 	}
 	return out
@@ -234,7 +234,7 @@ func TestAuditUnpriceableCatchesAnErasure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	imp := objAt(doc, "economic_impact")
+	imp := validation.ObjAt(doc, "economic_impact")
 	imp.O = validation.SetOrAppend(imp.O, "priceable", validation.VBool(true))
 	doc.O = validation.SetOrAppend(doc.O, "economic_impact", imp)
 	if err := os.WriteFile(p,
@@ -243,7 +243,7 @@ func TestAuditUnpriceableCatchesAnErasure(t *testing.T) {
 	}
 	sec := unpSection(t, c)
 	body := validation.DumpsOrdered(sec, false)
-	if objAt(sec, "ok").B || !strings.Contains(body, "erased by") {
+	if validation.ObjAt(sec, "ok").B || !strings.Contains(body, "erased by") {
 		t.Fatalf("erasure must be a problem: %s", body)
 	}
 	// And the proper retraction still passes the mirror check: a later
@@ -253,7 +253,7 @@ func TestAuditUnpriceableCatchesAnErasure(t *testing.T) {
 		validation.VNull()); err != nil {
 		t.Fatal(err)
 	}
-	if sec := unpSection(t, c); !objAt(sec, "ok").B {
+	if sec := unpSection(t, c); !validation.ObjAt(sec, "ok").B {
 		t.Fatalf("priced retraction reconciles both sides: %s",
 			validation.DumpsOrdered(sec, false))
 	}

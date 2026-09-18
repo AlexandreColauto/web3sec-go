@@ -193,7 +193,7 @@ func RecordMitigationScan(c *state.Campaign, findingID string) (bool, error) {
 		return false, err
 	}
 	if hit {
-		dm := objAt(f, "dedup_meta")
+		dm := validation.ObjAt(f, "dedup_meta")
 		if dm.Kind != validation.Obj {
 			dm = validation.VObj()
 		}
@@ -207,9 +207,9 @@ func RecordMitigationScan(c *state.Campaign, findingID string) (bool, error) {
 		if _, file, _, _, ok := ParseMitigationPresent(rec.S); ok {
 			f = StampMitigationCitation(f, file, rec.S)
 		}
-	} else if cur, ok := fieldAt(objAt(f, "dedup_meta"),
+	} else if cur, ok := fieldAt(validation.ObjAt(f, "dedup_meta"),
 		"mitigation_present"); ok && cur.Kind != validation.Null {
-		dm := objAt(f, "dedup_meta")
+		dm := validation.ObjAt(f, "dedup_meta")
 		kept := make([]validation.KV, 0, len(dm.O))
 		for _, kv := range dm.O {
 			if kv.K != "mitigation_present" {
@@ -260,8 +260,8 @@ func mitigMechanismText(f validation.Value) string {
 			}
 		}
 	}
-	walk(objAt(f, "root_cause"))
-	walk(objAt(f, "exploit_mechanism"))
+	walk(validation.ObjAt(f, "root_cause"))
+	walk(validation.ObjAt(f, "exploit_mechanism"))
 	return sb.String()
 }
 

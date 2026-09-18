@@ -29,7 +29,7 @@ func warnDyingGrants(stderr io.Writer, oldID, dyingStatus string,
 	}
 	granted := func(v validation.Value) map[string]bool {
 		out := map[string]bool{}
-		for _, g := range objListAt(objAt(v, "capabilities"), "granted") {
+		for _, g := range objListAt(validation.ObjAt(v, "capabilities"), "granted") {
 			if g.Kind == validation.Str {
 				out[g.S] = true
 			}

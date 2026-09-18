@@ -65,7 +65,7 @@ func task12Campaign(t *testing.T) *state.Campaign {
 func task12IDs(queue []validation.Value) []string {
 	out := make([]string, 0, len(queue))
 	for _, row := range queue {
-		out = append(out, objStr(row, "priority_id"))
+		out = append(out, validation.ObjStr(row, "priority_id"))
 	}
 	return out
 }

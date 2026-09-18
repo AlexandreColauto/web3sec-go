@@ -69,7 +69,7 @@ func r45aWriteIndex(t *testing.T, c *state.Campaign) string {
 // r45aTopProblem reports whether the top-level problems block carries a line
 // naming every substring (the block the cockpit prints).
 func r45aTopProblem(b validation.Value, subs ...string) bool {
-	for _, p := range objAt(b, "problems").A {
+	for _, p := range validation.ObjAt(b, "problems").A {
 		if p.Kind != validation.Str {
 			continue
 		}
@@ -112,20 +112,20 @@ func TestR45aBriefDisclosesUnreadableModel(t *testing.T) {
 	if !r45aTopProblem(b, "protocol_model.json", "could not be read",
 		"permission denied") {
 		t.Fatalf("problems = %v, want a named protocol_model.json read failure",
-			objAt(b, "problems"))
+			validation.ObjAt(b, "problems"))
 	}
-	ts := objAt(b, "tracked_surfaces")
+	ts := validation.ObjAt(b, "tracked_surfaces")
 	if len(ts.A) != 1 || !strings.Contains(ts.A[0].S, "UNAVAILABLE") {
 		t.Fatalf("tracked_surfaces = %v, want the UNAVAILABLE line", ts)
 	}
-	al := objAt(b, "chain_assumption_lines")
+	al := validation.ObjAt(b, "chain_assumption_lines")
 	if len(al.A) != 1 || !strings.Contains(al.A[0].S, "UNAVAILABLE") {
 		t.Fatalf("chain_assumption_lines = %v, want the UNAVAILABLE line", al)
 	}
 	// No ranking is invented from a model that was never read.
 	if hasKey(b, "criticality") {
 		t.Fatalf("criticality must not be computed from an unread model: %v",
-			objAt(b, "criticality"))
+			validation.ObjAt(b, "criticality"))
 	}
 }
 
@@ -145,7 +145,7 @@ func TestR45aBriefDisclosesUnreadableStructuralIndex(t *testing.T) {
 	}
 	if !hasKey(ok, "criticality") {
 		t.Fatalf("a readable model+index renders criticality: %v",
-			objAt(ok, "criticality"))
+			validation.ObjAt(ok, "criticality"))
 	}
 
 	r45aChmodFile(t, indexPath)
@@ -156,29 +156,29 @@ func TestR45aBriefDisclosesUnreadableStructuralIndex(t *testing.T) {
 	if !r45aTopProblem(b, "structural_index.json", "could not be read",
 		"permission denied") {
 		t.Fatalf("problems = %v, want a named structural_index.json read failure",
-			objAt(b, "problems"))
+			validation.ObjAt(b, "problems"))
 	}
 	if hasKey(b, "criticality") {
 		t.Fatalf("criticality must not be ranked against an unread index: %v",
-			objAt(b, "criticality"))
+			validation.ObjAt(b, "criticality"))
 	}
 	// The disclosure is not duplicated: the critical-hunt reader of the same
 	// file (chArtifact, via ChAmplifiers) names the identical failure, and the
 	// problems block carries the sentence once.
 	seen := 0
-	for _, p := range objAt(b, "problems").A {
+	for _, p := range validation.ObjAt(b, "problems").A {
 		if strings.Contains(p.S, "structural_index.json could not be read") {
 			seen++
 		}
 	}
 	if seen != 1 {
 		t.Fatalf("problems = %v, want exactly one structural_index.json "+
-			"disclosure", objAt(b, "problems"))
+			"disclosure", validation.ObjAt(b, "problems"))
 	}
 	// The section that reader feeds still falls back to its documented empty
 	// shape (the fold was never about the shape, only about the silence).
-	amps := objAt(objAt(b, "critical_hunt"), "amplifiers")
-	if got := objAt(amps, "detected"); got.Kind != validation.Obj || len(got.O) != 0 {
+	amps := validation.ObjAt(validation.ObjAt(b, "critical_hunt"), "amplifiers")
+	if got := validation.ObjAt(amps, "detected"); got.Kind != validation.Obj || len(got.O) != 0 {
 		t.Fatalf("amplifiers detected = %v, want the empty shape", got)
 	}
 }
@@ -203,11 +203,11 @@ func TestR45aBriefDisclosesUnreadableHuntArtifact(t *testing.T) {
 	if !r45aTopProblem(b, "fork_diff.json", "could not be read",
 		"permission denied") {
 		t.Fatalf("problems = %v, want a named fork_diff.json read failure",
-			objAt(b, "problems"))
+			validation.ObjAt(b, "problems"))
 	}
 	// The section is still omitted (Python's shape: a null fork_diff) — only
 	// the silence was the bug.
-	if got := objAt(objAt(b, "critical_hunt"), "fork_diff"); got.Kind != validation.Null {
+	if got := validation.ObjAt(validation.ObjAt(b, "critical_hunt"), "fork_diff"); got.Kind != validation.Null {
 		t.Fatalf("fork_diff = %v, want null (section omitted, now disclosed)", got)
 	}
 }
@@ -233,11 +233,11 @@ func TestR45aAbsenceStaysAbsentAndSilent(t *testing.T) {
 		"criticality"} {
 		if hasKey(b, key) {
 			t.Fatalf("absent artifacts must not create %s: %v", key,
-				objAt(b, key))
+				validation.ObjAt(b, key))
 		}
 	}
 	if r45aTopProblem(b, "could not be read") {
-		t.Fatalf("absence is not a read failure: %v", objAt(b, "problems"))
+		t.Fatalf("absence is not a read failure: %v", validation.ObjAt(b, "problems"))
 	}
 }
 
@@ -262,7 +262,7 @@ func TestR45aComponentFreeModelStaysSilent(t *testing.T) {
 		t.Fatalf("a component-free model must add no block")
 	}
 	if r45aTopProblem(b, "could not be read") {
-		t.Fatalf("a readable model is not a read failure: %v", objAt(b, "problems"))
+		t.Fatalf("a readable model is not a read failure: %v", validation.ObjAt(b, "problems"))
 	}
 	if !hasKey(b, "criticality") {
 		t.Fatal("a readable model still renders criticality")

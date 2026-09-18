@@ -60,7 +60,7 @@ func t6Evidence(t *testing.T, c *state.Campaign, fid string) string {
 	if err != nil {
 		t.Fatalf("load %s: %v", fid, err)
 	}
-	return validation.CanonCompact(objAt(f, "evidence"))
+	return validation.CanonCompact(validation.ObjAt(f, "evidence"))
 }
 
 // t6Status is the finding's status — amend never moves it.
@@ -70,7 +70,7 @@ func t6Status(t *testing.T, c *state.Campaign, fid string) string {
 	if err != nil {
 		t.Fatalf("load %s: %v", fid, err)
 	}
-	return objStr(f, "status")
+	return validation.ObjStr(f, "status")
 }
 
 // t6GateRead runs the read-only per-finding gate dry-run.

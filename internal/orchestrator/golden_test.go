@@ -140,8 +140,8 @@ func installGoldenSeams(t *testing.T, doc, sc validation.Value,
 	installForkPocSeams(t, sc, ids)
 	findings.ResetPinnedFindingIDs()
 	findings.SetFindingIDSource(findings.PinnedFindingID)
-	cannedIndex := objAt(doc, "canned_index")
-	cannedCtx := objAt(doc, "canned_context")
+	cannedIndex := validation.ObjAt(doc, "canned_index")
+	cannedCtx := validation.ObjAt(doc, "canned_context")
 	SetStructuralIndex(StructuralIndexAPI{
 		IndexSnapshot: func(c *state.Campaign, root string) (validation.Value, error) {
 			rec.add("structural_index.index_snapshot",
@@ -195,8 +195,8 @@ func installGoldenSeams(t *testing.T, doc, sc validation.Value,
 // proven flag and the reason text.
 func installForkPocSeams(t *testing.T, sc validation.Value, ids *idMap) {
 	t.Helper()
-	status := objAt(objAt(sc, "fork_poc"), "status")
-	evidence := objAt(objAt(sc, "fork_poc"), "evidence")
+	status := validation.ObjAt(validation.ObjAt(sc, "fork_poc"), "status")
+	evidence := validation.ObjAt(validation.ObjAt(sc, "fork_poc"), "evidence")
 	lookup := func(list validation.Value, fid string) validation.Value {
 		for _, row := range list.A {
 			if ids.real(strAt(row, "finding_id")) == fid {
@@ -238,7 +238,7 @@ func (f forkPocEvidence) ForkPocEvidence(_ *state.Campaign,
 		return validation.VNull(), nil, nil
 	}
 	reason := strAt(row, "reason")
-	if item := objAt(row, "item"); item.Kind == validation.Obj {
+	if item := validation.ObjAt(row, "item"); item.Kind == validation.Obj {
 		return item, nil, nil
 	}
 	return validation.VNull(), &reason, nil
@@ -280,16 +280,16 @@ func writeFile(t *testing.T, root, rel, body string) {
 // and the policy file.
 func seedInputs(t *testing.T, root string, doc validation.Value) {
 	t.Helper()
-	for _, kv := range objAt(doc, "target").O {
+	for _, kv := range validation.ObjAt(doc, "target").O {
 		writeFile(t, root, filepath.Join("target", kv.K), kv.V.S)
 	}
 	writeFile(t, root, "policy.json", validation.DumpIndented(
-		objAt(doc, "policy")))
+		validation.ObjAt(doc, "policy")))
 }
 
 func TestGoldenVectors(t *testing.T) {
 	doc := goldenDoc(t)
-	scenarios := objAt(doc, "scenarios")
+	scenarios := validation.ObjAt(doc, "scenarios")
 	names := make([]string, 0, len(scenarios.O))
 	for _, kv := range scenarios.O {
 		names = append(names, kv.K)
@@ -300,7 +300,7 @@ func TestGoldenVectors(t *testing.T) {
 	}
 	for _, name := range names {
 		t.Run(name, func(t *testing.T) {
-			runGoldenScenario(t, doc, name, objAt(scenarios, name))
+			runGoldenScenario(t, doc, name, validation.ObjAt(scenarios, name))
 		})
 	}
 }
@@ -333,21 +333,21 @@ func runGoldenScenario(t *testing.T, doc validation.Value, name string,
 		t.Fatalf("init campaign: %v", err)
 	}
 	o := New(c)
-	for _, spec := range objAt(sc, "build").A {
+	for _, spec := range validation.ObjAt(sc, "build").A {
 		if _, err := dispatchGolden(t, o, c, doc, spec, ids, root); err != nil {
 			t.Fatalf("build op %s: %v", strAt(spec, "op"), err)
 		}
 	}
-	steps := objAt(sc, "steps")
+	steps := validation.ObjAt(sc, "steps")
 	for i, step := range steps.A {
 		runGoldenStep(t, o, c, root, doc, step, ids, i)
 	}
-	if want := objAt(sc, "finding_placeholders"); len(ids.order) != len(want.A) {
+	if want := validation.ObjAt(sc, "finding_placeholders"); len(ids.order) != len(want.A) {
 		t.Fatalf("%s: created %d findings, want %d", name, len(ids.order),
 			len(want.A))
 	}
 	gotCalls := validation.VArr(rec.calls...)
-	wantCalls := objAt(sc, "seam_calls")
+	wantCalls := validation.ObjAt(sc, "seam_calls")
 	if len(rec.calls) != len(wantCalls.A) {
 		t.Fatalf("%s: recorded %d seam calls, want %d\n got: %s\nwant: %s",
 			name, len(rec.calls), len(wantCalls.A),

@@ -84,7 +84,7 @@ func LoadDisclosure(c *state.Campaign, path string) (*Disclosure, error) {
 		return nil, fmt.Errorf("disclosure: %s: %w", path, err)
 	}
 	ids := []string{}
-	for _, v := range objAt(doc, "finding_ids").A {
+	for _, v := range validation.ObjAt(doc, "finding_ids").A {
 		ids = append(ids, v.S)
 	}
 	all, err := findings.LoadAllFindings(c)
@@ -94,11 +94,11 @@ func LoadDisclosure(c *state.Campaign, path string) (*Disclosure, error) {
 	byID := map[string]validation.Value{}
 	publishable := map[string]bool{}
 	for _, f := range all {
-		id := objStr(f, "finding_id")
+		id := validation.ObjStr(f, "finding_id")
 		byID[id] = f
 		// The publish pass publishes exactly these statuses; a disclosure may
 		// not cite knowledge the publish cannot show.
-		if inList(objStr(f, "status"), PublishableStatuses) {
+		if inList(validation.ObjStr(f, "status"), PublishableStatuses) {
 			publishable[id] = true
 		}
 	}
@@ -109,10 +109,10 @@ func LoadDisclosure(c *state.Campaign, path string) (*Disclosure, error) {
 		Path:       path,
 		Doc:        doc,
 		FindingIDs: ids,
-		Summary:    objStr(doc, "summary"),
-		Impact:     objStr(doc, "impact"),
+		Summary:    validation.ObjStr(doc, "summary"),
+		Impact:     validation.ObjStr(doc, "impact"),
 	}
-	if e := objAt(doc, "embargo_until"); e.Kind == validation.Str {
+	if e := validation.ObjAt(doc, "embargo_until"); e.Kind == validation.Str {
 		d.EmbargoUntil = e.S
 	}
 	return d, nil
@@ -135,7 +135,7 @@ func disclosureRuleCheck(ids []string,
 		if !ok {
 			return fmt.Errorf("disclosure: unknown finding id %s", id)
 		}
-		status := objStr(f, "status")
+		status := validation.ObjStr(f, "status")
 		if !inList(status, PublishableStatuses) {
 			return fmt.Errorf(
 				"disclosure: finding %s is not confirmed (status %s)", id, status)

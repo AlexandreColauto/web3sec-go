@@ -10,6 +10,7 @@ package cli
 import (
 	"strings"
 	"testing"
+	"websec/internal/validation"
 )
 
 // TestAnsweredLensRefusesProbeRowFlags pins the lens-route refusals: each of
@@ -148,7 +149,7 @@ func TestAnsweredReconcileRefusedOffLensRoutes(t *testing.T) {
 	if errS != want {
 		t.Fatalf("non-closing lens: stderr\n%q\nwant\n%q", errS, want)
 	}
-	if got := len(objAt(rcStoredLens(t, root, cid, "L-04"),
+	if got := len(validation.ObjAt(rcStoredLens(t, root, cid, "L-04"),
 		"reconciliation").A); got != 2 {
 		t.Fatalf("stored reconciliation has %d records, want 2", got)
 	}
@@ -167,7 +168,7 @@ func TestAnsweredReconcileRefusedOffLensRoutes(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("consuming route exit %d: %q", code, errS)
 	}
-	if got := len(objAt(rcStoredLens(t, root2, cid2, "L-04"),
+	if got := len(validation.ObjAt(rcStoredLens(t, root2, cid2, "L-04"),
 		"reconciliation").A); got != 2 {
 		t.Fatalf("consuming route recorded %d records, want 2", got)
 	}

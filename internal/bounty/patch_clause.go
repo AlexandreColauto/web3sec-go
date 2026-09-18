@@ -31,8 +31,8 @@ const minRecommendationRunes = 40
 
 // patchClause is the program's fix requirement: verification | prose | none.
 func patchClause(policy validation.Value) (string, error) {
-	req := objAt(policy, "poc_requirements")
-	mode := objStr(req, "patch_clause")
+	req := validation.ObjAt(policy, "poc_requirements")
+	mode := validation.ObjStr(req, "patch_clause")
 	switch mode {
 	case "":
 		return "verification", nil
@@ -40,7 +40,7 @@ func patchClause(policy validation.Value) (string, error) {
 		return mode, nil
 	default:
 		return "", &UnknownPatchClauseError{Value: mode,
-			Program: objStr(policy, "program")}
+			Program: validation.ObjStr(policy, "program")}
 	}
 }
 
@@ -64,7 +64,7 @@ func (e *UnknownPatchClauseError) Error() string {
 // recommendation is the finding's written fix (verification.recommendation),
 // trimmed. A missing or null field is "".
 func recommendation(f validation.Value) string {
-	v := objAt(objAt(f, "verification"), "recommendation")
+	v := validation.ObjAt(validation.ObjAt(f, "verification"), "recommendation")
 	if v.Kind != validation.Str {
 		return ""
 	}
@@ -79,7 +79,7 @@ func recommendationOK(f validation.Value) bool {
 // patchVerified is the finding's recorded immunization record
 // (verification.patch_verified), or Null when the finding has none.
 func patchVerified(f validation.Value) validation.Value {
-	v := objAt(objAt(f, "verification"), "patch_verified")
+	v := validation.ObjAt(validation.ObjAt(f, "verification"), "patch_verified")
 	if v.Kind != validation.Obj {
 		return validation.VNull()
 	}
@@ -96,12 +96,12 @@ func boundaryAdvisory(f validation.Value) string {
 	if pv.Kind != validation.Obj {
 		return ""
 	}
-	if b := objAt(pv, "boundary_bypass_found"); b.Kind == validation.Bool && b.B {
+	if b := validation.ObjAt(pv, "boundary_bypass_found"); b.Kind == validation.Bool && b.B {
 		return "boundary mutation still extracts under the recorded patch — " +
 			"re-check the root cause before submitting"
 	}
 	tested := 0
-	if t := objAt(pv, "boundary_mutations_tested"); t.Kind == validation.Int {
+	if t := validation.ObjAt(pv, "boundary_mutations_tested"); t.Kind == validation.Int {
 		tested, _ = strconv.Atoi(validation.IntText(t))
 	}
 	if tested < 3 {

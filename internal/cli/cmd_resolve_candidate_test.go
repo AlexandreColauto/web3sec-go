@@ -30,8 +30,8 @@ func t15Pair(t *testing.T) (*state.Campaign, string, validation.Value,
 	c, root := t15Campaign(t, "resolve")
 	f1 := t15Finding(t, c, "the first hypothesis", "logic-error")
 	f2 := t15Finding(t, c, "the second hypothesis", "logic-error")
-	if _, err := findings.FlagPossibleDuplicate(c, objStr(f2, "finding_id"),
-		objStr(f1, "finding_id")); err != nil {
+	if _, err := findings.FlagPossibleDuplicate(c, validation.ObjStr(f2, "finding_id"),
+		validation.ObjStr(f1, "finding_id")); err != nil {
 		t.Fatalf("flag: %v", err)
 	}
 	return c, root, f1, f2
@@ -40,27 +40,27 @@ func t15Pair(t *testing.T) (*state.Campaign, string, validation.Value,
 func TestResolveCandidateDistinct(t *testing.T) {
 	c, root, f1, f2 := t15Pair(t)
 	code, out, errS := run(t, "--root", root, "resolve-candidate",
-		c.CampaignID, objStr(f2, "finding_id"), objStr(f1, "finding_id"),
+		c.CampaignID, validation.ObjStr(f2, "finding_id"), validation.ObjStr(f1, "finding_id"),
 		"--verdict", "distinct", "--actor", "operator")
 	if code != 0 {
 		t.Fatalf("exit %d: %q", code, errS)
 	}
-	want := "candidate pair " + objStr(f2, "finding_id") + " vs " +
-		objStr(f1, "finding_id") + ": distinct (recorded on both sides)\n"
+	want := "candidate pair " + validation.ObjStr(f2, "finding_id") + " vs " +
+		validation.ObjStr(f1, "finding_id") + ": distinct (recorded on both sides)\n"
 	if out != want {
 		t.Fatalf("output %q, want %q", out, want)
 	}
 	for _, f := range []validation.Value{f1, f2} {
-		reloaded, err := findings.LoadFinding(c, objStr(f, "finding_id"))
+		reloaded, err := findings.LoadFinding(c, validation.ObjStr(f, "finding_id"))
 		if err != nil {
 			t.Fatal(err)
 		}
-		verdicts := objAt(objAt(reloaded, "dedup"), "candidate_verdicts")
-		other := objStr(f1, "finding_id")
-		if objStr(f, "finding_id") == other {
-			other = objStr(f2, "finding_id")
+		verdicts := validation.ObjAt(validation.ObjAt(reloaded, "dedup"), "candidate_verdicts")
+		other := validation.ObjStr(f1, "finding_id")
+		if validation.ObjStr(f, "finding_id") == other {
+			other = validation.ObjStr(f2, "finding_id")
 		}
-		if got := scalarStr(objAt(verdicts, other)); got != "distinct" {
+		if got := scalarStr(validation.ObjAt(verdicts, other)); got != "distinct" {
 			t.Fatalf("verdict for %s = %q, want distinct", other, got)
 		}
 	}
@@ -69,24 +69,24 @@ func TestResolveCandidateDistinct(t *testing.T) {
 func TestResolveCandidateSameMergesYoungerSide(t *testing.T) {
 	c, root, f1, f2 := t15Pair(t)
 	code, _, errS := run(t, "--root", root, "resolve-candidate", c.CampaignID,
-		objStr(f2, "finding_id"), objStr(f1, "finding_id"), "--verdict", "same")
+		validation.ObjStr(f2, "finding_id"), validation.ObjStr(f1, "finding_id"), "--verdict", "same")
 	if code != 0 {
 		t.Fatalf("exit %d: %q", code, errS)
 	}
 	statuses := map[string]string{}
 	for _, f := range []validation.Value{f1, f2} {
-		reloaded, err := findings.LoadFinding(c, objStr(f, "finding_id"))
+		reloaded, err := findings.LoadFinding(c, validation.ObjStr(f, "finding_id"))
 		if err != nil {
 			t.Fatal(err)
 		}
-		statuses[objStr(reloaded, "finding_id")] = objStr(reloaded, "status")
+		statuses[validation.ObjStr(reloaded, "finding_id")] = validation.ObjStr(reloaded, "status")
 	}
-	if statuses[objStr(f1, "finding_id")] == "DUPLICATE" &&
-		statuses[objStr(f2, "finding_id")] == "DUPLICATE" {
+	if statuses[validation.ObjStr(f1, "finding_id")] == "DUPLICATE" &&
+		statuses[validation.ObjStr(f2, "finding_id")] == "DUPLICATE" {
 		t.Fatalf("only the younger side merges: %v", statuses)
 	}
-	if statuses[objStr(f1, "finding_id")] != "DUPLICATE" &&
-		statuses[objStr(f2, "finding_id")] != "DUPLICATE" {
+	if statuses[validation.ObjStr(f1, "finding_id")] != "DUPLICATE" &&
+		statuses[validation.ObjStr(f2, "finding_id")] != "DUPLICATE" {
 		t.Fatalf("no side was merged: %v", statuses)
 	}
 }
@@ -96,12 +96,12 @@ func TestResolveCandidateUnflaggedPairIsKeyErrorShaped(t *testing.T) {
 	f1 := t15Finding(t, c, "the first hypothesis", "logic-error")
 	f2 := t15Finding(t, c, "the second hypothesis", "logic-error")
 	code, _, errS := run(t, "--root", root, "resolve-candidate", c.CampaignID,
-		objStr(f2, "finding_id"), objStr(f1, "finding_id"), "--verdict", "same")
+		validation.ObjStr(f2, "finding_id"), validation.ObjStr(f1, "finding_id"), "--verdict", "same")
 	if code != 2 {
 		t.Fatalf("exit %d, want 2", code)
 	}
-	want := "resolve-candidate failed: \"" + objStr(f2, "finding_id") +
-		" has no candidate flag for '" + objStr(f1, "finding_id") +
+	want := "resolve-candidate failed: \"" + validation.ObjStr(f2, "finding_id") +
+		" has no candidate flag for '" + validation.ObjStr(f1, "finding_id") +
 		"'; run the dedup sweep first\"\n"
 	if errS != want {
 		t.Fatalf("stderr\n%q\nwant\n%q", errS, want)
@@ -111,7 +111,7 @@ func TestResolveCandidateUnflaggedPairIsKeyErrorShaped(t *testing.T) {
 func TestResolveCandidateNoteTooShort(t *testing.T) {
 	c, root, f1, f2 := t15Pair(t)
 	code, _, errS := run(t, "--root", root, "resolve-candidate", c.CampaignID,
-		objStr(f2, "finding_id"), objStr(f1, "finding_id"), "--verdict",
+		validation.ObjStr(f2, "finding_id"), validation.ObjStr(f1, "finding_id"), "--verdict",
 		"distinct", "--note", "hi")
 	if code != 2 {
 		t.Fatalf("exit %d, want 2", code)
@@ -130,22 +130,22 @@ func TestResolveCandidateNoteRecordsOnBothSides(t *testing.T) {
 	c, root, f1, f2 := t15Pair(t)
 	note := "different root cause"
 	code, _, errS := run(t, "--root", root, "resolve-candidate",
-		c.CampaignID, objStr(f2, "finding_id"), objStr(f1, "finding_id"),
+		c.CampaignID, validation.ObjStr(f2, "finding_id"), validation.ObjStr(f1, "finding_id"),
 		"--verdict", "distinct", "--note", note, "--actor", "operator")
 	if code != 0 {
 		t.Fatalf("exit %d: %q", code, errS)
 	}
 	for _, f := range []validation.Value{f1, f2} {
-		reloaded, err := findings.LoadFinding(c, objStr(f, "finding_id"))
+		reloaded, err := findings.LoadFinding(c, validation.ObjStr(f, "finding_id"))
 		if err != nil {
 			t.Fatal(err)
 		}
-		other := objStr(f1, "finding_id")
-		if objStr(f, "finding_id") == other {
-			other = objStr(f2, "finding_id")
+		other := validation.ObjStr(f1, "finding_id")
+		if validation.ObjStr(f, "finding_id") == other {
+			other = validation.ObjStr(f2, "finding_id")
 		}
-		notes := objAt(objAt(reloaded, "dedup_meta"), "candidate_notes")
-		if got := scalarStr(objAt(notes, other)); got != note {
+		notes := validation.ObjAt(validation.ObjAt(reloaded, "dedup_meta"), "candidate_notes")
+		if got := scalarStr(validation.ObjAt(notes, other)); got != note {
 			t.Fatalf("candidate_notes[%s] = %q, want %q", other, got, note)
 		}
 	}

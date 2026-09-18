@@ -75,7 +75,7 @@ func runPrice(root string, args []string, r *Runner) int {
 				src = string([]rune(src)[:50])
 			}
 			fmt.Fprintf(r.Out, "price row %s: %s @ $%s (source: %s)\n",
-				objStr(row, "price_id"), a.asset,
+				validation.ObjStr(row, "price_id"), a.asset,
 				pyMoney2(*a.usd), src)
 			return nil
 		}
@@ -83,21 +83,21 @@ func runPrice(root string, args []string, r *Runner) int {
 		if err != nil {
 			return err
 		}
-		rows := objAt(table, "prices").A
+		rows := validation.ObjAt(table, "prices").A
 		if len(rows) == 0 {
 			fmt.Fprint(r.Out, "(price table empty — `webv2 price "+c.CampaignID+" "+
 				"set <asset> <usd> --source ...`)\n")
 			return nil
 		}
 		for _, row := range rows {
-			src := objStr(row, "source")
+			src := validation.ObjStr(row, "source")
 			if len([]rune(src)) > 40 {
 				src = string([]rune(src)[:40])
 			}
 			fmt.Fprintf(r.Out, "%s  %s $%s  as of %s  src: %s\n",
-				objStr(row, "price_id"), pyLeft(objStr(row, "asset"), 12),
+				validation.ObjStr(row, "price_id"), pyLeft(validation.ObjStr(row, "asset"), 12),
 				pyRight(pyMoney2(objFlt(row, "usd")), 14),
-				objStr(row, "as_of"), src)
+				validation.ObjStr(row, "as_of"), src)
 		}
 		return nil
 	})

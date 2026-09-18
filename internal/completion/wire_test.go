@@ -103,7 +103,7 @@ func TestWiringPipelineAutoCompletes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !pyTruthyBigNonEmpty(objAt(proof, "done")) {
+	if !pyTruthyBigNonEmpty(validation.ObjAt(proof, "done")) {
 		t.Fatalf("fixture proof does not hold: %s", pyJSONDumps(proof))
 	}
 	p := pipeline.New(c, noOrch{}, nil)
@@ -115,15 +115,15 @@ func TestWiringPipelineAutoCompletes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	entry := objAt(objAt(st, "stages"), "protocol-model")
-	if got := objStr(entry, "status"); got != "done" {
+	entry := validation.ObjAt(validation.ObjAt(st, "stages"), "protocol-model")
+	if got := validation.ObjStr(entry, "status"); got != "done" {
 		t.Fatalf("protocol-model status = %q, want done (%s)", got,
 			pyJSONDumps(entry))
 	}
-	if got := objStr(entry, "note"); got != "auto-completed: completion proof holds" {
+	if got := validation.ObjStr(entry, "note"); got != "auto-completed: completion proof holds" {
 		t.Errorf("note = %q, want the proof-driven note", got)
 	}
-	if got := objStr(entry, "executor"); got != "derived" {
+	if got := validation.ObjStr(entry, "executor"); got != "derived" {
 		t.Errorf("executor = %q, want derived", got)
 	}
 }
@@ -154,14 +154,14 @@ func TestWiringBountyWaiverSeam(t *testing.T) {
 			t.Fatal(err)
 		}
 		for _, chk := range listAt(b, "policy_checks") {
-			if objStr(chk, "check") == "mainnet-fork-poc" {
+			if validation.ObjStr(chk, "check") == "mainnet-fork-poc" {
 				return chk
 			}
 		}
 		t.Fatal("no mainnet-fork-poc check row")
 		return validation.VNull()
 	}
-	if got := objStr(row(), "result"); got != "fail" {
+	if got := validation.ObjStr(row(), "result"); got != "fail" {
 		t.Fatalf("unwaived mainnet-fork-poc = %q, want fail", got)
 	}
 	if _, err := Waive(c, "mainnet-fork-poc", "*",
@@ -169,11 +169,11 @@ func TestWiringBountyWaiverSeam(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := row()
-	if result := objStr(got, "result"); result != "pass" {
+	if result := validation.ObjStr(got, "result"); result != "pass" {
 		t.Fatalf("waived mainnet-fork-poc = %q, want pass (%s)", result,
 			pyJSONDumps(got))
 	}
-	if detail := objStr(got, "detail"); !strings.Contains(detail, "waived by") {
+	if detail := validation.ObjStr(got, "detail"); !strings.Contains(detail, "waived by") {
 		t.Errorf("detail = %q, want a waived-by line", detail)
 	}
 }
@@ -198,10 +198,10 @@ func TestDiscoveryWaiverWorksBeforeThePlan(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objAt(res, "done").Kind != validation.Bool || !objAt(res, "done").B {
+	if validation.ObjAt(res, "done").Kind != validation.Bool || !validation.ObjAt(res, "done").B {
 		t.Fatalf("a stage-wide waiver must open the no-plan leg: %v", res)
 	}
-	if n := objStr(res, "note"); n != "no plan — waived by alice" {
+	if n := validation.ObjStr(res, "note"); n != "no plan — waived by alice" {
 		t.Fatalf("the note must name the waiver actor, got %q", n)
 	}
 }

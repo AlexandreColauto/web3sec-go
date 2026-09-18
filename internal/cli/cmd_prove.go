@@ -74,23 +74,23 @@ func runProve(root string, args []string, r *Runner) int {
 		// no--stage view uses; the exit code remains the done/not-done
 		// verdict (intentional divergence from the reference).
 		mark := "open "
-		if pyTruthyCLI(objAt(pr, "done")) {
+		if pyTruthyCLI(validation.ObjAt(pr, "done")) {
 			mark = "DONE "
 		}
 		auth := "advisory"
-		if pyTruthyCLI(objAt(pr, "authoritative")) {
+		if pyTruthyCLI(validation.ObjAt(pr, "authoritative")) {
 			auth = "authoritative"
 		}
 		line := fmt.Sprintf("%s %s [%s]", pyLeft(stage, 26), mark, auth)
-		if !pyTruthyCLI(objAt(pr, "done")) {
-			missing := strListCLI(objAt(pr, "missing"))
+		if !pyTruthyCLI(validation.ObjAt(pr, "done")) {
+			missing := strListCLI(validation.ObjAt(pr, "missing"))
 			if len(missing) > 3 {
 				missing = missing[:3]
 			}
 			line += " — " + strings.Join(missing, "; ")
 		}
 		fmt.Fprintln(r.Out, line)
-		if !pyTruthyCLI(objAt(pr, "done")) {
+		if !pyTruthyCLI(validation.ObjAt(pr, "done")) {
 			return 1
 		}
 		return 0
@@ -111,16 +111,16 @@ func runProve(root string, args []string, r *Runner) int {
 			continue
 		}
 		mark := "open "
-		if pyTruthyCLI(objAt(pr, "done")) {
+		if pyTruthyCLI(validation.ObjAt(pr, "done")) {
 			mark = "DONE "
 		}
 		auth := "advisory"
-		if pyTruthyCLI(objAt(pr, "authoritative")) {
+		if pyTruthyCLI(validation.ObjAt(pr, "authoritative")) {
 			auth = "authoritative"
 		}
 		line := fmt.Sprintf("%s %s [%s]", pyLeft(sid, 26), mark, auth)
-		if !pyTruthyCLI(objAt(pr, "done")) {
-			missing := strListCLI(objAt(pr, "missing"))
+		if !pyTruthyCLI(validation.ObjAt(pr, "done")) {
+			missing := strListCLI(validation.ObjAt(pr, "missing"))
 			if len(missing) > 3 {
 				missing = missing[:3]
 			}

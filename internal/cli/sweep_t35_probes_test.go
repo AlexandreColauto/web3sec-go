@@ -31,7 +31,7 @@ func TestBriefPrintsTheSurfaceLineAndCountsDispositions(t *testing.T) {
 		t.Fatalf("a fresh surface must not read stale:\n%s", out)
 	}
 	row := t29Row(t, surface, "")
-	pid := objStr(t29ProbePriority(t, c, objStr(row, "row_id")), "id")
+	pid := validation.ObjStr(t29ProbePriority(t, c, validation.ObjStr(row, "row_id")), "id")
 	code, _, errS = run(t, "--root", ws, "answered", t29CID, pid,
 		"deprioritized", "--anchor", "concept", "--reason",
 		"the batch:index join itself is not the bug")
@@ -93,8 +93,8 @@ func TestACampaignWithoutASurfaceIsUnaffected(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sec := objAt(objAt(aud, "sections"), "probe_surface")
-	if v := objAt(sec, "ok"); v.Kind != validation.Bool || !v.B {
+	sec := validation.ObjAt(validation.ObjAt(aud, "sections"), "probe_surface")
+	if v := validation.ObjAt(sec, "ok"); v.Kind != validation.Bool || !v.B {
 		t.Fatalf("audit probe_surface not ok: %v", sec)
 	}
 	if got := objInt(sec, "checked"); got != 0 {
@@ -109,7 +109,7 @@ func TestACampaignWithoutASurfaceIsUnaffected(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, m := range objListAt(div, "missing") {
-		if strings.Contains(objStr(m, "what"), "probe") {
+		if strings.Contains(validation.ObjStr(m, "what"), "probe") {
 			t.Fatalf("divergence names a probe: %v", m)
 		}
 	}

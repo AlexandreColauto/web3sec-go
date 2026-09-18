@@ -194,7 +194,7 @@ func TestBuildContextCarriesBoundaryMatrixForBoundaryStages(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	titles := blockTitles(objAt(ctx, "blocks"))
+	titles := blockTitles(validation.ObjAt(ctx, "blocks"))
 	if !containsStr(titles, "boundary_matrix") {
 		t.Fatalf("verification bundle lacks boundary_matrix: %v", titles)
 	}
@@ -205,17 +205,17 @@ func TestBuildContextCarriesBoundaryMatrixForBoundaryStages(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if containsStr(blockTitles(objAt(ctx2, "blocks")), "boundary_matrix") {
+	if containsStr(blockTitles(validation.ObjAt(ctx2, "blocks")), "boundary_matrix") {
 		t.Fatal("campaign-planning must NOT get the boundary matrix")
 	}
-	if objStr(ctx, "budget_class") != "expensive" {
-		t.Fatalf("verification budget class = %q", objStr(ctx, "budget_class"))
+	if validation.ObjStr(ctx, "budget_class") != "expensive" {
+		t.Fatalf("verification budget class = %q", validation.ObjStr(ctx, "budget_class"))
 	}
-	if !strings.HasPrefix(objStr(ctx, "prompt"), "You are the discovery") &&
-		len(objStr(ctx, "prompt")) == 0 {
+	if !strings.HasPrefix(validation.ObjStr(ctx, "prompt"), "You are the discovery") &&
+		len(validation.ObjStr(ctx, "prompt")) == 0 {
 		t.Fatal("prompt text is empty")
 	}
-	if objAt(ctx, "structured_outputs").Kind != validation.Obj {
+	if validation.ObjAt(ctx, "structured_outputs").Kind != validation.Obj {
 		t.Fatal("structured_outputs missing")
 	}
 }
@@ -226,7 +226,7 @@ func TestBuildContextCarriesBoundaryMatrixForBoundaryStages(t *testing.T) {
 func blockTitles(blocks validation.Value) []string {
 	out := []string{}
 	for _, b := range blocks.A {
-		out = append(out, objStr(b, "title"))
+		out = append(out, validation.ObjStr(b, "title"))
 	}
 	return out
 }
@@ -240,14 +240,6 @@ func containsStr(xs []string, want string) bool {
 	return false
 }
 
-func objStr(v validation.Value, key string) string {
-	x := objAt(v, key)
-	if x.Kind == validation.Str {
-		return x.S
-	}
-	return ""
-}
-
 // TestBlockBuilderBudgetCountsRunes is the T38 (golden v5) parity regression:
 // build_context budgets blocks in CHARACTERS (`text[:budget]`,
 // `budget -= len(text)`). Counting bytes would cut a multi-byte rune short and
@@ -259,7 +251,7 @@ func TestBlockBuilderBudgetCountsRunes(t *testing.T) {
 	if len(b.blocks) != 1 {
 		t.Fatalf("blocks = %d, want 1", len(b.blocks))
 	}
-	if got := objStr(b.blocks[0], "text"); got != "abcd\u2014" {
+	if got := validation.ObjStr(b.blocks[0], "text"); got != "abcd\u2014" {
 		t.Fatalf("text = %q, want the 5-RUNE cut", got)
 	}
 	if b.budget != 0 {
@@ -272,7 +264,7 @@ func TestBlockBuilderBudgetCountsRunes(t *testing.T) {
 	if len(b2.blocks) != 2 || b2.budget != 0 {
 		t.Fatalf("blocks = %d budget = %d, want 2/0", len(b2.blocks), b2.budget)
 	}
-	if got := objStr(b2.blocks[1], "text"); got != "d\u2014e" {
+	if got := validation.ObjStr(b2.blocks[1], "text"); got != "d\u2014e" {
 		t.Fatalf("second block text = %q", got)
 	}
 	if got := truncate("abcd\u2014efgh", 5); got != "abcd\u2014" {

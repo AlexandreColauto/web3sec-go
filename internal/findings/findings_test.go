@@ -335,7 +335,7 @@ func TestLoadAllFindingsOrdersByCreatedAtThenID(t *testing.T) {
 		t.Fatalf("load_all_findings = %d rows, want %d", len(got), len(want))
 	}
 	for i, w := range want {
-		if id := objStr(got[i], "finding_id"); id != w {
+		if id := validation.ObjStr(got[i], "finding_id"); id != w {
 			t.Errorf("row %d = %s, want %s", i, id, w)
 		}
 	}
@@ -363,14 +363,14 @@ func TestSaveLoadFindingRoundTrip(t *testing.T) {
 	if err := SaveFinding(c, &f); err != nil {
 		t.Fatal(err)
 	}
-	if objStr(f, "updated_at") == at {
+	if validation.ObjStr(f, "updated_at") == at {
 		t.Error("save_finding must re-stamp updated_at")
 	}
 	got, err := LoadFinding(c, "F-abcdef123456")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if id := objStr(got, "finding_id"); id != "F-abcdef123456" {
+	if id := validation.ObjStr(got, "finding_id"); id != "F-abcdef123456" {
 		t.Errorf("round-trip finding_id = %q", id)
 	}
 	if _, err := LoadFinding(c, "F-000000000000"); err == nil ||
@@ -414,7 +414,7 @@ func TestLoadLiveFindingsFiltersTerminalJunk(t *testing.T) {
 		t.Fatalf("load_live_findings = %d rows, want %d", len(live), len(want))
 	}
 	for i, w := range want {
-		if id := objStr(live[i], "finding_id"); id != w {
+		if id := validation.ObjStr(live[i], "finding_id"); id != w {
 			t.Errorf("live row %d = %s, want %s", i, id, w)
 		}
 	}

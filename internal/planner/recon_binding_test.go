@@ -45,8 +45,8 @@ func rewriteSinksStamp(t *testing.T, c *state.Campaign,
 	if err != nil {
 		t.Fatal(err)
 	}
-	recon := objAt(st, "recon")
-	stamp := objAt(recon, "sinks")
+	recon := validation.ObjAt(st, "recon")
+	stamp := validation.ObjAt(recon, "sinks")
 	if stamp.Kind != validation.Obj {
 		t.Fatalf("no sinks stamp to rewrite: %s", validation.CanonCompact(recon))
 	}

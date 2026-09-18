@@ -29,8 +29,8 @@ func hypoCapital(t *testing.T, c *state.Campaign, class string, granted,
 			kv("function", validation.VStr("f"))))),
 		kv("attacker", attacker),
 		kv("capabilities", validation.VObj(
-			kv("granted", strArr(granted)),
-			kv("required", strArr(required)))),
+			kv("granted", validation.StrArr(granted)),
+			kv("required", validation.StrArr(required)))),
 	), "code", "test", "")
 	if err != nil {
 		t.Fatalf("ingest hypothesis: %v", err)
@@ -60,7 +60,7 @@ func priceSkewPair(t *testing.T, c *state.Campaign, f2Attacker validation.Value)
 		[]string{"control_perceived_asset_price"},
 		"Rounding drift enables unbacked withdrawals", f2Attacker)
 	for _, f := range []validation.Value{f1, f2} {
-		confirm(t, c, objStr(f, "finding_id"), "E5", "T3")
+		confirm(t, c, validation.ObjStr(f, "finding_id"), "E5", "T3")
 	}
 	return f1, f2
 }
@@ -94,11 +94,11 @@ func hitPath(t *testing.T, c *state.Campaign, ids ...string) validation.Value {
 func TestTerminalPathFromBaselineThroughTwoFindings(t *testing.T) {
 	c := newCampaign(t, "Acme Program")
 	f1, f2 := priceSkewPair(t, c, eoa(5000))
-	hit := hitPath(t, c, objStr(f1, "finding_id"), objStr(f2, "finding_id"))
-	if got := objStr(hit, "terminal_capability"); got != "withdraw_unbacked_assets" {
+	hit := hitPath(t, c, validation.ObjStr(f1, "finding_id"), validation.ObjStr(f2, "finding_id"))
+	if got := validation.ObjStr(hit, "terminal_capability"); got != "withdraw_unbacked_assets" {
 		t.Fatalf("terminal_capability = %q", got)
 	}
-	if got := objStr(hit, "terminal_finding"); got != objStr(f2, "finding_id") {
+	if got := validation.ObjStr(hit, "terminal_finding"); got != validation.ObjStr(f2, "finding_id") {
 		t.Fatalf("terminal_finding = %q", got)
 	}
 	if got := pyFloatAt(hit, "total_capital_required_usd"); got != 5000 {
@@ -110,7 +110,7 @@ func TestTerminalPathFromBaselineThroughTwoFindings(t *testing.T) {
 	}
 	found := false
 	for _, p := range listOf(rep, "shortest_by_terminal").A {
-		if objStr(p, "terminal_capability") == "withdraw_unbacked_assets" {
+		if validation.ObjStr(p, "terminal_capability") == "withdraw_unbacked_assets" {
 			found = true
 		}
 	}
@@ -124,7 +124,7 @@ func TestCapitalIsSummedAlongThePath(t *testing.T) {
 	c := newCampaign(t, "Acme Program")
 	f1, f2 := priceSkewPair(t, c, eoa(5000))
 	// f1 carries its own 2000 on top of f2's 5000: the path costs 7000.
-	f1v, err := findings.LoadFinding(c, objStr(f1, "finding_id"))
+	f1v, err := findings.LoadFinding(c, validation.ObjStr(f1, "finding_id"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -132,7 +132,7 @@ func TestCapitalIsSummedAlongThePath(t *testing.T) {
 	if err := findings.SaveFinding(c, &f1v); err != nil {
 		t.Fatal(err)
 	}
-	hit := hitPath(t, c, objStr(f1, "finding_id"), objStr(f2, "finding_id"))
+	hit := hitPath(t, c, validation.ObjStr(f1, "finding_id"), validation.ObjStr(f2, "finding_id"))
 	if got := pyFloatAt(hit, "total_capital_required_usd"); got != 7000 {
 		t.Fatalf("total_capital_required_usd = %v, want 7000", got)
 	}
@@ -147,11 +147,11 @@ func TestCapitalProfileFlowsThroughPaths(t *testing.T) {
 			kv("irrecoverable_cost_usd", validation.VFloat(200)),
 			kv("atomic_usd", validation.VFloat(5000)),
 			kv("borrowable_usd", validation.VFloat(3000))))))
-	hit := hitPath(t, c, objStr(f1, "finding_id"), objStr(f2, "finding_id"))
+	hit := hitPath(t, c, validation.ObjStr(f1, "finding_id"), validation.ObjStr(f2, "finding_id"))
 	if got := pyFloatAt(hit, "total_capital_required_usd"); got != 5000 {
 		t.Fatalf("legacy headline = %v, want 5000", got)
 	}
-	bd := objAt(hit, "capital_breakdown")
+	bd := validation.ObjAt(hit, "capital_breakdown")
 	want := map[string]float64{
 		"required_usd": 5000, "recoverable_usd": 4800,
 		"irrecoverable_cost_usd": 200, "atomic_usd": 5000,
@@ -167,8 +167,8 @@ func TestCapitalProfileFlowsThroughPaths(t *testing.T) {
 func TestCapitalBreakdownDefaultsForUnprofiledFindings(t *testing.T) {
 	c := newCampaign(t, "Acme Program")
 	f1, f2 := priceSkewPair(t, c, eoa(5000))
-	hit := hitPath(t, c, objStr(f1, "finding_id"), objStr(f2, "finding_id"))
-	bd := objAt(hit, "capital_breakdown")
+	hit := hitPath(t, c, validation.ObjStr(f1, "finding_id"), validation.ObjStr(f2, "finding_id"))
+	bd := validation.ObjAt(hit, "capital_breakdown")
 	for k, w := range map[string]float64{
 		"required_usd": 5000, "recoverable_usd": 0, "borrowable_usd": 0,
 		"net_at_risk_usd": 5000,
@@ -198,22 +198,22 @@ func TestTerminalSearchIgnoresUnconfirmedFindings(t *testing.T) {
 func TestMaterializeTerminalChainAnnotatesAndVerifies(t *testing.T) {
 	c := newCampaign(t, "Acme Program")
 	f1, f2 := priceSkewPair(t, c, eoa(5000))
-	ids := []string{objStr(f1, "finding_id"), objStr(f2, "finding_id")}
+	ids := []string{validation.ObjStr(f1, "finding_id"), validation.ObjStr(f2, "finding_id")}
 	term := validation.VObj(
 		kv("capability", validation.VStr("withdraw_unbacked_assets")),
-		kv("via_finding", validation.VStr(objStr(f2, "finding_id"))),
+		kv("via_finding", validation.VStr(validation.ObjStr(f2, "finding_id"))),
 		kv("total_capital_required_usd", validation.VFloat(0)))
 	ch, err := MaterializeChain(c, ids, "Price skew to unbacked withdrawals",
 		"", nil, &term)
 	if err != nil {
 		t.Fatal(err)
 	}
-	td := objAt(ch, "terminal")
-	if objStr(td, "capability") != "withdraw_unbacked_assets" {
+	td := validation.ObjAt(ch, "terminal")
+	if validation.ObjStr(td, "capability") != "withdraw_unbacked_assets" {
 		t.Fatalf("terminal = %v", td)
 	}
-	if objStr(td, "via_finding") != objStr(f2, "finding_id") {
-		t.Fatalf("via_finding = %v", objStr(td, "via_finding"))
+	if validation.ObjStr(td, "via_finding") != validation.ObjStr(f2, "finding_id") {
+		t.Fatalf("via_finding = %v", validation.ObjStr(td, "via_finding"))
 	}
 	all, err := findings.LoadAllFindings(c)
 	if err != nil {
@@ -221,7 +221,7 @@ func TestMaterializeTerminalChainAnnotatesAndVerifies(t *testing.T) {
 	}
 	var chain validation.Value
 	for _, f := range all {
-		if objStr(f, "status") == "CHAIN" {
+		if validation.ObjStr(f, "status") == "CHAIN" {
 			chain = f
 		}
 	}
@@ -236,7 +236,7 @@ func TestMaterializeTerminalChainAnnotatesAndVerifies(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := listOf(rep, "materialized_terminal_chains").A
-	if len(got) != 1 || objStr(got[0], "chain_id") != objStr(ch, "chain_id") {
+	if len(got) != 1 || validation.ObjStr(got[0], "chain_id") != validation.ObjStr(ch, "chain_id") {
 		t.Fatalf("materialized_terminal_chains = %v", got)
 	}
 }
@@ -245,9 +245,9 @@ func TestMaterializeTerminalChainAnnotatesAndVerifies(t *testing.T) {
 // the CHAIN super-finding carries (dedup_meta values are strings).
 func chainTerminalCapability(t *testing.T, chain validation.Value) string {
 	t.Helper()
-	termRaw := objStr(objAt(chain, "dedup_meta"), "terminal")
+	termRaw := validation.ObjStr(validation.ObjAt(chain, "dedup_meta"), "terminal")
 	if termRaw == "" {
-		t.Fatalf("dedup_meta.terminal missing: %v", objAt(chain, "dedup_meta"))
+		t.Fatalf("dedup_meta.terminal missing: %v", validation.ObjAt(chain, "dedup_meta"))
 	}
 	var doc struct {
 		Capability string `json:"capability"`

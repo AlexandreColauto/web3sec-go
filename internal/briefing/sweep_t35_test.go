@@ -68,11 +68,11 @@ func TestBriefSurfacesPrimitiveLessL04Family(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	missing := listAt(asObj(objAt(b, "divergence")), "missing")
+	missing := listAt(asObj(validation.ObjAt(b, "divergence")), "missing")
 	found := false
 	for _, m := range missing {
-		if objStr(m, "subject") == "L-04" &&
-			strings.Contains(objStr(m, "what"), "withdraw") {
+		if validation.ObjStr(m, "subject") == "L-04" &&
+			strings.Contains(validation.ObjStr(m, "what"), "withdraw") {
 			found = true
 		}
 	}

@@ -34,7 +34,7 @@ import (
 // row, not a full sandbox_execution record.
 func markCapture(rec validation.Value,
 	kvs ...validation.KV) validation.Value {
-	path := filepath.Join(filepath.Dir(objStr(rec, "stdout_path")),
+	path := filepath.Join(filepath.Dir(validation.ObjStr(rec, "stdout_path")),
 		"exec_record.json")
 	rec.O = append(rec.O, validation.KV{K: "output_capture",
 		V: validation.VObj(kvs...)})
@@ -80,7 +80,7 @@ func TestValidateExecRecordRefusesTruncatedStdout(t *testing.T) {
 		"Ran 1 test in 3ms (test suite successful)\n"+
 			"xxxxx (10 MiB of filler the cap withheld) xxxxx\n")
 	rec = markCapture(rec, r38bTruncated(10485846)...)
-	id := objStr(rec, "exec_id")
+	id := validation.ObjStr(rec, "exec_id")
 	err := ValidateExecRecord(id, rec)
 	wantErr(t, err, "exec "+id+": stdout capture marked truncated: kept "+
 		"10485760 of 10485846 bytes (cap_bytes 10485760, "+
@@ -101,7 +101,7 @@ func TestValidateExecRecordRefusesTruncatedStderr(t *testing.T) {
 		kv("stderr_truncated", validation.VBool(true)),
 		kv("output_withheld", validation.VBool(false)),
 	)
-	id := objStr(rec, "exec_id")
+	id := validation.ObjStr(rec, "exec_id")
 	err := ValidateExecRecord(id, rec)
 	wantErr(t, err, "stderr capture marked truncated: kept 10485760 of "+
 		"11000000 bytes (cap_bytes 10485760, stderr_truncated=true)")
@@ -121,7 +121,7 @@ func TestValidateExecRecordTruncatedWithheldTotal(t *testing.T) {
 		kv("stderr_truncated", validation.VBool(false)),
 		kv("output_withheld", validation.VBool(true)),
 	)
-	id := objStr(rec, "exec_id")
+	id := validation.ObjStr(rec, "exec_id")
 	err := ValidateExecRecord(id, rec)
 	wantErr(t, err, "stdout capture marked truncated: kept 10485760 of "+
 		"None (output withheld — the true byte count is not in the record) "+
@@ -146,7 +146,7 @@ func TestValidateExecRecordUntruncatedUnchanged(t *testing.T) {
 			if tc.mark != nil {
 				rec = markCapture(rec, tc.mark...)
 			}
-			if err := ValidateExecRecord(objStr(rec, "exec_id"),
+			if err := ValidateExecRecord(validation.ObjStr(rec, "exec_id"),
 				rec); err != nil {
 				t.Fatalf("untruncated record refused: %v", err)
 			}
@@ -163,7 +163,7 @@ func TestIngestExecRefTruncatedRefused(t *testing.T) {
 	rec := testExec(t, c, "docker-networkless", "", 0,
 		"Ran 1 test in 3ms (test suite successful)\n")
 	rec = markCapture(rec, r38bTruncated(10485846)...)
-	id := objStr(rec, "exec_id")
+	id := validation.ObjStr(rec, "exec_id")
 	_, err := IngestHypothesis(c, t2ExecRefPayload(id, "EV-trunc"),
 		"code", "", "")
 	wantErr(t, err, "ingest refused: evidence EV-trunc exec_ref "+id+
@@ -180,7 +180,7 @@ func TestIngestExecRefTruncatedKeepsOrder(t *testing.T) {
 	c := ingestCamp(t)
 	rec := testExec(t, c, "docker-networkless", "", 0, "PASS\n")
 	rec = markCapture(rec, r38bTruncated(10485769)...)
-	id := objStr(rec, "exec_id")
+	id := validation.ObjStr(rec, "exec_id")
 	p := t2ExecRefPayload(id, "EV-order")
 	p.O = validation.SetOrAppend(p.O, "verification", validation.VObj(
 		kv("reproduction", validation.VObj(

@@ -13,7 +13,7 @@ func TestAddEvidenceRejectsFailedOrSilentExec(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 
 	failed := testExec(t, c, "docker-networkless", fid, 1, "[FAIL] poc\n")
 	_, err = AddEvidence(c, fid, execEvidenceItem(failed, "E4",
@@ -46,7 +46,7 @@ func TestE4ExecMustBelongToTheFinding(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fidA, fidB := objStr(fa, "finding_id"), objStr(fb, "finding_id")
+	fidA, fidB := validation.ObjStr(fa, "finding_id"), validation.ObjStr(fb, "finding_id")
 	rec := testExec(t, c, "docker-networkless", fidB, 0,
 		"Ran 1 test\n[PASS] poc\n")
 
@@ -79,7 +79,7 @@ func TestConfirmationGateHasNoTierClauseAtE4Floor(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	if _, err := Transition(c, fid, "POSSIBLE", "triage", "", "", false); err != nil {
 		t.Fatal(err)
 	}
@@ -87,7 +87,7 @@ func TestConfirmationGateHasNoTierClauseAtE4Floor(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ver := asDict(objAt(vf, "verification"))
+	ver := asDict(validation.ObjAt(vf, "verification"))
 	ver.O = validation.SetOrAppend(ver.O, "reproduction", validation.VObj(
 		kv("tier_reached", validation.VStr("T2")),
 		kv("status", validation.VStr("reproduced")),

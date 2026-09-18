@@ -54,7 +54,7 @@ func TestInitCreatesLayout(t *testing.T) {
 			t.Errorf("state key %d: got %q want %q", i, st.O[i].K, k)
 		}
 	}
-	if got := objStr(st, "phase"); got != "SCOPE" {
+	if got := validation.ObjStr(st, "phase"); got != "SCOPE" {
 		t.Errorf("phase: %q", got)
 	}
 	budget := objVal(st, "budget")
@@ -163,14 +163,14 @@ func TestEventChain(t *testing.T) {
 		}
 	}
 	first := events[0]
-	if got := objStr(first, "prev_hash"); got != GenesisHash {
+	if got := validation.ObjStr(first, "prev_hash"); got != GenesisHash {
 		t.Errorf("genesis prev_hash: %q", got)
 	}
-	if got := objStr(first, "type"); got != "campaign.created" {
+	if got := validation.ObjStr(first, "type"); got != "campaign.created" {
 		t.Errorf("first type: %q", got)
 	}
-	if got := eventHash(first); got != objStr(first, "event_hash") {
-		t.Errorf("event_hash mismatch: %q vs %q", got, objStr(first, "event_hash"))
+	if got := eventHash(first); got != validation.ObjStr(first, "event_hash") {
+		t.Errorf("event_hash mismatch: %q vs %q", got, validation.ObjStr(first, "event_hash"))
 	}
 	if v := objVal(first, "ref"); v.Kind != validation.Str || v.S != c.CampaignID {
 		t.Errorf("created ref: %+v", v)
@@ -178,10 +178,10 @@ func TestEventChain(t *testing.T) {
 	// chain: each prev_hash == prior event_hash
 	prev := GenesisHash
 	for _, e := range events {
-		if got := objStr(e, "prev_hash"); got != prev {
+		if got := validation.ObjStr(e, "prev_hash"); got != prev {
 			t.Fatalf("chain broken at seq %d: %q != %q", objVal(e, "seq").I, got, prev)
 		}
-		prev = objStr(e, "event_hash")
+		prev = validation.ObjStr(e, "event_hash")
 	}
 	// state mirrors the full (here <1000) log
 	st := mustState(t, c)
@@ -245,7 +245,7 @@ func TestEventLegacyAnchor(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(ev, "prev_hash"); got != "legacy-seq-0" {
+	if got := validation.ObjStr(ev, "prev_hash"); got != "legacy-seq-0" {
 		t.Errorf("legacy anchor: %q", got)
 	}
 	if got := objVal(ev, "seq").I; got != 1 {

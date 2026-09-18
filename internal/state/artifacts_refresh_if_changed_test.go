@@ -33,7 +33,7 @@ func refreshEvents(t *testing.T, c *Campaign, kind string) []validation.Value {
 	}
 	var out []validation.Value
 	for _, e := range evs {
-		if objStr(e, "type") == kind {
+		if validation.ObjStr(e, "type") == kind {
 			out = append(out, e)
 		}
 	}
@@ -76,7 +76,7 @@ func TestRegisterOrRefreshIfChangedRegistersThenStaysSilent(t *testing.T) {
 	row := mustArtifact(t, c, id)
 	// RegisterArtifact never sets refresh_count: a row nobody refreshed has
 	// no refresh marker at all (a positive count would be a lie).
-	if rc := objAt(row, "refresh_count"); rc.Kind == validation.Int && rc.I != 0 {
+	if rc := validation.ObjAt(row, "refresh_count"); rc.Kind == validation.Int && rc.I != 0 {
 		t.Fatalf("refresh_count %d want absent/0", rc.I)
 	}
 	// The same file spelled a second way is the SAME artifact (resolved-path
@@ -88,8 +88,8 @@ func TestRegisterOrRefreshIfChangedRegistersThenStaysSilent(t *testing.T) {
 	} else if refreshed {
 		t.Fatal("a second spelling of one path reported a registry change")
 	}
-	if st := mustState(t, c); len(objAt(st, "artifacts").A) != 1 {
-		t.Fatalf("rows: %d want 1", len(objAt(st, "artifacts").A))
+	if st := mustState(t, c); len(validation.ObjAt(st, "artifacts").A) != 1 {
+		t.Fatalf("rows: %d want 1", len(validation.ObjAt(st, "artifacts").A))
 	}
 }
 
@@ -122,14 +122,14 @@ func TestRegisterOrRefreshIfChangedRefreshesMovedBytes(t *testing.T) {
 	if len(evs) != 1 {
 		t.Fatalf("artifact.refreshed events: %d want 1", len(evs))
 	}
-	d := objAt(evs[0], "data")
-	if objStr(d, "old_sha256") != validation.Sha256Hex([]byte("v1")) ||
-		objStr(d, "new_sha256") != validation.Sha256Hex([]byte("v2")) {
+	d := validation.ObjAt(evs[0], "data")
+	if validation.ObjStr(d, "old_sha256") != validation.Sha256Hex([]byte("v1")) ||
+		validation.ObjStr(d, "new_sha256") != validation.Sha256Hex([]byte("v2")) {
 		t.Fatalf("refresh hashes: %s", validation.DumpIndented(d))
 	}
 	row := mustArtifact(t, c, id)
-	if objStr(row, "sha256") != validation.Sha256Hex([]byte("v2")) {
-		t.Fatalf("row sha256: %q", objStr(row, "sha256"))
+	if validation.ObjStr(row, "sha256") != validation.Sha256Hex([]byte("v2")) {
+		t.Fatalf("row sha256: %q", validation.ObjStr(row, "sha256"))
 	}
 	if intAt(row, "refresh_count") != 1 {
 		t.Fatalf("refresh_count: %d", intAt(row, "refresh_count"))
@@ -161,11 +161,11 @@ func TestRegisterOrRefreshIfChangedMigratesKind(t *testing.T) {
 	if len(evs) != 1 {
 		t.Fatalf("artifact.refreshed events: %d want 1", len(evs))
 	}
-	if got := objStr(objAt(evs[0], "data"), "kind_migrated"); got !=
+	if got := validation.ObjStr(validation.ObjAt(evs[0], "data"), "kind_migrated"); got !=
 		"other→structural-index" {
 		t.Fatalf("kind_migrated: %q", got)
 	}
-	if got := objStr(mustArtifact(t, c, id), "kind"); got != "structural-index" {
+	if got := validation.ObjStr(mustArtifact(t, c, id), "kind"); got != "structural-index" {
 		t.Fatalf("row kind: %q", got)
 	}
 }

@@ -22,7 +22,7 @@ func pos(t *testing.T, c *state.Campaign) validation.Value {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	if _, err := Transition(c, fid, "POSSIBLE", "triage", "", "", false); err != nil {
 		t.Fatal(err)
 	}
@@ -42,7 +42,7 @@ func TestIllegalJumpHypothesisToConfirmed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = Transition(c, objStr(f, "finding_id"), "CONFIRMED",
+	_, err = Transition(c, validation.ObjStr(f, "finding_id"), "CONFIRMED",
 		"I believe it", "", "", false)
 	var it *IllegalTransition
 	if !errors.As(err, &it) {
@@ -55,11 +55,11 @@ func TestIllegalJumpHypothesisToConfirmed(t *testing.T) {
 		t.Fatalf("message = %q, want %q", err.Error(), want)
 	}
 	// the finding is untouched
-	got, err := LoadFinding(c, objStr(f, "finding_id"))
+	got, err := LoadFinding(c, validation.ObjStr(f, "finding_id"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if st := objStr(got, "status"); st != "HYPOTHESIS" {
+	if st := validation.ObjStr(got, "status"); st != "HYPOTHESIS" {
 		t.Fatalf("status = %q, want HYPOTHESIS", st)
 	}
 }
@@ -112,7 +112,7 @@ func TestConfirmationGateFailuresAreEnumerated(t *testing.T) {
 func TestConfirmedRequiresFullGateBundle(t *testing.T) {
 	c := ingestCamp(t)
 	got := pos(t, c)
-	fid := objStr(got, "finding_id")
+	fid := validation.ObjStr(got, "finding_id")
 	// E5 evidence without a sandbox profile is inadmissible
 	_, err := AddEvidence(c, fid, validation.VObj(
 		kv("evidence_id", validation.VStr("EV-1")),
@@ -151,7 +151,7 @@ func TestConfirmedRequiresFullGateBundle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ver := asDict(objAt(vf, "verification"))
+	ver := asDict(validation.ObjAt(vf, "verification"))
 	ver.O = validation.SetOrAppend(ver.O, "reproduction", validation.VObj(
 		kv("tier_reached", validation.VStr("T3")),
 		kv("status", validation.VStr("reproduced")),
@@ -167,20 +167,20 @@ func TestConfirmedRequiresFullGateBundle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CONFIRMED gate rejected a full bundle: %v", err)
 	}
-	if st := objStr(confirmed, "status"); st != "CONFIRMED" {
+	if st := validation.ObjStr(confirmed, "status"); st != "CONFIRMED" {
 		t.Fatalf("status = %q, want CONFIRMED", st)
 	}
 	reloaded, err := LoadFinding(c, fid)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if st := objStr(reloaded, "status"); st != "CONFIRMED" {
+	if st := validation.ObjStr(reloaded, "status"); st != "CONFIRMED" {
 		t.Fatalf("persisted status = %q, want CONFIRMED", st)
 	}
 	// the move is in the finding's own history AND the campaign log
 	// (NEW -> HYPOTHESIS -> POSSIBLE -> CONFIRMED)
-	hist := objAt(reloaded, "history")
-	if len(hist.A) != 3 || objStr(hist.A[2], "to") != "CONFIRMED" {
+	hist := validation.ObjAt(reloaded, "history")
+	if len(hist.A) != 3 || validation.ObjStr(hist.A[2], "to") != "CONFIRMED" {
 		t.Fatalf("history = %v", hist)
 	}
 }
@@ -192,7 +192,7 @@ func TestEvidenceRejectedOnTerminalFinding(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	if _, err := Transition(c, fid, "DISPROVED", "the path is guarded", "", "",
 		false); err != nil {
 		t.Fatal(err)
@@ -228,7 +228,7 @@ func TestTerminalStatesAreAbsorbing(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		fid := objStr(f, "finding_id")
+		fid := validation.ObjStr(f, "finding_id")
 		if _, err := Transition(c, fid, terminal, "closed by triage", "", "",
 			false); err != nil {
 			t.Fatalf("%s: %v", terminal, err)
@@ -246,7 +246,7 @@ func TestTerminalStatesAreAbsorbing(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if st := objStr(got, "status"); st != terminal {
+		if st := validation.ObjStr(got, "status"); st != terminal {
 			t.Errorf("status = %q, want %q", st, terminal)
 		}
 	}
@@ -271,18 +271,18 @@ func TestTerminalDuplicateFreezes(t *testing.T) {
 		t.Fatal(err)
 	}
 	tid := dupTargetIngest(t, c)
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	dup, err := MarkDuplicate(c, fid, tid)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if st := objStr(dup, "status"); st != "DUPLICATE" {
+	if st := validation.ObjStr(dup, "status"); st != "DUPLICATE" {
 		t.Fatalf("status = %q, want DUPLICATE", st)
 	}
-	if of := objStr(objAt(dup, "dedup"), "duplicate_of"); of != tid {
+	if of := validation.ObjStr(validation.ObjAt(dup, "dedup"), "duplicate_of"); of != tid {
 		t.Fatalf("duplicate_of = %q", of)
 	}
-	if reason := objStr(objAt(dup, "history").A[1], "reason"); reason !=
+	if reason := validation.ObjStr(validation.ObjAt(dup, "history").A[1], "reason"); reason !=
 		"technical/root-cause duplicate of "+tid {
 		t.Fatalf("history reason = %q", reason)
 	}
@@ -304,7 +304,7 @@ func dupTargetIngest(t *testing.T, c *state.Campaign) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return objStr(tgt, "finding_id")
+	return validation.ObjStr(tgt, "finding_id")
 }
 
 // eventTypesOf is the campaign's logged event types, in order (a refusal must
@@ -324,7 +324,7 @@ func eventTypesOf(t *testing.T, c *state.Campaign) []string {
 		if err != nil {
 			t.Fatal(err)
 		}
-		out = append(out, objStr(v, "type"))
+		out = append(out, validation.ObjStr(v, "type"))
 	}
 	return out
 }
@@ -338,7 +338,7 @@ func TestMoveToDuplicateRequiresTheTarget(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	before := len(eventTypesOf(t, c))
 	_, err = TransitionWith(c, fid, "DUPLICATE", "looks like a dup",
 		TransitionOpts{Actor: "cli"})
@@ -354,10 +354,10 @@ func TestMoveToDuplicateRequiresTheTarget(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if st := objStr(got, "status"); st != "HYPOTHESIS" {
+	if st := validation.ObjStr(got, "status"); st != "HYPOTHESIS" {
 		t.Fatalf("refused move wrote status %q", st)
 	}
-	if of := objStr(objAt(got, "dedup"), "duplicate_of"); of != "" {
+	if of := validation.ObjStr(validation.ObjAt(got, "dedup"), "duplicate_of"); of != "" {
 		t.Fatalf("refused move wrote duplicate_of %q", of)
 	}
 	if after := len(eventTypesOf(t, c)); after != before {
@@ -396,10 +396,10 @@ func TestMoveToDuplicateRequiresTheTarget(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if st := objStr(moved, "status"); st != "DUPLICATE" {
+	if st := validation.ObjStr(moved, "status"); st != "DUPLICATE" {
 		t.Fatalf("status = %q, want DUPLICATE", st)
 	}
-	if of := objStr(objAt(moved, "dedup"), "duplicate_of"); of != tid {
+	if of := validation.ObjStr(validation.ObjAt(moved, "dedup"), "duplicate_of"); of != tid {
 		t.Fatalf("duplicate_of = %q, want %q", of, tid)
 	}
 }
@@ -414,7 +414,7 @@ func TestReopenDuplicateClearsTheTarget(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	if _, err := AddEvidence(c, fid, validation.VObj(
 		kv("evidence_id", validation.VStr("EV-unmerge")),
 		kv("level", validation.VStr("E1")),
@@ -427,15 +427,15 @@ func TestReopenDuplicateClearsTheTarget(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	evidenceBefore := len(objAt(dup, "evidence").A)
-	historyBefore := len(objAt(dup, "history").A)
+	evidenceBefore := len(validation.ObjAt(dup, "evidence").A)
+	historyBefore := len(validation.ObjAt(dup, "history").A)
 	// A merged finding leaves the live set …
 	live, err := LoadLiveFindings(c)
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, l := range live {
-		if objStr(l, "finding_id") == fid {
+		if validation.ObjStr(l, "finding_id") == fid {
 			t.Fatal("a DUPLICATE must not stay live")
 		}
 	}
@@ -445,21 +445,21 @@ func TestReopenDuplicateClearsTheTarget(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reopen refused: %v", err)
 	}
-	if st := objStr(back, "status"); st != "HYPOTHESIS" {
+	if st := validation.ObjStr(back, "status"); st != "HYPOTHESIS" {
 		t.Fatalf("status = %q, want HYPOTHESIS", st)
 	}
 	got, err := LoadFinding(c, fid)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if of := objStr(objAt(got, "dedup"), "duplicate_of"); of != "" {
+	if of := validation.ObjStr(validation.ObjAt(got, "dedup"), "duplicate_of"); of != "" {
 		t.Fatalf("reopen left duplicate_of = %q", of)
 	}
-	if n := len(objAt(got, "evidence").A); n != evidenceBefore {
+	if n := len(validation.ObjAt(got, "evidence").A); n != evidenceBefore {
 		t.Fatalf("evidence = %d, want %d (a reopen must not drop evidence)",
 			n, evidenceBefore)
 	}
-	if n := len(objAt(got, "history").A); n != historyBefore+1 {
+	if n := len(validation.ObjAt(got, "history").A); n != historyBefore+1 {
 		t.Fatalf("history = %d, want %d (the reopen is one more row)",
 			n, historyBefore+1)
 	}
@@ -471,7 +471,7 @@ func TestReopenDuplicateClearsTheTarget(t *testing.T) {
 	}
 	found := false
 	for _, l := range live {
-		if objStr(l, "finding_id") == fid {
+		if validation.ObjStr(l, "finding_id") == fid {
 			found = true
 		}
 	}
@@ -501,7 +501,7 @@ func TestRetargetDuplicateIsRefused(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	tid := dupTargetIngest(t, c)
 	if _, err := TransitionWith(c, fid, "DUPLICATE", "the merge lands",
 		TransitionOpts{Actor: "cli", DuplicateOf: tid}); err != nil {
@@ -524,7 +524,7 @@ func TestRetargetDuplicateIsRefused(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if of := objStr(objAt(got, "dedup"), "duplicate_of"); of != tid {
+	if of := validation.ObjStr(validation.ObjAt(got, "dedup"), "duplicate_of"); of != tid {
 		t.Fatalf("refused retarget moved duplicate_of to %q", of)
 	}
 	if after := len(eventTypesOf(t, c)); after != before {
@@ -537,10 +537,10 @@ func TestRetargetDuplicateIsRefused(t *testing.T) {
 	if err != nil {
 		t.Fatalf("same-pointer no-op refused: %v", err)
 	}
-	if of := objStr(objAt(again, "dedup"), "duplicate_of"); of != tid {
+	if of := validation.ObjStr(validation.ObjAt(again, "dedup"), "duplicate_of"); of != tid {
 		t.Fatalf("no-op moved duplicate_of to %q", of)
 	}
-	if n := len(objAt(again, "history").A); n != 2 {
+	if n := len(validation.ObjAt(again, "history").A); n != 2 {
 		t.Fatalf("no-op appended history: %d rows", n)
 	}
 	if after := len(eventTypesOf(t, c)); after != before {
@@ -559,7 +559,7 @@ func TestLegacyDuplicateWithoutPointerNamesIt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	tid := dupTargetIngest(t, c)
 	if _, err := TransitionWith(c, fid, "DUPLICATE", "the merge lands",
 		TransitionOpts{Actor: "cli", DuplicateOf: tid}); err != nil {
@@ -571,7 +571,7 @@ func TestLegacyDuplicateWithoutPointerNamesIt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	dedup := asDict(objAt(legacy, "dedup"))
+	dedup := asDict(validation.ObjAt(legacy, "dedup"))
 	kept := make([]validation.KV, 0, len(dedup.O))
 	for _, kvv := range dedup.O {
 		if kvv.K != "duplicate_of" {
@@ -602,7 +602,7 @@ func TestLegacyDuplicateWithoutPointerNamesIt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if of := objStr(objAt(got, "dedup"), "duplicate_of"); of != "" {
+	if of := validation.ObjStr(validation.ObjAt(got, "dedup"), "duplicate_of"); of != "" {
 		t.Fatalf("refused legacy retarget wrote duplicate_of %q", of)
 	}
 	if after := len(eventTypesOf(t, c)); after != before {
@@ -621,16 +621,16 @@ func TestTier3FlagNeverAutoMerges(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	flagged, err := FlagPossibleDuplicate(c, fid, "F-abcdef012345")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if st := objStr(flagged, "status"); st != "HYPOTHESIS" {
+	if st := validation.ObjStr(flagged, "status"); st != "HYPOTHESIS" {
 		t.Fatalf("tier-3 flag must not merge: status = %q", st)
 	}
-	dedup := objAt(flagged, "dedup")
-	if of := objAt(dedup, "possible_duplicate_of"); len(of.A) != 1 ||
+	dedup := validation.ObjAt(flagged, "dedup")
+	if of := validation.ObjAt(dedup, "possible_duplicate_of"); len(of.A) != 1 ||
 		of.A[0].S != "F-abcdef012345" {
 		t.Fatalf("possible_duplicate_of = %v", of)
 	}
@@ -642,7 +642,7 @@ func TestTier3FlagNeverAutoMerges(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if of := objAt(objAt(again, "dedup"), "possible_duplicate_of"); len(of.A) != 1 {
+	if of := validation.ObjAt(validation.ObjAt(again, "dedup"), "possible_duplicate_of"); len(of.A) != 1 {
 		t.Fatalf("flag not idempotent: %v", of)
 	}
 	// the flag is on the campaign log
@@ -652,8 +652,8 @@ func TestTier3FlagNeverAutoMerges(t *testing.T) {
 	}
 	found := false
 	for _, e := range events {
-		if objStr(e, "type") == "finding.possible_duplicate" &&
-			objStr(objAt(e, "data"), "of") == "F-abcdef012345" {
+		if validation.ObjStr(e, "type") == "finding.possible_duplicate" &&
+			validation.ObjStr(validation.ObjAt(e, "data"), "of") == "F-abcdef012345" {
 			found = true
 		}
 	}
@@ -671,16 +671,16 @@ func TestTier1AutoMerge(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	tid := dupTargetIngest(t, c)
 	merged, err := MarkDuplicate(c, fid, tid)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if st := objStr(merged, "status"); st != "DUPLICATE" {
+	if st := validation.ObjStr(merged, "status"); st != "DUPLICATE" {
 		t.Fatalf("status = %q, want DUPLICATE", st)
 	}
-	if of := objStr(objAt(merged, "dedup"), "duplicate_of"); of != tid {
+	if of := validation.ObjStr(validation.ObjAt(merged, "dedup"), "duplicate_of"); of != tid {
 		t.Fatalf("duplicate_of = %q", of)
 	}
 	// a merged finding leaves the live set
@@ -689,7 +689,7 @@ func TestTier1AutoMerge(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, l := range live {
-		if objStr(l, "finding_id") == fid {
+		if validation.ObjStr(l, "finding_id") == fid {
 			t.Error("a DUPLICATE must not stay live")
 		}
 	}
@@ -714,19 +714,19 @@ func TestIncompatibleClassesNeverTier3(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	aid, bid := objStr(a, "finding_id"), objStr(b, "finding_id")
+	aid, bid := validation.ObjStr(a, "finding_id"), validation.ObjStr(b, "finding_id")
 	flagged, err := FlagPossibleDuplicate(c, aid, bid)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if st := objStr(flagged, "status"); st != "HYPOTHESIS" {
+	if st := validation.ObjStr(flagged, "status"); st != "HYPOTHESIS" {
 		t.Fatalf("status = %q, want HYPOTHESIS (never merged)", st)
 	}
 	other, err := LoadFinding(c, bid)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if st := objStr(other, "status"); st != "HYPOTHESIS" {
+	if st := validation.ObjStr(other, "status"); st != "HYPOTHESIS" {
 		t.Fatalf("the other finding was touched: status = %q", st)
 	}
 }
@@ -739,7 +739,7 @@ func TestTransitionEventStrings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	if _, err := Transition(c, fid, "POSSIBLE", "triage", "critic", "", false); err != nil {
 		t.Fatal(err)
 	}
@@ -750,23 +750,23 @@ func TestTransitionEventStrings(t *testing.T) {
 	var ev validation.Value
 	found := false
 	for _, e := range events {
-		if objStr(e, "type") == "finding.status" {
+		if validation.ObjStr(e, "type") == "finding.status" {
 			ev, found = e, true
 		}
 	}
 	if !found {
 		t.Fatal("no finding.status event")
 	}
-	data := objAt(ev, "data")
-	if objStr(data, "from") != "HYPOTHESIS" || objStr(data, "to") != "POSSIBLE" {
-		t.Errorf("event from/to = %q -> %q", objStr(data, "from"),
-			objStr(data, "to"))
+	data := validation.ObjAt(ev, "data")
+	if validation.ObjStr(data, "from") != "HYPOTHESIS" || validation.ObjStr(data, "to") != "POSSIBLE" {
+		t.Errorf("event from/to = %q -> %q", validation.ObjStr(data, "from"),
+			validation.ObjStr(data, "to"))
 	}
-	if objStr(data, "reason") != "triage" || objStr(data, "actor") != "critic" {
-		t.Errorf("event reason/actor = %q / %q", objStr(data, "reason"),
-			objStr(data, "actor"))
+	if validation.ObjStr(data, "reason") != "triage" || validation.ObjStr(data, "actor") != "critic" {
+		t.Errorf("event reason/actor = %q / %q", validation.ObjStr(data, "reason"),
+			validation.ObjStr(data, "actor"))
 	}
-	if ref := objAt(ev, "ref"); ref.Kind != validation.Str || ref.S != fid {
+	if ref := validation.ObjAt(ev, "ref"); ref.Kind != validation.Str || ref.S != fid {
 		t.Errorf("event ref = %v, want %q", ref, fid)
 	}
 	// same-status move is a no-op (no new history row, no event)
@@ -775,7 +775,7 @@ func TestTransitionEventStrings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if hist := objAt(got, "history"); len(hist.A) != 2 {
+	if hist := validation.ObjAt(got, "history"); len(hist.A) != 2 {
 		t.Fatalf("no-op move appended history: %v", hist)
 	}
 	events, err = c.Events()
@@ -796,7 +796,7 @@ func TestDisprovedRequiresAdjacentProperty(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	prev := plannerFamiliesForFindingFunc
 	plannerFamiliesForFindingFunc = func(validation.Value,
 		validation.Value) map[string]struct{} {
@@ -816,7 +816,7 @@ func TestDisprovedRequiresAdjacentProperty(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := Transition(c2, objStr(f2, "finding_id"), "DISPROVED",
+	if _, err := Transition(c2, validation.ObjStr(f2, "finding_id"), "DISPROVED",
 		"no lifecycle family applies", "", "", true); err != nil {
 		t.Fatalf("adjacent-clear rejected: %v", err)
 	}
@@ -829,18 +829,18 @@ func TestSetCriticVerdictValidation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	_, err = SetCriticVerdict(c, fid, "vibes", "no")
 	wantErr(t, err, "invalid critic verdict 'vibes'")
 	got, err := SetCriticVerdict(c, fid, "possible", "needs a fork run")
 	if err != nil {
 		t.Fatal(err)
 	}
-	ver := asDict(objAt(got, "verification"))
-	if v := objStr(ver, "critic_verdict"); v != "possible" {
+	ver := asDict(validation.ObjAt(got, "verification"))
+	if v := validation.ObjStr(ver, "critic_verdict"); v != "possible" {
 		t.Fatalf("critic_verdict = %q", v)
 	}
-	if r := objStr(objAt(got, "dedup_meta"), "critic_reasoning"); r !=
+	if r := validation.ObjStr(validation.ObjAt(got, "dedup_meta"), "critic_reasoning"); r !=
 		"needs a fork run" {
 		t.Fatalf("critic_reasoning = %q", r)
 	}
@@ -853,14 +853,14 @@ func TestSetTriagerOutlook(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	got, err := SetTriagerOutlook(c, fid, "likely",
 		"on-chain fork PoC with drain terminal; policy pays critical")
 	if err != nil {
 		t.Fatal(err)
 	}
-	o := objAt(objAt(got, "verification"), "triager_outlook")
-	if objStr(o, "outcome") != "likely" {
+	o := validation.ObjAt(validation.ObjAt(got, "verification"), "triager_outlook")
+	if validation.ObjStr(o, "outcome") != "likely" {
 		t.Fatal("outcome not recorded")
 	}
 	if _, err := SetTriagerOutlook(c, fid, "maybe", "short"); err == nil {
@@ -875,7 +875,7 @@ func TestSetTriagerOutlook(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(objAt(objAt(f2, "verification"), "triager_outlook"), "outcome") != "uncertain" {
+	if validation.ObjStr(validation.ObjAt(validation.ObjAt(f2, "verification"), "triager_outlook"), "outcome") != "uncertain" {
 		t.Fatal("second call must replace the first")
 	}
 }
@@ -893,7 +893,7 @@ func TestTriagerOutlookValidatorFollowsAccessor(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	for _, o := range TriagerOutlooks() {
 		if _, err := SetTriagerOutlook(c, fid, o, reason); err != nil {
 			t.Fatalf("accessor member %q rejected by the validator: %v", o, err)
@@ -925,7 +925,7 @@ func TestSetShieldAdjudication(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	_, err = SetShieldAdjudication(c, fid, true, "it extracts", "operator")
 	wantErr(t, err, "must be substantive (>= 15 chars)")
 	got, err := SetShieldAdjudication(c, fid, true,
@@ -934,16 +934,16 @@ func TestSetShieldAdjudication(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	adj := objAt(asDict(objAt(got, "verification")), "shield_adjudication")
-	if !objAt(adj, "extraction_despite_intent").B {
+	adj := validation.ObjAt(asDict(validation.ObjAt(got, "verification")), "shield_adjudication")
+	if !validation.ObjAt(adj, "extraction_despite_intent").B {
 		t.Error("extraction_despite_intent must be true")
 	}
-	if objStr(adj, "actor") != "operator" || objStr(adj, "at") == "" {
+	if validation.ObjStr(adj, "actor") != "operator" || validation.ObjStr(adj, "at") == "" {
 		t.Errorf("adjudication attribution = %v", adj)
 	}
-	if objStr(adj, "reasoning") !=
+	if validation.ObjStr(adj, "reasoning") !=
 		"the economic effect is extraction despite the documented intent" {
-		t.Errorf("reasoning = %q", objStr(adj, "reasoning"))
+		t.Errorf("reasoning = %q", validation.ObjStr(adj, "reasoning"))
 	}
 }
 
@@ -954,7 +954,7 @@ func TestMarkPrecondition(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	_, err = MarkPrecondition(c, fid, "attacker holds a flash loan", true)
 	want := "\"" + fid + ": no precondition matching 'attacker holds a flash loan'\""
 	if err == nil || err.Error() != want {
@@ -976,8 +976,8 @@ func TestMarkPrecondition(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	pre := objAt(got, "preconditions").A[0]
-	if v := objStr(pre, "enforced_by_poc"); v != "true" {
+	pre := validation.ObjAt(got, "preconditions").A[0]
+	if v := validation.ObjStr(pre, "enforced_by_poc"); v != "true" {
 		t.Fatalf("enforced_by_poc = %q, want true", v)
 	}
 	if _, err := MarkPrecondition(c, fid, "victim must stake", false); err != nil {
@@ -987,7 +987,7 @@ func TestMarkPrecondition(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if v := objStr(objAt(got, "preconditions").A[0], "enforced_by_poc"); v != "false" {
+	if v := validation.ObjStr(validation.ObjAt(got, "preconditions").A[0], "enforced_by_poc"); v != "false" {
 		t.Fatalf("enforced_by_poc = %q, want false", v)
 	}
 }
@@ -999,15 +999,15 @@ func TestFoldIntoLineage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	got, err := FoldIntoLineage(c, fid, "LIN-abcdef01")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if id := objStr(objAt(got, "dedup"), "lineage_id"); id != "LIN-abcdef01" {
+	if id := validation.ObjStr(validation.ObjAt(got, "dedup"), "lineage_id"); id != "LIN-abcdef01" {
 		t.Fatalf("lineage_id = %q", id)
 	}
-	if st := objStr(got, "status"); st != "HYPOTHESIS" {
+	if st := validation.ObjStr(got, "status"); st != "HYPOTHESIS" {
 		t.Fatalf("status = %q, want HYPOTHESIS", st)
 	}
 }
@@ -1037,7 +1037,7 @@ func TestConfirmedFlowStateEffectsWithShield(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	rec := testExec(t, c, "docker-networkless", fid, 0, "PASS: test_exploit\n")
 	if _, err := AddEvidence(c, fid, execEvidenceItem(rec, "E4", "foundry-test",
 		"PoC transfers then deposits; per-share price rises", "EV-1")); err != nil {
@@ -1057,7 +1057,7 @@ func TestConfirmedFlowStateEffectsWithShield(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ver := asDict(objAt(vf, "verification"))
+	ver := asDict(validation.ObjAt(vf, "verification"))
 	ver.O = validation.SetOrAppend(ver.O, "reproduction", validation.VObj(
 		kv("tier_reached", validation.VStr("T2")),
 		kv("status", validation.VStr("reproduced")),
@@ -1114,14 +1114,14 @@ func TestConfirmedFlowStateEffectsWithShield(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if st := objStr(final, "status"); st != "CONFIRMED" {
+	if st := validation.ObjStr(final, "status"); st != "CONFIRMED" {
 		t.Fatalf("status = %q, want CONFIRMED", st)
 	}
-	adj := objAt(asDict(objAt(final, "verification")), "shield_adjudication")
-	if !objAt(adj, "extraction_despite_intent").B {
+	adj := validation.ObjAt(asDict(validation.ObjAt(final, "verification")), "shield_adjudication")
+	if !validation.ObjAt(adj, "extraction_despite_intent").B {
 		t.Error("extraction_despite_intent must be true")
 	}
-	if objStr(adj, "actor") == "" {
+	if validation.ObjStr(adj, "actor") == "" {
 		t.Error("the adjudication must be attributed")
 	}
 }
@@ -1226,27 +1226,27 @@ func TestAnchorRescanSmoke(t *testing.T) {
 		t.Fatal(err)
 	}
 	// the exhausted lens was re-opened first, with the closed_* keys dropped
-	lens := objAt(plan, "lenses").A[0]
-	if st := objStr(lens, "status"); st != "open" {
+	lens := validation.ObjAt(plan, "lenses").A[0]
+	if st := validation.ObjStr(lens, "status"); st != "open" {
 		t.Fatalf("lens status = %q, want open", st)
 	}
-	if !strings.Contains(objStr(lens, "reopen_reason"), "was closed") {
-		t.Errorf("reopen_reason = %q", objStr(lens, "reopen_reason"))
+	if !strings.Contains(validation.ObjStr(lens, "reopen_reason"), "was closed") {
+		t.Errorf("reopen_reason = %q", validation.ObjStr(lens, "reopen_reason"))
 	}
 	if _, ok := fieldAt(lens, "closed_reason"); ok {
 		t.Error("closed_reason must be dropped on re-open")
 	}
-	prio := objAt(plan, "priorities").A[0]
-	if id := objStr(prio, "id"); id != "Q-001" {
+	prio := validation.ObjAt(plan, "priorities").A[0]
+	if id := validation.ObjStr(prio, "id"); id != "Q-001" {
 		t.Fatalf("priority id = %q, want Q-001", id)
 	}
-	if objStr(prio, "anchor_of") != objStr(f, "finding_id") {
-		t.Errorf("anchor_of = %q", objStr(prio, "anchor_of"))
+	if validation.ObjStr(prio, "anchor_of") != validation.ObjStr(f, "finding_id") {
+		t.Errorf("anchor_of = %q", validation.ObjStr(prio, "anchor_of"))
 	}
-	if cls := objStr(prio, "bug_class"); cls != "logic-error" {
+	if cls := validation.ObjStr(prio, "bug_class"); cls != "logic-error" {
 		t.Errorf("bug_class = %q", cls)
 	}
-	if comps := objAt(prio, "components"); len(comps.A) != 1 ||
+	if comps := validation.ObjAt(prio, "components"); len(comps.A) != 1 ||
 		comps.A[0].S != "Rollup" {
 		t.Errorf("components = %v", comps)
 	}
@@ -1254,7 +1254,7 @@ func TestAnchorRescanSmoke(t *testing.T) {
 	if err := anchorRescan(c, f); err != nil {
 		t.Fatal(err)
 	}
-	if n := len(objAt(plan, "priorities").A); n != 1 {
+	if n := len(validation.ObjAt(plan, "priorities").A); n != 1 {
 		t.Fatalf("priorities = %d, want 1 (idempotent)", n)
 	}
 	// severity-gated: a low finding never anchors
@@ -1266,7 +1266,7 @@ func TestAnchorRescanSmoke(t *testing.T) {
 	if err := anchorRescan(c, low); err != nil {
 		t.Fatal(err)
 	}
-	if n := len(objAt(plan, "priorities").A); n != 1 {
+	if n := len(validation.ObjAt(plan, "priorities").A); n != 1 {
 		t.Fatalf("low severity added an anchor: %d priorities", n)
 	}
 }
@@ -1279,7 +1279,7 @@ func TestCriticVerdictOnTerminalRowRefused(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	if _, err := Transition(c, fid, "DISPROVED", "no reachable path",
 		"critic", "", false); err != nil {
 		t.Fatal(err)

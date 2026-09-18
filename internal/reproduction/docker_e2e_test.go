@@ -50,7 +50,7 @@ func TestDockerNetworklessMintsE4(t *testing.T) {
 		t.Fatalf("container run failed: %v", err)
 	}
 	elapsed := time.Since(start)
-	exit := objAt(rec, "exit_status")
+	exit := validation.ObjAt(rec, "exit_status")
 	out := sandbox.ExecOutput(rec)
 	t.Logf("forge test exit=%s in %s", pyReprScalar(exit), elapsed)
 	if !(exit.Kind == validation.Int && exit.I == 0) {
@@ -61,7 +61,7 @@ func TestDockerNetworklessMintsE4(t *testing.T) {
 		t.Fatalf("forge output did not show a passing run:\n%s", out)
 	}
 	tier := "T2"
-	minted, err := AttemptAndMint(c, fid, objStr(rec, "exec_id"),
+	minted, err := AttemptAndMint(c, fid, validation.ObjStr(rec, "exec_id"),
 		"containerized forge test proves the two() invariant", &tier, nil)
 	if err != nil {
 		t.Fatalf("mint: %v", err)

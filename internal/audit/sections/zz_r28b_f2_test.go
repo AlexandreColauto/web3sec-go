@@ -69,7 +69,7 @@ func r28bHead(s string) string {
 // r28bProblems joins the section's problem strings.
 func r28bProblems(v validation.Value) string {
 	joined := ""
-	for _, p := range objAt(v, "problems").A {
+	for _, p := range validation.ObjAt(v, "problems").A {
 		joined += p.S
 	}
 	return joined
@@ -98,7 +98,7 @@ func TestZZR28BAbsentExitStatusIsNotABlessing(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if objAt(v, "ok").B {
+			if validation.ObjAt(v, "ok").B {
 				t.Fatalf("an exit_status %s must not bless: %s", tc.name,
 					r28bHead(validation.CanonCompact(v)))
 			}
@@ -111,7 +111,7 @@ func TestZZR28BAbsentExitStatusIsNotABlessing(t *testing.T) {
 					"(exit output unmapped), got %q", joined)
 			}
 			// A burned blessing is qualified on the line a consumer reads.
-			runs := objAt(v, "harness_runs")
+			runs := validation.ObjAt(v, "harness_runs")
 			if runs.Kind != validation.Arr || len(runs.A) != 1 {
 				t.Fatalf("harness_runs = %s",
 					validation.CanonCompact(runs))
@@ -137,7 +137,7 @@ func TestZZR28BPresentExitStatusStillBlesses(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !objAt(v, "ok").B {
+	if !validation.ObjAt(v, "ok").B {
 		t.Fatalf("an honest exit 0 run must stay green: %s",
 			r28bHead(validation.CanonCompact(v)))
 	}
@@ -160,7 +160,7 @@ func TestZZR28BMissingScaffoldBoundRungBurns(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objAt(v, "ok").B {
+	if validation.ObjAt(v, "ok").B {
 		t.Fatalf("hash evidence with no scaffold bytes must not bless: %s",
 			r28bHead(validation.CanonCompact(v)))
 	}
@@ -191,11 +191,11 @@ func TestZZR28BMissingScaffoldUnboundStaysHonest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !objAt(v, "ok").B {
+	if !validation.ObjAt(v, "ok").B {
 		t.Fatalf("the unbound arm must stay honest: %s",
 			r28bHead(validation.CanonCompact(v)))
 	}
-	runs := objAt(v, "harness_runs")
+	runs := validation.ObjAt(v, "harness_runs")
 	if runs.Kind != validation.Arr || len(runs.A) != 1 ||
 		runs.A[0].S != "INV-3: PROVEN-BOUNDED (minicertora, k=4, EXEC-73)" {
 		t.Fatalf("harness_runs = %s", validation.CanonCompact(runs))
@@ -222,7 +222,7 @@ func TestZZR28BScaffoldArtifactPresentReDerives(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !objAt(v, "ok").B {
+	if !validation.ObjAt(v, "ok").B {
 		t.Fatalf("an unbound blessing must stay green: %s",
 			r28bHead(validation.CanonCompact(v)))
 	}

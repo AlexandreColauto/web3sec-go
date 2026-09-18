@@ -101,7 +101,7 @@ func recallBody(c *state.Campaign, findingID, mode, note string, haveNote bool,
 	if err != nil {
 		return err
 	}
-	classV := objAt(objAt(f, "root_cause"), "class")
+	classV := validation.ObjAt(validation.ObjAt(f, "root_cause"), "class")
 	classText := "-"
 	if pyTruthyCLI(classV) {
 		classText = scalarStr(classV)
@@ -117,17 +117,17 @@ func recallBody(c *state.Campaign, findingID, mode, note string, haveNote bool,
 	ids := make([]string, 0, len(shown))
 	for _, row := range shown {
 		summary := ""
-		if s := objAt(row, "evidence_summary"); s.Kind == validation.Str {
+		if s := validation.ObjAt(row, "evidence_summary"); s.Kind == validation.Str {
 			summary = pyHead(s.S, 120)
 		}
 		pattern := "-"
-		if p := objAt(row, "pattern"); pyTruthyCLI(p) {
+		if p := validation.ObjAt(row, "pattern"); pyTruthyCLI(p) {
 			pattern = scalarStr(p)
 		}
-		mid := objStr(row, "memory_id")
+		mid := validation.ObjStr(row, "memory_id")
 		ids = append(ids, mid)
 		fmt.Fprintf(stdout, "  %s [%s] %s — %s\n", mid,
-			scalarStr(objAt(row, "bug_class")), pattern, summary)
+			scalarStr(validation.ObjAt(row, "bug_class")), pattern, summary)
 	}
 	sort.Strings(ids)
 	check := validation.VObj(
@@ -143,15 +143,15 @@ func recallBody(c *state.Campaign, findingID, mode, note string, haveNote bool,
 	if err != nil {
 		return err
 	}
-	checks := objAt(objAt(out, "provenance"), "memory_checks")
+	checks := validation.ObjAt(validation.ObjAt(out, "provenance"), "memory_checks")
 	fmt.Fprintf(stdout, "recorded: mode=%s on %s (%d total memory check(s))\n",
 		mode, findingID, len(checks.A))
 	entry, found := lastMemoryCheck(checks, ids, mode)
 	if !found {
 		return nil
 	}
-	if rel := objAt(entry, "recalled_irrelevant"); pyTruthyCLI(rel) {
-		_, reason := findings.IrrelevantReason(objAt(entry, "relevance"), ids)
+	if rel := validation.ObjAt(entry, "recalled_irrelevant"); pyTruthyCLI(rel) {
+		_, reason := findings.IrrelevantReason(validation.ObjAt(entry, "relevance"), ids)
 		fmt.Fprintf(stdout, "  relevance: no overlapping row — corpus.gap "+
 			"logged (%s)\n", reason)
 		return nil
@@ -163,16 +163,16 @@ func recallBody(c *state.Campaign, findingID, mode, note string, haveNote bool,
 		return nil
 	}
 	discount := ""
-	if d := objAt(relevance, "discounted"); len(d.A) > 0 {
+	if d := validation.ObjAt(relevance, "discounted"); len(d.A) > 0 {
 		discount = "; discounted " + joinCommaCLI(strListCLI(d)) +
 			" (non-discriminative class needs a second basis)"
 	}
-	basis := joinCommaCLI(strListCLI(objAt(relevance, "basis")))
+	basis := joinCommaCLI(strListCLI(validation.ObjAt(relevance, "basis")))
 	if basis == "" {
 		basis = "-"
 	}
 	fmt.Fprintf(stdout, "  relevance: %d overlapping row(s) via %s%s\n",
-		len(objAt(relevance, "overlapping").A), basis, discount)
+		len(validation.ObjAt(relevance, "overlapping").A), basis, discount)
 	return nil
 }
 
@@ -186,17 +186,17 @@ func rankMemoryRows(rowsByID map[string]validation.Value,
 	}
 	sort.SliceStable(rows, func(i, j int) bool {
 		ci := 1
-		if valueEqCLI(objAt(rows[i], "bug_class"), classV) {
+		if valueEqCLI(validation.ObjAt(rows[i], "bug_class"), classV) {
 			ci = 0
 		}
 		cj := 1
-		if valueEqCLI(objAt(rows[j], "bug_class"), classV) {
+		if valueEqCLI(validation.ObjAt(rows[j], "bug_class"), classV) {
 			cj = 0
 		}
 		if ci != cj {
 			return ci < cj
 		}
-		return objStr(rows[i], "memory_id") < objStr(rows[j], "memory_id")
+		return validation.ObjStr(rows[i], "memory_id") < validation.ObjStr(rows[j], "memory_id")
 	})
 	if len(rows) > 20 {
 		rows = rows[:20]
@@ -213,10 +213,10 @@ func lastMemoryCheck(checks validation.Value, ids []string,
 		if chk.Kind != validation.Obj {
 			continue
 		}
-		if !equalStrListCLI(valueStringsCLI(objAt(chk, "memory_ids")), ids) {
+		if !equalStrListCLI(valueStringsCLI(validation.ObjAt(chk, "memory_ids")), ids) {
 			continue
 		}
-		if objStr(chk, "mode") == mode {
+		if validation.ObjStr(chk, "mode") == mode {
 			return chk, true
 		}
 	}

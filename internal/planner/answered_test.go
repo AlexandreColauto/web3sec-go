@@ -35,15 +35,15 @@ func maPlan(t *testing.T, name string) validation.Value {
 // maOpts is the case's keyword tail as AnsweredOpts.
 func maOpts(t *testing.T, c validation.Value) AnsweredOpts {
 	t.Helper()
-	kw := objAt(c, "kw")
+	kw := validation.ObjAt(c, "kw")
 	o := AnsweredOpts{}
-	if r := objAt(kw, "reason"); r.Kind == validation.Str {
+	if r := validation.ObjAt(kw, "reason"); r.Kind == validation.Str {
 		o.Reason = &r.S
 	}
-	if r := objAt(kw, "ref"); r.Kind == validation.Str {
+	if r := validation.ObjAt(kw, "ref"); r.Kind == validation.Str {
 		o.Ref = &r.S
 	}
-	if a := objAt(kw, "anchor"); a.Kind == validation.Str {
+	if a := validation.ObjAt(kw, "anchor"); a.Kind == validation.Str {
 		o.Anchor = &a.S
 	}
 	return o
@@ -63,7 +63,7 @@ func TestMarkAnsweredOracle(t *testing.T) {
 		t.Fatalf("expected 9 mark_answered cases, got %v", cases.Kind)
 	}
 	for _, c := range cases.A {
-		name := objStr(c, "name")
+		name := validation.ObjStr(c, "name")
 		env := probeEnv{surface: surface, index: index}
 		if name == "no_surface" {
 			env.surface = nil
@@ -74,9 +74,9 @@ func TestMarkAnsweredOracle(t *testing.T) {
 		if name == "reopen_clears_anchor" {
 			plan = deepCopy(t, closedPlan)
 		}
-		plan, err := MarkAnswered(camp, plan, objStr(c, "pid"),
-			objStr(c, "outcome"), maOpts(t, c))
-		wantErr := objAt(c, "error")
+		plan, err := MarkAnswered(camp, plan, validation.ObjStr(c, "pid"),
+			validation.ObjStr(c, "outcome"), maOpts(t, c))
+		wantErr := validation.ObjAt(c, "error")
 		if name == "no_surface" {
 			// The recording carries Python's uncopyable `<campaign>`
 			// literal; the port deliberately names the campaign, so the
@@ -91,7 +91,7 @@ func TestMarkAnsweredOracle(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s: unexpected error %v", name, err)
 		}
-		requireJSON(t, name+"/plan", plan, objAt(c, "after"))
+		requireJSON(t, name+"/plan", plan, validation.ObjAt(c, "after"))
 		checkPlanEvents(t, name, camp, c)
 	}
 }
@@ -104,7 +104,7 @@ func checkPlanEvents(t *testing.T, name string, camp *state.Campaign,
 	events := at(t, c, "events")
 	want := validation.VNull()
 	for _, e := range events.A {
-		if objStr(e, "type") == "plan.priority_status" {
+		if validation.ObjStr(e, "type") == "plan.priority_status" {
 			want = e
 		}
 	}
@@ -117,12 +117,12 @@ func checkPlanEvents(t *testing.T, name string, camp *state.Campaign,
 	}
 	found := false
 	for _, e := range got {
-		if objStr(e, "type") != "plan.priority_status" {
+		if validation.ObjStr(e, "type") != "plan.priority_status" {
 			continue
 		}
 		found = true
-		requireJSON(t, name+"/event data", objAt(e, "data"), objAt(want, "data"))
-		requireJSON(t, name+"/event ref", objAt(e, "ref"), objAt(want, "ref"))
+		requireJSON(t, name+"/event data", validation.ObjAt(e, "data"), validation.ObjAt(want, "data"))
+		requireJSON(t, name+"/event ref", validation.ObjAt(e, "ref"), validation.ObjAt(want, "ref"))
 	}
 	if !found {
 		t.Fatalf("%s: no plan.priority_status event was logged", name)
@@ -150,7 +150,7 @@ func TestMarkAnsweredReopenDropsAnchor(t *testing.T) {
 			t.Fatalf("reopening left %s on the priority", k)
 		}
 	}
-	if hasKey(objAt(p, "probe"), "anchor") {
+	if hasKey(validation.ObjAt(p, "probe"), "anchor") {
 		t.Fatalf("reopening left probe.anchor in place")
 	}
 }
@@ -168,8 +168,8 @@ func TestMarkAnsweredBlockedIsNotDisposition(t *testing.T) {
 		t.Fatalf("mark_answered blocked: %v", err)
 	}
 	p := probePriority(t, plan, "Q-005")
-	requireJSON(t, "status", objAt(p, "status"), validation.VStr("blocked"))
-	if hasKey(objAt(p, "probe"), "anchor") {
+	requireJSON(t, "status", validation.ObjAt(p, "status"), validation.VStr("blocked"))
+	if hasKey(validation.ObjAt(p, "probe"), "anchor") {
 		t.Fatalf("blocked must not record an anchor")
 	}
 }
@@ -178,7 +178,7 @@ func TestMarkAnsweredBlockedIsNotDisposition(t *testing.T) {
 func probePriority(t *testing.T, plan validation.Value, pid string) validation.Value {
 	t.Helper()
 	for _, p := range listOf(plan, "priorities") {
-		if objStr(p, "id") == pid {
+		if validation.ObjStr(p, "id") == pid {
 			return p
 		}
 	}
@@ -195,8 +195,8 @@ func campaignNamed(t *testing.T, want validation.Value,
 	cid string) validation.Value {
 	t.Helper()
 	return validation.VObj(
-		kv("type", objAt(want, "type")),
-		kv("msg", validation.VStr(strings.Replace(objStr(want, "msg"),
+		kv("type", validation.ObjAt(want, "type")),
+		kv("msg", validation.VStr(strings.Replace(validation.ObjStr(want, "msg"),
 			"<campaign>", cid, 1))),
 	)
 }
@@ -235,10 +235,10 @@ func TestMarkAnsweredAbsentRowHintNamesCampaign(t *testing.T) {
 	camp := newCampaign(t, "ma-absent-row-hint")
 	plan := deepCopy(t, maPlan(t, "plan_probe_rows.json"))
 	for i, p := range listOf(plan, "priorities") {
-		if objStr(p, "id") != "Q-005" {
+		if validation.ObjStr(p, "id") != "Q-005" {
 			continue
 		}
-		prov := objAt(p, "probe")
+		prov := validation.ObjAt(p, "probe")
 		prov.O = validation.SetOrAppend(prov.O, "row_id",
 			validation.VStr("ffffffffffff"))
 		p.O = validation.SetOrAppend(p.O, "probe", prov)
@@ -272,7 +272,7 @@ func TestSiblingRescanOracle(t *testing.T) {
 	if cases.Kind != validation.Arr || len(cases.A) != 5 {
 		t.Fatalf("expected 5 sibling_rescan cases, got %v", cases.Kind)
 	}
-	addPlan := objAt(cases.A[0], "plan")
+	addPlan := validation.ObjAt(cases.A[0], "plan")
 	camp := pinnedCampaign(t, "sb", addPlan)
 	writeModel(t, camp, jsonValue(t, `{"protocol_id":"sib","name":"Sib Fixture",
 		"contracts":[{"name":"L1Gateway","path":"a.sol",
@@ -297,17 +297,17 @@ func TestSiblingRescanOracle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("sibling_rescan add: %v", err)
 	}
-	requirePID(t, "add pid", pid, objAt(cases.A[0], "pid"))
-	requireJSON(t, "add plan", mustReadPlan(t, camp), objAt(cases.A[0], "plan"))
+	requirePID(t, "add pid", pid, validation.ObjAt(cases.A[0], "pid"))
+	requireJSON(t, "add plan", mustReadPlan(t, camp), validation.ObjAt(cases.A[0], "plan"))
 	pid, err = SiblingRescan(camp, lcFinding, SiblingOpts{Clear: true,
 		Reason: strPtr("sibling already checked")})
 	if err != nil {
 		t.Fatalf("sibling_rescan clear: %v", err)
 	}
-	requirePID(t, "clear pid", pid, objAt(cases.A[1], "pid"))
-	requireJSON(t, "clear plan", mustReadPlan(t, camp), objAt(cases.A[1], "plan"))
+	requirePID(t, "clear pid", pid, validation.ObjAt(cases.A[1], "pid"))
+	requireJSON(t, "clear plan", mustReadPlan(t, camp), validation.ObjAt(cases.A[1], "plan"))
 	_, err = SiblingRescan(camp, lcFinding, SiblingOpts{})
-	requireErr(t, "no_adjacent", err, objAt(cases.A[2], "error"))
+	requireErr(t, "no_adjacent", err, validation.ObjAt(cases.A[2], "error"))
 	noop := jsonValue(t, `{"finding_id":"F-009","status":"DISPROVED",
 		"affected":[{"contract":"NoSuchContract"}],
 		"root_cause":{"class":"logic-error"}}`)
@@ -315,13 +315,13 @@ func TestSiblingRescanOracle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("sibling_rescan noop: %v", err)
 	}
-	requirePID(t, "noop pid", pid, objAt(cases.A[3], "pid"))
-	requireJSON(t, "noop plan", mustReadPlan(t, camp), objAt(cases.A[3], "plan"))
+	requirePID(t, "noop pid", pid, validation.ObjAt(cases.A[3], "pid"))
+	requireJSON(t, "noop plan", mustReadPlan(t, camp), validation.ObjAt(cases.A[3], "plan"))
 	ws := jsonValue(t, `{"finding_id":"F-010","status":"DISPROVED",
 		"affected":[{"contract":"L1Gateway"},{"contract":"L2Gateway"}],
 		"root_cause":{"class":"logic-error"}}`)
 	_, err = SiblingRescan(camp, ws, SiblingOpts{Adjacent: "   "})
-	requireErr(t, "whitespace_adjacent", err, objAt(cases.A[4], "error"))
+	requireErr(t, "whitespace_adjacent", err, validation.ObjAt(cases.A[4], "error"))
 }
 
 // TestSiblingRescanSkipsExistingPriorityID pins the id-collision loop: with
@@ -404,10 +404,10 @@ func TestSiblingRescanClearLogs(t *testing.T) {
 		t.Fatalf("events: %v", err)
 	}
 	last := events[len(events)-1]
-	requireJSON(t, "clear event type", objAt(last, "type"),
+	requireJSON(t, "clear event type", validation.ObjAt(last, "type"),
 		validation.VStr("plan.sibling_cleared"))
-	requireJSON(t, "clear event data", objAt(last, "data"),
+	requireJSON(t, "clear event data", validation.ObjAt(last, "data"),
 		jsonValue(t, `{"reason":"checked by hand","actor":"tester",
 			"families":["deposit"]}`))
-	requireJSON(t, "clear event ref", objAt(last, "ref"), validation.VStr("F-777"))
+	requireJSON(t, "clear event ref", validation.ObjAt(last, "ref"), validation.VStr("F-777"))
 }

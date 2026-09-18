@@ -108,7 +108,7 @@ func (forkPocFake) ForkPocEvidence(c *state.Campaign,
 	}
 	byID := map[string]validation.Value{}
 	for _, r := range execs {
-		byID[objStr(r, "exec_id")] = r
+		byID[validation.ObjStr(r, "exec_id")] = r
 	}
 	noEvidence := "no fork-level evidence (E5/E6) — run the PoC on the " +
 		"pinned mainnet fork (webv2 exec --profile fork-runner) and mint it " +
@@ -121,7 +121,7 @@ func (forkPocFake) ForkPocEvidence(c *state.Campaign,
 		if e.Kind != validation.Obj {
 			continue
 		}
-		if lvl := objStr(e, "level"); lvl == "E5" || lvl == "E6" {
+		if lvl := validation.ObjStr(e, "level"); lvl == "E5" || lvl == "E6" {
 			candidates = append(candidates, e)
 		}
 	}
@@ -129,11 +129,11 @@ func (forkPocFake) ForkPocEvidence(c *state.Campaign,
 		return validation.VNull(), &noEvidence, nil
 	}
 	for _, e := range candidates {
-		if objStr(e, "sandbox_profile") != "fork-runner" {
+		if validation.ObjStr(e, "sandbox_profile") != "fork-runner" {
 			continue
 		}
-		rec, ok := byID[objStr(e, "artifact_id")]
-		if !ok || objStr(rec, "profile") != "fork-runner" {
+		rec, ok := byID[validation.ObjStr(e, "artifact_id")]
+		if !ok || validation.ObjStr(rec, "profile") != "fork-runner" {
 			continue
 		}
 		if exit, ok := fieldAt(rec, "exit_status"); !ok ||
@@ -200,10 +200,10 @@ func TestGoldenAuditAndWaivers(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if got := pyJSONDumps(strArr(audit)); got !=
-			pyJSONDumps(strArr(sc.Oracle.AuditStageLedger)) {
+		if got := pyJSONDumps(validation.StrArr(audit)); got !=
+			pyJSONDumps(validation.StrArr(sc.Oracle.AuditStageLedger)) {
 			t.Errorf("%s audit\n got %s\nwant %s", name, got,
-				pyJSONDumps(strArr(sc.Oracle.AuditStageLedger)))
+				pyJSONDumps(validation.StrArr(sc.Oracle.AuditStageLedger)))
 		}
 		rows, err := Waivers(c, "")
 		if err != nil {

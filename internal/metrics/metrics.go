@@ -162,25 +162,25 @@ func linkedCaseIDs(c *state.Campaign, notes *[]string) []string {
 	}
 	if raw, err := validation.ReadJson(c.StatePath); err == nil &&
 		raw.Kind == validation.Obj {
-		add(linkItems(objAt(raw, "eval_case_id")))
+		add(linkItems(validation.ObjAt(raw, "eval_case_id")))
 	}
 	sidecar, err := validation.ReadJson(filepath.Join(c.Dir, "eval_link.json"))
 	if err == nil && sidecar.Kind == validation.Obj {
-		link := objAt(sidecar, "eval_case_id")
+		link := validation.ObjAt(sidecar, "eval_case_id")
 		if link.Kind == validation.Null {
-			link = objAt(sidecar, "case_id")
+			link = validation.ObjAt(sidecar, "case_id")
 		}
 		add(linkItems(link))
 	}
 	for _, event := range safeEvents(c, notes) {
-		if objStr(event, "type") != "outcome" {
+		if validation.ObjStr(event, "type") != "outcome" {
 			continue
 		}
-		data := objAt(event, "data")
+		data := validation.ObjAt(event, "data")
 		if data.Kind != validation.Obj {
 			continue
 		}
-		add(linkItems(objAt(data, "case_id")))
+		add(linkItems(validation.ObjAt(data, "case_id")))
 	}
 	return seen
 }
@@ -201,18 +201,18 @@ func linkItems(link validation.Value) []validation.Value {
 func findingCaseMap(c *state.Campaign, notes *[]string) map[string]string {
 	mapping := map[string]string{}
 	for _, event := range safeEvents(c, notes) {
-		if objStr(event, "type") != "outcome" {
+		if validation.ObjStr(event, "type") != "outcome" {
 			continue
 		}
-		data := objAt(event, "data")
+		data := validation.ObjAt(event, "data")
 		if data.Kind != validation.Obj {
 			continue
 		}
-		fid := objAt(data, "finding_id")
+		fid := validation.ObjAt(data, "finding_id")
 		if !truthy(fid) {
-			fid = objAt(event, "ref")
+			fid = validation.ObjAt(event, "ref")
 		}
-		caseID := objAt(data, "case_id")
+		caseID := validation.ObjAt(data, "case_id")
 		if fid.Kind == validation.Str && strings.HasPrefix(fid.S, "F-") &&
 			caseID.Kind == validation.Str && caseID.S != "" {
 			if _, ok := mapping[fid.S]; !ok {
@@ -254,7 +254,7 @@ func casePartition(caseID string) *string {
 	if err != nil || caseDoc.Kind != validation.Obj {
 		return nil
 	}
-	p := objStr(caseDoc, "partition")
+	p := validation.ObjStr(caseDoc, "partition")
 	if p == "" {
 		return nil
 	}
@@ -265,14 +265,14 @@ func casePartition(caseID string) *string {
 func costSummary(c *state.Campaign, notes *[]string) float64 {
 	total := 0.0
 	for _, event := range safeEvents(c, notes) {
-		if objStr(event, "type") != "cost.recorded" {
+		if validation.ObjStr(event, "type") != "cost.recorded" {
 			continue
 		}
-		data := objAt(event, "data")
+		data := validation.ObjAt(event, "data")
 		if data.Kind != validation.Obj {
 			continue
 		}
-		amount := objAt(data, "amount_usd")
+		amount := validation.ObjAt(data, "amount_usd")
 		if amount.Kind == validation.Flt && amount.F >= 0 {
 			total += amount.F
 		} else if amount.Kind == validation.Int && amount.I >= 0 {
@@ -298,7 +298,7 @@ func CampaignMetrics(c *state.Campaign) validation.Value {
 	confirmations, disprovals, duplicates := 0, 0, 0
 	tiers := make([]string, 0, total)
 	for _, f := range fnds {
-		switch objStr(f, "status") {
+		switch validation.ObjStr(f, "status") {
 		case "CONFIRMED", "CHAIN":
 			confirmations++
 		case "DISPROVED":
@@ -310,7 +310,7 @@ func CampaignMetrics(c *state.Campaign) validation.Value {
 	}
 	deadEnds := 0
 	for i, f := range fnds {
-		if inSet(findings.TERMINAL, objStr(f, "status")) && tiers[i] == "E0" {
+		if inSet(findings.TERMINAL, validation.ObjStr(f, "status")) && tiers[i] == "E0" {
 			deadEnds++
 		}
 	}
@@ -339,22 +339,22 @@ func CampaignMetrics(c *state.Campaign) validation.Value {
 		validation.KV{K: "critic_recall", V: rate(recallNum, recallDen)},
 		validation.KV{K: "false_rejection_rate", V: rate(frrNum, frrDen)},
 		validation.KV{K: "assumption_efficiency", V: rate(resolved, created)},
-		validation.KV{K: "notes", V: strArr(notes)})
+		validation.KV{K: "notes", V: validation.StrArr(notes)})
 }
 
 // assumptionCounts walks the blocking assumptions of every finding.
 func assumptionCounts(fnds []validation.Value) (created, resolved int) {
 	for _, finding := range fnds {
-		assumptions := objAt(finding, "assumptions")
+		assumptions := validation.ObjAt(finding, "assumptions")
 		if assumptions.Kind != validation.Arr {
 			continue
 		}
 		for _, a := range assumptions.A {
-			if a.Kind != validation.Obj || !truthy(objAt(a, "blocking")) {
+			if a.Kind != validation.Obj || !truthy(validation.ObjAt(a, "blocking")) {
 				continue
 			}
 			created++
-			if inSet(assumptionResolved, objStr(a, "status")) {
+			if inSet(assumptionResolved, validation.ObjStr(a, "status")) {
 				resolved++
 			}
 		}
@@ -388,7 +388,7 @@ func caseLinkedCounts(c *state.Campaign, fnds []validation.Value,
 	caseMap := findingCaseMap(c, notes)
 	terminal := []validation.Value{}
 	for _, f := range fnds {
-		if inSet(exportableStatuses, objStr(f, "status")) {
+		if inSet(exportableStatuses, validation.ObjStr(f, "status")) {
 			terminal = append(terminal, f)
 		}
 	}
@@ -397,7 +397,7 @@ func caseLinkedCounts(c *state.Campaign, fnds []validation.Value,
 		if caseDoc == nil {
 			continue
 		}
-		gold := objStr(objAt(*caseDoc, "gold"), "outcome")
+		gold := validation.ObjStr(validation.ObjAt(*caseDoc, "gold"), "outcome")
 		if !inList(gold, outcomeValues) {
 			*notes = append(*notes, "case "+caseID+": gold outcome "+
 				validation.PyReprStr(gold)+" unrecognized — skipped")
@@ -405,7 +405,7 @@ func caseLinkedCounts(c *state.Campaign, fnds []validation.Value,
 		}
 		linked := []validation.Value{}
 		for _, f := range terminal {
-			if caseMap[objStr(f, "finding_id")] == caseID {
+			if caseMap[validation.ObjStr(f, "finding_id")] == caseID {
 				linked = append(linked, f)
 			}
 		}
@@ -422,7 +422,7 @@ func caseLinkedCounts(c *state.Campaign, fnds []validation.Value,
 				itoa(len(linked))+" findings linked — skipped as ambiguous")
 			continue
 		}
-		status := objStr(linked[0], "status")
+		status := validation.ObjStr(linked[0], "status")
 		disproved := status == "DISPROVED"
 		switch {
 		case inSet(notExploitableGold, gold):
@@ -469,7 +469,7 @@ func emptyMetrics(campaignID string, notes []string) validation.Value {
 		validation.KV{K: "critic_recall", V: validation.VNull()},
 		validation.KV{K: "false_rejection_rate", V: validation.VNull()},
 		validation.KV{K: "assumption_efficiency", V: validation.VNull()},
-		validation.KV{K: "notes", V: strArr(notes)})
+		validation.KV{K: "notes", V: validation.StrArr(notes)})
 }
 
 // ---- benchmark_report ----------------------------------------------------
@@ -515,7 +515,7 @@ func BenchmarkReport(caseIDs []string, campaigns []*state.Campaign) validation.V
 		validation.KV{K: "precision", V: precision},
 		validation.KV{K: "recall", V: recall},
 		validation.KV{K: "f1", V: f1},
-		validation.KV{K: "notes", V: strArr(notes)})
+		validation.KV{K: "notes", V: validation.StrArr(notes)})
 }
 
 // campaignForCase is _campaign_for_case.
@@ -546,7 +546,7 @@ func scoreCase(caseID string, campaigns []*state.Campaign,
 		return caseRow(caseID, c.CampaignID, "", "", validation.VNull(),
 			"gold unreadable — skipped"), ""
 	}
-	gold := objStr(objAt(*caseDoc, "gold"), "outcome")
+	gold := validation.ObjStr(validation.ObjAt(*caseDoc, "gold"), "outcome")
 	terminal, caseMap := terminalAndMap(c, notes)
 	linked := linkedTerminal(terminal, caseMap, caseID)
 	if len(linked) == 0 && len(terminal) == 1 {
@@ -561,7 +561,7 @@ func scoreCase(caseID string, campaigns []*state.Campaign,
 		return caseRow(caseID, c.CampaignID, gold, "", validation.VNull(),
 			reason), ""
 	}
-	status := objStr(linked[0], "status")
+	status := validation.ObjStr(linked[0], "status")
 	cell := cellOf(gold, status)
 	if cell == "" {
 		*notes = append(*notes, "case "+caseID+": gold "+
@@ -578,7 +578,7 @@ func terminalAndMap(c *state.Campaign, notes *[]string) ([]validation.Value,
 	fnds := safeFindings(c, notes)
 	terminal := []validation.Value{}
 	for _, f := range fnds {
-		if inSet(exportableStatuses, objStr(f, "status")) {
+		if inSet(exportableStatuses, validation.ObjStr(f, "status")) {
 			terminal = append(terminal, f)
 		}
 	}
@@ -589,7 +589,7 @@ func linkedTerminal(terminal []validation.Value, caseMap map[string]string,
 	caseID string) []validation.Value {
 	out := []validation.Value{}
 	for _, f := range terminal {
-		if caseMap[objStr(f, "finding_id")] == caseID {
+		if caseMap[validation.ObjStr(f, "finding_id")] == caseID {
 			out = append(out, f)
 		}
 	}
@@ -672,10 +672,10 @@ func TrainingExport(campaigns []*state.Campaign,
 		links := linkedCaseIDs(c, &notes)
 		cost := costSummary(c, &notes)
 		for _, finding := range fnds {
-			if !inSet(exportableStatuses, objStr(finding, "status")) {
+			if !inSet(exportableStatuses, validation.ObjStr(finding, "status")) {
 				continue
 			}
-			fid := objStr(finding, "finding_id")
+			fid := validation.ObjStr(finding, "finding_id")
 			caseID := caseMap[fid]
 			if caseID == "" && len(links) == 1 {
 				caseID = links[0]
@@ -698,7 +698,7 @@ func trainingRow(c *state.Campaign, finding validation.Value, fid,
 		caseV = validation.VStr(caseID)
 	}
 	outcomeV := validation.VNull()
-	if o, ok := STATUS_TO_OUTCOME[objStr(finding, "status")]; ok {
+	if o, ok := STATUS_TO_OUTCOME[validation.ObjStr(finding, "status")]; ok {
 		outcomeV = validation.VStr(o)
 	}
 	reasonV := validation.VNull()
@@ -771,26 +771,6 @@ func contains(xs []string, want string) bool {
 	return false
 }
 
-func objAt(v validation.Value, key string) validation.Value {
-	if v.Kind != validation.Obj {
-		return validation.VNull()
-	}
-	for _, kv := range v.O {
-		if kv.K == key {
-			return kv.V
-		}
-	}
-	return validation.VNull()
-}
-
-func objStr(v validation.Value, key string) string {
-	x := objAt(v, key)
-	if x.Kind == validation.Str {
-		return x.S
-	}
-	return ""
-}
-
 func truthy(v validation.Value) bool {
 	switch v.Kind {
 	case validation.Null:
@@ -809,14 +789,6 @@ func truthy(v validation.Value) bool {
 		return len(v.O) > 0
 	}
 	return false
-}
-
-func strArr(items []string) validation.Value {
-	out := make([]validation.Value, 0, len(items))
-	for _, s := range items {
-		out = append(out, validation.VStr(s))
-	}
-	return validation.VArr(out...)
 }
 
 func itoa(n int) string {

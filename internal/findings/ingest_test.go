@@ -127,8 +127,8 @@ func execEvidenceItem(rec validation.Value, level, typ, desc, eid string) valida
 		kv("level", validation.VStr(level)),
 		kv("type", validation.VStr(typ)),
 		kv("description", validation.VStr(desc)),
-		kv("sandbox_profile", objAt(rec, "profile")),
-		kv("artifact_id", objAt(rec, "exec_id")),
+		kv("sandbox_profile", validation.ObjAt(rec, "profile")),
+		kv("artifact_id", validation.ObjAt(rec, "exec_id")),
 	)
 }
 
@@ -150,24 +150,24 @@ func TestIngestStampsProvenanceAndSignature(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(f, "status"); got != "HYPOTHESIS" {
+	if got := validation.ObjStr(f, "status"); got != "HYPOTHESIS" {
 		t.Fatalf("status = %q, want HYPOTHESIS", got)
 	}
 	snap, err := c.ActiveSnapshotIDOrNone()
 	if err != nil || snap == nil {
 		t.Fatalf("campaign snapshot: %v %v", snap, err)
 	}
-	if got := objStr(objAt(f, "snapshot_ids"), "source"); got != *snap {
+	if got := validation.ObjStr(validation.ObjAt(f, "snapshot_ids"), "source"); got != *snap {
 		t.Fatalf("snapshot_ids.source = %q, want %q", got, *snap)
 	}
-	if objStr(objAt(f, "dedup"), "technical_signature") == "" {
+	if validation.ObjStr(validation.ObjAt(f, "dedup"), "technical_signature") == "" {
 		t.Fatal("dedup.technical_signature empty")
 	}
-	hist := objAt(f, "history")
+	hist := validation.ObjAt(f, "history")
 	if hist.Kind != validation.Arr || len(hist.A) != 1 {
 		t.Fatalf("history = %v", hist)
 	}
-	if got := objStr(hist.A[0], "to"); got != "HYPOTHESIS" {
+	if got := validation.ObjStr(hist.A[0], "to"); got != "HYPOTHESIS" {
 		t.Fatalf("history[0].to = %q", got)
 	}
 	// A bare hypothesis costs no discovery slot: the budget meters RISES
@@ -199,7 +199,7 @@ func TestDiscoveryBudgetEnforced(t *testing.T) {
 	b := ingestBare(t, c) // both hypotheses land at E0, ceiling untouched
 	assertSlotCount(t, c, 0)
 	addEvidenceOfLevel(t, c, a, "E1") // the one affordable rise
-	_, err = AddEvidence(c, objStr(b, "finding_id"), validation.VObj(
+	_, err = AddEvidence(c, validation.ObjStr(b, "finding_id"), validation.VObj(
 		kv("evidence_id", validation.VStr("EV-b")),
 		kv("level", validation.VStr("E1")),
 		kv("type", validation.VStr("manual")),
@@ -242,7 +242,7 @@ func TestProducedAtDefaultsBeforeValidation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	out, err := AddEvidence(c, fid, validation.VObj(
 		kv("evidence_id", validation.VStr("EV-p")),
 		kv("level", validation.VStr("E1")),
@@ -252,11 +252,11 @@ func TestProducedAtDefaultsBeforeValidation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ev := objAt(out, "evidence")
+	ev := validation.ObjAt(out, "evidence")
 	if len(ev.A) != 1 {
 		t.Fatalf("evidence len = %d, want 1", len(ev.A))
 	}
-	if got := objStr(ev.A[0], "produced_at"); got == "" {
+	if got := validation.ObjStr(ev.A[0], "produced_at"); got == "" {
 		t.Fatal("produced_at not defaulted before validation")
 	}
 }
@@ -264,7 +264,7 @@ func TestProducedAtDefaultsBeforeValidation(t *testing.T) {
 func TestE5WithoutProfileIsRejected(t *testing.T) {
 	c := ingestCamp(t)
 	f, _ := IngestHypothesis(c, hypoPayload(), "code", "", "")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	_, err := AddEvidence(c, fid, validation.VObj(
 		kv("evidence_id", validation.VStr("EV-1")),
 		kv("level", validation.VStr("E5")),
@@ -287,7 +287,7 @@ func TestE5WithoutProfileIsRejected(t *testing.T) {
 func TestHostReadonlyProfileCannotBackE4(t *testing.T) {
 	c := ingestCamp(t)
 	f, _ := IngestHypothesis(c, hypoPayload(), "code", "", "")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	rec := testExec(t, c, "host-readonly", fid, 0, "")
 	_, err := AddEvidence(c, fid,
 		execEvidenceItem(rec, "E4", "foundry-test", "unsandboxed run", "EV-h"))
@@ -297,7 +297,7 @@ func TestHostReadonlyProfileCannotBackE4(t *testing.T) {
 func TestExecProfileMismatchIsRejected(t *testing.T) {
 	c := ingestCamp(t)
 	f, _ := IngestHypothesis(c, hypoPayload(), "code", "", "")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	rec := testExec(t, c, "docker-networkless", fid, 0, "PASS: test_exploit\n")
 	bad := execEvidenceItem(rec, "E4", "foundry-test", "misclaimed profile", "EV-m")
 	bad.O = validation.SetOrAppend(bad.O, "sandbox_profile", validation.VStr("docker-gvisor"))
@@ -308,7 +308,7 @@ func TestExecProfileMismatchIsRejected(t *testing.T) {
 func TestMissingExecReferenceIsRejected(t *testing.T) {
 	c := ingestCamp(t)
 	f, _ := IngestHypothesis(c, hypoPayload(), "code", "", "")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	testExec(t, c, "docker-networkless", fid, 0, "PASS: test_exploit\n")
 	item := validation.VObj(
 		kv("evidence_id", validation.VStr("EV-x")),
@@ -325,7 +325,7 @@ func TestMissingExecReferenceIsRejected(t *testing.T) {
 func TestUncitedExecIsRejectedWhenOneExists(t *testing.T) {
 	c := ingestCamp(t)
 	f, _ := IngestHypothesis(c, hypoPayload(), "code", "", "")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	testExec(t, c, "docker-networkless", fid, 0, "PASS: test_exploit\n")
 	// artifact_id ABSENT (not null — null is a schema error): the item
 	// claims a profile but cites no run, so it must be rejected even
@@ -344,7 +344,7 @@ func TestUncitedExecIsRejectedWhenOneExists(t *testing.T) {
 func TestE7IsAnalysisEvidenceNotExecution(t *testing.T) {
 	c := ingestCamp(t)
 	f, _ := IngestHypothesis(c, hypoPayload(), "code", "", "")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	_, err := AddEvidence(c, fid, validation.VObj(
 		kv("evidence_id", validation.VStr("EV-e")),
 		kv("level", validation.VStr("E7")),
@@ -372,9 +372,9 @@ func TestE7IsAnalysisEvidenceNotExecution(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ev := objAt(out, "evidence")
+	ev := validation.ObjAt(out, "evidence")
 	last := ev.A[len(ev.A)-1]
-	if got := objStr(last, "level"); got != "E7" {
+	if got := validation.ObjStr(last, "level"); got != "E7" {
 		t.Fatalf("evidence[-1].level = %q, want E7", got)
 	}
 }
@@ -454,7 +454,7 @@ func ingestBare(t *testing.T, c *state.Campaign) validation.Value {
 func addEvidenceOfLevel(t *testing.T, c *state.Campaign, f validation.Value,
 	level string) validation.Value {
 	t.Helper()
-	out, err := AddEvidence(c, objStr(f, "finding_id"), validation.VObj(
+	out, err := AddEvidence(c, validation.ObjStr(f, "finding_id"), validation.VObj(
 		kv("evidence_id", validation.VStr("EV-"+strings.ToLower(level))),
 		kv("level", validation.VStr(level)),
 		kv("type", validation.VStr("manual")),
@@ -492,7 +492,7 @@ func assertSlotCount(t *testing.T, c *state.Campaign, want int64) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objAt(b, "discovery_findings_so_far").I; got != want {
+	if got := validation.ObjAt(b, "discovery_findings_so_far").I; got != want {
 		t.Fatalf("discovery_findings_so_far = %d, want %d", got, want)
 	}
 }
@@ -516,9 +516,9 @@ func TestDiscoverySlotConsumedOnRiseNotIngest(t *testing.T) {
 	}
 	f = addEvidenceOfLevel(t, c, f, "E2")
 	assertSlotCount(t, c, 1) // idempotent
-	if objAt(f, "evidence").Kind != validation.Arr ||
-		len(objAt(f, "evidence").A) != 2 {
-		t.Fatalf("evidence = %v", objAt(f, "evidence"))
+	if validation.ObjAt(f, "evidence").Kind != validation.Arr ||
+		len(validation.ObjAt(f, "evidence").A) != 2 {
+		t.Fatalf("evidence = %v", validation.ObjAt(f, "evidence"))
 	}
 
 	c2 := ingestCamp(t)
@@ -540,7 +540,7 @@ func TestDiscoverySlotRefusalKeepsTheIngestText(t *testing.T) {
 	// Bare suspicion is still free at the ceiling.
 	b := ingestBare(t, c)
 	assertSlotCount(t, c, 1)
-	if _, err := AddEvidence(c, objStr(b, "finding_id"), validation.VObj(
+	if _, err := AddEvidence(c, validation.ObjStr(b, "finding_id"), validation.VObj(
 		kv("evidence_id", validation.VStr("EV-b1")),
 		kv("level", validation.VStr("E1")),
 		kv("type", validation.VStr("manual")),
@@ -560,7 +560,7 @@ func TestDiscoverySlotRefusalKeepsTheIngestText(t *testing.T) {
 func TestDiscoverySlotChargedOnPromotionAboveE0(t *testing.T) {
 	c := ingestCamp(t)
 	f := ingestBare(t, c)
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	assertSlotCount(t, c, 0)
 	if _, err := Transition(c, fid, "PROVISIONALLY_VALID",
 		"static read supports it", "", "", false); err != nil {
@@ -594,22 +594,22 @@ func TestDiscoverySlotChargedOnPromotionAboveE0(t *testing.T) {
 func TestDiscoverySlotRefusesPromotionAtCeiling(t *testing.T) {
 	c := slotCappedCampaign(t, 1)
 	a := ingestBare(t, c)
-	if _, err := Transition(c, objStr(a, "finding_id"), "POSSIBLE",
+	if _, err := Transition(c, validation.ObjStr(a, "finding_id"), "POSSIBLE",
 		"reachability shown", "", "", false); err != nil {
 		t.Fatal(err)
 	}
 	b := ingestBare(t, c) // free at the ceiling
-	_, err := Transition(c, objStr(b, "finding_id"), "POSSIBLE",
+	_, err := Transition(c, validation.ObjStr(b, "finding_id"), "POSSIBLE",
 		"reachability shown", "", "", false)
 	if err == nil || err.Error() != slotExhaustedText(c) {
 		t.Fatalf("promotion refusal = %v, want %q", err, slotExhaustedText(c))
 	}
 	// The refused promotion left B at E0 — no partial move, no charge.
-	got, err := LoadFinding(c, objStr(b, "finding_id"))
+	got, err := LoadFinding(c, validation.ObjStr(b, "finding_id"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if s := objStr(got, "status"); s != "HYPOTHESIS" {
+	if s := validation.ObjStr(got, "status"); s != "HYPOTHESIS" {
 		t.Fatalf("refused promotion changed status to %q", s)
 	}
 	if objBool(got, "discovery_slot_consumed") {
@@ -671,7 +671,7 @@ func TestIntakeCheckpointSeamAdvisory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(f, "status") != "HYPOTHESIS" {
-		t.Fatalf("status = %q", objStr(f, "status"))
+	if validation.ObjStr(f, "status") != "HYPOTHESIS" {
+		t.Fatalf("status = %q", validation.ObjStr(f, "status"))
 	}
 }

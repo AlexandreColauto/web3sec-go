@@ -86,18 +86,18 @@ func t27CitedFixture(t *testing.T, c *state.Campaign, iid, exec string) (string,
 	if err != nil {
 		t.Fatal(err)
 	}
-	sha := objStr(row, "sha256")
+	sha := validation.ObjStr(row, "sha256")
 	exec = harness.ReportExecLabel(sha)
 	_ = exec
 	// Derive the rung through the functions the audit re-derives with, so
 	// the fixture is an honest bind rather than a shape that merely looks
 	// like one.
-	k, kStated, kOK, why := harness.BoundFromFlags(objAt(rep, "flags"))
+	k, kStated, kOK, why := harness.BoundFromFlags(validation.ObjAt(rep, "flags"))
 	if !kOK {
 		t.Fatalf("fixture bound must be mappable: %s", why)
 	}
-	rung, summary, bk := harness.MapReport(objStr(prop, "outcome"),
-		objAt(prop, "per_rule"), k, kStated)
+	rung, summary, bk := harness.MapReport(validation.ObjStr(prop, "outcome"),
+		validation.ObjAt(prop, "per_rule"), k, kStated)
 	if bk == nil {
 		t.Fatal("fixture must derive a bound")
 	}
@@ -112,8 +112,8 @@ func t27CitedFixture(t *testing.T, c *state.Campaign, iid, exec string) (string,
 	if err != nil {
 		t.Fatal(err)
 	}
-	reg := objAt(links, "invariants")
-	e := objAt(reg, iid)
+	reg := validation.ObjAt(links, "invariants")
+	e := validation.ObjAt(reg, iid)
 	h := validation.VObj(
 		kv("kind", validation.VStr(string(harness.ReportKind))),
 		kv("rung", validation.VStr(rung)),
@@ -157,7 +157,7 @@ func t27AuditSection(t *testing.T, root, cid string) (int, validation.Value) {
 	if err != nil {
 		t.Fatalf("audit --json did not parse: %v\n%s", err, out)
 	}
-	return code, objAt(objAt(rep, "sections"), "invariant_verification")
+	return code, validation.ObjAt(validation.ObjAt(rep, "sections"), "invariant_verification")
 }
 
 // t27PrunedEvent is the artifact.pruned event for aid.
@@ -168,8 +168,8 @@ func t27PrunedEvent(t *testing.T, c *state.Campaign, aid string) validation.Valu
 		t.Fatal(err)
 	}
 	for _, ev := range events {
-		if objStr(ev, "type") == "artifact.pruned" &&
-			objStr(ev, "ref") == aid {
+		if validation.ObjStr(ev, "type") == "artifact.pruned" &&
+			validation.ObjStr(ev, "ref") == aid {
 			return ev
 		}
 	}
@@ -202,7 +202,7 @@ func TestArtifactPruneUncitedRow(t *testing.T) {
 		t.Fatalf("the retired row is still listed: %q", out)
 	}
 	ev := t27PrunedEvent(t, c, aid)
-	if got := objStr(objAt(ev, "data"), "reason"); got != "superseded by the re-bind" {
+	if got := validation.ObjStr(validation.ObjAt(ev, "data"), "reason"); got != "superseded by the re-bind" {
 		t.Fatalf("data.reason = %q, want the operator's reason", got)
 	}
 }
@@ -239,11 +239,11 @@ func TestArtifactPruneCitedRowWarnsAndBurnsTheRung(t *testing.T) {
 	// PRE: the binding is honest — the store holds the cited bytes, so the
 	// section is green and the rung prints unqualified.
 	code, sec := t27AuditSection(t, root, c.CampaignID)
-	if code != 0 || !objAt(sec, "ok").B {
+	if code != 0 || !validation.ObjAt(sec, "ok").B {
 		t.Fatalf("fixture must start green: exit %d, section %s", code,
 			validation.CanonCompact(sec))
 	}
-	runs := objAt(sec, "harness_runs")
+	runs := validation.ObjAt(sec, "harness_runs")
 	if len(runs.A) != 1 || runs.A[0].S != wantRun {
 		t.Fatalf("pre-prune harness_runs = %s",
 			validation.CanonCompact(runs))
@@ -268,18 +268,18 @@ func TestArtifactPruneCitedRowWarnsAndBurnsTheRung(t *testing.T) {
 	if code != 1 {
 		t.Fatalf("audit must exit 1 once the cited row is retired: %d", code)
 	}
-	if objAt(sec, "ok").B {
+	if validation.ObjAt(sec, "ok").B {
 		t.Fatalf("section 11 must burn: %s", validation.CanonCompact(sec))
 	}
 	joined := ""
-	for _, p := range objAt(sec, "problems").A {
+	for _, p := range validation.ObjAt(sec, "problems").A {
 		joined += p.S + "\n"
 	}
 	if !strings.Contains(joined, "no registry artifact holds the report bytes") ||
 		!strings.Contains(joined, sha[:12]) {
 		t.Fatalf("the burn must name the exact state observed: %q", joined)
 	}
-	runs = objAt(sec, "harness_runs")
+	runs = validation.ObjAt(sec, "harness_runs")
 	if len(runs.A) != 1 {
 		t.Fatalf("harness_runs = %s", validation.CanonCompact(runs))
 	}
@@ -369,7 +369,7 @@ func TestArtifactPruneAmbiguousIDRefuses(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	arts := objAt(st, "artifacts")
+	arts := validation.ObjAt(st, "artifacts")
 	arts.A = append(arts.A, row)
 	st.O = validation.SetOrAppend(st.O, "artifacts", arts)
 	if err := c2.SaveState(st); err != nil {
@@ -453,9 +453,9 @@ func t28ScaffoldRow(t *testing.T, c *state.Campaign) (string, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, row := range objAt(st, "artifacts").A {
-		if strings.HasSuffix(objStr(row, "path"), "INV.mspec") {
-			return objStr(row, "artifact_id"), objStr(row, "sha256")
+	for _, row := range validation.ObjAt(st, "artifacts").A {
+		if strings.HasSuffix(validation.ObjStr(row, "path"), "INV.mspec") {
+			return validation.ObjStr(row, "artifact_id"), validation.ObjStr(row, "sha256")
 		}
 	}
 	t.Fatal("the scaffold registered no INV.mspec row")

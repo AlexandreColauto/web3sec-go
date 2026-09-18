@@ -32,11 +32,11 @@ func TestRecordUnpriceableRecordsStateAndEvent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	imp := objAt(out, "economic_impact")
-	if p := objAt(imp, "priceable"); p.Kind != validation.Bool || p.B {
+	imp := validation.ObjAt(out, "economic_impact")
+	if p := validation.ObjAt(imp, "priceable"); p.Kind != validation.Bool || p.B {
 		t.Errorf("priceable = %v; want False", p)
 	}
-	if got := objStr(imp, "ceiling"); got != unpCeiling {
+	if got := validation.ObjStr(imp, "ceiling"); got != unpCeiling {
 		t.Errorf("ceiling = %q", got)
 	}
 	evs, err := c.Events()
@@ -45,7 +45,7 @@ func TestRecordUnpriceableRecordsStateAndEvent(t *testing.T) {
 	}
 	var logged int
 	for _, e := range evs {
-		if objStr(e, "type") != "finding.unpriceable" {
+		if validation.ObjStr(e, "type") != "finding.unpriceable" {
 			continue
 		}
 		logged++
@@ -54,7 +54,7 @@ func TestRecordUnpriceableRecordsStateAndEvent(t *testing.T) {
 			validation.CanonCompact(validation.VStr(unpCeiling)) +
 			`,"finding":"` + fid + `","reason":` +
 			validation.CanonCompact(validation.VStr(unpReason)) + `}`
-		if got := validation.CanonCompact(objAt(e, "data")); got != want {
+		if got := validation.CanonCompact(validation.ObjAt(e, "data")); got != want {
 			t.Errorf("log data = %s\nwant %s", got, want)
 		}
 	}
@@ -102,7 +102,7 @@ func TestRecordUnpriceableRequiresEachNamedInput(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, ok := fieldAt(objAt(f, "economic_impact"), "priceable"); ok {
+			if _, ok := fieldAt(validation.ObjAt(f, "economic_impact"), "priceable"); ok {
 				t.Error("priceable recorded by a rejected call")
 			}
 			evs, err := c.Events()
@@ -110,7 +110,7 @@ func TestRecordUnpriceableRequiresEachNamedInput(t *testing.T) {
 				t.Fatal(err)
 			}
 			for _, e := range evs {
-				if objStr(e, "type") == "finding.unpriceable" {
+				if validation.ObjStr(e, "type") == "finding.unpriceable" {
 					t.Error("finding.unpriceable logged by a rejected call")
 				}
 			}
@@ -135,11 +135,11 @@ func TestPricedImpactReversesTheDecision(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	imp := objAt(out, "economic_impact")
-	if p := objAt(imp, "priceable"); p.Kind != validation.Bool || !p.B {
+	imp := validation.ObjAt(out, "economic_impact")
+	if p := validation.ObjAt(imp, "priceable"); p.Kind != validation.Bool || !p.B {
 		t.Errorf("priceable = %v; want True", p)
 	}
-	if got := validation.DumpIndented(objAt(imp, "extractable_usd")); got != "1234.5" {
+	if got := validation.DumpIndented(validation.ObjAt(imp, "extractable_usd")); got != "1234.5" {
 		t.Errorf("extractable_usd = %s", got)
 	}
 	if _, ok := fieldAt(imp, "ceiling"); ok {
@@ -156,14 +156,14 @@ func TestPricedImpactReversesTheDecision(t *testing.T) {
 	}
 	var reversed, decision bool
 	for _, e := range evs {
-		if objStr(e, "ref") != fid {
+		if validation.ObjStr(e, "ref") != fid {
 			continue
 		}
-		switch objStr(e, "type") {
+		switch validation.ObjStr(e, "type") {
 		case "finding.unpriceable":
 			decision = true
 		case "finding.impact_recorded":
-			if d := objAt(e, "data"); objAt(d, "reversed_unpriceable").Kind ==
+			if d := validation.ObjAt(e, "data"); validation.ObjAt(d, "reversed_unpriceable").Kind ==
 				validation.Bool {
 				reversed = true
 			}
@@ -188,12 +188,12 @@ func TestPricedImpactBehaviourUnchanged(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	imp := objAt(out, "economic_impact")
+	imp := validation.ObjAt(out, "economic_impact")
 	if got := validation.DumpIndented(imp); got !=
 		"{\n  \"extractable_usd\": 1000.0,\n  \"max_loss_usd\": 5000.0\n}" {
 		t.Errorf("impact = %s", got)
 	}
-	if got := validation.DumpIndented(objAt(objAt(out, "attacker"),
+	if got := validation.DumpIndented(validation.ObjAt(validation.ObjAt(out, "attacker"),
 		"required_capital_usd")); got != "100.0" {
 		t.Errorf("required_capital_usd = %s", got)
 	}
@@ -202,14 +202,14 @@ func TestPricedImpactBehaviourUnchanged(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, e := range evs {
-		if objStr(e, "ref") != fid {
+		if validation.ObjStr(e, "ref") != fid {
 			continue
 		}
-		switch objStr(e, "type") {
+		switch validation.ObjStr(e, "type") {
 		case "finding.unpriceable":
 			t.Error("finding.unpriceable logged by the priced path")
 		case "finding.impact_recorded":
-			if got := validation.CanonCompact(objAt(e, "data")); got !=
+			if got := validation.CanonCompact(validation.ObjAt(e, "data")); got !=
 				`{"extractable_usd":1000,"max_loss_usd":5000}` {
 				t.Errorf("log data = %s; no reversal flag expected", got)
 			}
@@ -253,10 +253,10 @@ func TestUnpriceableDecisionIsNilAfterReversal(t *testing.T) {
 	if d == nil {
 		t.Fatal("decision not readable after record")
 	}
-	if got := objStr(*d, "ceiling"); got != unpCeiling {
+	if got := validation.ObjStr(*d, "ceiling"); got != unpCeiling {
 		t.Errorf("decision ceiling = %q", got)
 	}
-	if p := objAt(*d, "priceable"); p.Kind != validation.Bool || p.B {
+	if p := validation.ObjAt(*d, "priceable"); p.Kind != validation.Bool || p.B {
 		t.Errorf("decision priceable = %v", p)
 	}
 }

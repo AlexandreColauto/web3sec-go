@@ -160,9 +160,9 @@ func runMemory(root string, args []string, r *Runner) int {
 		}
 		for _, m := range rows {
 			fmt.Fprintf(r.Out, "%s [%s/%s] promotion=%s  %s\n",
-				objStr(m, "memory_id"), objStr(m, "kind"),
-				objStr(m, "status"), objStr(m, "promotion_status"),
-				pyHead(objStr(m, "pattern"), 80))
+				validation.ObjStr(m, "memory_id"), validation.ObjStr(m, "kind"),
+				validation.ObjStr(m, "status"), validation.ObjStr(m, "promotion_status"),
+				pyHead(validation.ObjStr(m, "pattern"), 80))
 		}
 		return nil
 	})
@@ -179,7 +179,7 @@ func memoryQueueFinding(c *state.Campaign, findingID, kind, pattern string,
 	if err != nil {
 		return err
 	}
-	status := objStr(f, "status")
+	status := validation.ObjStr(f, "status")
 	if !containsStr(learning.MEMORY_STATUSES, status) {
 		return fmt.Errorf("finding %s has status %s; a memory row accepts "+
 			"one of %s", validation.PyReprStr(findingID),
@@ -198,14 +198,14 @@ func memoryQueueFinding(c *state.Campaign, findingID, kind, pattern string,
 		}
 	}
 	if pattern == "" {
-		pattern = objStr(f, "title")
+		pattern = validation.ObjStr(f, "title")
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	var fidPtr, bugClassPtr *string
 	if fid != "" {
 		fidPtr = &fid
 	}
-	if class := objStr(objAt(f, "root_cause"), "class"); class != "" {
+	if class := validation.ObjStr(validation.ObjAt(f, "root_cause"), "class"); class != "" {
 		bugClassPtr = &class
 	}
 	mem, err := learning.QueueMemory(c, learning.QueueOpts{
@@ -218,7 +218,7 @@ func memoryQueueFinding(c *state.Campaign, findingID, kind, pattern string,
 	if err != nil {
 		return err
 	}
-	memID := objStr(mem, "memory_id")
+	memID := validation.ObjStr(mem, "memory_id")
 	fmt.Fprintf(r.Out, "%s queued for %s (%s) — approve with: webv2 memory "+
 		"%s --approve %s --by NAME\n", memID, fid, status, c.CampaignID, memID)
 	return nil
@@ -261,8 +261,8 @@ func memoryReject(c *state.Campaign, reject, reason, class string, r *Runner) er
 		return err
 	}
 	fmt.Fprintf(r.Out, "rejected %s (%s) promotion=%s\n",
-		objStr(mem, "memory_id"), orUnknown(objStr(mem, "rejection_class")),
-		objStr(mem, "promotion_status"))
+		validation.ObjStr(mem, "memory_id"), orUnknown(validation.ObjStr(mem, "rejection_class")),
+		validation.ObjStr(mem, "promotion_status"))
 	fmt.Fprintf(r.Out, "  reason logged: %s\n", pyHead(reason, 80))
 	return nil
 }
@@ -308,19 +308,19 @@ func memoryApprove(c *state.Campaign, approve, by string,
 		}
 	}
 	if prior.Kind == validation.Obj {
-		status := objStr(prior, "promotion_status")
+		status := validation.ObjStr(prior, "promotion_status")
 		if status == "human-approved" || status == "promoted" {
 			// Already at (or past) the approval this command records: write
 			// nothing and log nothing, and say why plus the next step.
 			fmt.Fprintf(r.Out, "%s: already %s by %s at %s — nothing changed\n",
-				approve, status, orUnknown(objStr(prior, "approved_by")),
-				orUnknown(objStr(prior, "approved_at")))
+				approve, status, orUnknown(validation.ObjStr(prior, "approved_by")),
+				orUnknown(validation.ObjStr(prior, "approved_at")))
 			if status == "human-approved" {
 				commands, err := learning.PromotionCommands(c, approve, by)
 				if err != nil {
 					return err
 				}
-				fmt.Fprintf(r.Out, "next: %s\n", objStr(commands[0], "command"))
+				fmt.Fprintf(r.Out, "next: %s\n", validation.ObjStr(commands[0], "command"))
 			} else {
 				fmt.Fprint(r.Out, "next: nothing to do — the row is already "+
 					"promoted\n")
@@ -332,8 +332,8 @@ func memoryApprove(c *state.Campaign, approve, by string,
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(r.Out, "approved %s by %s\n", objStr(mem, "memory_id"),
-		objStr(mem, "approved_by"))
+	fmt.Fprintf(r.Out, "approved %s by %s\n", validation.ObjStr(mem, "memory_id"),
+		validation.ObjStr(mem, "approved_by"))
 	if rowCls, fndCls, stale := learning.StaleBugClass(c, mem); stale {
 		// r7 (critic): queue-time taxonomy stamped into the row can go
 		// stale under an amend --class. The approval stands (the human
@@ -344,14 +344,14 @@ func memoryApprove(c *state.Campaign, approve, by string,
 			"promoting\n", rowCls, fndCls)
 	}
 	fmt.Fprint(r.Out, "promote with (in priority order):\n")
-	commands, err := learning.PromotionCommands(c, objStr(mem, "memory_id"), by)
+	commands, err := learning.PromotionCommands(c, validation.ObjStr(mem, "memory_id"), by)
 	if err != nil {
 		return err
 	}
 	for _, pc := range commands {
-		fmt.Fprintf(r.Out, "  [%s] %s\n", objStr(pc, "substrate"),
-			objStr(pc, "command"))
-		fmt.Fprintf(r.Out, "      %s\n", objStr(pc, "note"))
+		fmt.Fprintf(r.Out, "  [%s] %s\n", validation.ObjStr(pc, "substrate"),
+			validation.ObjStr(pc, "command"))
+		fmt.Fprintf(r.Out, "      %s\n", validation.ObjStr(pc, "note"))
 	}
 	return nil
 }

@@ -55,7 +55,7 @@ func makeFinding(t *testing.T, camp *state.Campaign, status, tier string,
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	if tier != "E0" {
 		if _, err := findings.AddEvidence(camp, fid, validation.VObj(
 			kv("evidence_id", validation.VStr(eid)),
@@ -169,20 +169,20 @@ func TestMetricsPrecisionTwoConfirmOneDisprove(t *testing.T) {
 	makeFinding(t, camp, "CONFIRMED", "E0", nil, "EV-1")
 	makeFinding(t, camp, "DISPROVED", "E0", nil, "EV-1")
 	m := CampaignMetrics(camp)
-	if got := objAt(m, "confirmations").I; got != 2 {
+	if got := validation.ObjAt(m, "confirmations").I; got != 2 {
 		t.Fatalf("confirmations = %d", got)
 	}
-	if got := objAt(m, "disprovals").I; got != 1 {
+	if got := validation.ObjAt(m, "disprovals").I; got != 1 {
 		t.Fatalf("disprovals = %d", got)
 	}
-	wantNum(t, objAt(m, "confirmation_precision"), 2.0/3.0)
-	if got := objAt(m, "findings_total").I; got != 3 {
+	wantNum(t, validation.ObjAt(m, "confirmation_precision"), 2.0/3.0)
+	if got := validation.ObjAt(m, "findings_total").I; got != 3 {
 		t.Fatalf("findings_total = %d", got)
 	}
-	if got := objAt(m, "critic_recall"); got.Kind != validation.Null {
+	if got := validation.ObjAt(m, "critic_recall"); got.Kind != validation.Null {
 		t.Fatalf("critic_recall = %v", got)
 	}
-	if got := objAt(m, "false_rejection_rate"); got.Kind != validation.Null {
+	if got := validation.ObjAt(m, "false_rejection_rate"); got.Kind != validation.Null {
 		t.Fatalf("false_rejection_rate = %v", got)
 	}
 }
@@ -211,8 +211,8 @@ func TestMetricsCriticRecallAndFalseRejection(t *testing.T) {
 		t.Fatal(err)
 	}
 	m := CampaignMetrics(camp)
-	wantNum(t, objAt(m, "critic_recall"), 1.0)
-	wantNum(t, objAt(m, "false_rejection_rate"), 1.0)
+	wantNum(t, validation.ObjAt(m, "critic_recall"), 1.0)
+	wantNum(t, validation.ObjAt(m, "false_rejection_rate"), 1.0)
 }
 
 // ---------------------------------------------------------------------------
@@ -241,22 +241,22 @@ func TestMetricsBenchmark2x2Math(t *testing.T) {
 		linkedCampaign(t, fpCase, "CONFIRMED"),
 	}
 	rep := BenchmarkReport([]string{tpCase, fnCase, tnCase, fpCase}, camps)
-	if rep := rep; objAt(rep, "tp").I != 1 || objAt(rep, "fp").I != 1 ||
-		objAt(rep, "tn").I != 1 || objAt(rep, "fn").I != 1 {
+	if rep := rep; validation.ObjAt(rep, "tp").I != 1 || validation.ObjAt(rep, "fp").I != 1 ||
+		validation.ObjAt(rep, "tn").I != 1 || validation.ObjAt(rep, "fn").I != 1 {
 		t.Fatalf("2x2 = %v", rep)
 	}
-	wantNum(t, objAt(rep, "precision"), 0.5)
-	wantNum(t, objAt(rep, "recall"), 0.5)
-	wantNum(t, objAt(rep, "f1"), 0.5)
+	wantNum(t, validation.ObjAt(rep, "precision"), 0.5)
+	wantNum(t, validation.ObjAt(rep, "recall"), 0.5)
+	wantNum(t, validation.ObjAt(rep, "f1"), 0.5)
 	byID := map[string]validation.Value{}
-	for _, c := range objAt(rep, "cases").A {
-		byID[objStr(c, "case_id")] = c
+	for _, c := range validation.ObjAt(rep, "cases").A {
+		byID[validation.ObjStr(c, "case_id")] = c
 	}
 	for _, tc := range []struct {
 		id   string
 		want bool
 	}{{tpCase, true}, {fnCase, false}, {tnCase, true}, {fpCase, false}} {
-		match := objAt(byID[tc.id], "match")
+		match := validation.ObjAt(byID[tc.id], "match")
 		if match.Kind != validation.Bool || match.B != tc.want {
 			t.Fatalf("case %s match = %v want %v", tc.id, match, tc.want)
 		}
@@ -283,17 +283,17 @@ func TestMetricsTrainingExportExcludesHeldOutByDefault(t *testing.T) {
 	linkSidecar(t, cHeld, []string{held})
 
 	rows := TrainingExport([]*state.Campaign{cDev, cHeld}, false)
-	if len(rows) != 1 || objStr(rows[0], "case_id") != dev {
+	if len(rows) != 1 || validation.ObjStr(rows[0], "case_id") != dev {
 		t.Fatalf("rows = %v", rows)
 	}
-	if got := objAt(rows[0], "labels"); validation.CanonCompact(got) !=
+	if got := validation.ObjAt(rows[0], "labels"); validation.CanonCompact(got) !=
 		`{"human":false}` {
 		t.Fatalf("labels = %s", validation.CanonCompact(got))
 	}
-	if got := objStr(rows[0], "outcome"); got != "confirmed-exploitable" {
+	if got := validation.ObjStr(rows[0], "outcome"); got != "confirmed-exploitable" {
 		t.Fatalf("outcome = %q", got)
 	}
-	if got := objAt(rows[0], "excluded"); got.Kind != validation.Bool || got.B {
+	if got := validation.ObjAt(rows[0], "excluded"); got.Kind != validation.Bool || got.B {
 		t.Fatalf("excluded = %v", got)
 	}
 
@@ -303,14 +303,14 @@ func TestMetricsTrainingExportExcludesHeldOutByDefault(t *testing.T) {
 	}
 	var heldRow validation.Value
 	for _, r := range rowsAll {
-		if objStr(r, "case_id") == held {
+		if validation.ObjStr(r, "case_id") == held {
 			heldRow = r
 		}
 	}
-	if got := objAt(heldRow, "excluded"); got.Kind != validation.Bool || !got.B {
+	if got := validation.ObjAt(heldRow, "excluded"); got.Kind != validation.Bool || !got.B {
 		t.Fatalf("held excluded = %v", got)
 	}
-	if got := objStr(heldRow, "exclude_reason"); got !=
+	if got := validation.ObjStr(heldRow, "exclude_reason"); got !=
 		"held-out case — leakage" {
 		t.Fatalf("exclude_reason = %q", got)
 	}
@@ -333,17 +333,17 @@ func TestMetricsDeadEndAvgTierAndAssumptions(t *testing.T) {
 		t.Fatal(err)
 	}
 	m := CampaignMetrics(camp)
-	wantNum(t, objAt(m, "dead_end_rate"), 2.0/3.0)
-	wantNum(t, objAt(m, "avg_evidence_tier"), (0+0+2)/3.0)
-	hist := objAt(m, "evidence_tier_histogram")
-	if got := objAt(hist, "E0").I; got != 2 {
+	wantNum(t, validation.ObjAt(m, "dead_end_rate"), 2.0/3.0)
+	wantNum(t, validation.ObjAt(m, "avg_evidence_tier"), (0+0+2)/3.0)
+	hist := validation.ObjAt(m, "evidence_tier_histogram")
+	if got := validation.ObjAt(hist, "E0").I; got != 2 {
 		t.Fatalf("E0 = %d", got)
 	}
-	if got := objAt(hist, "E2").I; got != 1 {
+	if got := validation.ObjAt(hist, "E2").I; got != 1 {
 		t.Fatalf("E2 = %d", got)
 	}
 	// 2 blocking created, 1 resolved (non-blocking A3 ignored)
-	wantNum(t, objAt(m, "assumption_efficiency"), 0.5)
+	wantNum(t, validation.ObjAt(m, "assumption_efficiency"), 0.5)
 }
 
 // ---------------------------------------------------------------------------
@@ -352,30 +352,30 @@ func TestMetricsDeadEndAvgTierAndAssumptions(t *testing.T) {
 func TestMetricsEmptyCampaignAllNone(t *testing.T) {
 	camp := newCamp(t, "test-program")
 	m := CampaignMetrics(camp)
-	if got := objAt(m, "findings_total").I; got != 0 {
+	if got := validation.ObjAt(m, "findings_total").I; got != 0 {
 		t.Fatalf("findings_total = %d", got)
 	}
 	for _, key := range []string{"confirmation_precision", "duplicate_rate",
 		"dead_end_rate", "avg_evidence_tier", "critic_recall",
 		"false_rejection_rate", "assumption_efficiency"} {
-		if got := objAt(m, key); got.Kind != validation.Null {
+		if got := validation.ObjAt(m, key); got.Kind != validation.Null {
 			t.Fatalf("%s = %v", key, got)
 		}
 	}
-	if got := objAt(m, "notes"); got.Kind != validation.Arr {
+	if got := validation.ObjAt(m, "notes"); got.Kind != validation.Arr {
 		t.Fatalf("notes = %v", got)
 	}
 	rep := BenchmarkReport(nil, nil)
-	if objAt(rep, "tp").I != 0 || objAt(rep, "fp").I != 0 ||
-		objAt(rep, "tn").I != 0 || objAt(rep, "fn").I != 0 {
+	if validation.ObjAt(rep, "tp").I != 0 || validation.ObjAt(rep, "fp").I != 0 ||
+		validation.ObjAt(rep, "tn").I != 0 || validation.ObjAt(rep, "fn").I != 0 {
 		t.Fatalf("2x2 = %v", rep)
 	}
-	if objAt(rep, "precision").Kind != validation.Null ||
-		objAt(rep, "recall").Kind != validation.Null {
+	if validation.ObjAt(rep, "precision").Kind != validation.Null ||
+		validation.ObjAt(rep, "recall").Kind != validation.Null {
 		t.Fatalf("precision/recall = %v", rep)
 	}
-	if objAt(rep, "f1").Kind != validation.Null {
-		t.Fatalf("f1 = %v", objAt(rep, "f1"))
+	if validation.ObjAt(rep, "f1").Kind != validation.Null {
+		t.Fatalf("f1 = %v", validation.ObjAt(rep, "f1"))
 	}
 	if rows := TrainingExport([]*state.Campaign{camp}, false); len(rows) != 0 {
 		t.Fatalf("rows = %v", rows)

@@ -34,7 +34,7 @@ func (o *Orchestrator) IndependentVerificationQueue() (validation.Value, error) 
 		if level == "E6" || level == "E7" {
 			continue
 		}
-		class := strAt(asDict(objAt(f, "root_cause")), "class")
+		class := strAt(asDict(validation.ObjAt(f, "root_cause")), "class")
 		floor := findings.RequiredLevelForCampaign(o.C, "CONFIRMED", class)
 		floorIdx, err := findings.LevelIndex(floor)
 		if err != nil {
@@ -45,8 +45,8 @@ func (o *Orchestrator) IndependentVerificationQueue() (validation.Value, error) 
 			return validation.VNull(), err
 		}
 		out = append(out, validation.VObj(
-			kvOf("finding_id", objAt(f, "finding_id")),
-			kvOf("title", objAt(f, "title")),
+			kvOf("finding_id", validation.ObjAt(f, "finding_id")),
+			kvOf("title", validation.ObjAt(f, "title")),
 			kvOf("evidence_level", validation.VStr(level)),
 			kvOf("bug_class", validation.VStr(class)),
 			kvOf("effective_floor", validation.VStr(floor)),
@@ -83,8 +83,8 @@ func (o *Orchestrator) VerifyIndependently(findingID, execID, description,
 	if err != nil {
 		return validation.VNull(), err
 	}
-	stage := objAt(objAt(st, "stages"), "independent-reproduction")
-	status := objAt(stage, "status")
+	stage := validation.ObjAt(validation.ObjAt(st, "stages"), "independent-reproduction")
+	status := validation.ObjAt(stage, "status")
 	open := status.Kind == validation.Null ||
 		(status.Kind == validation.Str &&
 			(status.S == "pending" || status.S == "needs-model"))

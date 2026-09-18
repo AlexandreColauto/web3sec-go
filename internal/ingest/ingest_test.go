@@ -114,40 +114,40 @@ func TestIngestNegativeOutcomeTable(t *testing.T) {
 		t.Run(tc.outcome, func(t *testing.T) {
 			res := mustIngest(t, record(kv("outcome", validation.VStr(tc.outcome))))
 			caseDoc, rows := res.EvalCase, res.MemoryRows
-			if got := objStr(objAt(caseDoc, "gold"), "outcome"); got != tc.outcome {
+			if got := validation.ObjStr(validation.ObjAt(caseDoc, "gold"), "outcome"); got != tc.outcome {
 				t.Fatalf("outcome = %q", got)
 			}
-			if got := objStr(objAt(caseDoc, "gold"), "bug_class"); got != "reentrancy" {
+			if got := validation.ObjStr(validation.ObjAt(caseDoc, "gold"), "bug_class"); got != "reentrancy" {
 				t.Fatalf("bug_class = %q", got)
 			}
-			if got := objStr(caseDoc, "partition"); got != "dev" {
+			if got := validation.ObjStr(caseDoc, "partition"); got != "dev" {
 				t.Fatalf("partition = %q", got)
 			}
 			if len(rows) != 1 {
 				t.Fatalf("rows = %d", len(rows))
 			}
 			row := rows[0]
-			if got := objStr(row, "status"); got != tc.status {
+			if got := validation.ObjStr(row, "status"); got != tc.status {
 				t.Fatalf("status = %q", got)
 			}
-			if got := objAt(row, "rejection_class"); tc.rejection == "" {
+			if got := validation.ObjAt(row, "rejection_class"); tc.rejection == "" {
 				if got.Kind != validation.Null {
 					t.Fatalf("rejection_class = %v", got)
 				}
 			} else if got.Kind != validation.Str || got.S != tc.rejection {
 				t.Fatalf("rejection_class = %v", got)
 			}
-			if got := objAt(row, "schema_version"); got.I != 2 {
+			if got := validation.ObjAt(row, "schema_version"); got.I != 2 {
 				t.Fatalf("schema_version = %v", got)
 			}
-			if got := objStr(row, "partition"); got != "dev" {
+			if got := validation.ObjStr(row, "partition"); got != "dev" {
 				t.Fatalf("row partition = %q", got)
 			}
-			if got := objAt(row, "deciding_propositions"); got.Kind != validation.Arr ||
+			if got := validation.ObjAt(row, "deciding_propositions"); got.Kind != validation.Arr ||
 				len(got.A) != 0 {
 				t.Fatalf("deciding_propositions = %v", got)
 			}
-			if got := objStr(row, "campaign_id"); got != "ingest:scabench:REC-1" {
+			if got := validation.ObjStr(row, "campaign_id"); got != "ingest:scabench:REC-1" {
 				t.Fatalf("campaign_id = %q", got)
 			}
 			if err := validation.Validate(row, "memory", 1); err != nil {
@@ -164,7 +164,7 @@ func TestIngestConfirmedExploitableNonNegativeHasNoRows(t *testing.T) {
 	res := mustIngest(t, record(
 		kv("outcome", validation.VStr("confirmed-exploitable")),
 		kv("negative", validation.VBool(false))))
-	if got := objStr(objAt(res.EvalCase, "gold"), "outcome"); got != "confirmed-exploitable" {
+	if got := validation.ObjStr(validation.ObjAt(res.EvalCase, "gold"), "outcome"); got != "confirmed-exploitable" {
 		t.Fatalf("outcome = %q", got)
 	}
 	if len(res.MemoryRows) != 0 {
@@ -173,7 +173,7 @@ func TestIngestConfirmedExploitableNonNegativeHasNoRows(t *testing.T) {
 	if res.CampaignSeed == nil {
 		t.Fatal("campaign_seed = nil")
 	}
-	if got := objStr(objAt(*res.CampaignSeed, "expected"), "bug_class"); got != "reentrancy" {
+	if got := validation.ObjStr(validation.ObjAt(*res.CampaignSeed, "expected"), "bug_class"); got != "reentrancy" {
 		t.Fatalf("expected.bug_class = %q", got)
 	}
 }
@@ -194,7 +194,7 @@ func TestIngestTaxonomyAliasAndUnmapped(t *testing.T) {
 	if res.Canonical != "access-control" || !res.Mapped {
 		t.Fatalf("taxonomy = (%q,%v)", res.Canonical, res.Mapped)
 	}
-	if got := objStr(objAt(res.EvalCase, "gold"), "bug_class"); got != "access-control" {
+	if got := validation.ObjStr(validation.ObjAt(res.EvalCase, "gold"), "bug_class"); got != "access-control" {
 		t.Fatalf("bug_class = %q", got)
 	}
 	res = mustIngest(t, record(
@@ -202,7 +202,7 @@ func TestIngestTaxonomyAliasAndUnmapped(t *testing.T) {
 	if res.Canonical != "unmapped" || res.Mapped {
 		t.Fatalf("taxonomy = (%q,%v)", res.Canonical, res.Mapped)
 	}
-	if got := objStr(objAt(res.EvalCase, "gold"), "bug_class"); got != "unmapped" {
+	if got := validation.ObjStr(validation.ObjAt(res.EvalCase, "gold"), "bug_class"); got != "unmapped" {
 		t.Fatalf("bug_class = %q", got)
 	}
 }
@@ -214,9 +214,9 @@ func TestIngestDeterministicCaseIDAndDuplicateRejected(t *testing.T) {
 	setupStore(t)
 	first := mustIngest(t, record())
 	second := mustIngest(t, record())
-	firstID := objStr(first.EvalCase, "case_id")
-	if firstID != objStr(second.EvalCase, "case_id") {
-		t.Fatalf("ids differ: %q %q", firstID, objStr(second.EvalCase, "case_id"))
+	firstID := validation.ObjStr(first.EvalCase, "case_id")
+	if firstID != validation.ObjStr(second.EvalCase, "case_id") {
+		t.Fatalf("ids differ: %q %q", firstID, validation.ObjStr(second.EvalCase, "case_id"))
 	}
 	if !strings.HasPrefix(firstID, "CASE-") {
 		t.Fatalf("case_id = %q", firstID)
@@ -271,16 +271,16 @@ func TestIngestPriorEmitsConfirmedRowWithPattern(t *testing.T) {
 		t.Fatalf("rows = %d", len(res.MemoryRows))
 	}
 	row := res.MemoryRows[0]
-	if got := objStr(row, "status"); got != "CONFIRMED" {
+	if got := validation.ObjStr(row, "status"); got != "CONFIRMED" {
 		t.Fatalf("status = %q", got)
 	}
-	if got := objAt(row, "rejection_class"); got.Kind != validation.Null {
+	if got := validation.ObjAt(row, "rejection_class"); got.Kind != validation.Null {
 		t.Fatalf("rejection_class = %v", got)
 	}
-	if got := objStr(row, "kind"); got != "confirmed" {
+	if got := validation.ObjStr(row, "kind"); got != "confirmed" {
 		t.Fatalf("kind = %q", got)
 	}
-	if got := objStr(row, "pattern"); got != "external call before state "+
+	if got := validation.ObjStr(row, "pattern"); got != "external call before state "+
 		"update is safe when a reentrancy guard is present" {
 		t.Fatalf("pattern = %q", got)
 	}
@@ -298,7 +298,7 @@ func TestIngestUnmappedPriorEmitsNoRow(t *testing.T) {
 	if len(res.MemoryRows) != 0 {
 		t.Fatalf("rows = %v", res.MemoryRows)
 	}
-	if got := objStr(objAt(res.EvalCase, "gold"), "bug_class"); got != "unmapped" {
+	if got := validation.ObjStr(validation.ObjAt(res.EvalCase, "gold"), "bug_class"); got != "unmapped" {
 		t.Fatalf("bug_class = %q", got)
 	}
 }
@@ -322,13 +322,13 @@ func TestIngestCampaignSeedAbsentWithoutRepo(t *testing.T) {
 
 func TestIngestHeldOutPartitionPropagatesToCaseAndRow(t *testing.T) {
 	res := mustIngest(t, record(kv("partition", validation.VStr("held-out"))))
-	if got := objStr(res.EvalCase, "partition"); got != "held-out" {
+	if got := validation.ObjStr(res.EvalCase, "partition"); got != "held-out" {
 		t.Fatalf("case partition = %q", got)
 	}
 	if len(res.MemoryRows) != 1 {
 		t.Fatalf("rows = %d", len(res.MemoryRows))
 	}
-	if got := objStr(res.MemoryRows[0], "partition"); got != "held-out" {
+	if got := validation.ObjStr(res.MemoryRows[0], "partition"); got != "held-out" {
 		t.Fatalf("row partition = %q", got)
 	}
 }
@@ -399,8 +399,8 @@ func TestIngestReplaceProgramKey(t *testing.T) {
 	}
 	gotA, gotB := []string{}, []string{}
 	for _, w := range mems {
-		mid := objStr(objAt(w, "row"), "memory_id")
-		switch objStr(w, "program_key") {
+		mid := validation.ObjStr(validation.ObjAt(w, "row"), "memory_id")
+		switch validation.ObjStr(w, "program_key") {
 		case keyA:
 			gotA = append(gotA, mid)
 		case keyB:
@@ -414,17 +414,17 @@ func TestIngestReplaceProgramKey(t *testing.T) {
 	if strings.Join(gotB, ",") != "MEM-bbb111" {
 		t.Fatalf("key B rows = %v", gotB)
 	}
-	if got := objStr(rec, "action"); got != "program_key.replaced" {
+	if got := validation.ObjStr(rec, "action"); got != "program_key.replaced" {
 		t.Fatalf("action = %q", got)
 	}
-	if got := objAt(rec, "removed_count").I; got != 2 {
+	if got := validation.ObjAt(rec, "removed_count").I; got != 2 {
 		t.Fatalf("removed_count = %d", got)
 	}
-	if got := objAt(rec, "added_count").I; got != 2 {
+	if got := validation.ObjAt(rec, "added_count").I; got != 2 {
 		t.Fatalf("added_count = %d", got)
 	}
-	if got := objStr(rec, "prev_hash"); got != objStr(seed, "record_hash") {
-		t.Fatalf("prev_hash = %q want %q", got, objStr(seed, "record_hash"))
+	if got := validation.ObjStr(rec, "prev_hash"); got != validation.ObjStr(seed, "record_hash") {
+		t.Fatalf("prev_hash = %q want %q", got, validation.ObjStr(seed, "record_hash"))
 	}
 	if got := len(readManifest(t, store)); got != before+1 {
 		t.Fatalf("manifest len = %d want %d", got, before+1)
@@ -433,7 +433,7 @@ func TestIngestReplaceProgramKey(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !objAt(ver, "ok").B {
+	if !validation.ObjAt(ver, "ok").B {
 		t.Fatalf("verify = %v", ver)
 	}
 }
@@ -464,7 +464,7 @@ func TestIngestPublishIngested(t *testing.T) {
 		t.Fatalf("rows_added = %d", out.RowsAdded)
 	}
 	if out.ManifestRecord == nil ||
-		objStr(*out.ManifestRecord, "action") != "program_key.replaced" {
+		validation.ObjStr(*out.ManifestRecord, "action") != "program_key.replaced" {
 		t.Fatalf("manifest_record = %v", out.ManifestRecord)
 	}
 	cases, err := evalstore.ListCases(nil, nil, nil)
@@ -482,10 +482,10 @@ func TestIngestPublishIngested(t *testing.T) {
 		t.Fatalf("mems = %d", len(mems))
 	}
 	for _, w := range mems {
-		if objStr(w, "scope") != "global" {
-			t.Fatalf("scope = %q", objStr(w, "scope"))
+		if validation.ObjStr(w, "scope") != "global" {
+			t.Fatalf("scope = %q", validation.ObjStr(w, "scope"))
 		}
-		if orDev(objStr(objAt(w, "row"), "partition")) != "dev" {
+		if orDev(validation.ObjStr(validation.ObjAt(w, "row"), "partition")) != "dev" {
 			t.Fatalf("row partition leaked")
 		}
 	}
@@ -493,7 +493,7 @@ func TestIngestPublishIngested(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !objAt(ver, "ok").B {
+	if !validation.ObjAt(ver, "ok").B {
 		t.Fatalf("verify = %v", ver)
 	}
 }
@@ -515,14 +515,14 @@ func TestIngestPublishIngestedExplicitProgramKey(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(mems) != 1 || objStr(mems[0], "program_key") != key {
+	if len(mems) != 1 || validation.ObjStr(mems[0], "program_key") != key {
 		t.Fatalf("mems = %v", mems)
 	}
 	ver, err := sharedmem.VerifySharedStore(root)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !objAt(ver, "ok").B {
+	if !validation.ObjAt(ver, "ok").B {
 		t.Fatalf("verify = %v", ver)
 	}
 }
@@ -538,7 +538,7 @@ func TestIngestSnapshotNoteForwardedToEvalCase(t *testing.T) {
 		kv("snapshot_note", validation.VStr(
 			"commit not verified against source")))))
 	caseDoc := mustIngest(t, rec).EvalCase
-	if got := objStr(objAt(caseDoc, "code"), "snapshot_note"); got !=
+	if got := validation.ObjStr(validation.ObjAt(caseDoc, "code"), "snapshot_note"); got !=
 		"commit not verified against source" {
 		t.Fatalf("snapshot_note = %q", got)
 	}
@@ -546,7 +546,7 @@ func TestIngestSnapshotNoteForwardedToEvalCase(t *testing.T) {
 		t.Fatal(err)
 	}
 	plain := mustIngest(t, record()).EvalCase
-	for _, kv := range objAt(plain, "code").O {
+	for _, kv := range validation.ObjAt(plain, "code").O {
 		if kv.K == "snapshot_note" {
 			t.Fatal("snapshot_note leaked into the plain case")
 		}

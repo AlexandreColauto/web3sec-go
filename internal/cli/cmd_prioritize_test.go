@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"websec/internal/validation"
 )
 
 var triageLine = regexp.MustCompile(`^\[\S+\] prior=\d+\.\d{2} cost=\S+\s+F-[0-9a-f]{12}$`)
@@ -27,7 +28,7 @@ func TestPrioritizePrintsTriageRows(t *testing.T) {
 	if !triageLine.MatchString(lines[0]) {
 		t.Fatalf("row %q does not match the triage shape", lines[0])
 	}
-	if !strings.HasSuffix(lines[0], objStr(f, "finding_id")) {
+	if !strings.HasSuffix(lines[0], validation.ObjStr(f, "finding_id")) {
 		t.Fatalf("row %q must name the finding", lines[0])
 	}
 }

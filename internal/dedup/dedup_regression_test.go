@@ -44,11 +44,11 @@ func TestRunDedupExcludesNonDuplicatableStates(t *testing.T) {
 	}
 	// Only A is live; B/C/D/E are excluded, so nothing merges and A is the
 	// single untouched live finding.
-	if got := objAt(report, "untouched").I; got != 1 {
+	if got := validation.ObjAt(report, "untouched").I; got != 1 {
 		t.Errorf("untouched = %d, want 1 (the four non-duplicatable findings are excluded)", got)
 	}
-	if got := objAt(report, "tier1_merges").Kind; got != validation.Arr ||
-		len(objAt(report, "tier1_merges").A) != 0 {
+	if got := validation.ObjAt(report, "tier1_merges").Kind; got != validation.Arr ||
+		len(validation.ObjAt(report, "tier1_merges").A) != 0 {
 		t.Errorf("tier1_merges should be empty (no live duplicate), got %v",
 			validation.CanonCompact(report))
 	}

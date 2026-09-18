@@ -30,8 +30,8 @@ func g15MintItem(t *testing.T, f *t20Fixture, execID string) validation.Value {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, e := range objAt(finding, "evidence").A {
-		if objStr(e, "artifact_id") == execID {
+	for _, e := range validation.ObjAt(finding, "evidence").A {
+		if validation.ObjStr(e, "artifact_id") == execID {
 			return e
 		}
 	}
@@ -69,7 +69,7 @@ func TestMintVerifyRerunsDeterministic(t *testing.T) {
 	}
 	wantRuns := "3/3 (execs EXEC-cli-rerun-1,EXEC-cli-rerun-2," +
 		"EXEC-cli-rerun-3)"
-	if got := objStr(g15MintItem(t, f, f.pass), "reruns"); got != wantRuns {
+	if got := validation.ObjStr(g15MintItem(t, f, f.pass), "reruns"); got != wantRuns {
 		t.Fatalf("reruns = %q, want %q", got, wantRuns)
 	}
 }
@@ -98,7 +98,7 @@ func TestMintVerifyRerunsNotApplicable(t *testing.T) {
 	if errS != wantErr {
 		t.Fatalf("stderr\n%q\nwant\n%q", errS, wantErr)
 	}
-	if got := objStr(g15MintItem(t, f, f.pass), "reruns"); got !=
+	if got := validation.ObjStr(g15MintItem(t, f, f.pass), "reruns"); got !=
 		"not-applicable" {
 		t.Fatalf("reruns = %q, want not-applicable", got)
 	}
@@ -145,8 +145,8 @@ func TestMintVerifyRerunsDoesNotLeak(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, e := range objAt(finding, "evidence").A {
-		if objStr(e, "type") != "unit-test" {
+	for _, e := range validation.ObjAt(finding, "evidence").A {
+		if validation.ObjStr(e, "type") != "unit-test" {
 			continue
 		}
 		for _, kv := range e.O {

@@ -205,7 +205,7 @@ func ClassReport(bugClass *string) validation.Value {
 	_, known := knownRaw()[*bugClass]
 	suggestions := validation.VArr()
 	if !known {
-		suggestions = strArr(closeMatches(*bugClass, sortedKeys(knownRaw()), 3, 0.6))
+		suggestions = validation.StrArr(closeMatches(*bugClass, sortedKeys(knownRaw()), 3, 0.6))
 	}
 	return validation.VObj(
 		kv("class", validation.VStr(*bugClass)),
@@ -254,15 +254,15 @@ func ClassAdvisory(bugClass *string, campaign *state.Campaign) string {
 		}
 	}
 	rep := ClassReport(bugClass)
-	if objAt(rep, "known").B {
+	if validation.ObjAt(rep, "known").B {
 		return classFloorWarning(*bugClass, campaign)
 	}
 	msg := fmt.Sprintf("unknown class %s; known classes: %s; "+
 		"no floor-table entry -> CONFIRMED defaults to %s "+
 		"(the most conservative floor).",
 		pyReprPtr(bugClass), strings.Join(sortedKeys(knownRaw()), ", "),
-		objStr(rep, "floor"))
-	if sugg := objAt(rep, "suggestions"); len(sugg.A) > 0 {
+		validation.ObjStr(rep, "floor"))
+	if sugg := validation.ObjAt(rep, "suggestions"); len(sugg.A) > 0 {
 		names := make([]string, 0, len(sugg.A))
 		for _, s := range sugg.A {
 			names = append(names, s.S)
@@ -700,7 +700,7 @@ func NormalizeClass(label *string, maps *validation.Value) (string, bool, error)
 	} else {
 		m = *maps
 	}
-	def := objStr(m, "default")
+	def := validation.ObjStr(m, "default")
 	if def == "" {
 		def = UNMAPPED
 	}
@@ -708,7 +708,7 @@ func NormalizeClass(label *string, maps *validation.Value) (string, bool, error)
 		return def, false, nil
 	}
 	norm := normLabel(*label)
-	for _, a := range objAt(m, "aliases").O {
+	for _, a := range validation.ObjAt(m, "aliases").O {
 		if normLabel(a.K) == norm {
 			return a.V.S, a.V.S != UNMAPPED, nil
 		}
@@ -944,41 +944,9 @@ func isFalsyNode(n *yaml.Node) bool {
 	return false
 }
 
-// objAt is the dict lookup: the value for key, or Null when absent.
-func objAt(v validation.Value, key string) validation.Value {
-	if v.Kind != validation.Obj {
-		return validation.VNull()
-	}
-	for _, kv := range v.O {
-		if kv.K == key {
-			return kv.V
-		}
-	}
-	return validation.VNull()
-}
-
-// objStr is the string flavor of objAt ("" when absent or not a string).
-func objStr(v validation.Value, key string) string {
-	for _, kv := range v.O {
-		if kv.K == key {
-			return kv.V.S
-		}
-	}
-	return ""
-}
-
 // kv is the keyed KV constructor (non-test code cannot use a test helper).
 func kv(k string, v validation.Value) validation.KV {
 	return validation.KV{K: k, V: v}
-}
-
-// strArr renders a []string as a JSON array Value.
-func strArr(items []string) validation.Value {
-	out := make([]validation.Value, len(items))
-	for i, s := range items {
-		out[i] = validation.VStr(s)
-	}
-	return validation.VArr(out...)
 }
 
 // sortedKeys returns a set's keys in Python's sorted() order.

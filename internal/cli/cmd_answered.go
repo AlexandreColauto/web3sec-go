@@ -484,7 +484,7 @@ func answeredLens(c *state.Campaign, a *answeredArgs, closing bool,
 	// silently recorded on an entry that reconciles nothing.
 	var recs *[]validation.Value
 	if a.reconcile != nil {
-		if objStr(target, "lens") != "primitive-symmetry" {
+		if validation.ObjStr(target, "lens") != "primitive-symmetry" {
 			return t14ExitErr(2, "answered: --reconcile reconciles the "+
 				"divergence rows of a primitive-symmetry lens — %s is not "+
 				"one, so there is nothing to reconcile: drop --reconcile\n",
@@ -564,7 +564,7 @@ func checkLensFamilies(a *answeredArgs, fams, seeded []string) error {
 // lensSymmetry parses and validates --symmetry for a primitive-symmetry lens.
 func lensSymmetry(a *answeredArgs, target validation.Value, seeded []string,
 	closing bool) (*[]validation.Value, error) {
-	if objStr(target, "lens") != "primitive-symmetry" || !closing ||
+	if validation.ObjStr(target, "lens") != "primitive-symmetry" || !closing ||
 		len(seeded) == 0 || (len(seeded) == 1 && seeded[0] == "protocol") {
 		return nil, nil
 	}
@@ -577,7 +577,7 @@ func lensSymmetry(a *answeredArgs, target validation.Value, seeded []string,
 				n++
 			}
 		}
-		have[objStr(s, "family")] = n
+		have[validation.ObjStr(s, "family")] = n
 	}
 	var missing []string
 	for _, f := range seeded {
@@ -604,13 +604,13 @@ func printAnsweredLens(c *state.Campaign, a *answeredArgs,
 	updated validation.Value, closing bool, r *Runner) {
 	lens, _ := t14FindByID(t14List(updated, "lenses"), a.priority)
 	ref := ""
-	if cr := objAt(lens, "closed_ref"); t14Truthy(cr) {
+	if cr := validation.ObjAt(lens, "closed_ref"); t14Truthy(cr) {
 		ref = " (ref: " + scalarStr(cr) + ")"
 	}
 	fmt.Fprintf(r.Out, "%s: status -> %s%s\n", a.priority, a.status, ref)
 	if closing {
 		printProbeClosure(c, updated, map[string]struct{}{
-			objStr(lens, "lens"): {}}, r.Out)
+			validation.ObjStr(lens, "lens"): {}}, r.Out)
 	}
 }
 
@@ -637,7 +637,7 @@ func answeredPriority(c *state.Campaign, a *answeredArgs, closing bool,
 		return t14ExitErr(2, "answered failed: no priority %s in the "+
 			"campaign plan\n", validation.PyReprStr(a.priority))
 	}
-	probe := objAt(target, "probe")
+	probe := validation.ObjAt(target, "probe")
 	if probe.Kind == validation.Obj &&
 		t14InList(a.status, planner.ProbeRowDispositioned) {
 		if err := checkProbeAnchor(c, a, target, probe); err != nil {
@@ -673,16 +673,16 @@ func answeredPriority(c *state.Campaign, a *answeredArgs, closing bool,
 	}
 	p, _ := t14FindByID(t14List(updated, "priorities"), a.priority)
 	ref := ""
-	if cr := objAt(p, "closed_ref"); t14Truthy(cr) {
+	if cr := validation.ObjAt(p, "closed_ref"); t14Truthy(cr) {
 		ref = " (ref: " + scalarStr(cr) + ")"
 	}
-	if anchor := objAt(objAt(p, "probe"), "anchor"); t14Truthy(anchor) {
-		ref += " [anchor " + objStr(anchor, "field") + "]"
+	if anchor := validation.ObjAt(validation.ObjAt(p, "probe"), "anchor"); t14Truthy(anchor) {
+		ref += " [anchor " + validation.ObjStr(anchor, "field") + "]"
 	}
 	fmt.Fprintf(r.Out, "%s: status -> %s%s\n", a.priority, a.status, ref)
-	if closing && objAt(p, "probe").Kind == validation.Obj {
+	if closing && validation.ObjAt(p, "probe").Kind == validation.Obj {
 		lensName := ""
-		if spec, ok := planner.PB().Probes[objStr(probe, "probe_id")]; ok {
+		if spec, ok := planner.PB().Probes[validation.ObjStr(probe, "probe_id")]; ok {
 			lensName = spec.Lens
 		}
 		var lensSet map[string]struct{}
@@ -776,11 +776,11 @@ func answeredBatch(c *state.Campaign, a *answeredArgs, closing bool,
 		}
 		p, _ := t14FindByID(t14List(updated, "priorities"), pid)
 		ref := ""
-		if cr := objAt(p, "closed_ref"); t14Truthy(cr) {
+		if cr := validation.ObjAt(p, "closed_ref"); t14Truthy(cr) {
 			ref = " (ref: " + scalarStr(cr) + ")"
 		}
-		if anchor := objAt(objAt(p, "probe"), "anchor"); t14Truthy(anchor) {
-			ref += " [anchor " + objStr(anchor, "field") + "]"
+		if anchor := validation.ObjAt(validation.ObjAt(p, "probe"), "anchor"); t14Truthy(anchor) {
+			ref += " [anchor " + validation.ObjStr(anchor, "field") + "]"
 		}
 		fmt.Fprintf(r.Out, "%s: status -> %s%s\n", pid, a.status, ref)
 	}
@@ -798,10 +798,10 @@ func checkProbeAnchor(c *state.Campaign, a *answeredArgs, target,
 	if row == nil {
 		return t14ExitErr(2, "answered: probe row %s is not in the current "+
 			"surface — re-run `webv2 probes %s run --emit`\n",
-			validation.PyReprStr(objStr(probe, "row_id")), c.CampaignID)
+			validation.PyReprStr(validation.ObjStr(probe, "row_id")), c.CampaignID)
 	}
 	var allowed []string
-	if spec, ok := planner.PB().Probes[objStr(*row, "probe")]; ok &&
+	if spec, ok := planner.PB().Probes[validation.ObjStr(*row, "probe")]; ok &&
 		spec.Anchors != nil {
 		allowed = *spec.Anchors
 	}
@@ -809,12 +809,12 @@ func checkProbeAnchor(c *state.Campaign, a *answeredArgs, target,
 		return t14ExitErr(2, "answered: %s is probe row %s — a probe "+
 			"disposition must name the field it claims is safe: "+
 			"--anchor <field> (one of %s)\n", a.priority,
-			objStr(probe, "row_id"), strings.Join(allowed, ", "))
+			validation.ObjStr(probe, "row_id"), strings.Join(allowed, ", "))
 	}
 	if !t14InList(*a.anchor, allowed) {
 		return t14ExitErr(2, "answered: --anchor %s is not produced by "+
 			"probe %s; allowed: %s\n", validation.PyReprStr(*a.anchor),
-			validation.PyReprStr(objStr(*row, "probe")),
+			validation.PyReprStr(validation.ObjStr(*row, "probe")),
 			strings.Join(allowed, ", "))
 	}
 	return nil
@@ -830,9 +830,9 @@ func probeSurfaceRow(c *state.Campaign,
 	if err != nil || surface == nil {
 		return nil, err
 	}
-	rid := objStr(objAt(target, "probe"), "row_id")
+	rid := validation.ObjStr(validation.ObjAt(target, "probe"), "row_id")
 	for _, row := range t14List(*surface, "rows").A {
-		if objStr(row, "row_id") == rid {
+		if validation.ObjStr(row, "row_id") == rid {
 			row := row
 			return &row, nil
 		}
@@ -852,21 +852,21 @@ func printProbeClosure(c *state.Campaign, plan validation.Value,
 		return
 	}
 	for _, entry := range t14List(div, "lenses").A {
-		probe := objAt(entry, "probe")
-		if probe.Kind != validation.Obj || !t14Truthy(objAt(probe, "message")) {
+		probe := validation.ObjAt(entry, "probe")
+		if probe.Kind != validation.Obj || !t14Truthy(validation.ObjAt(probe, "message")) {
 			continue
 		}
 		if lensNames != nil {
-			_, a := lensNames[objStr(entry, "lens")]
-			_, b := lensNames[objStr(entry, "id")]
+			_, a := lensNames[validation.ObjStr(entry, "lens")]
+			_, b := lensNames[validation.ObjStr(entry, "id")]
 			if !a && !b {
 				continue
 			}
 		}
-		if !t14Truthy(objAt(probe, "closed")) {
+		if !t14Truthy(validation.ObjAt(probe, "closed")) {
 			continue
 		}
-		fmt.Fprintf(stdout, "%s\n", objStr(probe, "message"))
+		fmt.Fprintf(stdout, "%s\n", validation.ObjStr(probe, "message"))
 	}
 }
 
@@ -907,7 +907,7 @@ func famPtr(fams []string, given *string) *[]string {
 // t14FindByID is next((x for x in items if x["id"] == id), None).
 func t14FindByID(items validation.Value, id string) (validation.Value, bool) {
 	for _, it := range items.A {
-		if objStr(it, "id") == id {
+		if validation.ObjStr(it, "id") == id {
 			return it, true
 		}
 	}

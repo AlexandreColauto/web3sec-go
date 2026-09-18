@@ -11,6 +11,7 @@ package cli
 import (
 	"strings"
 	"testing"
+	"websec/internal/validation"
 
 	"websec/internal/sandbox"
 	"websec/internal/state"
@@ -31,7 +32,7 @@ func TestClassifyVerbMissingToolchainIsEnvironment(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		return objStr(rec, "exec_id")
+		return validation.ObjStr(rec, "exec_id")
 	}
 	cases := []struct {
 		name     string
@@ -89,7 +90,7 @@ func TestClassifyVerbToolAbsenceBoundaries(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		return objStr(rec, "exec_id")
+		return validation.ObjStr(rec, "exec_id")
 	}
 	cases := []struct {
 		name, text, wantClass, wantNote string

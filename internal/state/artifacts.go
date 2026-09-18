@@ -42,7 +42,7 @@ func (c *Campaign) StageStatus(stage string) (validation.Value, error) {
 	if err != nil {
 		return validation.VNull(), err
 	}
-	if e := objAt(objAt(st, "stages"), stage); e.Kind != validation.Null {
+	if e := validation.ObjAt(validation.ObjAt(st, "stages"), stage); e.Kind != validation.Null {
 		return e, nil
 	}
 	return validation.VObj(kv("status", validation.VStr("pending"))), nil
@@ -70,8 +70,8 @@ func (c *Campaign) SetStage(stage, status string, note validation.Value, executo
 	if err != nil {
 		return err
 	}
-	stages := objAt(st, "stages")
-	entry := objAt(stages, stage)
+	stages := validation.ObjAt(st, "stages")
+	entry := validation.ObjAt(stages, stage)
 	if entry.Kind == validation.Null {
 		entry = validation.VObj(
 			kv("status", validation.VStr("pending")),
@@ -83,7 +83,7 @@ func (c *Campaign) SetStage(stage, status string, note validation.Value, executo
 	}
 	entry.O = validation.SetOrAppend(entry.O, "status", validation.VStr(status))
 	attempts := int64(0)
-	if a := objAt(entry, "attempts"); a.Kind == validation.Int {
+	if a := validation.ObjAt(entry, "attempts"); a.Kind == validation.Int {
 		if n, err := strconv.ParseInt(validation.IntText(a), 10, 64); err == nil {
 			attempts = n
 		}
@@ -157,7 +157,7 @@ func (c *Campaign) RegisterArtifact(kind, path, note string, snapshotID *string)
 	if err != nil {
 		return "", err
 	}
-	arts := objAt(st, "artifacts")
+	arts := validation.ObjAt(st, "artifacts")
 	arts.A = append(arts.A, rec)
 	st.O = validation.SetOrAppend(st.O, "artifacts", arts)
 	if err := c.save(st); err != nil {
@@ -186,8 +186,8 @@ func (c *Campaign) Artifact(artifactID string) (validation.Value, error) {
 	if err != nil {
 		return validation.VNull(), err
 	}
-	for _, a := range objAt(st, "artifacts").A {
-		if objStr(a, "artifact_id") == artifactID {
+	for _, a := range validation.ObjAt(st, "artifacts").A {
+		if validation.ObjStr(a, "artifact_id") == artifactID {
 			return a, nil
 		}
 	}
@@ -199,7 +199,7 @@ func (c *Campaign) Artifact(artifactID string) (validation.Value, error) {
 // stay as-is, relative ones are joined under the campaign root (NO
 // symlink resolution — the callers add it where Python adds .resolve()).
 func (c *Campaign) resolveArtifactPath(a validation.Value) string {
-	p := objStr(a, "path")
+	p := validation.ObjStr(a, "path")
 	if filepath.IsAbs(p) {
 		return p
 	}
@@ -229,10 +229,10 @@ func (c *Campaign) PruneArtifact(artifactID, reason string) (validation.Value, e
 	if err != nil {
 		return validation.VNull(), err
 	}
-	arts := objAt(st, "artifacts")
+	arts := validation.ObjAt(st, "artifacts")
 	idx := -1
 	for i, a := range arts.A {
-		if objStr(a, "artifact_id") == artifactID {
+		if validation.ObjStr(a, "artifact_id") == artifactID {
 			idx = i
 			break
 		}
@@ -248,8 +248,8 @@ func (c *Campaign) PruneArtifact(artifactID, reason string) (validation.Value, e
 		return validation.VNull(), err
 	}
 	data := validation.VObj(
-		kv("kind", objAt(rec, "kind")),
-		kv("path", objAt(rec, "path")),
+		kv("kind", validation.ObjAt(rec, "kind")),
+		kv("path", validation.ObjAt(rec, "path")),
 		kv("reason", validation.VStr(reason)),
 	)
 	if _, lerr := c.Log("artifact.pruned", &artifactID, &data); lerr != nil {
@@ -296,10 +296,10 @@ func (c *Campaign) refreshArtifact(artifactID, reason, actor, newKind string) (v
 	if err != nil {
 		return validation.VNull(), err
 	}
-	arts := objAt(st, "artifacts")
+	arts := validation.ObjAt(st, "artifacts")
 	idx := -1
 	for i, a := range arts.A {
-		if objStr(a, "artifact_id") == artifactID {
+		if validation.ObjStr(a, "artifact_id") == artifactID {
 			idx = i
 			break
 		}
@@ -327,8 +327,8 @@ func (c *Campaign) refreshArtifact(artifactID, reason, actor, newKind string) (v
 	// re-index → prove says "regenerate" — is honest: something DID
 	// happen after report.generated. A content-no-op refresh would trade
 	// recorded provenance for convenience, so the flip stays.
-	old := objAt(a, "sha256")
-	oldKind := objStr(a, "kind")
+	old := validation.ObjAt(a, "sha256")
+	oldKind := validation.ObjStr(a, "kind")
 	migrated := ""
 	if newKind != "" && oldKind != newKind {
 		migrated = oldKind + "→" + newKind
@@ -339,7 +339,7 @@ func (c *Campaign) refreshArtifact(artifactID, reason, actor, newKind string) (v
 		return validation.VNull(), err
 	}
 	count := int64(0)
-	if rc := objAt(a, "refresh_count"); rc.Kind == validation.Int {
+	if rc := validation.ObjAt(a, "refresh_count"); rc.Kind == validation.Int {
 		if n, err := strconv.ParseInt(validation.IntText(rc), 10, 64); err == nil {
 			count = n
 		}
@@ -359,7 +359,7 @@ func (c *Campaign) refreshArtifact(artifactID, reason, actor, newKind string) (v
 		return validation.VNull(), err
 	}
 	data := validation.VObj(
-		kv("kind", objAt(a, "kind")),
+		kv("kind", validation.ObjAt(a, "kind")),
 		kv("actor", validation.VStr(actor)),
 		kv("reason", validation.VStr(reason)),
 		kv("old_sha256", old),
@@ -466,7 +466,7 @@ func (c *Campaign) RegisterOrRefreshKeptGhosts(kind, path, note string,
 		return "", nil, err
 	}
 	var same []validation.Value
-	for _, a := range objAt(st, "artifacts").A {
+	for _, a := range validation.ObjAt(st, "artifacts").A {
 		if resolvePath(c.resolveArtifactPath(a)) == resolved {
 			same = append(same, a)
 		}
@@ -474,20 +474,20 @@ func (c *Campaign) RegisterOrRefreshKeptGhosts(kind, path, note string,
 	if len(same) > 0 {
 		latest := same[0]
 		for _, a := range same[1:] {
-			if objStr(a, "registered_at") > objStr(latest, "registered_at") {
+			if validation.ObjStr(a, "registered_at") > validation.ObjStr(latest, "registered_at") {
 				latest = a
 			}
 		}
-		latestID := objStr(latest, "artifact_id")
+		latestID := validation.ObjStr(latest, "artifact_id")
 		migrate := kind
-		if kind == "" || objStr(latest, "kind") == kind {
+		if kind == "" || validation.ObjStr(latest, "kind") == kind {
 			migrate = ""
 		}
 		// Prune the ghosts first so a failure mid-way leaves the projection
 		// with one row per path, never zero.
 		var kept []KeptGhost
 		for _, a := range same {
-			id := objStr(a, "artifact_id")
+			id := validation.ObjStr(a, "artifact_id")
 			if id == latestID {
 				continue
 			}
@@ -502,14 +502,14 @@ func (c *Campaign) RegisterOrRefreshKeptGhosts(kind, path, note string,
 				// sources is not a clearance to destroy: keep the row and
 				// say why it survived, rather than prune on an unknown.
 				kept = append(kept, KeptGhost{ArtifactID: id,
-					Kind: objStr(a, "kind"),
+					Kind: validation.ObjStr(a, "kind"),
 					Citation: "the citation check could not read the " +
 						"campaign's evidence (" + cerr.Error() + ")"})
 				continue
 			}
 			if cited {
 				kept = append(kept, KeptGhost{ArtifactID: id,
-					Kind: objStr(a, "kind"), Citation: why})
+					Kind: validation.ObjStr(a, "kind"), Citation: why})
 				continue
 			}
 			label := kind
@@ -581,8 +581,8 @@ func ArtifactCitedByLiveBinds(c *Campaign, id string) (bool, string, error) {
 		return false, "", err
 	}
 	row := validation.VNull()
-	for _, a := range objAt(st, "artifacts").A {
-		if objStr(a, "artifact_id") == id {
+	for _, a := range validation.ObjAt(st, "artifacts").A {
+		if validation.ObjStr(a, "artifact_id") == id {
 			row = a
 			break
 		}
@@ -600,7 +600,7 @@ func ArtifactCitedByLiveBinds(c *Campaign, id string) (bool, string, error) {
 	// early return on the first hit hid the id-citation that makes the row
 	// unretirable (r35 F1).
 	var whys []string
-	cited, why, err := artifactShaCitedRow(c, events, objStr(row, "sha256"))
+	cited, why, err := artifactShaCitedRow(c, events, validation.ObjStr(row, "sha256"))
 	if err != nil {
 		return false, "", err
 	}
@@ -640,24 +640,24 @@ func artifactShaCitedRow(c *Campaign, events []validation.Value,
 		return false, "", err
 	}
 	for _, ev := range events {
-		if objStr(ev, "type") != "harness_run" {
+		if validation.ObjStr(ev, "type") != "harness_run" {
 			continue
 		}
-		d := objAt(ev, "data")
+		d := validation.ObjAt(ev, "data")
 		if !ArtifactEventCitesDig(d, dig, pins) {
 			continue
 		}
-		iid := objStr(d, "invariant")
+		iid := validation.ObjStr(d, "invariant")
 		if iid == "" {
 			iid = "an invariant the event does not name"
 		}
-		if objStr(d, "report_sha256") == dig {
+		if validation.ObjStr(d, "report_sha256") == dig {
 			return true, fmt.Sprintf("harness_run event %s for %s pins this "+
 				"row's sha256 as its report bytes", eventSeq(ev), iid), nil
 		}
 		return true, fmt.Sprintf("harness_run event %s for %s names exec %s, "+
 			"whose record pins this row's sha256 as the bytes the run took in",
-			eventSeq(ev), iid, objStr(d, "exec")), nil
+			eventSeq(ev), iid, validation.ObjStr(d, "exec")), nil
 	}
 	return false, "", nil
 }
@@ -672,13 +672,13 @@ func artifactShaCitedRow(c *Campaign, events []validation.Value,
 func artifactIDCitedByEvents(events []validation.Value, id string) (bool,
 	string, error) {
 	for _, ev := range events {
-		d := objAt(ev, "data")
-		switch objStr(ev, "type") {
+		d := validation.ObjAt(ev, "data")
+		switch validation.ObjStr(ev, "type") {
 		case "harness_scaffold":
-			if objStr(ev, "ref") != id || !scaffoldRefIsLive(events, d) {
+			if validation.ObjStr(ev, "ref") != id || !scaffoldRefIsLive(events, d) {
 				continue
 			}
-			label, kind := objStr(d, "artifact_id"), objStr(d, "kind")
+			label, kind := validation.ObjStr(d, "artifact_id"), validation.ObjStr(d, "kind")
 			if label == "" {
 				label = "an unnamed scaffold"
 			}
@@ -688,30 +688,30 @@ func artifactIDCitedByEvents(events []validation.Value, id string) (bool,
 			return true, fmt.Sprintf("harness_scaffold event %s refs this row "+
 				"as %s's %s scaffold, which the live harness_run bind for %s "+
 				"re-reads", eventSeq(ev), label, kind,
-				objStr(d, "invariant")), nil
+				validation.ObjStr(d, "invariant")), nil
 		case "invariant.verified":
-			if objStr(d, "artifact") == id {
+			if validation.ObjStr(d, "artifact") == id {
 				return true, fmt.Sprintf("invariant.verified event %s binds "+
 					"this row to %s as its CHECKED_AGAINST_CODE artifact",
-					eventSeq(ev), objStr(ev, "ref")), nil
+					eventSeq(ev), validation.ObjStr(ev, "ref")), nil
 			}
 		case "invariant.linked_test":
-			if objStr(d, "artifact") == id {
+			if validation.ObjStr(d, "artifact") == id {
 				return true, fmt.Sprintf("invariant.linked_test event %s "+
 					"registers this row as a test artifact of %s",
-					eventSeq(ev), objStr(ev, "ref")), nil
+					eventSeq(ev), validation.ObjStr(ev, "ref")), nil
 			}
 		case "invariant.contradicted":
-			if objStr(d, "evidence") == id {
+			if validation.ObjStr(d, "evidence") == id {
 				return true, fmt.Sprintf("invariant.contradicted event %s "+
 					"names this row as %s's contradiction anchor",
-					eventSeq(ev), objStr(ev, "ref")), nil
+					eventSeq(ev), validation.ObjStr(ev, "ref")), nil
 			}
 		case "finding.impact_quantified":
-			if objStr(d, "artifact_id") == id {
+			if validation.ObjStr(d, "artifact_id") == id {
 				return true, fmt.Sprintf("finding.impact_quantified event %s "+
 					"names this row as the artifact quantifying %s",
-					eventSeq(ev), objStr(ev, "ref")), nil
+					eventSeq(ev), validation.ObjStr(ev, "ref")), nil
 			}
 		}
 	}
@@ -734,20 +734,20 @@ func artifactIDCitedByEvents(events []validation.Value, id string) (bool,
 // side, by cmd_artifact_prune_test.go's TestR28ExecCitationNeedsALiveEvent:
 // a scaffold event alone must not make a row unretirable.
 func scaffoldRefIsLive(events []validation.Value, scaffold validation.Value) bool {
-	iid := objStr(scaffold, "invariant")
+	iid := validation.ObjStr(scaffold, "invariant")
 	if iid == "" {
 		return false
 	}
-	kind := objStr(scaffold, "kind")
+	kind := validation.ObjStr(scaffold, "kind")
 	for _, ev := range events {
-		if objStr(ev, "type") != "harness_run" {
+		if validation.ObjStr(ev, "type") != "harness_run" {
 			continue
 		}
-		d := objAt(ev, "data")
-		if objStr(d, "invariant") != iid {
+		d := validation.ObjAt(ev, "data")
+		if validation.ObjStr(d, "invariant") != iid {
 			continue
 		}
-		if evKind := objStr(d, "kind"); evKind == "" || kind == "" ||
+		if evKind := validation.ObjStr(d, "kind"); evKind == "" || kind == "" ||
 			evKind == kind {
 			return true
 		}
@@ -762,20 +762,20 @@ func artifactIDCitedByRegistry(c *Campaign, id string) (bool, string, error) {
 	if err != nil {
 		return false, "", err
 	}
-	for _, entry := range objAt(links, "invariants").O {
+	for _, entry := range validation.ObjAt(links, "invariants").O {
 		iid, e := entry.K, entry.V
 		if e.Kind != validation.Obj {
 			continue
 		}
-		if objStr(e, "verified_by") == id {
+		if validation.ObjStr(e, "verified_by") == id {
 			return true, fmt.Sprintf("%s links this row as its verified_by "+
 				"artifact (CHECKED_AGAINST_CODE)", iid), nil
 		}
-		if objStr(e, "contradiction") == id {
+		if validation.ObjStr(e, "contradiction") == id {
 			return true, fmt.Sprintf("%s names this row as its "+
 				"contradiction anchor", iid), nil
 		}
-		if arrHasStr(objAt(e, "tests"), id) {
+		if arrHasStr(validation.ObjAt(e, "tests"), id) {
 			return true, fmt.Sprintf("%s lists this row among its test "+
 				"artifacts", iid), nil
 		}
@@ -785,25 +785,25 @@ func artifactIDCitedByRegistry(c *Campaign, id string) (bool, string, error) {
 		return false, "", err
 	}
 	for _, f := range findings {
-		fid := objStr(f, "finding_id")
-		for _, item := range objAt(f, "evidence").A {
-			if objStr(item, "artifact_id") != id {
+		fid := validation.ObjStr(f, "finding_id")
+		for _, item := range validation.ObjAt(f, "evidence").A {
+			if validation.ObjStr(item, "artifact_id") != id {
 				continue
 			}
-			what := objStr(item, "evidence_id")
+			what := validation.ObjStr(item, "evidence_id")
 			if what == "" {
 				what = "an unnamed item"
 			}
 			return true, fmt.Sprintf("finding %s evidence %s names this row "+
 				"as its artifact_id", fid, what), nil
 		}
-		attempts := objAt(objAt(objAt(f, "verification"), "reproduction"),
+		attempts := validation.ObjAt(validation.ObjAt(validation.ObjAt(f, "verification"), "reproduction"),
 			"attempts")
 		for _, a := range attempts.A {
-			if objStr(a, "artifact_id") != id {
+			if validation.ObjStr(a, "artifact_id") != id {
 				continue
 			}
-			what := objStr(a, "attempt_id")
+			what := validation.ObjStr(a, "attempt_id")
 			if what == "" {
 				what = "an unnamed attempt"
 			}
@@ -882,7 +882,7 @@ func arrHasStr(v validation.Value, want string) bool {
 // eventSeq renders an event's seq for citation messages ("?" when a
 // hand-written line carries none).
 func eventSeq(ev validation.Value) string {
-	if s := objAt(ev, "seq"); s.Kind == validation.Int {
+	if s := validation.ObjAt(ev, "seq"); s.Kind == validation.Int {
 		return strconv.FormatInt(s.I, 10)
 	}
 	return "?"
@@ -906,10 +906,10 @@ func ArtifactEventCitesDig(d validation.Value, dig string,
 	if dig == "" {
 		return false
 	}
-	if objStr(d, "report_sha256") == dig {
+	if validation.ObjStr(d, "report_sha256") == dig {
 		return true
 	}
-	id := objStr(d, "exec")
+	id := validation.ObjStr(d, "exec")
 	return id != "" && citedExecs[id]
 }
 
@@ -931,10 +931,10 @@ func ArtifactCitedExecIDs(events []validation.Value, c *Campaign,
 	}
 	named := map[string]bool{}
 	for _, ev := range events {
-		if objStr(ev, "type") != "harness_run" {
+		if validation.ObjStr(ev, "type") != "harness_run" {
 			continue
 		}
-		if id := objStr(objAt(ev, "data"), "exec"); id != "" {
+		if id := validation.ObjStr(validation.ObjAt(ev, "data"), "exec"); id != "" {
 			named[id] = true
 		}
 	}
@@ -947,7 +947,7 @@ func ArtifactCitedExecIDs(events []validation.Value, c *Campaign,
 	}
 	pins := map[string]bool{}
 	for _, rec := range execs {
-		id := objStr(rec, "exec_id")
+		id := validation.ObjStr(rec, "exec_id")
 		if named[id] && artifactExecPins(rec, dig) {
 			pins[id] = true
 		}
@@ -965,7 +965,7 @@ func artifactExecPins(rec validation.Value, dig string) bool {
 		return false
 	}
 	for _, key := range []string{"input_hashes", "artifact_hashes"} {
-		m := objAt(rec, key)
+		m := validation.ObjAt(rec, key)
 		if m.Kind != validation.Obj {
 			continue
 		}
@@ -1030,27 +1030,27 @@ func (c *Campaign) artifactRowCurrent(kind, path string) (string, bool, error) {
 		return "", false, err
 	}
 	latest := validation.VNull()
-	for _, a := range objAt(st, "artifacts").A {
+	for _, a := range validation.ObjAt(st, "artifacts").A {
 		if resolvePath(c.resolveArtifactPath(a)) != resolved {
 			continue
 		}
 		if latest.Kind != validation.Obj ||
-			objStr(a, "registered_at") > objStr(latest, "registered_at") {
+			validation.ObjStr(a, "registered_at") > validation.ObjStr(latest, "registered_at") {
 			latest = a
 		}
 	}
 	if latest.Kind != validation.Obj {
 		return "", false, nil
 	}
-	if kind != "" && objStr(latest, "kind") != kind {
-		return objStr(latest, "artifact_id"), false, nil
+	if kind != "" && validation.ObjStr(latest, "kind") != kind {
+		return validation.ObjStr(latest, "artifact_id"), false, nil
 	}
 	sha, err := validation.Sha256File(path)
 	if err != nil {
-		return objStr(latest, "artifact_id"), false, nil
+		return validation.ObjStr(latest, "artifact_id"), false, nil
 	}
-	return objStr(latest, "artifact_id"),
-		sha != "" && objStr(latest, "sha256") == sha, nil
+	return validation.ObjStr(latest, "artifact_id"),
+		sha != "" && validation.ObjStr(latest, "sha256") == sha, nil
 }
 
 // ReconcileArtifacts re-hashes every registered row against its file: a row
@@ -1076,12 +1076,12 @@ func (c *Campaign) ReconcileArtifacts(dry bool) (validation.Value, error) {
 	if err != nil {
 		return validation.VNull(), err
 	}
-	rows := append([]validation.Value{}, objAt(st, "artifacts").A...)
+	rows := append([]validation.Value{}, validation.ObjAt(st, "artifacts").A...)
 	refreshed := []validation.Value{}
 	missing := []validation.Value{}
 	unchanged := int64(0)
 	for _, a := range rows {
-		id := objStr(a, "artifact_id")
+		id := validation.ObjStr(a, "artifact_id")
 		p := c.resolveArtifactPath(a)
 		if _, err := os.Stat(p); err != nil {
 			missing = append(missing, validation.VObj(
@@ -1089,7 +1089,7 @@ func (c *Campaign) ReconcileArtifacts(dry bool) (validation.Value, error) {
 				kv("path", validation.VStr(p))))
 			continue
 		}
-		stored := objAt(a, "sha256")
+		stored := validation.ObjAt(a, "sha256")
 		if stored.Kind != validation.Str || stored.S == "" {
 			// Registered without a hash: nothing to compare, and refreshing it
 			// here would invent a baseline from whatever is on disk now.
@@ -1132,7 +1132,7 @@ func (c *Campaign) ReconcileArtifacts(dry bool) (validation.Value, error) {
 // A row whose file moved returns a mismatch error naming both shas.
 func (c *Campaign) ArtifactBytes(row validation.Value) ([]byte, error) {
 	p := c.resolveArtifactPath(row)
-	stored := objStr(row, "sha256")
+	stored := validation.ObjStr(row, "sha256")
 	raw, err := os.ReadFile(p)
 	if err != nil {
 		return nil, err

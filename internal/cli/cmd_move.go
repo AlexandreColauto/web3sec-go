@@ -215,13 +215,13 @@ func moveCmd(root string, args []string, r *Runner) error {
 		return err
 	}
 	fmt.Fprintf(r.Out, "%s: %s (evidence level %s)\n", pos[1],
-		objStr(f, "status"), level)
+		validation.ObjStr(f, "status"), level)
 	if beforeErr == nil {
 		// survivor nil: the row itself carries its grants onward only
 		// while LIVE — a terminal row answers nothing, so "still
 		// listed" proves nothing here (unlike supersede, where a
 		// successor genuinely re-grants).
-		warnDyingGrants(r.Err, pos[1], objStr(f, "status"), before, nil)
+		warnDyingGrants(r.Err, pos[1], validation.ObjStr(f, "status"), before, nil)
 	}
 	return nil
 }

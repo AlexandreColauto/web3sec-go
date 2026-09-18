@@ -107,7 +107,7 @@ func probeCustodyPrimitive(index, model validation.Value) (probeOut, error) {
 				kv("base", validation.VStr(vStr(r.entry, "defining_contract"))),
 				kv("base_line", validation.VInt(int64(vInt(r.entry, "line")))),
 				kv("custody", validation.VStr(custody)),
-				kv("forward", strArr(sortedStrSet(names))),
+				kv("forward", validation.StrArr(sortedStrSet(names))),
 				kv("inherited", validation.VBool(inherited))))
 		}
 	}
@@ -184,7 +184,7 @@ func reprPrims(prims map[string]struct{}) string {
 }
 
 // reprStrings is Python str(list-of-str).
-func reprStrings(items []string) string { return validation.PyRepr(strArr(items)) }
+func reprStrings(items []string) string { return validation.PyRepr(validation.StrArr(items)) }
 
 func inSet(set map[string]struct{}, key string) bool {
 	_, ok := set[key]

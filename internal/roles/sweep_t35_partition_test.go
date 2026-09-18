@@ -30,7 +30,7 @@ func t35QueuePartitioned(t *testing.T, c *state.Campaign,
 	}
 	if partition != "dev" {
 		row.O = setKey(row, "partition", validation.VStr(partition)).O
-		path := filepath.Join(c.MemoryDir, objStr(row, "memory_id")+".json")
+		path := filepath.Join(c.MemoryDir, validation.ObjStr(row, "memory_id")+".json")
 		if err := validation.WriteJson(path, row, "memory"); err != nil {
 			t.Fatal(err)
 		}
@@ -46,8 +46,8 @@ func t35KnownIDs(t *testing.T, c *state.Campaign) []string {
 		t.Fatal(err)
 	}
 	out := []string{}
-	for _, r := range objAt(block, "known_non_issues").A {
-		out = append(out, objStr(r, "memory_id"))
+	for _, r := range validation.ObjAt(block, "known_non_issues").A {
+		out = append(out, validation.ObjStr(r, "memory_id"))
 	}
 	return out
 }
@@ -59,13 +59,13 @@ func TestHeldOutAndTrainingRowsAbsentFromProposerContext(t *testing.T) {
 	held := t35QueuePartitioned(t, c, "held-out")
 	training := t35QueuePartitioned(t, c, "training")
 	ids := t35KnownIDs(t, c)
-	if !t35Contains(ids, objStr(dev, "memory_id")) {
+	if !t35Contains(ids, validation.ObjStr(dev, "memory_id")) {
 		t.Errorf("dev row missing from %v", ids)
 	}
 	for _, row := range []validation.Value{held, training} {
-		if t35Contains(ids, objStr(row, "memory_id")) {
+		if t35Contains(ids, validation.ObjStr(row, "memory_id")) {
 			t.Errorf("%s row leaked into the proposer context: %v",
-				objStr(row, "partition"), ids)
+				validation.ObjStr(row, "partition"), ids)
 		}
 	}
 }
@@ -87,11 +87,11 @@ func TestSharedStoreHeldOutRowAbsentDevRowPresent(t *testing.T) {
 		t.Fatal(err)
 	}
 	ids := t35KnownIDs(t, c)
-	if t35Contains(ids, objStr(held, "memory_id")) {
+	if t35Contains(ids, validation.ObjStr(held, "memory_id")) {
 		t.Errorf("held-out row leaked through the shared-store wrapper: %v",
 			ids)
 	}
-	if !t35Contains(ids, objStr(dev, "memory_id")) {
+	if !t35Contains(ids, validation.ObjStr(dev, "memory_id")) {
 		t.Errorf("dev row missing from the shared-store path: %v", ids)
 	}
 }

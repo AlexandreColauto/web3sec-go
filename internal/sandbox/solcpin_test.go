@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"websec/internal/validation"
 
 	"websec/internal/snapshot"
 )
@@ -75,7 +76,7 @@ func TestSandboxPreflightRefusesHostileSolcPin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	solc := objAt(objAt(pre, "checks"), "solc")
+	solc := validation.ObjAt(validation.ObjAt(pre, "checks"), "solc")
 	if got := strAt(solc, "status"); got != "fail" {
 		t.Errorf("solc status = %q, want fail", got)
 	}

@@ -34,7 +34,7 @@ func TestExhaustionMessageNamesTheCommand(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := AddEvidence(c, objStr(a, "finding_id"), validation.VObj(
+	if _, err := AddEvidence(c, validation.ObjStr(a, "finding_id"), validation.VObj(
 		kv("evidence_id", validation.VStr("EV-a")),
 		kv("level", validation.VStr("E1")),
 		kv("type", validation.VStr("manual")),
@@ -42,7 +42,7 @@ func TestExhaustionMessageNamesTheCommand(t *testing.T) {
 	)); err != nil {
 		t.Fatal(err)
 	}
-	_, err = AddEvidence(c, objStr(b, "finding_id"), validation.VObj(
+	_, err = AddEvidence(c, validation.ObjStr(b, "finding_id"), validation.VObj(
 		kv("evidence_id", validation.VStr("EV-b")),
 		kv("level", validation.VStr("E1")),
 		kv("type", validation.VStr("manual")),
@@ -87,7 +87,7 @@ func oracleFindingWith(t *testing.T, c *state.Campaign,
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	if _, err := Transition(c, fid, "POSSIBLE", "triage", "", "", false); err != nil {
 		t.Fatal(err)
 	}
@@ -114,8 +114,8 @@ func oracleFindingWith(t *testing.T, c *state.Campaign,
 			kv("description", validation.VStr("evidence for gate clause test")))
 		if idx >= floor {
 			item.O = validation.SetOrAppend(item.O, "sandbox_profile",
-				objAt(rec, "profile"))
-			item.O = validation.SetOrAppend(item.O, "artifact_id", objAt(rec, "exec_id"))
+				validation.ObjAt(rec, "profile"))
+			item.O = validation.SetOrAppend(item.O, "artifact_id", validation.ObjAt(rec, "exec_id"))
 		}
 		if level == "E7" {
 			item.O = validation.SetOrAppend(item.O, "artifact_id", validation.VStr(aid))
@@ -188,7 +188,7 @@ func TestEvidenceCannotSubstituteForMissingClause(t *testing.T) {
 		t.Errorf("deficit %q wrongly re-demands the satisfied E7 clause",
 			*deficit)
 	}
-	if got := len(objAt(f, "evidence").A); got != 4 {
+	if got := len(validation.ObjAt(f, "evidence").A); got != 4 {
 		t.Errorf("evidence items = %d, want 4", got)
 	}
 }
@@ -228,7 +228,7 @@ func TestFullConfirmationOfEconomicClassWithThreeClauses(t *testing.T) {
 	c := ingestCamp(t)
 	f := oracleFindingWith(t, c, [][2]string{
 		{"E4", "foundry-test"}, {"E5", "fork-test"}, {"E7", "balance-delta"}})
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	if _, err := SetCriticVerdict(c, fid, "confirmed", "ok"); err != nil {
 		t.Fatal(err)
 	}
@@ -242,7 +242,7 @@ func TestFullConfirmationOfEconomicClassWithThreeClauses(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ver := asDict(objAt(vf, "verification"))
+	ver := asDict(validation.ObjAt(vf, "verification"))
 	ver.O = validation.SetOrAppend(ver.O, "reproduction", validation.VObj(
 		kv("tier_reached", validation.VStr("T3")),
 		kv("status", validation.VStr("reproduced")),
@@ -259,8 +259,8 @@ func TestFullConfirmationOfEconomicClassWithThreeClauses(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(got, "status") != "CONFIRMED" {
-		t.Fatalf("status = %q, want CONFIRMED", objStr(got, "status"))
+	if validation.ObjStr(got, "status") != "CONFIRMED" {
+		t.Fatalf("status = %q, want CONFIRMED", validation.ObjStr(got, "status"))
 	}
 }
 

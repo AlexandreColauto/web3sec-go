@@ -60,10 +60,10 @@ func TestR40cAuditReaderFramesPhysicalLines(t *testing.T) {
 		t.Fatalf("readWaiverRowsR12 returned %d row(s), want 3 "+
 			"(one per physical line)", len(rows))
 	}
-	if got := objStr(rows[0], "reason"); got != "escaped \u2028 reason" {
+	if got := validation.ObjStr(rows[0], "reason"); got != "escaped \u2028 reason" {
 		t.Errorf("escaped-form reason = %q", got)
 	}
-	if got := objStr(rows[1], "reason"); got != "legacy \u2028 reason" {
+	if got := validation.ObjStr(rows[1], "reason"); got != "legacy \u2028 reason" {
 		t.Errorf("raw-form reason = %q", got)
 	}
 	// The pairing verify enforces: every row anchored by its event.

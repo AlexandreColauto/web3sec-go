@@ -32,7 +32,7 @@ func entryPointName(ep validation.Value) string {
 		return ep.S
 	}
 	if ep.Kind == validation.Obj {
-		if nm := objAt(ep, "name"); nm.Kind == validation.Str {
+		if nm := validation.ObjAt(ep, "name"); nm.Kind == validation.Str {
 			return nm.S
 		}
 	}
@@ -41,10 +41,10 @@ func entryPointName(ep validation.Value) string {
 
 // contractToken is `c.get("name") or c.get("path") or "?"`.
 func contractToken(c validation.Value) string {
-	if nm := objAt(c, "name"); nm.Kind == validation.Str && nm.S != "" {
+	if nm := validation.ObjAt(c, "name"); nm.Kind == validation.Str && nm.S != "" {
 		return nm.S
 	}
-	if pa := objAt(c, "path"); pa.Kind == validation.Str && pa.S != "" {
+	if pa := validation.ObjAt(c, "path"); pa.Kind == validation.Str && pa.S != "" {
 		return pa.S
 	}
 	return "?"
@@ -56,13 +56,13 @@ func contractToken(c validation.Value) string {
 func LensFamilies(model validation.Value) validation.Value {
 	var sms []string
 	for _, sm := range listOf(model, "state_machines") {
-		if nm := objAt(sm, "name"); nm.Kind == validation.Str && nm.S != "" {
+		if nm := validation.ObjAt(sm, "name"); nm.Kind == validation.Str && nm.S != "" {
 			sms = append(sms, nm.S)
 		}
 	}
 	var actors []string
 	for _, a := range listOf(model, "actors") {
-		if id := objAt(a, "id"); id.Kind == validation.Str && id.S != "" {
+		if id := validation.ObjAt(a, "id"); id.Kind == validation.Str && id.S != "" {
 			actors = append(actors, id.S)
 		}
 	}
@@ -89,11 +89,11 @@ func LensFamilies(model validation.Value) validation.Value {
 	}
 	sort.Strings(sym)
 	return validation.VObj(
-		kv("liveness", strArr(orDefault(sms, []string{"protocol"}))),
-		kv("incentive-inversion", strArr(orDefault(actors, orDefault(sms,
+		kv("liveness", validation.StrArr(orDefault(sms, []string{"protocol"}))),
+		kv("incentive-inversion", validation.StrArr(orDefault(actors, orDefault(sms,
 			[]string{"protocol"})))),
-		kv("enforcement-timing", strArr(orDefault(sms, []string{"protocol"}))),
-		kv("primitive-symmetry", strArr(orDefault(sym, orDefault(sms,
+		kv("enforcement-timing", validation.StrArr(orDefault(sms, []string{"protocol"}))),
+		kv("primitive-symmetry", validation.StrArr(orDefault(sym, orDefault(sms,
 			[]string{"protocol"})))),
 	)
 }
@@ -122,8 +122,8 @@ func modelKey(v validation.Value) string {
 func FamiliesForFinding(model, finding validation.Value) map[string]struct{} {
 	contracts := map[string]validation.Value{}
 	for _, c := range listOf(model, "contracts") {
-		nm := objAt(c, "name")
-		pa := objAt(c, "path")
+		nm := validation.ObjAt(c, "name")
+		pa := validation.ObjAt(c, "path")
 		var key string
 		switch {
 		case pyTruthyBigNonEmpty(nm):
@@ -138,7 +138,7 @@ func FamiliesForFinding(model, finding validation.Value) map[string]struct{} {
 	toks := map[string]struct{}{}
 	affected := listOf(finding, "affected")
 	for _, a := range affected {
-		c, ok := contracts[modelKey(objAt(a, "contract"))]
+		c, ok := contracts[modelKey(validation.ObjAt(a, "contract"))]
 		if !ok {
 			continue
 		}
@@ -152,7 +152,7 @@ func FamiliesForFinding(model, finding validation.Value) map[string]struct{} {
 		}
 	}
 	for _, sm := range listOf(model, "state_machines") {
-		nm := objAt(sm, "name")
+		nm := validation.ObjAt(sm, "name")
 		if !pyTruthyBigNonEmpty(nm) || nm.Kind != validation.Str {
 			continue
 		}
@@ -179,13 +179,13 @@ func SeedLenses(plan, model validation.Value) ([]validation.Value,
 		if l.Kind != validation.Obj {
 			continue
 		}
-		id := objStr(l, "id")
+		id := validation.ObjStr(l, "id")
 		have[id] = struct{}{}
 		byID[id] = l
 	}
 	fams := LensFamilies(model)
 	added := []validation.Value{}
-	lenses := objAt(plan, "lenses")
+	lenses := validation.ObjAt(plan, "lenses")
 	if lenses.Kind != validation.Arr {
 		lenses = validation.VArr()
 	}
@@ -196,9 +196,9 @@ func SeedLenses(plan, model validation.Value) ([]validation.Value,
 			// old reason+actor contract — never retroactively demand a family
 			// attestation they never gave. Only open lenses get backfilled.
 			entry := byID[lid]
-			if objStr(entry, "status") == "open" && !hasKey(entry, "families") {
+			if validation.ObjStr(entry, "status") == "open" && !hasKey(entry, "families") {
 				entry.O = validation.SetOrAppend(entry.O, "families",
-					objAt(fams, objStr(entry, "lens")))
+					validation.ObjAt(fams, validation.ObjStr(entry, "lens")))
 				lenses.A = replaceLens(lenses.A, lid, entry)
 			}
 			continue
@@ -210,7 +210,7 @@ func SeedLenses(plan, model validation.Value) ([]validation.Value,
 			kv("question", validation.VStr(formatLens(lensQuestions[lens],
 				machines))),
 			kv("status", validation.VStr("open")),
-			kv("families", objAt(fams, lens)),
+			kv("families", validation.ObjAt(fams, lens)),
 		)
 		added = append(added, entry)
 		lenses.A = append(lenses.A, entry)
@@ -223,7 +223,7 @@ func SeedLenses(plan, model validation.Value) ([]validation.Value,
 func replaceLens(lenses []validation.Value, lid string,
 	entry validation.Value) []validation.Value {
 	for j, e := range lenses {
-		if objStr(e, "id") == lid {
+		if validation.ObjStr(e, "id") == lid {
 			lenses[j] = entry
 		}
 	}
@@ -235,8 +235,8 @@ func replaceLens(lenses []validation.Value, lid string,
 func machinesLabel(model validation.Value) string {
 	var names []string
 	for _, m := range listOf(model, "state_machines") {
-		id := objAt(m, "id")
-		nm := objAt(m, "name")
+		id := validation.ObjAt(m, "id")
+		nm := validation.ObjAt(m, "name")
 		switch {
 		case pyTruthyBigNonEmpty(id):
 			names = append(names, pyStr(id))
@@ -289,18 +289,18 @@ func MarkLens(campaign *state.Campaign, plan validation.Value, lensID,
 		actor = "cli"
 	}
 	closing := outcome == "answered" || outcome == "not-applicable"
-	lenses := objAt(plan, "lenses")
+	lenses := validation.ObjAt(plan, "lenses")
 	found := false
 	if lenses.Kind == validation.Arr {
 		for i, l := range lenses.A {
-			if objStr(l, "id") != lensID {
+			if validation.ObjStr(l, "id") != lensID {
 				continue
 			}
 			// FIX-8, before any mutation: the divergence-gate close demands
 			// the mechanical recon on record — a lens attestation over
 			// divergence rows the backward slice and the prescreen never
 			// saw is prose, not attestation. Unconditional: recon is cheap.
-			if closing && objStr(l, "lens") == "primitive-symmetry" {
+			if closing && validation.ObjStr(l, "lens") == "primitive-symmetry" {
 				if err := checkReconStamps(campaign); err != nil {
 					return validation.VNull(), err
 				}
@@ -309,7 +309,7 @@ func MarkLens(campaign *state.Campaign, plan validation.Value, lensID,
 			// attests a reconciliation for every divergence row in the
 			// current surface — the refusal must leave the plan untouched,
 			// and only records the gate actually validated land on the lens.
-			if closing && objStr(l, "lens") == "primitive-symmetry" {
+			if closing && validation.ObjStr(l, "lens") == "primitive-symmetry" {
 				validated, err := checkLensReconciliation(campaign, l, opts)
 				if err != nil {
 					return validation.VNull(), err
@@ -375,16 +375,16 @@ func markLensEntry(l validation.Value, outcome string, closing bool,
 	if opts.Ref != nil {
 		l.O = validation.SetOrAppend(l.O, "closed_ref", validation.VStr(*opts.Ref))
 	}
-	l.O = validation.SetOrAppend(l.O, "closed_at", validation.VStr(nowIso()))
+	l.O = validation.SetOrAppend(l.O, "closed_at", validation.VStr(state.NowIso()))
 	l.O = validation.SetOrAppend(l.O, "closed_by", validation.VStr(actor))
 	l.O = dropKey(l.O, "reopen_reason")
 	l.O = dropKey(l.O, "reopened_at")
 	if opts.Symmetry != nil {
 		l.O = validation.SetOrAppend(l.O, "symmetry", validation.VArr(*opts.Symmetry...))
 		l.O = validation.SetOrAppend(l.O, "families_checked",
-			strArr(symmetryFamilies(*opts.Symmetry)))
+			validation.StrArr(symmetryFamilies(*opts.Symmetry)))
 	} else if opts.FamiliesChecked != nil {
-		l.O = validation.SetOrAppend(l.O, "families_checked", strArr(*opts.FamiliesChecked))
+		l.O = validation.SetOrAppend(l.O, "families_checked", validation.StrArr(*opts.FamiliesChecked))
 	}
 	// FIX-6: the reconciliation is part of the attestation record, the same
 	// way symmetry is — SetOrAppend replaces, so a re-attestation cannot
@@ -400,7 +400,7 @@ func markLensEntry(l validation.Value, outcome string, closing bool,
 func symmetryFamilies(symmetry []validation.Value) []string {
 	out := []string{}
 	for _, s := range symmetry {
-		if f := objAt(s, "family"); pyTruthyBigNonEmpty(f) {
+		if f := validation.ObjAt(s, "family"); pyTruthyBigNonEmpty(f) {
 			out = append(out, pyStr(f))
 		}
 	}
@@ -423,7 +423,7 @@ func optStr(s *string) validation.Value {
 func RolePrivilegeSurface(model validation.Value) map[string][]validation.Value {
 	groups := map[string][]validation.Value{}
 	for _, p := range listOf(model, "privileges") {
-		role := objAt(p, "role")
+		role := validation.ObjAt(p, "role")
 		if !pyTruthyBigNonEmpty(role) {
 			continue
 		}

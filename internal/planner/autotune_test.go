@@ -131,7 +131,7 @@ func atuneQueueOf(t *testing.T, q []validation.Value) map[string]validation.Valu
 	t.Helper()
 	out := map[string]validation.Value{}
 	for _, row := range q {
-		out[objStr(row, "priority_id")] = row
+		out[validation.ObjStr(row, "priority_id")] = row
 	}
 	return out
 }
@@ -185,14 +185,14 @@ func TestAutoTuneFlagOffByteLaw(t *testing.T) {
 	for _, row := range off {
 		if hasKey(row, "reason") {
 			t.Fatalf("flag-off row %s carries a reason key",
-				objStr(row, "priority_id"))
+				validation.ObjStr(row, "priority_id"))
 		}
 	}
 	byID := atuneQueueOf(t, off)
-	if got := objStr(byID["Q-A-001"], "slot"); got != "now" {
+	if got := validation.ObjStr(byID["Q-A-001"], "slot"); got != "now" {
 		t.Errorf("flag-off Q-A-001 slot = %q, want now", got)
 	}
-	if got := objStr(byID["Q-B-006"], "slot"); got != "batch" {
+	if got := validation.ObjStr(byID["Q-B-006"], "slot"); got != "batch" {
 		t.Errorf("flag-off Q-B-006 slot = %q, want batch", got)
 	}
 	// Explicit false is byte-identical to absent (T11-style defaulting).
@@ -229,10 +229,10 @@ func TestAutoTuneDemotesDeadLens(t *testing.T) {
 		if !ok {
 			t.Fatalf("%s missing from the queue", qid)
 		}
-		if got := objStr(row, "slot"); got != "park" {
+		if got := validation.ObjStr(row, "slot"); got != "park" {
 			t.Errorf("%s slot = %q, want park", qid, got)
 		}
-		if got := objStr(row, "reason"); got != reason {
+		if got := validation.ObjStr(row, "reason"); got != reason {
 			t.Errorf("%s reason = %q, want %q", qid, got, reason)
 		}
 	}
@@ -242,7 +242,7 @@ func TestAutoTuneDemotesDeadLens(t *testing.T) {
 		if !ok {
 			t.Fatalf("%s missing from the queue", qid)
 		}
-		if got := objStr(row, "slot"); got != "batch" {
+		if got := validation.ObjStr(row, "slot"); got != "batch" {
 			t.Errorf("%s slot = %q, want batch (5/12 never parks)", qid,
 				got)
 		}
@@ -254,13 +254,13 @@ func TestAutoTuneDemotesDeadLens(t *testing.T) {
 	// parked L-01 rows (priority order) — L-id then parked-last.
 	for i, want := range []string{"Q-B-006", "Q-B-007", "Q-B-008",
 		"Q-B-009", "Q-B-010", "Q-B-011", "Q-B-012"} {
-		if got := objStr(q[i], "priority_id"); got != want {
+		if got := validation.ObjStr(q[i], "priority_id"); got != want {
 			t.Fatalf("queue[%d] = %q, want %q", i, got, want)
 		}
 	}
 	for i := 0; i < 40; i++ {
 		want := fmt.Sprintf("Q-A-%03d", i+1)
-		if got := objStr(q[7+i], "priority_id"); got != want {
+		if got := validation.ObjStr(q[7+i], "priority_id"); got != want {
 			t.Fatalf("queue[%d] = %q, want %q", 7+i, got, want)
 		}
 	}
@@ -292,13 +292,13 @@ func TestAutoTuneThresholdEdges(t *testing.T) {
 			t.Fatalf("n=%d: queue rows = %d, want %d", n, len(q), n)
 		}
 		for _, row := range q {
-			if got := objStr(row, "slot"); got != "now" {
+			if got := validation.ObjStr(row, "slot"); got != "now" {
 				t.Errorf("n=%d: %s slot = %q, want now (no demote)",
-					n, objStr(row, "priority_id"), got)
+					n, validation.ObjStr(row, "priority_id"), got)
 			}
 			if hasKey(row, "reason") {
 				t.Errorf("n=%d: %s carries a reason key without demotion",
-					n, objStr(row, "priority_id"))
+					n, validation.ObjStr(row, "priority_id"))
 			}
 		}
 	}
@@ -317,13 +317,13 @@ func TestSeedLensesIDsStoredAndStable(t *testing.T) {
 	wantIDs := []string{"L-01", "L-02", "L-03", "L-04"}
 	lenses := listOf(plan, "lenses")
 	for i, want := range wantIDs {
-		if got := objStr(lenses[i], "id"); got != want {
+		if got := validation.ObjStr(lenses[i], "id"); got != want {
 			t.Fatalf("lens[%d].id = %q, want %q (plan-order)", i, got,
 				want)
 		}
 	}
 	for i, want := range LensIDs {
-		if got := objStr(lenses[i], "lens"); got != want {
+		if got := validation.ObjStr(lenses[i], "lens"); got != want {
 			t.Fatalf("lens[%d].lens = %q, want %q", i, got, want)
 		}
 	}
@@ -384,26 +384,26 @@ func TestAutoTuneTiebreakAttributesLensByPriorityID(t *testing.T) {
 	byID := atuneQueueOf(t, q)
 	for _, qid := range l01 {
 		row := byID[qid]
-		if got := objStr(row, "slot"); got != "park" {
+		if got := validation.ObjStr(row, "slot"); got != "park" {
 			t.Errorf("%s slot = %q, want park", qid, got)
 		}
-		if got := objStr(row, "reason"); got != r01 {
+		if got := validation.ObjStr(row, "reason"); got != r01 {
 			t.Errorf("%s reason = %q, want %q", qid, got, r01)
 		}
 	}
 	for _, qid := range l02 {
 		row := byID[qid]
-		if got := objStr(row, "slot"); got != "park" {
+		if got := validation.ObjStr(row, "slot"); got != "park" {
 			t.Errorf("%s slot = %q, want park", qid, got)
 		}
-		if got := objStr(row, "reason"); got != r02 {
+		if got := validation.ObjStr(row, "reason"); got != r02 {
 			t.Errorf("%s reason = %q, want %q", qid, got, r02)
 		}
 	}
 	// Parked tail: the L-01 block (priority order) then the L-02 block
 	// (priority order) — equal risk, so the L-id tiebreak owns the order.
 	for i, want := range append(append([]string{}, l01...), l02...) {
-		if got := objStr(q[i], "priority_id"); got != want {
+		if got := validation.ObjStr(q[i], "priority_id"); got != want {
 			t.Fatalf("queue[%d] = %q, want %q", i, got, want)
 		}
 	}

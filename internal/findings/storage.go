@@ -12,7 +12,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	"websec/internal/state"
 	"websec/internal/validation"
@@ -27,11 +26,11 @@ func FindingPath(campaign *state.Campaign, findingID string) string {
 // against the finding schema, and write it. The caller's Value is mutated in
 // place (Python mutates the dict it was handed).
 func SaveFinding(campaign *state.Campaign, finding *validation.Value) error {
-	finding.O = validation.SetOrAppend(finding.O, "updated_at", validation.VStr(nowIso()))
+	finding.O = validation.SetOrAppend(finding.O, "updated_at", validation.VStr(state.NowIso()))
 	if err := validation.Validate(*finding, "finding", 1); err != nil {
 		return err
 	}
-	id := objStr(*finding, "finding_id")
+	id := validation.ObjStr(*finding, "finding_id")
 	if id == "" {
 		// Python's finding["finding_id"] raises KeyError("finding_id").
 		return fmt.Errorf("'finding_id'")
@@ -76,11 +75,11 @@ func LoadAllFindings(campaign *state.Campaign) ([]validation.Value, error) {
 		out = append(out, v)
 	}
 	sort.SliceStable(out, func(i, j int) bool {
-		ci, cj := objStr(out[i], "created_at"), objStr(out[j], "created_at")
+		ci, cj := validation.ObjStr(out[i], "created_at"), validation.ObjStr(out[j], "created_at")
 		if ci != cj {
 			return ci < cj
 		}
-		return objStr(out[i], "finding_id") < objStr(out[j], "finding_id")
+		return validation.ObjStr(out[i], "finding_id") < validation.ObjStr(out[j], "finding_id")
 	})
 	return out, nil
 }
@@ -99,7 +98,7 @@ func LoadLiveFindings(campaign *state.Campaign) ([]validation.Value, error) {
 	}
 	out := make([]validation.Value, 0, len(all))
 	for _, f := range all {
-		if s := objStr(f, "status"); s == "DUPLICATE" || s == "OUT_OF_SCOPE" ||
+		if s := validation.ObjStr(f, "status"); s == "DUPLICATE" || s == "OUT_OF_SCOPE" ||
 			s == "SUPERSEDED" {
 			continue
 		}
@@ -139,17 +138,6 @@ func newRandomFindingID() string {
 	return "F-" + hex.EncodeToString(b)[:12]
 }
 
-// nowIso is now_iso (mirrors state.nowIso, unexported there). The WEBV2_NOW
-// golden-suite clock pin is honored identically.
-func nowIso() string {
-	if v := os.Getenv("WEBV2_NOW"); v != "" {
-		return v
-	}
-	now := time.Now().UTC()
-	return fmt.Sprintf("%s.%06d+00:00",
-		now.Format("2006-01-02T15:04:05"), now.Nanosecond()/1000)
-}
-
 // PinnedFindingID and ResetPinnedFindingIDs are the golden suite's
 // deterministic id stream: F-<sha256("task13-finding:<n>")[:12]>. Replaying
 // the recipe reproduces every id, so the id-dependent orderings (findings are
@@ -176,7 +164,7 @@ func PinnedFindingID() string {
 // refusal the FILE is restored before the error returns.
 func SaveThenLog(campaign *state.Campaign, finding *validation.Value,
 	log func() error) error {
-	id := objStr(*finding, "finding_id")
+	id := validation.ObjStr(*finding, "finding_id")
 	path := FindingPath(campaign, id)
 	prevRaw, hadRaw, perr := prevBytes(path)
 	if perr != nil && !os.IsNotExist(perr) {
@@ -232,7 +220,7 @@ func SaveThenLogMany(campaign *state.Campaign, findingsList []*validation.Value,
 	}
 	snaps := make([]snap, 0, len(findingsList))
 	for _, f := range findingsList {
-		id := objStr(*f, "finding_id")
+		id := validation.ObjStr(*f, "finding_id")
 		path := FindingPath(campaign, id)
 		raw, had, perr := prevBytes(path)
 		if perr != nil && !os.IsNotExist(perr) {

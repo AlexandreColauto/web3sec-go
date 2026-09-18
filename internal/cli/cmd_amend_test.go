@@ -40,7 +40,7 @@ func supersedeIngest(t *testing.T, c *state.Campaign) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return objStr(f, "finding_id")
+	return validation.ObjStr(f, "finding_id")
 }
 
 func TestAmendHappyPath(t *testing.T) {
@@ -63,22 +63,22 @@ func TestAmendHappyPath(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(f, "status"); got != "HYPOTHESIS" {
+	if got := validation.ObjStr(f, "status"); got != "HYPOTHESIS" {
 		t.Fatalf("status = %q, want HYPOTHESIS (amend never moves status)", got)
 	}
-	if v := objAt(f, "claim_version"); v.Kind != validation.Int || v.I != 1 {
+	if v := validation.ObjAt(f, "claim_version"); v.Kind != validation.Int || v.I != 1 {
 		t.Fatalf("claim_version = %v, want 1", v)
 	}
-	hist := objAt(f, "history").A
+	hist := validation.ObjAt(f, "history").A
 	last := hist[len(hist)-1]
 	wantReason := "amend: title — retitled after reading the vault code"
-	if objStr(last, "reason") != wantReason {
-		t.Fatalf("history reason = %q, want %q", objStr(last, "reason"),
+	if validation.ObjStr(last, "reason") != wantReason {
+		t.Fatalf("history reason = %q, want %q", validation.ObjStr(last, "reason"),
 			wantReason)
 	}
 	// Actor flag default is "model".
-	if objStr(last, "actor") != "model" {
-		t.Fatalf("history actor = %q, want model", objStr(last, "actor"))
+	if validation.ObjStr(last, "actor") != "model" {
+		t.Fatalf("history actor = %q, want model", validation.ObjStr(last, "actor"))
 	}
 	if types := eventTypes(t, c); !containsStrCLI(types, "finding.amended") {
 		t.Fatalf("finding.amended missing from %v", types)
@@ -106,7 +106,7 @@ func TestAmendClaimAndClass(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cls := objStr(objAt(f, "root_cause"), "class"); cls != "logic-error" {
+	if cls := validation.ObjStr(validation.ObjAt(f, "root_cause"), "class"); cls != "logic-error" {
 		t.Fatalf("root_cause.class = %q", cls)
 	}
 }
@@ -166,7 +166,7 @@ func TestSupersedeHappyPath(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	beforeEv := validation.CanonSpaced(objAt(before, "evidence"))
+	beforeEv := validation.CanonSpaced(validation.ObjAt(before, "evidence"))
 	newID := supersedeIngest(t, c)
 	code, out, errS := run(t, "--root", root, "supersede", c.CampaignID,
 		newID, "--of", oldID)
@@ -185,27 +185,27 @@ func TestSupersedeHappyPath(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(old, "status"); got != "SUPERSEDED" {
+	if got := validation.ObjStr(old, "status"); got != "SUPERSEDED" {
 		t.Fatalf("old status = %q, want SUPERSEDED", got)
 	}
-	if after := validation.CanonSpaced(objAt(old, "evidence")); after != beforeEv {
+	if after := validation.CanonSpaced(validation.ObjAt(old, "evidence")); after != beforeEv {
 		t.Fatalf("old evidence mutated:\nbefore %s\nafter  %s", beforeEv, after)
 	}
 	cur, err := findings.LoadFinding(c, newID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	ev := objAt(cur, "evidence")
+	ev := validation.ObjAt(cur, "evidence")
 	if len(ev.A) != 2 {
 		t.Fatalf("new evidence has %d items, want 2", len(ev.A))
 	}
 	for _, it := range ev.A {
-		if objStr(it, "re_parented_from") != oldID {
+		if validation.ObjStr(it, "re_parented_from") != oldID {
 			t.Errorf("item %s missing re_parented_from",
-				objStr(it, "evidence_id"))
+				validation.ObjStr(it, "evidence_id"))
 		}
 	}
-	if sup := objStr(objAt(cur, "dedup_meta"), "supersedes"); sup != oldID {
+	if sup := validation.ObjStr(validation.ObjAt(cur, "dedup_meta"), "supersedes"); sup != oldID {
 		t.Fatalf("dedup_meta.supersedes = %q, want %q", sup, oldID)
 	}
 	if types := eventTypes(t, c); !containsStrCLI(types, "finding.superseded") {

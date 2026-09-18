@@ -128,7 +128,7 @@ func ackFinding(t *testing.T, c *state.Campaign, aff []validation.KV,
 	if err != nil {
 		t.Fatal(err)
 	}
-	sid := objStr(st, "active_snapshot_id")
+	sid := validation.ObjStr(st, "active_snapshot_id")
 	return validation.VObj(
 		kv("title", validation.VStr("ack scan fixture")),
 		kv("root_cause", validation.VObj(
@@ -193,16 +193,16 @@ func TestAckScanHitInWindow(t *testing.T) {
 	if !hit {
 		t.Fatal("want a hit")
 	}
-	if got := objStr(ack, "file"); got != "src/Stub.sol" {
+	if got := validation.ObjStr(ack, "file"); got != "src/Stub.sol" {
 		t.Errorf("file = %q", got)
 	}
-	if got := objAt(ack, "line").I; got != 5 {
+	if got := validation.ObjAt(ack, "line").I; got != 5 {
 		t.Errorf("line = %d, want 5 (the TODO, first in window order)", got)
 	}
-	if got := objStr(ack, "phrase"); got != "todo" {
+	if got := validation.ObjStr(ack, "phrase"); got != "todo" {
 		t.Errorf("phrase = %q", got)
 	}
-	if got := objStr(ack, "window"); got != fmt.Sprint(AckWindow) {
+	if got := validation.ObjStr(ack, "window"); got != fmt.Sprint(AckWindow) {
 		t.Errorf("window = %q", got)
 	}
 }
@@ -230,8 +230,8 @@ func TestAckScanWindowEdge(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !hit || objStr(ack, "phrase") != "fixme" ||
-		objAt(ack, "line").I != 1 {
+	if !hit || validation.ObjStr(ack, "phrase") != "fixme" ||
+		validation.ObjAt(ack, "line").I != 1 {
 		t.Errorf("want the line-1 fixme, got hit=%v ack=%v", hit, ack)
 	}
 }
@@ -247,7 +247,7 @@ func TestAckScanPhrasePrecedence(t *testing.T) {
 	if err != nil || !hit {
 		t.Fatalf("hit=%v err=%v", hit, err)
 	}
-	if got := objStr(ack, "phrase"); got != "not implemented" {
+	if got := validation.ObjStr(ack, "phrase"); got != "not implemented" {
 		t.Errorf("phrase = %q, want the most specific phrase", got)
 	}
 }
@@ -280,7 +280,7 @@ func TestAckScanFunctionResolution(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !hit || objAt(ack, "line").I != 5 {
+	if !hit || validation.ObjAt(ack, "line").I != 5 {
 		t.Errorf("want the line-5 TODO via the function anchor, got hit=%v "+
 			"ack=%v", hit, ack)
 	}
@@ -305,7 +305,7 @@ func TestAckScanMultiAnchor(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !hit || objStr(ack, "file") != "src/Stub.sol" {
+	if !hit || validation.ObjStr(ack, "file") != "src/Stub.sol" {
 		t.Errorf("want the Stub.sol hit, got hit=%v ack=%v", hit, ack)
 	}
 }
@@ -347,7 +347,7 @@ func TestAckScanIndexCallSite(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !hit || objStr(ack, "file") != "src/Stub.sol" {
+	if !hit || validation.ObjStr(ack, "file") != "src/Stub.sol" {
 		t.Errorf("want the index-resolved Stub.sol hit, got hit=%v ack=%v",
 			hit, ack)
 	}
@@ -409,12 +409,12 @@ func TestRecordAckScanIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	dm := objAt(stored, "dedup_meta")
+	dm := validation.ObjAt(stored, "dedup_meta")
 	if dm.Kind != validation.Obj {
 		t.Fatal("dedup_meta missing")
 	}
-	ack := objAt(dm, "in_code_ack")
-	if objStr(ack, "phrase") != "todo" || objAt(ack, "line").I != 5 {
+	ack := validation.ObjAt(dm, "in_code_ack")
+	if validation.ObjStr(ack, "phrase") != "todo" || validation.ObjAt(ack, "line").I != 5 {
 		t.Errorf("record = %v", ack)
 	}
 	events, err := c.Events()
@@ -423,9 +423,9 @@ func TestRecordAckScanIdempotent(t *testing.T) {
 	}
 	n := 0
 	for _, e := range events {
-		if objStr(e, "type") == "finding.ack_scanned" {
+		if validation.ObjStr(e, "type") == "finding.ack_scanned" {
 			n++
-			if !objAt(objAt(e, "data"), "hit").B {
+			if !validation.ObjAt(validation.ObjAt(e, "data"), "hit").B {
 				t.Errorf("event %d: hit must be true", n)
 			}
 		}
@@ -473,7 +473,7 @@ func TestRecordAckScanClearsOnClean(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := fieldAt(objAt(after, "dedup_meta"), "in_code_ack"); ok {
+	if _, ok := fieldAt(validation.ObjAt(after, "dedup_meta"), "in_code_ack"); ok {
 		t.Error("a clean re-scan must clear the stored record")
 	}
 }
@@ -498,7 +498,7 @@ func TestRecordAckScanSkipReason(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if dm := objAt(stored, "dedup_meta"); dm.Kind == validation.Obj {
+	if dm := validation.ObjAt(stored, "dedup_meta"); dm.Kind == validation.Obj {
 		t.Errorf("a skipped scan must not create dedup_meta: %v", dm)
 	}
 	events, err := c.Events()
@@ -506,7 +506,7 @@ func TestRecordAckScanSkipReason(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, e := range events {
-		if objStr(e, "type") == "finding.ack_scanned" {
+		if validation.ObjStr(e, "type") == "finding.ack_scanned" {
 			t.Error("a skipped scan must not log an event")
 		}
 	}
@@ -523,12 +523,12 @@ func TestIngestHooksAckScan(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	stored, err := LoadFinding(c, objStr(f, "finding_id"))
+	stored, err := LoadFinding(c, validation.ObjStr(f, "finding_id"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	ack := objAt(objAt(stored, "dedup_meta"), "in_code_ack")
-	if objStr(ack, "phrase") != "todo" || objAt(ack, "line").I != 5 {
+	ack := validation.ObjAt(validation.ObjAt(stored, "dedup_meta"), "in_code_ack")
+	if validation.ObjStr(ack, "phrase") != "todo" || validation.ObjAt(ack, "line").I != 5 {
 		t.Errorf("ingest must carry the ack record: %v", ack)
 	}
 	events, err := c.Events()
@@ -537,10 +537,10 @@ func TestIngestHooksAckScan(t *testing.T) {
 	}
 	seenAck, seenIngest := false, false
 	for _, e := range events {
-		switch objStr(e, "type") {
+		switch validation.ObjStr(e, "type") {
 		case "finding.ack_scanned":
 			seenAck = true
-			if !objAt(objAt(e, "data"), "hit").B {
+			if !validation.ObjAt(validation.ObjAt(e, "data"), "hit").B {
 				t.Error("ack_scanned hit must be true")
 			}
 		case "finding.ingested":

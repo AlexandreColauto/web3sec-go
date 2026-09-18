@@ -61,7 +61,7 @@ func BuildReport(c *state.Campaign, pocRoot *string) (validation.Value, error) {
 		return validation.VNull(), err
 	}
 	for i, m := range matches {
-		attr, ok := attribution[objStr(m, "file")]
+		attr, ok := attribution[validation.ObjStr(m, "file")]
 		if !ok {
 			continue
 		}
@@ -73,7 +73,7 @@ func BuildReport(c *state.Campaign, pocRoot *string) (validation.Value, error) {
 	}
 	return validation.VObj(
 		validation.KV{K: "campaign_id", V: validation.VStr(c.CampaignID)},
-		validation.KV{K: "generated_at", V: validation.VStr(nowIso())},
+		validation.KV{K: "generated_at", V: validation.VStr(state.NowIso())},
 		validation.KV{K: "inventory", V: inventory},
 		validation.KV{K: "class_exposure", V: validation.VArr(exposure...)},
 		validation.KV{K: "shape_matches", V: validation.VArr(matches...)},
@@ -120,13 +120,13 @@ func pocAttribution(pocRoot *string) (map[string]*attribution, int64, error) {
 	byPath := map[string]*attribution{}
 	missing := int64(0)
 	for _, rec := range records {
-		poc := objStr(objAt(rec, "exploit"), "poc_path")
+		poc := validation.ObjStr(validation.ObjAt(rec, "exploit"), "poc_path")
 		if poc == "" {
 			missing++
 			continue
 		}
 		byPath[poc] = &attribution{
-			recordID:  objAt(rec, "id"),
+			recordID:  validation.ObjAt(rec, "id"),
 			memoryIDs: validation.VArr(),
 			bugClass:  validation.VNull(),
 		}
@@ -145,7 +145,7 @@ func attachMemory(c *state.Campaign, byPath map[string]*attribution) error {
 	byCampaign := map[string][]validation.Value{}
 	for _, w := range rows {
 		row := wrappedRow(w)
-		cid := objStr(row, "campaign_id")
+		cid := validation.ObjStr(row, "campaign_id")
 		if len(cid) >= len("ingest:defihacklabs:") &&
 			cid[:len("ingest:defihacklabs:")] == "ingest:defihacklabs:" {
 			byCampaign[cid] = append(byCampaign[cid], row)
@@ -158,14 +158,14 @@ func attachMemory(c *state.Campaign, byPath map[string]*attribution) error {
 		matched := byCampaign["ingest:defihacklabs:"+entry.recordID.S]
 		ids := make([]string, 0, len(matched))
 		for _, r := range matched {
-			if id := objAt(r, "memory_id"); id.Kind == validation.Str {
+			if id := validation.ObjAt(r, "memory_id"); id.Kind == validation.Str {
 				ids = append(ids, id.S)
 			}
 		}
 		sort.Strings(ids)
-		entry.memoryIDs = strArr(ids)
+		entry.memoryIDs = validation.StrArr(ids)
 		if len(matched) > 0 {
-			entry.bugClass = objAt(matched[0], "bug_class")
+			entry.bugClass = validation.ObjAt(matched[0], "bug_class")
 		}
 	}
 	return nil
@@ -195,7 +195,7 @@ func SharedMemoryBlock(c *state.Campaign, bugClass *string,
 		return validation.VNull(), err
 	}
 	weight := map[string]int64{}
-	for _, kv := range objAt(inv, "classes").O {
+	for _, kv := range validation.ObjAt(inv, "classes").O {
 		weight[kv.K] = intAt(kv.V, "memory_rows") + intAt(kv.V, "eval_cases")
 	}
 	pool := items
@@ -203,7 +203,7 @@ func SharedMemoryBlock(c *state.Campaign, bugClass *string,
 	if bugClass != nil && *bugClass != "" {
 		same := make([]wrapped, 0, len(items))
 		for _, it := range items {
-			if objStr(it.row, "bug_class") == *bugClass {
+			if validation.ObjStr(it.row, "bug_class") == *bugClass {
 				same = append(same, it)
 				filtered = true
 			}
@@ -213,24 +213,24 @@ func SharedMemoryBlock(c *state.Campaign, bugClass *string,
 		}
 	}
 	sort.SliceStable(pool, func(i, j int) bool {
-		wi := weight[objStr(pool[i].row, "bug_class")]
-		wj := weight[objStr(pool[j].row, "bug_class")]
+		wi := weight[validation.ObjStr(pool[i].row, "bug_class")]
+		wj := weight[validation.ObjStr(pool[j].row, "bug_class")]
 		if wi != wj {
 			return wi > wj
 		}
-		return objStr(pool[i].row, "memory_id") < objStr(pool[j].row, "memory_id")
+		return validation.ObjStr(pool[i].row, "memory_id") < validation.ObjStr(pool[j].row, "memory_id")
 	})
 	if limit >= 0 && len(pool) > limit {
 		pool = pool[:limit]
 	}
 	rows := make([]validation.Value, 0, len(pool))
 	for _, it := range pool {
-		summary := clipRunes(objStr(it.row, "evidence_summary"), 300)
+		summary := clipRunes(validation.ObjStr(it.row, "evidence_summary"), 300)
 		rows = append(rows, validation.VObj(
-			validation.KV{K: "memory_id", V: objAt(it.row, "memory_id")},
+			validation.KV{K: "memory_id", V: validation.ObjAt(it.row, "memory_id")},
 			validation.KV{K: "scope", V: it.scope},
-			validation.KV{K: "bug_class", V: objAt(it.row, "bug_class")},
-			validation.KV{K: "pattern", V: objAt(it.row, "pattern")},
+			validation.KV{K: "bug_class", V: validation.ObjAt(it.row, "bug_class")},
+			validation.KV{K: "pattern", V: validation.ObjAt(it.row, "pattern")},
 			validation.KV{K: "evidence_summary", V: validation.VStr(summary)},
 		))
 	}
@@ -280,11 +280,11 @@ func CorpusSurfaceBlock(c *state.Campaign, maxExposure,
 			hits = hits[:5]
 		}
 		top = append(top, validation.VObj(
-			validation.KV{K: "bug_class", V: objAt(r, "bug_class")},
-			validation.KV{K: "exposed", V: objAt(r, "exposed")},
-			validation.KV{K: "score", V: objAt(r, "score")},
-			validation.KV{K: "confidence", V: objAt(r, "confidence")},
-			validation.KV{K: "corpus_weight", V: objAt(r, "corpus_weight")},
+			validation.KV{K: "bug_class", V: validation.ObjAt(r, "bug_class")},
+			validation.KV{K: "exposed", V: validation.ObjAt(r, "exposed")},
+			validation.KV{K: "score", V: validation.ObjAt(r, "score")},
+			validation.KV{K: "confidence", V: validation.ObjAt(r, "confidence")},
+			validation.KV{K: "corpus_weight", V: validation.ObjAt(r, "corpus_weight")},
 			validation.KV{K: "hits", V: validation.VArr(hits...)},
 		))
 	}
@@ -299,15 +299,15 @@ func CorpusSurfaceBlock(c *state.Campaign, maxExposure,
 			ids = ids[:3]
 		}
 		shapeRows = append(shapeRows, validation.VObj(
-			validation.KV{K: "file", V: objAt(m, "file")},
+			validation.KV{K: "file", V: validation.ObjAt(m, "file")},
 			validation.KV{K: "exact", V: validation.VInt(int64(len(listAt(m, "exact_hits"))))},
 			validation.KV{K: "near", V: validation.VInt(int64(len(listAt(m, "near_misses"))))},
-			validation.KV{K: "bug_class", V: objAt(m, "bug_class")},
-			validation.KV{K: "memory_ids", V: strArr(ids)},
+			validation.KV{K: "bug_class", V: validation.ObjAt(m, "bug_class")},
+			validation.KV{K: "memory_ids", V: validation.StrArr(ids)},
 		))
 	}
 	unprobed := make([]string, 0)
-	for _, kv := range objAt(rep, "unprobed_classes").O {
+	for _, kv := range validation.ObjAt(rep, "unprobed_classes").O {
 		unprobed = append(unprobed, kv.K)
 	}
 	sort.Strings(unprobed)
@@ -315,15 +315,6 @@ func CorpusSurfaceBlock(c *state.Campaign, maxExposure,
 		validation.KV{K: "advisory", V: validation.VBool(true)},
 		validation.KV{K: "top_exposure", V: validation.VArr(top...)},
 		validation.KV{K: "shape_matches", V: validation.VArr(shapeRows...)},
-		validation.KV{K: "unprobed_classes", V: strArr(unprobed)},
+		validation.KV{K: "unprobed_classes", V: validation.StrArr(unprobed)},
 	), nil
-}
-
-// strArr builds a JSON array of strings.
-func strArr(items []string) validation.Value {
-	out := make([]validation.Value, len(items))
-	for i, s := range items {
-		out[i] = validation.VStr(s)
-	}
-	return validation.VArr(out...)
 }

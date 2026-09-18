@@ -79,7 +79,7 @@ func TestMoveRefusesOptionLookalikeValue(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(f, "status"); got != "HYPOTHESIS" {
+	if got := validation.ObjStr(f, "status"); got != "HYPOTHESIS" {
 		t.Errorf("status = %q, want HYPOTHESIS (the move must not happen)", got)
 	}
 }
@@ -249,7 +249,7 @@ func moveLifecycleFinding(t *testing.T, c *state.Campaign) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	if _, err := findings.Transition(c, fid, "POSSIBLE", "triage", "",
 		"", false); err != nil {
 		t.Fatal(err)
@@ -266,8 +266,8 @@ func moveSiblingPriorities(t *testing.T, c *state.Campaign,
 		t.Fatal(err)
 	}
 	var out []validation.Value
-	for _, p := range objAt(plan, "priorities").A {
-		if objStr(p, "sibling_of") == fid {
+	for _, p := range validation.ObjAt(plan, "priorities").A {
+		if validation.ObjStr(p, "sibling_of") == fid {
 			out = append(out, p)
 		}
 	}
@@ -302,7 +302,7 @@ func TestMoveDisproofLifecycleAdjacent(t *testing.T) {
 	}
 	if sibs := moveSiblingPriorities(t, c, fid); len(sibs) == 0 {
 		t.Fatal("the sibling priority was not added")
-	} else if q := objStr(sibs[0], "question"); q !=
+	} else if q := validation.ObjStr(sibs[0], "question"); q !=
 		"Check the adjacent unchecked property: the other root in the struct" {
 		t.Fatalf("sibling question = %q", q)
 	}
@@ -334,7 +334,7 @@ func TestMoveSuccessHypothesisToConfirmed(t *testing.T) {
 	c, root := t15Campaign(t, "move-confirm")
 	t15GlobalRow(t, "MEM-global01", "logic-error")
 	f := cliPassingLogicError(t, c)
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	code, out, errS := run(t, "--root", root, "move", c.CampaignID, fid,
 		"POSSIBLE", "--reason", "triage passed the hostile critic",
 		"--actor", "golden")
@@ -357,18 +357,18 @@ func TestMoveSuccessHypothesisToConfirmed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if s := objStr(got, "status"); s != "CONFIRMED" {
+	if s := validation.ObjStr(got, "status"); s != "CONFIRMED" {
 		t.Fatalf("status = %q", s)
 	}
-	hist := objAt(got, "history").A
+	hist := validation.ObjAt(got, "history").A
 	if len(hist) < 2 {
 		t.Fatalf("history = %v", hist)
 	}
 	last := hist[len(hist)-1]
-	if a := objStr(last, "actor"); a != "golden" {
+	if a := validation.ObjStr(last, "actor"); a != "golden" {
 		t.Fatalf("history actor = %q", a)
 	}
-	if a := objStr(last, "from"); a != "POSSIBLE" {
+	if a := validation.ObjStr(last, "from"); a != "POSSIBLE" {
 		t.Fatalf("history from = %q", a)
 	}
 }
@@ -386,11 +386,11 @@ func TestMoveDefaultActorIsCLI(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	hist := objAt(got, "history").A
+	hist := validation.ObjAt(got, "history").A
 	if len(hist) == 0 {
 		t.Fatal("no history row")
 	}
-	if a := objStr(hist[len(hist)-1], "actor"); a != "cli" {
+	if a := validation.ObjStr(hist[len(hist)-1], "actor"); a != "cli" {
 		t.Fatalf("history actor = %q, want cli", a)
 	}
 }
@@ -602,10 +602,10 @@ func TestMoveDuplicateRequiresOf(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if st := objStr(f, "status"); st != "HYPOTHESIS" {
+	if st := validation.ObjStr(f, "status"); st != "HYPOTHESIS" {
 		t.Fatalf("refused move left status = %q", st)
 	}
-	if of := objStr(objAt(f, "dedup"), "duplicate_of"); of != "" {
+	if of := validation.ObjStr(validation.ObjAt(f, "dedup"), "duplicate_of"); of != "" {
 		t.Fatalf("refused move left duplicate_of = %q", of)
 	}
 
@@ -625,7 +625,7 @@ func TestMoveDuplicateRequiresOf(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if of := objStr(objAt(f, "dedup"), "duplicate_of"); of != tid {
+	if of := validation.ObjStr(validation.ObjAt(f, "dedup"), "duplicate_of"); of != tid {
 		t.Fatalf("duplicate_of = %q, want %q", of, tid)
 	}
 }
@@ -657,10 +657,10 @@ func TestMoveDuplicateGhostTargetRefused(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if st := objStr(f, "status"); st != "HYPOTHESIS" {
+	if st := validation.ObjStr(f, "status"); st != "HYPOTHESIS" {
 		t.Fatalf("refused move left status = %q", st)
 	}
-	if of := objStr(objAt(f, "dedup"), "duplicate_of"); of != "" {
+	if of := validation.ObjStr(validation.ObjAt(f, "dedup"), "duplicate_of"); of != "" {
 		t.Fatalf("refused move left duplicate_of = %q", of)
 	}
 }
@@ -721,7 +721,7 @@ func TestMoveRetargetDuplicateAndSamePointerNoOp(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if of := objStr(objAt(f, "dedup"), "duplicate_of"); of != tid {
+	if of := validation.ObjStr(validation.ObjAt(f, "dedup"), "duplicate_of"); of != tid {
 		t.Fatalf("refused retarget moved duplicate_of to %q", of)
 	}
 
@@ -739,7 +739,7 @@ func TestMoveRetargetDuplicateAndSamePointerNoOp(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if n := len(objAt(f, "history").A); n != 2 {
+	if n := len(validation.ObjAt(f, "history").A); n != 2 {
 		t.Fatalf("no-op appended history: %d rows", n)
 	}
 	if after := len(eventTypes(t, c)); after != before {
@@ -780,7 +780,7 @@ func TestMoveOfTrimsTheValue(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if of := objStr(objAt(f, "dedup"), "duplicate_of"); of != tid {
+	if of := validation.ObjStr(validation.ObjAt(f, "dedup"), "duplicate_of"); of != tid {
 		t.Fatalf("duplicate_of = %q, want the trimmed %q", of, tid)
 	}
 	// negative control: a whitespace-only --of is a MISSING target, refused
@@ -848,18 +848,18 @@ func TestMoveReopenDuplicate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if st := objStr(f, "status"); st != "HYPOTHESIS" {
+	if st := validation.ObjStr(f, "status"); st != "HYPOTHESIS" {
 		t.Fatalf("status = %q, want HYPOTHESIS", st)
 	}
-	if of := objStr(objAt(f, "dedup"), "duplicate_of"); of != "" {
+	if of := validation.ObjStr(validation.ObjAt(f, "dedup"), "duplicate_of"); of != "" {
 		t.Fatalf("reopen left duplicate_of = %q", of)
 	}
-	if n := len(objAt(f, "evidence").A); n == 0 {
+	if n := len(validation.ObjAt(f, "evidence").A); n == 0 {
 		t.Fatal("the reopen dropped the finding's evidence")
 	}
-	hist := objAt(f, "history").A
+	hist := validation.ObjAt(f, "history").A
 	last := hist[len(hist)-1]
-	if objStr(last, "from") != "DUPLICATE" || objStr(last, "to") != "HYPOTHESIS" {
+	if validation.ObjStr(last, "from") != "DUPLICATE" || validation.ObjStr(last, "to") != "HYPOTHESIS" {
 		t.Fatalf("last history row = %v, want DUPLICATE -> HYPOTHESIS",
 			validation.CanonCompact(last))
 	}
@@ -926,10 +926,10 @@ func TestMoveOfRefusedOffDuplicate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if st := objStr(f, "status"); st != "DUPLICATE" {
+	if st := validation.ObjStr(f, "status"); st != "DUPLICATE" {
 		t.Fatalf("refused reopen left status = %q", st)
 	}
-	if of := objStr(objAt(f, "dedup"), "duplicate_of"); of != tid {
+	if of := validation.ObjStr(validation.ObjAt(f, "dedup"), "duplicate_of"); of != tid {
 		t.Fatalf("refused reopen left duplicate_of = %q", of)
 	}
 	code, out, errS = run(t, "--root", root, "move", c.CampaignID, fid,

@@ -428,14 +428,14 @@ func Doctor(campaign *state.Campaign) (validation.Value, error) {
 		return validation.VNull(), err
 	}
 	result.O = append(result.O, validation.KV{K: "campaign", V: req})
-	all := append([]validation.Value{}, objAt(result, "issues").A...)
-	all = append(all, objAt(req, "issues").A...)
+	all := append([]validation.Value{}, validation.ObjAt(result, "issues").A...)
+	all = append(all, validation.ObjAt(req, "issues").A...)
 	solc, err := SolcProbe(campaign, image)
 	if err != nil {
 		return validation.VNull(), err
 	}
 	if solc != nil {
-		if p := objStr(*solc, "problem"); p != "" {
+		if p := validation.ObjStr(*solc, "problem"); p != "" {
 			all = append(all, validation.VStr(p))
 		}
 	}
@@ -539,7 +539,7 @@ func CampaignRequirements(campaign *state.Campaign) (validation.Value, error) {
 	if err != nil {
 		return validation.VNull(), err
 	}
-	if sid := objStr(st, "active_snapshot_id"); sid != "" {
+	if sid := validation.ObjStr(st, "active_snapshot_id"); sid != "" {
 		meta := filepath.Join(campaign.Dir, "snapshots", sid, "snapshot.json")
 		// r45b: the pin manifest is read, not merely stat'ed. ENOENT is the
 		// FACT "no chain pin on the active snapshot" (the advisory below
@@ -561,7 +561,7 @@ func CampaignRequirements(campaign *state.Campaign) (validation.Value, error) {
 				return validation.VNull(), fmt.Errorf("the active snapshot's "+
 					"pin manifest %s cannot be read: %v", meta, rerr)
 			}
-			chainPin = truthy(objAt(pin, "chain"))
+			chainPin = truthy(validation.ObjAt(pin, "chain"))
 		}
 	}
 	e5Idx, err := findings.LevelIndex("E5")
@@ -615,7 +615,7 @@ func SolcProbe(campaign *state.Campaign, imageProbe validation.Value) (
 		return nil, fmt.Errorf("the active snapshot's pin manifest %s cannot "+
 			"be read: %v", pinPath, err)
 	}
-	compiler := objStr(objAt(pin, "config"), "compiler")
+	compiler := validation.ObjStr(validation.ObjAt(pin, "config"), "compiler")
 	if compiler == "" {
 		return nil, nil
 	}

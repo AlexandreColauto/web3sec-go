@@ -83,7 +83,7 @@ func rcStoredLens(t *testing.T, root, cid, lid string) validation.Value {
 		t.Fatal(err)
 	}
 	for _, l := range t14List(plan, "lenses").A {
-		if objStr(l, "id") == lid {
+		if validation.ObjStr(l, "id") == lid {
 			return l
 		}
 	}
@@ -134,10 +134,10 @@ func TestAnsweredLensReconcile(t *testing.T) {
 		}
 	}
 	l := rcStoredLens(t, root, cid, "L-04")
-	if got := objStr(l, "status"); got != "open" {
+	if got := validation.ObjStr(l, "status"); got != "open" {
 		t.Fatalf("refused attestation changed the status to %q", got)
 	}
-	if objAt(l, "reconciliation").Kind != validation.Null {
+	if validation.ObjAt(l, "reconciliation").Kind != validation.Null {
 		t.Fatalf("refused attestation recorded a reconciliation")
 	}
 	if evts := dgEventsOfType(t, root, cid, "plan.lens_status"); len(evts) != 0 {
@@ -154,17 +154,17 @@ func TestAnsweredLensReconcile(t *testing.T) {
 		t.Fatalf("accept exit %d: %q", code, errS)
 	}
 	l = rcStoredLens(t, root, cid, "L-04")
-	if got := objStr(l, "status"); got != "answered" {
+	if got := validation.ObjStr(l, "status"); got != "answered" {
 		t.Fatalf("status = %q", got)
 	}
-	recs := objAt(l, "reconciliation").A
+	recs := validation.ObjAt(l, "reconciliation").A
 	if len(recs) != 2 {
 		t.Fatalf("reconciliation records = %d, want 2", len(recs))
 	}
-	if got := objStr(recs[0], "row_id"); got != "divrow1" {
+	if got := validation.ObjStr(recs[0], "row_id"); got != "divrow1" {
 		t.Fatalf("first record row_id = %q", got)
 	}
-	if got := len(objAt(recs[0], "cites").A); got != 2 {
+	if got := len(validation.ObjAt(recs[0], "cites").A); got != 2 {
 		t.Fatalf("divrow1 cites = %d, want 2", got)
 	}
 
@@ -178,7 +178,7 @@ func TestAnsweredLensReconcile(t *testing.T) {
 		t.Fatalf("re-run exit %d: %q", code, errS)
 	}
 	l = rcStoredLens(t, root, cid, "L-04")
-	if got := len(objAt(l, "reconciliation").A); got != 2 {
+	if got := len(validation.ObjAt(l, "reconciliation").A); got != 2 {
 		t.Fatalf("re-run recorded %d reconciliations, want 2", got)
 	}
 }
@@ -280,7 +280,7 @@ func TestAnsweredLensReconcileEmptySpecAndTerminalFinding(t *testing.T) {
 	}
 	// negative control: the stored reconciliation survived the refusal
 	l := rcStoredLens(t, root, cid, "L-04")
-	if got := len(objAt(l, "reconciliation").A); got != 2 {
+	if got := len(validation.ObjAt(l, "reconciliation").A); got != 2 {
 		t.Fatalf("stored reconciliation has %d records, want 2", got)
 	}
 
@@ -299,7 +299,7 @@ func TestAnsweredLensReconcileEmptySpecAndTerminalFinding(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("re-attestation exit %d: %q", code, errS)
 	}
-	if got := len(objAt(rcStoredLens(t, root, cid, "L-04"),
+	if got := len(validation.ObjAt(rcStoredLens(t, root, cid, "L-04"),
 		"reconciliation").A); got != 2 {
 		t.Fatalf("re-attestation recorded %d records, want 2", got)
 	}

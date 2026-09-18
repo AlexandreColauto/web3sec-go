@@ -45,7 +45,7 @@ func TestEquationGapsSkipSynthesized(t *testing.T) {
 	for _, eq := range BuildEquations(accountingModel()) {
 		if objStrOf(eq, "equation") == "sum(user_claims) + protocol_liabilities <= total_assets" {
 			found = true
-			if !validation.PyTruthy(objAt(eq, "synthesized")) {
+			if !validation.PyTruthy(validation.ObjAt(eq, "synthesized")) {
 				t.Fatal("template equation must carry synthesized: true")
 			}
 		}

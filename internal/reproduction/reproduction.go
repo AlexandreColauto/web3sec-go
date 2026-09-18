@@ -119,12 +119,12 @@ func RecordAttempt(c *state.Campaign, findingID, outcome string,
 	if err != nil {
 		return validation.VNull(), err
 	}
-	maxAttempts := intOf(objAt(budget, "max_repro_attempts_per_finding"))
-	maxRetries := intOf(objAt(budget, "max_fresh_context_retries"))
+	maxAttempts := intOf(validation.ObjAt(budget, "max_repro_attempts_per_finding"))
+	maxRetries := intOf(validation.ObjAt(budget, "max_fresh_context_retries"))
 
-	ver := asDict(objAt(f, "verification"))
-	repro := asDict(objAt(ver, "reproduction"))
-	attempts := objAt(repro, "attempts")
+	ver := asDict(validation.ObjAt(f, "verification"))
+	repro := asDict(validation.ObjAt(ver, "reproduction"))
+	attempts := validation.ObjAt(repro, "attempts")
 	if attempts.Kind != validation.Arr {
 		attempts = validation.VArr()
 	}
@@ -142,7 +142,7 @@ func RecordAttempt(c *state.Campaign, findingID, outcome string,
 	}
 	if opts.ExecID != nil && *opts.ExecID != "" {
 		for _, a := range attempts.A {
-			if objStr(a, "artifact_id") == *opts.ExecID {
+			if validation.ObjStr(a, "artifact_id") == *opts.ExecID {
 				return validation.VNull(), mintErrf(
 					"exec %s was already cited by an earlier attempt on %s; a "+
 						"re-run must produce a NEW exec — citing the same run "+
@@ -294,8 +294,8 @@ func MintReproEvidence(c *state.Campaign, findingID, execID, description string,
 		return validation.VNull(), err
 	}
 	etype := EffectiveEvidenceType(tier, evidenceType, f)
-	for _, e := range objAt(f, "evidence").A {
-		if objStr(e, "artifact_id") == execID && objStr(e, "type") == etype {
+	for _, e := range validation.ObjAt(f, "evidence").A {
+		if validation.ObjStr(e, "artifact_id") == execID && validation.ObjStr(e, "type") == etype {
 			return f, nil // same exec already minted this type: nothing to do
 		}
 	}
@@ -306,7 +306,7 @@ func MintReproEvidence(c *state.Campaign, findingID, execID, description string,
 	if err := findings.ValidateExecRecord(execID, rec); err != nil {
 		return validation.VNull(), mintErrf("%s", err.Error())
 	}
-	repro := asDict(objAt(asDict(objAt(f, "verification")), "reproduction"))
+	repro := asDict(validation.ObjAt(asDict(validation.ObjAt(f, "verification")), "reproduction"))
 	recorded := TierOf(repro)
 	if tier != nil {
 		if tierIndex(*tier) > tierIndex(recorded) {
@@ -334,11 +334,11 @@ func MintReproEvidence(c *state.Campaign, findingID, execID, description string,
 
 // reproductionState is _reproduction_state.
 func reproductionState(f validation.Value) validation.Value {
-	ver := objAt(f, "verification")
+	ver := validation.ObjAt(f, "verification")
 	if ver.Kind != validation.Obj {
 		return validation.VObj()
 	}
-	repro := objAt(ver, "reproduction")
+	repro := validation.ObjAt(ver, "reproduction")
 	if repro.Kind != validation.Obj {
 		return validation.VObj()
 	}
@@ -354,10 +354,10 @@ func undoAttempt(c *state.Campaign, findingID string, priorStatus,
 	if err != nil {
 		return err
 	}
-	ver := asDict(objAt(f, "verification"))
-	verHadRepro := objAt(ver, "reproduction").Kind == validation.Obj
+	ver := asDict(validation.ObjAt(f, "verification"))
+	verHadRepro := validation.ObjAt(ver, "reproduction").Kind == validation.Obj
 	repro := reproductionState(f)
-	attempts := objAt(repro, "attempts")
+	attempts := validation.ObjAt(repro, "attempts")
 	if attempts.Kind == validation.Arr && len(attempts.A) > 0 {
 		attempts.A = attempts.A[:len(attempts.A)-1]
 		if len(attempts.A) == 0 {
@@ -412,8 +412,8 @@ func AttemptAndMint(c *state.Campaign, findingID, execID, description string,
 	// idempotency check in mint_repro_evidence decide: same type is a
 	// no-op, a different type mints.
 	execCited := false
-	for _, a := range objAt(prior, "attempts").A {
-		if objStr(a, "artifact_id") == execID {
+	for _, a := range validation.ObjAt(prior, "attempts").A {
+		if validation.ObjStr(a, "artifact_id") == execID {
 			execCited = true
 			break
 		}
@@ -424,7 +424,7 @@ func AttemptAndMint(c *state.Campaign, findingID, execID, description string,
 		if err != nil {
 			return validation.VNull(), err
 		}
-		if objStr(guidance, "action") != "mint-evidence" {
+		if validation.ObjStr(guidance, "action") != "mint-evidence" {
 			rollErr := undoAttempt(c, findingID, priorStatus, priorTier)
 			if rollErr != nil {
 				return validation.VNull(), rollErr
@@ -432,7 +432,7 @@ func AttemptAndMint(c *state.Campaign, findingID, execID, description string,
 			return validation.VNull(), mintErrf(
 				"attempt recorded but guidance is %s, not mint-evidence — "+
 					"check the attempt's exec/tier", validation.PyReprStr(
-					objStr(guidance, "action")))
+					validation.ObjStr(guidance, "action")))
 		}
 	}
 	out, err := MintReproEvidence(c, findingID, execID, description, tier,
@@ -460,13 +460,13 @@ func MintIndependentEvidence(c *state.Campaign, findingID, execID, description,
 	if err != nil {
 		return validation.VNull(), err
 	}
-	profile := objStr(rec, "profile")
+	profile := validation.ObjStr(rec, "profile")
 	if _, ok := sandbox.E4_PROFILES[profile]; !ok {
 		return validation.VNull(), mintErrf(
 			"exec %s ran under %s; E6 requires a container/VM/fork profile",
 			execID, validation.PyReprStr(profile))
 	}
-	exit := objAt(rec, "exit_status")
+	exit := validation.ObjAt(rec, "exit_status")
 	if !(exit.Kind == validation.Int && exit.I == 0) {
 		return validation.VNull(), mintErrf(
 			"exec %s exited with status %s; an independent reproduction that "+
@@ -487,8 +487,8 @@ func MintIndependentEvidence(c *state.Campaign, findingID, execID, description,
 		return validation.VNull(), err
 	}
 	cited := []string{}
-	for _, e := range objAt(f, "evidence").A {
-		if aid := objStr(e, "artifact_id"); aid != "" {
+	for _, e := range validation.ObjAt(f, "evidence").A {
+		if aid := validation.ObjStr(e, "artifact_id"); aid != "" {
 			cited = append(cited, aid)
 		}
 	}
@@ -508,7 +508,7 @@ func MintIndependentEvidence(c *state.Campaign, findingID, execID, description,
 		if err != nil {
 			continue
 		}
-		if rb := objStr(pr, "reported_by"); rb != "" {
+		if rb := validation.ObjStr(pr, "reported_by"); rb != "" {
 			priorReporters[rb] = struct{}{}
 		}
 	}
@@ -518,7 +518,7 @@ func MintIndependentEvidence(c *state.Campaign, findingID, execID, description,
 				"independence requires a different identity",
 			validation.PyReprStr(verifier))
 	}
-	reporter := objStr(rec, "reported_by")
+	reporter := validation.ObjStr(rec, "reported_by")
 	if reporter != "" && len(priorReporters) > 0 {
 		if _, ok := priorReporters[reporter]; ok {
 			return validation.VNull(), mintErrf(
@@ -534,17 +534,17 @@ func MintIndependentEvidence(c *state.Campaign, findingID, execID, description,
 		validation.KV{K: "artifact_id", V: validation.VStr(execID)},
 		validation.KV{K: "description", V: validation.VStr(
 			"independent reproduction by " + verifier + ": " + description)},
-		validation.KV{K: "command", V: validation.VStr(objStr(rec, "command"))},
-		validation.KV{K: "produced_at", V: validation.VStr(nowIso())},
+		validation.KV{K: "command", V: validation.VStr(validation.ObjStr(rec, "command"))},
+		validation.KV{K: "produced_at", V: validation.VStr(state.NowIso())},
 		validation.KV{K: "sandbox_profile", V: validation.VStr(profile)},
-		validation.KV{K: "snapshot_id", V: objAt(objAt(f, "snapshot_ids"),
+		validation.KV{K: "snapshot_id", V: validation.ObjAt(validation.ObjAt(f, "snapshot_ids"),
 			"source")},
 	)
 	out, err := findings.AddEvidence(c, findingID, item)
 	if err != nil {
 		return validation.VNull(), mintWrap(err)
 	}
-	ver := asDict(objAt(out, "verification"))
+	ver := asDict(validation.ObjAt(out, "verification"))
 	ver = setKey(ver, "independent_reproduction", validation.VObj(
 		validation.KV{K: "status", V: validation.VStr("matches")},
 		validation.KV{K: "verifier", V: validation.VStr(verifier)},
@@ -612,26 +612,6 @@ func pyReprScalar(v validation.Value) string {
 	return validation.PyRepr(v)
 }
 
-func objAt(v validation.Value, key string) validation.Value {
-	if v.Kind != validation.Obj {
-		return validation.VNull()
-	}
-	for _, kv := range v.O {
-		if kv.K == key {
-			return kv.V
-		}
-	}
-	return validation.VNull()
-}
-
-func objStr(v validation.Value, key string) string {
-	f := objAt(v, key)
-	if f.Kind == validation.Str {
-		return f.S
-	}
-	return ""
-}
-
 // asDict is Python's `x if isinstance(x, dict) else {}` used by the
 // setdefault chains (a fresh dict that the caller then stores).
 func asDict(v validation.Value) validation.Value {
@@ -666,7 +646,7 @@ func dropKey(v validation.Value, key string) validation.Value {
 }
 
 func optField(v validation.Value, key string) *string {
-	f := objAt(v, key)
+	f := validation.ObjAt(v, key)
 	if f.Kind == validation.Str {
 		s := f.S
 		return &s
@@ -687,17 +667,6 @@ func shortID(n int) string {
 		return parts[1]
 	}
 	return ""
-}
-
-// nowIso is state's unexported nowIso re-implemented here (the twin-clock
-// contract: WEBV2_NOW pins it verbatim, else UTC microseconds with +00:00).
-func nowIso() string {
-	if v := os.Getenv("WEBV2_NOW"); v != "" {
-		return v
-	}
-	now := time.Now().UTC()
-	return fmt.Sprintf("%s.%06d+00:00",
-		now.Format("2006-01-02T15:04:05"), now.Nanosecond()/1000)
 }
 
 // --- G15 PoC quality gate at mint (Task 23) ---------------------------------
@@ -757,14 +726,14 @@ var defaultRerunExecutor = func(c *state.Campaign, profile,
 		return "", 0, nil, err
 	}
 	exit := 0
-	if e := objAt(rec, "exit_status"); e.Kind == validation.Int {
+	if e := validation.ObjAt(rec, "exit_status"); e.Kind == validation.Int {
 		exit = int(e.I)
 	}
-	out, err := os.ReadFile(objStr(rec, "stdout_path"))
+	out, err := os.ReadFile(validation.ObjStr(rec, "stdout_path"))
 	if err != nil {
 		out = []byte(sandbox.ExecOutput(rec))
 	}
-	return objStr(rec, "exec_id"), exit, out, nil
+	return validation.ObjStr(rec, "exec_id"), exit, out, nil
 }
 
 // rerunExecutor is the G15 executor seam: re-run command under profile,
@@ -796,7 +765,7 @@ func sha256Hex(b []byte) string {
 // hashed), else the hash of the given bytes. Both the rerun gate and the
 // post-patch verdict share this preference.
 func execStdoutHash(rec validation.Value, raw []byte) string {
-	if h := objStr(objAt(rec, "artifact_hashes"), "stdout.log"); h != "" {
+	if h := validation.ObjStr(validation.ObjAt(rec, "artifact_hashes"), "stdout.log"); h != "" {
 		return h
 	}
 	return sha256Hex(raw)
@@ -843,13 +812,13 @@ func rerunAdvisory(c *state.Campaign, rec validation.Value) (string, bool) {
 	if !VerifyReruns {
 		return "", false
 	}
-	profile := objStr(rec, "profile")
+	profile := validation.ObjStr(rec, "profile")
 	if _, ok := sandbox.E4_PROFILES[profile]; !ok {
 		return "", false
 	}
-	command := objStr(rec, "command")
+	command := validation.ObjStr(rec, "command")
 	wantExit := 0
-	if e := objAt(rec, "exit_status"); e.Kind == validation.Int {
+	if e := validation.ObjAt(rec, "exit_status"); e.Kind == validation.Int {
 		wantExit = int(e.I)
 	}
 	wantHash := origStdoutHash(rec)
@@ -882,7 +851,7 @@ func parseStamp(s string) (time.Time, error) {
 // forkBlockText renders the snapshot's fork_block, or "unknown" when the
 // pin carries none (null chain, absent key, non-numeric).
 func forkBlockText(chain validation.Value) string {
-	b := objAt(chain, "fork_block")
+	b := validation.ObjAt(chain, "fork_block")
 	if b.Kind == validation.Int {
 		return strconv.FormatInt(b.I, 10)
 	}
@@ -912,7 +881,7 @@ func forkStaleText(reason, date, block string) string {
 // item stays silent.
 func forkStaleAdvisory(c *state.Campaign, f,
 	rec validation.Value) string {
-	srcID := objStr(objAt(f, "snapshot_ids"), "source")
+	srcID := validation.ObjStr(validation.ObjAt(f, "snapshot_ids"), "source")
 	if srcID == "" {
 		return ""
 	}
@@ -925,10 +894,10 @@ func forkStaleAdvisory(c *state.Campaign, f,
 	if err != nil {
 		return ""
 	}
-	chain := objAt(snap, "chain")
+	chain := validation.ObjAt(snap, "chain")
 	block := forkBlockText(chain)
 	pinned := ""
-	if ts := objAt(chain, "fork_timestamp"); ts.Kind == validation.Str &&
+	if ts := validation.ObjAt(chain, "fork_timestamp"); ts.Kind == validation.Str &&
 		ts.S != "" {
 		pinned = ts.S
 	}
@@ -936,7 +905,7 @@ func forkStaleAdvisory(c *state.Campaign, f,
 		// Null chain or null fork_timestamp: stale, dated by what the
 		// pin does carry (created_at) or "unknown" — with the reason
 		// named so the two data-absent shapes stay distinguishable.
-		date := objStr(snap, "created_at")
+		date := validation.ObjStr(snap, "created_at")
 		if date == "" {
 			date = "unknown"
 		}
@@ -947,7 +916,7 @@ func forkStaleAdvisory(c *state.Campaign, f,
 		return forkStaleText(reason, date, block)
 	}
 	tFork, err := parseStamp(pinned)
-	tExec, err2 := parseStamp(objStr(rec, "started_at"))
+	tExec, err2 := parseStamp(validation.ObjStr(rec, "started_at"))
 	if err != nil || err2 != nil {
 		return forkStaleText("pinned "+pinned, pinned, block)
 	}

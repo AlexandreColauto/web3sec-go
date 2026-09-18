@@ -184,15 +184,6 @@ func pyStr(v validation.Value) string {
 	return validation.PyRepr(v)
 }
 
-// strArr is a JSON array of strings.
-func strArr(items []string) validation.Value {
-	out := make([]validation.Value, len(items))
-	for i, s := range items {
-		out[i] = validation.VStr(s)
-	}
-	return validation.VArr(out...)
-}
-
 // intArr is a JSON array of ints.
 func intArr(items []int) validation.Value {
 	out := make([]validation.Value, len(items))

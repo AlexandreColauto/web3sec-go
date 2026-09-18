@@ -41,8 +41,8 @@ func mintFinding(t *testing.T, c *state.Campaign, class string,
 			kv("profile", validation.VStr("arbitrary EOA")),
 			kv("capabilities", validation.VArr()))),
 		kv("capabilities", validation.VObj(
-			kv("granted", strArr(granted)),
-			kv("required", strArr(required)))),
+			kv("granted", validation.StrArr(granted)),
+			kv("required", validation.StrArr(required)))),
 	), "code", "test", "")
 	if err != nil {
 		t.Fatalf("ingest hypothesis: %v", err)
@@ -59,7 +59,7 @@ func eventsOf(t *testing.T, c *state.Campaign, eventType string) []validation.Va
 	}
 	out := []validation.Value{}
 	for _, e := range evts {
-		if objStr(e, "type") == eventType {
+		if validation.ObjStr(e, "type") == eventType {
 			out = append(out, e)
 		}
 	}
@@ -98,11 +98,11 @@ func TestDriftReportAndHypotheses(t *testing.T) {
 	if err != nil {
 		t.Fatalf("record drifts: %v", err)
 	}
-	drifts := objAt(report, "drifts")
-	if got := objStr(drifts.A[0], "id"); got != "DRIFT-001" {
+	drifts := validation.ObjAt(report, "drifts")
+	if got := validation.ObjStr(drifts.A[0], "id"); got != "DRIFT-001" {
 		t.Fatalf("first drift id = %q", got)
 	}
-	if got := objStr(drifts.A[1], "id"); got != "DRIFT-002" {
+	if got := validation.ObjStr(drifts.A[1], "id"); got != "DRIFT-002" {
 		t.Fatalf("second drift id = %q", got)
 	}
 	if _, err := os.Stat(filepath.Join(c.ArtifactsDir, "drift_report.json")); err != nil {
@@ -115,7 +115,7 @@ func TestDriftReportAndHypotheses(t *testing.T) {
 	if riskOf(hyps[0]) < riskOf(hyps[len(hyps)-1]) {
 		t.Fatalf("hypotheses not risk-sorted: %v", hyps)
 	}
-	if got := objStr(hyps[0], "layer"); got != "deployment-vs-source" {
+	if got := validation.ObjStr(hyps[0], "layer"); got != "deployment-vs-source" {
 		t.Fatalf("top layer = %q", got)
 	}
 }
@@ -128,31 +128,31 @@ func TestMemoryPromotionRequiresHuman(t *testing.T) {
 		Negative: &validation.Value{O: []validation.KV{
 			kv("why_safe", validation.VStr("offset prevents share inflation"))},
 			Kind: validation.Obj}})
-	if got := objStr(mem, "promotion_status"); got != "pending" {
+	if got := validation.ObjStr(mem, "promotion_status"); got != "pending" {
 		t.Fatalf("promotion_status = %q", got)
 	}
-	if _, err := PromotionCommands(c, objStr(mem, "memory_id"), "operator-xand"); err == nil {
+	if _, err := PromotionCommands(c, validation.ObjStr(mem, "memory_id"), "operator-xand"); err == nil {
 		t.Fatal("promotion_commands accepted an unapproved row")
 	}
-	approved, err := ApproveMemory(c, objStr(mem, "memory_id"), "operator-xand")
+	approved, err := ApproveMemory(c, validation.ObjStr(mem, "memory_id"), "operator-xand")
 	if err != nil {
 		t.Fatalf("approve memory: %v", err)
 	}
-	if got := objStr(approved, "approved_by"); got != "operator-xand" {
+	if got := validation.ObjStr(approved, "approved_by"); got != "operator-xand" {
 		t.Fatalf("approved_by = %q", got)
 	}
-	cmds, err := PromotionCommands(c, objStr(mem, "memory_id"), "operator-xand")
+	cmds, err := PromotionCommands(c, validation.ObjStr(mem, "memory_id"), "operator-xand")
 	if err != nil {
 		t.Fatalf("promotion commands: %v", err)
 	}
 	if len(cmds) != 1 {
 		t.Fatalf("commands = %d", len(cmds))
 	}
-	if got := objStr(cmds[0], "substrate"); got != "shared-memory-store" {
+	if got := validation.ObjStr(cmds[0], "substrate"); got != "shared-memory-store" {
 		t.Fatalf("substrate = %q", got)
 	}
-	if !strings.Contains(objStr(cmds[0], "command"), "webv2 publish "+c.CampaignID) {
-		t.Fatalf("command = %q", objStr(cmds[0], "command"))
+	if !strings.Contains(validation.ObjStr(cmds[0], "command"), "webv2 publish "+c.CampaignID) {
+		t.Fatalf("command = %q", validation.ObjStr(cmds[0], "command"))
 	}
 	if _, err := ApproveMemory(c, "MEM-doesnotexist", "x"); err == nil {
 		t.Fatal("approve_memory accepted a missing row")
@@ -175,8 +175,8 @@ func TestNegativeMemoryLocalLookup(t *testing.T) {
 	if len(hits) != 1 {
 		t.Fatalf("hits = %d", len(hits))
 	}
-	if !strings.Contains(objStr(hits[0], "pattern"), "inflation") {
-		t.Fatalf("hit pattern = %q", objStr(hits[0], "pattern"))
+	if !strings.Contains(validation.ObjStr(hits[0], "pattern"), "inflation") {
+		t.Fatalf("hit pattern = %q", validation.ObjStr(hits[0], "pattern"))
 	}
 }
 
@@ -237,14 +237,14 @@ func TestStripRemovesFieldAndLogsEvent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("strip: %v", err)
 	}
-	if got := objAt(out, "total_stripped"); got.I != 2 {
+	if got := validation.ObjAt(out, "total_stripped"); got.I != 2 {
 		t.Fatalf("total_stripped = %v", got)
 	}
-	camps := objAt(out, "campaigns").A
-	if len(camps) != 1 || objStr(camps[0], "campaign_id") != a.CampaignID {
+	camps := validation.ObjAt(out, "campaigns").A
+	if len(camps) != 1 || validation.ObjStr(camps[0], "campaign_id") != a.CampaignID {
 		t.Fatalf("campaigns = %v", camps)
 	}
-	if got := objAt(camps[0], "rows_stripped"); got.I != 2 {
+	if got := validation.ObjAt(camps[0], "rows_stripped"); got.I != 2 {
 		t.Fatalf("rows_stripped = %v", got)
 	}
 	for _, mid := range []string{"MEM-legacy0001", "MEM-legacy0002"} {
@@ -276,11 +276,11 @@ func TestStripRemovesFieldAndLogsEvent(t *testing.T) {
 		kv("reason", validation.VStr("final-review I-1: schema retirement "+
 			"stranded campaign rows")),
 		kv("rows_stripped", validation.VInt(2)))
-	if got := validation.CanonCompact(objAt(stripsA[0], "data")); got !=
+	if got := validation.CanonCompact(validation.ObjAt(stripsA[0], "data")); got !=
 		validation.CanonCompact(want) {
 		t.Fatalf("strip data = %s", got)
 	}
-	if objStr(stripsA[0], "prev_hash") == "" || objStr(stripsA[0], "event_hash") == "" {
+	if validation.ObjStr(stripsA[0], "prev_hash") == "" || validation.ObjStr(stripsA[0], "event_hash") == "" {
 		t.Fatal("strip event is not hash-chained")
 	}
 	if got := eventsOf(t, b, "memory.field-stripped"); len(got) != 0 {
@@ -300,17 +300,17 @@ func TestStripIdempotentNoDuplicateLog(t *testing.T) {
 	if err != nil {
 		t.Fatalf("first strip: %v", err)
 	}
-	if got := objAt(first, "total_stripped"); got.I != 1 {
+	if got := validation.ObjAt(first, "total_stripped"); got.I != 1 {
 		t.Fatalf("first total = %v", got)
 	}
 	second, err := StripCampaignMemoryField(root, "rag_doc_id", "operator", "r1")
 	if err != nil {
 		t.Fatalf("second strip: %v", err)
 	}
-	if got := objAt(second, "total_stripped"); got.I != 0 {
+	if got := validation.ObjAt(second, "total_stripped"); got.I != 0 {
 		t.Fatalf("second total = %v", got)
 	}
-	if got := objAt(second, "campaigns"); len(got.A) != 0 {
+	if got := validation.ObjAt(second, "campaigns"); len(got.A) != 0 {
 		t.Fatalf("second campaigns = %v", got)
 	}
 	if got := eventsOf(t, a, "memory.field-stripped"); len(got) != 1 {
@@ -337,7 +337,7 @@ func TestCampaignTypedRootAndStrippedRowsApprove(t *testing.T) {
 	if err != nil {
 		t.Fatalf("strip: %v", err)
 	}
-	if got := objAt(out, "total_stripped"); got.I != 1 {
+	if got := validation.ObjAt(out, "total_stripped"); got.I != 1 {
 		t.Fatalf("total_stripped = %v", got)
 	}
 	row2, err := validation.ReadJson(filepath.Join(a.MemoryDir, "MEM-legacy0001.json"))
@@ -356,7 +356,7 @@ func TestPromotionCommandsRequireApproval(t *testing.T) {
 	c := newCampaign(t, "test-program")
 	mem := mustQueue(t, c, QueueOpts{Kind: "confirmed", Status: "CONFIRMED",
 		Pattern: "some confirmed pattern here"})
-	_, err := PromotionCommands(c, objStr(mem, "memory_id"), "")
+	_, err := PromotionCommands(c, validation.ObjStr(mem, "memory_id"), "")
 	if err == nil || !strings.Contains(err.Error(), "human approval") {
 		t.Fatalf("error = %v", err)
 	}
@@ -367,17 +367,17 @@ func TestPromotionCommandsSingleSubstrate(t *testing.T) {
 	c := newCampaign(t, "test-program")
 	mem := mustQueue(t, c, QueueOpts{Kind: "disproved", Status: "DISPROVED",
 		Pattern: "donation attack blocked by virtual share offset"})
-	if _, err := ApproveMemory(c, objStr(mem, "memory_id"), "operator-xand"); err != nil {
+	if _, err := ApproveMemory(c, validation.ObjStr(mem, "memory_id"), "operator-xand"); err != nil {
 		t.Fatalf("approve: %v", err)
 	}
-	cmds, err := PromotionCommands(c, objStr(mem, "memory_id"), "operator-xand")
+	cmds, err := PromotionCommands(c, validation.ObjStr(mem, "memory_id"), "operator-xand")
 	if err != nil {
 		t.Fatalf("commands: %v", err)
 	}
 	if len(cmds) != 1 {
 		t.Fatalf("commands = %d", len(cmds))
 	}
-	if got, want := objStr(cmds[0], "command"),
+	if got, want := validation.ObjStr(cmds[0], "command"),
 		"webv2 publish "+c.CampaignID+" --actor operator-xand"; got != want {
 		t.Fatalf("command = %q want %q", got, want)
 	}
@@ -388,7 +388,7 @@ func TestPermissionErrorOnUnapprovedIsNotACommand(t *testing.T) {
 	c := newCampaign(t, "test-program")
 	mem := mustQueue(t, c, QueueOpts{Kind: "confirmed", Status: "CONFIRMED",
 		Pattern: "pattern awaiting approval"})
-	cmds, err := PromotionCommands(c, objStr(mem, "memory_id"), "")
+	cmds, err := PromotionCommands(c, validation.ObjStr(mem, "memory_id"), "")
 	if err == nil {
 		t.Fatalf("emitted %d commands for an unapproved row", len(cmds))
 	}
@@ -408,7 +408,7 @@ func queuePartitioned(t *testing.T, c *state.Campaign,
 		BugClass: strPtr("reentrancy")})
 	if partition != "dev" {
 		mem.O = validation.SetOrAppend(mem.O, "partition", validation.VStr(partition))
-		path := filepath.Join(c.MemoryDir, objStr(mem, "memory_id")+".json")
+		path := filepath.Join(c.MemoryDir, validation.ObjStr(mem, "memory_id")+".json")
 		if err := validation.WriteJson(path, mem, "memory"); err != nil {
 			t.Fatalf("stamp partition: %v", err)
 		}
@@ -421,16 +421,16 @@ func TestApproveMemoryRejectsNonDevRows(t *testing.T) {
 	c := newCampaign(t, "test-program")
 	for _, partition := range []string{"held-out", "training"} {
 		mem := queuePartitioned(t, c, partition)
-		_, err := ApproveMemory(c, objStr(mem, "memory_id"), "operator")
+		_, err := ApproveMemory(c, validation.ObjStr(mem, "memory_id"), "operator")
 		if err == nil || !strings.Contains(err.Error(), partition) {
 			t.Fatalf("partition %s: error = %v", partition, err)
 		}
 		stored, err := validation.ReadJson(filepath.Join(c.MemoryDir,
-			objStr(mem, "memory_id")+".json"))
+			validation.ObjStr(mem, "memory_id")+".json"))
 		if err != nil {
 			t.Fatalf("read stored: %v", err)
 		}
-		if got := objStr(stored, "promotion_status"); got != "pending" {
+		if got := validation.ObjStr(stored, "promotion_status"); got != "pending" {
 			t.Fatalf("promotion_status moved to %q", got)
 		}
 	}
@@ -440,14 +440,14 @@ func TestApproveMemoryRejectsNonDevRows(t *testing.T) {
 func TestApproveMemoryAllowsDevRow(t *testing.T) {
 	c := newCampaign(t, "test-program")
 	mem := queuePartitioned(t, c, "dev")
-	out, err := ApproveMemory(c, objStr(mem, "memory_id"), "operator")
+	out, err := ApproveMemory(c, validation.ObjStr(mem, "memory_id"), "operator")
 	if err != nil {
 		t.Fatalf("approve dev row: %v", err)
 	}
-	if got := objStr(out, "promotion_status"); got != "human-approved" {
+	if got := validation.ObjStr(out, "promotion_status"); got != "human-approved" {
 		t.Fatalf("promotion_status = %q", got)
 	}
-	if got := objStr(out, "approved_by"); got != "operator" {
+	if got := validation.ObjStr(out, "approved_by"); got != "operator" {
 		t.Fatalf("approved_by = %q", got)
 	}
 }
@@ -462,12 +462,12 @@ func TestCampaignDerivedMemoryRowCarriesCapabilityLabels(t *testing.T) {
 		"capability source finding")
 	mem := mustQueue(t, c, QueueOpts{Kind: "confirmed", Status: "CONFIRMED",
 		Pattern:   "unvalidated share-price read against a live pool",
-		FindingID: strPtr(objStr(src, "finding_id"))})
-	if got := strList(objAt(mem, "granted")); !equalStrings(got,
+		FindingID: strPtr(validation.ObjStr(src, "finding_id"))})
+	if got := strList(validation.ObjAt(mem, "granted")); !equalStrings(got,
 		[]string{"control_perceived_asset_price"}) {
 		t.Fatalf("granted = %v", got)
 	}
-	if got := strList(objAt(mem, "required")); !equalStrings(got,
+	if got := strList(validation.ObjAt(mem, "required")); !equalStrings(got,
 		[]string{"role_owner"}) {
 		t.Fatalf("required = %v", got)
 	}
@@ -510,14 +510,14 @@ func TestQueueMemoryShapeAndEvent(t *testing.T) {
 	if !equalStrings(got, want) {
 		t.Fatalf("field order = %v", got)
 	}
-	if v := objStr(mem, "rejection_class"); v != "invalid-hypothesis" {
+	if v := validation.ObjStr(mem, "rejection_class"); v != "invalid-hypothesis" {
 		t.Fatalf("rejection_class = %q", v)
 	}
 	evts := eventsOf(t, c, "memory.queued")
 	if len(evts) != 1 {
 		t.Fatalf("memory.queued events = %d", len(evts))
 	}
-	if got := objStr(evts[0], "ref"); got != objStr(mem, "memory_id") {
+	if got := validation.ObjStr(evts[0], "ref"); got != validation.ObjStr(mem, "memory_id") {
 		t.Fatalf("event ref = %q", got)
 	}
 }
@@ -554,7 +554,7 @@ func TestPlannerHintAndLoad(t *testing.T) {
 	if err != nil {
 		t.Fatalf("planner hint: %v", err)
 	}
-	if got := objStr(row, "actor"); got != "operator" {
+	if got := validation.ObjStr(row, "actor"); got != "operator" {
 		t.Fatalf("actor = %q", got)
 	}
 	if _, err := PlannerHint(c, HintOpts{Kind: "priority",
@@ -588,7 +588,7 @@ func TestReflectionAndBenchmark(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reflection: %v", err)
 	}
-	if got := objAt(entry, "round"); got.I != 1 {
+	if got := validation.ObjAt(entry, "round"); got.I != 1 {
 		t.Fatalf("round = %v", got)
 	}
 	raw, err := os.ReadFile(filepath.Join(c.Dir, "learnings.jsonl"))
@@ -603,8 +603,8 @@ func TestReflectionAndBenchmark(t *testing.T) {
 	if err != nil {
 		t.Fatalf("benchmark: %v", err)
 	}
-	if !strings.HasPrefix(objStr(bench, "case_id"), "BENCH-") {
-		t.Fatalf("case_id = %q", objStr(bench, "case_id"))
+	if !strings.HasPrefix(validation.ObjStr(bench, "case_id"), "BENCH-") {
+		t.Fatalf("case_id = %q", validation.ObjStr(bench, "case_id"))
 	}
 	if _, err := os.Stat(filepath.Join(c.Dir, "benchmarks.jsonl")); err != nil {
 		t.Fatalf("benchmarks.jsonl: %v", err)
@@ -618,7 +618,7 @@ func TestPendingMemoryListsOnlyPending(t *testing.T) {
 		Pattern: "pending row pattern text"})
 	approved := mustQueue(t, c, QueueOpts{Kind: "confirmed", Status: "CONFIRMED",
 		Pattern: "approved row pattern text"})
-	if _, err := ApproveMemory(c, objStr(approved, "memory_id"), "operator"); err != nil {
+	if _, err := ApproveMemory(c, validation.ObjStr(approved, "memory_id"), "operator"); err != nil {
 		t.Fatalf("approve: %v", err)
 	}
 	rows, err := PendingMemory(c)
@@ -628,7 +628,7 @@ func TestPendingMemoryListsOnlyPending(t *testing.T) {
 	if len(rows) != 1 {
 		t.Fatalf("pending rows = %d", len(rows))
 	}
-	if got := objStr(rows[0], "memory_id"); got != objStr(pending, "memory_id") {
+	if got := validation.ObjStr(rows[0], "memory_id"); got != validation.ObjStr(pending, "memory_id") {
 		t.Fatalf("pending row = %q", got)
 	}
 }

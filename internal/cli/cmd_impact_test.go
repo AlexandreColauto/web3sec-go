@@ -96,10 +96,10 @@ func TestImpactReversibilityOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(objAt(f, "risk"), "reversibility"); got != "irreversible" {
+	if got := validation.ObjStr(validation.ObjAt(f, "risk"), "reversibility"); got != "irreversible" {
 		t.Errorf("stored reversibility = %q", got)
 	}
-	score := objAt(objAt(objAt(f, "risk"), "validated"), "score")
+	score := validation.ObjAt(validation.ObjAt(validation.ObjAt(f, "risk"), "validated"), "score")
 	if score.Kind != validation.Flt || score.F < 6.5 {
 		t.Errorf("validated score = %v; want >= 6.5 after +3.0", score)
 	}

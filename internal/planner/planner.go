@@ -13,7 +13,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
+
 	"unicode"
 
 	"websec/internal/validation"
@@ -77,36 +77,11 @@ func formatLens(template, machines string) string {
 	return strings.ReplaceAll(template, "{machines}", machines)
 }
 
-// nowIso is now_iso (mirrors state.nowIso, unexported there). The WEBV2_NOW
-// pin is honored verbatim so a replayed recipe emits byte-identical
-// artifacts.
-func nowIso() string {
-	if v := os.Getenv("WEBV2_NOW"); v != "" {
-		return v
-	}
-	now := time.Now().UTC()
-	return fmt.Sprintf("%s.%06d+00:00", now.Format("2006-01-02T15:04:05"),
-		now.Nanosecond()/1000)
-}
-
 // ---- Python value helpers ------------------------------------------------
 
 // kv is the keyed KV constructor.
 func kv(k string, v validation.Value) validation.KV {
 	return validation.KV{K: k, V: v}
-}
-
-// objAt is v.get(key): a missing key (or non-object) is None.
-func objAt(v validation.Value, key string) validation.Value {
-	if v.Kind != validation.Obj {
-		return validation.VNull()
-	}
-	for _, pair := range v.O {
-		if pair.K == key {
-			return pair.V
-		}
-	}
-	return validation.VNull()
 }
 
 // fieldAt is v[key] when present.
@@ -120,15 +95,6 @@ func fieldAt(v validation.Value, key string) (validation.Value, bool) {
 		}
 	}
 	return validation.VNull(), false
-}
-
-// objStr is v.get(key) as a string ("" when absent or non-string).
-func objStr(v validation.Value, key string) string {
-	got := objAt(v, key)
-	if got.Kind == validation.Str {
-		return got.S
-	}
-	return ""
 }
 
 // hasKey is `key in v`.
@@ -208,18 +174,9 @@ func pyStrip(s string) string {
 	return strings.TrimFunc(s, pyIsSpace)
 }
 
-// strArr is a JSON array of strings.
-func strArr(items []string) validation.Value {
-	out := make([]validation.Value, len(items))
-	for i, s := range items {
-		out[i] = validation.VStr(s)
-	}
-	return validation.VArr(out...)
-}
-
 // listOf is v.get(key) as a list (empty when absent/not a list).
 func listOf(v validation.Value, key string) []validation.Value {
-	got := objAt(v, key)
+	got := validation.ObjAt(v, key)
 	if got.Kind != validation.Arr {
 		return nil
 	}

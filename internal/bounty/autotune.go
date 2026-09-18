@@ -18,7 +18,7 @@ import (
 // is false — the schema refuses non-booleans at load time, and this is the
 // last line of defense for hand-built policies in tests.
 func AutoTuneEnabled(policy validation.Value) bool {
-	v := objAt(policy, "auto_tune")
+	v := validation.ObjAt(policy, "auto_tune")
 	return v.Kind == validation.Bool && v.B
 }
 

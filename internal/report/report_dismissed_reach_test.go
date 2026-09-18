@@ -81,7 +81,7 @@ func reachFinding(t *testing.T, camp *state.Campaign, title, path,
 	if err != nil {
 		t.Fatal(err)
 	}
-	return objStr(f, "finding_id")
+	return validation.ObjStr(f, "finding_id")
 }
 
 // reachDismiss sets a finding's status the way this package's other tests

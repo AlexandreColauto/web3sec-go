@@ -44,9 +44,9 @@ func seedRefusalLinks(t *testing.T, c *state.Campaign, rows []refusalRow) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	reg := objAt(links, "invariants")
+	reg := validation.ObjAt(links, "invariants")
 	for _, r := range rows {
-		e := objAt(reg, r.id)
+		e := validation.ObjAt(reg, r.id)
 		e.O = validation.SetOrAppend(e.O, "verification",
 			validation.VObj(KV("harness", r.h)))
 		reg.O = validation.SetOrAppend(reg.O, r.id, e)
@@ -270,7 +270,7 @@ func TestInvariantVerificationRefusalHistogram(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			runs := objAt(v, "harness_runs")
+			runs := validation.ObjAt(v, "harness_runs")
 			if runs.Kind != validation.Arr {
 				t.Fatalf("harness_runs = %s, want %d lines",
 					validation.CanonCompact(runs), len(tc.want))
@@ -290,7 +290,7 @@ func TestInvariantVerificationRefusalHistogram(t *testing.T) {
 			}
 			// The histogram is informational: it never moves the
 			// verdict halves.
-			if !objAt(v, "ok").B {
+			if !validation.ObjAt(v, "ok").B {
 				t.Errorf("ok must stay true: %s",
 					validation.CanonCompact(v))
 			}
@@ -314,7 +314,7 @@ func TestInvariantVerificationRefusalHistogramAbsentWithoutHarness(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if h := objAt(v, "harness_runs"); h.Kind != validation.Null {
+	if h := validation.ObjAt(v, "harness_runs"); h.Kind != validation.Null {
 		t.Fatalf("harness_runs = %s, want the key omitted",
 			validation.CanonCompact(h))
 	}

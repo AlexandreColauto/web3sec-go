@@ -12,6 +12,7 @@ package briefing
 import (
 	"strings"
 	"testing"
+	"websec/internal/validation"
 )
 
 func TestBriefNextActionsAreCopyableCommands(t *testing.T) {
@@ -20,7 +21,7 @@ func TestBriefNextActionsAreCopyableCommands(t *testing.T) {
 	if err != nil {
 		t.Fatalf("build brief: %v", err)
 	}
-	lines := strListOf(objAt(b, "next_actions"))
+	lines := strListOf(validation.ObjAt(b, "next_actions"))
 	if len(lines) == 0 {
 		t.Fatal("fixture brief rendered no next actions")
 	}

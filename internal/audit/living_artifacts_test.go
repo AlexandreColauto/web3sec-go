@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"websec/internal/validation"
 
 	"websec/internal/state"
 )
@@ -35,9 +36,9 @@ func livingPlanID(t *testing.T, c *state.Campaign) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, a := range objAt(st, "artifacts").A {
-		if objStr(a, "kind") == "plan" {
-			return objStr(a, "artifact_id")
+	for _, a := range validation.ObjAt(st, "artifacts").A {
+		if validation.ObjStr(a, "kind") == "plan" {
+			return validation.ObjStr(a, "artifact_id")
 		}
 	}
 	t.Fatal("no plan artifact")
@@ -60,7 +61,7 @@ func TestLivingAuditGreenAfterSanctionedRefresh(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objAt(objAt(report, "sections"), "artifacts"); !objAt(got, "ok").B {
+	if got := validation.ObjAt(validation.ObjAt(report, "sections"), "artifacts"); !validation.ObjAt(got, "ok").B {
 		t.Errorf("sanctioned refresh left artifacts section failing: %v", got)
 	}
 }
@@ -83,17 +84,17 @@ func TestLivingAuditFlagsHandEditEvenAfterRefresh(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sec := objAt(objAt(report, "sections"), "artifacts")
-	if objAt(sec, "ok").B {
+	sec := validation.ObjAt(validation.ObjAt(report, "sections"), "artifacts")
+	if validation.ObjAt(sec, "ok").B {
 		t.Fatal("hand-edit after refresh not caught")
 	}
 	found := false
-	for _, pr := range objAt(sec, "problems").A {
+	for _, pr := range validation.ObjAt(sec, "problems").A {
 		if strings.Contains(pr.S, "hash mismatch") {
 			found = true
 		}
 	}
 	if !found {
-		t.Errorf("no hash-mismatch problem: %v", objAt(sec, "problems"))
+		t.Errorf("no hash-mismatch problem: %v", validation.ObjAt(sec, "problems"))
 	}
 }

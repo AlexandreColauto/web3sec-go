@@ -47,13 +47,13 @@ func runAudit(root string, args []string, stdout io.Writer) error {
 		fmt.Fprintln(stdout, validation.DumpIndentedASCII(report))
 	} else {
 		fmt.Fprintln(stdout, audit.AuditSummaryLine(report))
-		for _, kv := range objAt(report, "sections").O {
-			for _, p := range objAt(kv.V, "problems").A {
+		for _, kv := range validation.ObjAt(report, "sections").O {
+			for _, p := range validation.ObjAt(kv.V, "problems").A {
 				fmt.Fprintf(stdout, "  [%s] %s\n", kv.K, p.S)
 			}
 		}
 	}
-	if ok := objAt(report, "ok"); ok.Kind != validation.Bool || !ok.B {
+	if ok := validation.ObjAt(report, "ok"); ok.Kind != validation.Bool || !ok.B {
 		return failSilent{}
 	}
 	return nil

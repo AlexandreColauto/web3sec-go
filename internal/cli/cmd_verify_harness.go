@@ -218,7 +218,7 @@ func verifyHarnessResult(c *state.Campaign, a *verifyArgs, r *Runner) error {
 		if proof.Kind == validation.Obj {
 			// r21 F4: an EMPTY solc_version is exactly "carries no
 			// version" — Kind alone resurrected the "checked" lie.
-			if v := objAt(proof, "solc_version"); v.Kind == validation.Str &&
+			if v := validation.ObjAt(proof, "solc_version"); v.Kind == validation.Str &&
 				v.S != "" {
 				avOK = true
 			}
@@ -315,7 +315,7 @@ func verifyHarnessResult(c *state.Campaign, a *verifyArgs, r *Runner) error {
 // losing digits). ok=false for a missing sidecar, a null/malformed
 // bounds object, or a non-integer loop_bound.
 func proofLoopBoundText(proof validation.Value) (string, bool) {
-	lb := objAt(objAt(proof, "bounds"), "loop_bound")
+	lb := validation.ObjAt(validation.ObjAt(proof, "bounds"), "loop_bound")
 	if lb.Kind != validation.Int {
 		return "", false
 	}
@@ -499,7 +499,7 @@ func harnessInvValue(invID string, entry validation.Value) validation.Value {
 // harnessInvEntry is links["invariants"][invID] with presence.
 func harnessInvEntry(links validation.Value, invID string) (validation.Value,
 	bool) {
-	if reg := objAt(links, "invariants"); reg.Kind == validation.Obj {
+	if reg := validation.ObjAt(links, "invariants"); reg.Kind == validation.Obj {
 		for _, kv := range reg.O {
 			if kv.K == invID {
 				return kv.V, true
@@ -512,7 +512,7 @@ func harnessInvEntry(links validation.Value, invID string) (validation.Value,
 // harnessSaveEntry writes one entry back through the links store.
 func harnessSaveEntry(c *state.Campaign, links validation.Value, invID string,
 	entry validation.Value) error {
-	reg := objAt(links, "invariants")
+	reg := validation.ObjAt(links, "invariants")
 	reg.O = validation.SetOrAppend(reg.O, invID, entry)
 	links.O = validation.SetOrAppend(links.O, "invariants", reg)
 	_, err := invariants.SaveLinks(c, links)
@@ -547,11 +547,11 @@ func harnessKindFor(c *state.Campaign, invID, flag string) (harness.Kind,
 	prefix := "HARNESS-" + invID + "-"
 	var kinds []string
 	for _, ev := range events {
-		if objStr(objAt(ev, "data"), "artifact_id") == "" ||
-			objStr(ev, "type") != "harness_scaffold" {
+		if validation.ObjStr(validation.ObjAt(ev, "data"), "artifact_id") == "" ||
+			validation.ObjStr(ev, "type") != "harness_scaffold" {
 			continue
 		}
-		aid := objStr(objAt(ev, "data"), "artifact_id")
+		aid := validation.ObjStr(validation.ObjAt(ev, "data"), "artifact_id")
 		if !strings.HasPrefix(aid, prefix) {
 			continue
 		}
@@ -589,7 +589,7 @@ func harnessExecRecord(c *state.Campaign, execID string) (validation.Value,
 		return validation.VNull(), "", err
 	}
 	for _, e := range execs {
-		if objStr(e, "exec_id") == execID {
+		if validation.ObjStr(e, "exec_id") == execID {
 			return e, filepath.Join(c.ExecsDir, execID), nil
 		}
 	}
@@ -619,13 +619,13 @@ func harnessExecStdout(execDir string, rec validation.Value) ([]byte, error) {
 	if errors.Is(err, harness.ErrNoCapturedStdout) {
 		return nil, t14ExitErr(2,
 			"verify: exec %s has no captured stdout to map\n",
-			validation.PyReprStr(objStr(rec, "exec_id")))
+			validation.PyReprStr(validation.ObjStr(rec, "exec_id")))
 	}
 	var ue *harness.StdoutUnreadableError
 	if errors.As(err, &ue) {
 		return nil, t14ExitErr(2,
 			"verify: exec %s stdout file unreadable (%v)\n",
-			validation.PyReprStr(objStr(rec, "exec_id")), ue.Err)
+			validation.PyReprStr(validation.ObjStr(rec, "exec_id")), ue.Err)
 	}
 	return nil, err
 }
@@ -642,13 +642,13 @@ func harnessScaffoldBytes(c *state.Campaign, invID string,
 	want := "HARNESS-" + invID + "-" + string(kind)
 	ref := ""
 	for _, ev := range events {
-		if objStr(ev, "type") != "harness_scaffold" {
+		if validation.ObjStr(ev, "type") != "harness_scaffold" {
 			continue
 		}
-		if objStr(objAt(ev, "data"), "artifact_id") != want {
+		if validation.ObjStr(validation.ObjAt(ev, "data"), "artifact_id") != want {
 			continue
 		}
-		ref = objStr(ev, "ref")
+		ref = validation.ObjStr(ev, "ref")
 	}
 	if ref == "" {
 		return nil, t14ExitErr(2, "verify: no harness scaffold for %s "+
@@ -667,7 +667,7 @@ func harnessScaffoldBytes(c *state.Campaign, invID string,
 	// re-check: the bind does not make one). Section 11's unbound arm reads
 	// the same file the same way, so the bytes the bind Validated and the
 	// bytes the audit Validates cannot be two different artifacts.
-	raw, err := harness.ArtifactFileBytes(c.Root, objStr(art, "path"))
+	raw, err := harness.ArtifactFileBytes(c.Root, validation.ObjStr(art, "path"))
 	if err != nil {
 		return nil, t14ExitErr(2,
 			"verify: harness scaffold artifact %s has no readable file\n",
@@ -694,7 +694,7 @@ func harnessTimedOut(rec validation.Value) bool {
 
 // harnessCommand is the exec record's command string ("" when absent).
 func harnessCommand(rec validation.Value) string {
-	return objStr(rec, "command")
+	return validation.ObjStr(rec, "command")
 }
 
 // invocationBound parses the invocation bound out of an exec command —
@@ -828,8 +828,8 @@ func harnessCompilerPin(rec validation.Value) (version, source,
 				"checked", path)
 		} else if pinNamedUnresolved != "" {
 			// fall through to the record pin WITH the note attached
-			tv0 := objAt(objAt(rec, "environment"), "tool_versions")
-			if v0 := objStr(tv0, "solc"); v0 == "" {
+			tv0 := validation.ObjAt(validation.ObjAt(rec, "environment"), "tool_versions")
+			if v0 := validation.ObjStr(tv0, "solc"); v0 == "" {
 				return "", "", pinNamedUnresolved, nil
 			}
 			return "", "", pinNamedUnresolved, t14ExitErr(2, "verify: the "+
@@ -840,8 +840,8 @@ func harnessCompilerPin(rec validation.Value) (version, source,
 				"\n", pinNamedUnresolved)
 		}
 	}
-	tv := objAt(objAt(rec, "environment"), "tool_versions")
-	if v := objStr(tv, "solc"); v != "" && strings.ContainsAny(v, "0123456789") {
+	tv := validation.ObjAt(validation.ObjAt(rec, "environment"), "tool_versions")
+	if v := validation.ObjStr(tv, "solc"); v != "" && strings.ContainsAny(v, "0123456789") {
 		return v, "record tool_versions.solc", pinNamedUnresolved, nil
 	}
 	return "", "", pinNamedUnresolved, nil
@@ -862,7 +862,7 @@ func harnessReportedCompilers(raw []byte) []string {
 		if perr != nil || v.Kind != validation.Obj {
 			continue
 		}
-		sv := objAt(v, "solc_version")
+		sv := validation.ObjAt(v, "solc_version")
 		if sv.Kind != validation.Str || sv.S == "" || seen[sv.S] {
 			continue
 		}

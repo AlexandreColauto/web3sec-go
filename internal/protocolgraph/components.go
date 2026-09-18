@@ -29,7 +29,7 @@ import (
 // `, paid` suffix rides `paid_for`. A model with no `components` key (or
 // a non-list) yields nil, so callers gate on len(lines) > 0.
 func ComponentSurfaceLines(model validation.Value) []string {
-	comps := objAt(model, "components")
+	comps := validation.ObjAt(model, "components")
 	if comps.Kind != validation.Arr {
 		return nil
 	}
@@ -38,24 +38,24 @@ func ComponentSurfaceLines(model validation.Value) []string {
 		if c.Kind != validation.Obj {
 			continue
 		}
-		kind := objAt(c, "kind")
+		kind := validation.ObjAt(c, "kind")
 		name := "?"
 		if kind.Kind == validation.Str && kind.S != "" {
 			name = kind.S
 		}
 		loc := "?"
-		if p := objAt(c, "path"); p.Kind == validation.Str && p.S != "" {
+		if p := validation.ObjAt(c, "path"); p.Kind == validation.Str && p.S != "" {
 			loc = p.S
-		} else if u := objAt(c, "url"); u.Kind == validation.Str &&
+		} else if u := validation.ObjAt(c, "url"); u.Kind == validation.Str &&
 			u.S != "" {
 			loc = u.S
 		}
 		scope := "out-of-scope"
-		if validation.PyTruthy(objAt(c, "in_scope")) {
+		if validation.PyTruthy(validation.ObjAt(c, "in_scope")) {
 			scope = "in_scope"
 		}
 		line := "- " + name + " " + loc + ": " + scope
-		if validation.PyTruthy(objAt(c, "paid_for")) {
+		if validation.PyTruthy(validation.ObjAt(c, "paid_for")) {
 			line += ", paid"
 		}
 		out = append(out, line)

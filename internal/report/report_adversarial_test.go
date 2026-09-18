@@ -50,7 +50,7 @@ func TestReportRendersAdversarialGameClause(t *testing.T) {
 		"Operator profits from the freeze")
 	control := mk(t, camp, "ag2", "donate",
 		"Sibling surface without the clause")
-	afid := objStr(answered, "finding_id")
+	afid := validation.ObjStr(answered, "finding_id")
 	if _, err := findings.SetAdversarialGame(camp, afid, rvWho, rvMech,
 		rvInter); err != nil {
 		t.Fatal(err)
@@ -66,7 +66,7 @@ func TestReportRendersAdversarialGameClause(t *testing.T) {
 			t.Errorf("answered section missing %q\n---\n%s", want, sec)
 		}
 	}
-	other := reportFindingSection(t, gen, objStr(control, "finding_id"))
+	other := reportFindingSection(t, gen, validation.ObjStr(control, "finding_id"))
 	if strings.Contains(other, "adversarial game") {
 		t.Errorf("clause rendered without the data:\n---\n%s", other)
 	}
@@ -83,7 +83,7 @@ func TestReportLivenessSectionSurfacesWhoProfits(t *testing.T) {
 	camp := clusterCamp(t)
 	f := mk(t, camp, "lv1", "deposit",
 		"Upgrade queue can be blocked to freeze withdrawals")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	classifyLiveness(t, camp, fid)
 
 	gen := mustGenerate(t, camp)

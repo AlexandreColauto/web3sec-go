@@ -118,19 +118,19 @@ func MineGitHistory(c *state.Campaign, target string, maxCommits int) (
 // The LLM specializes each into a concrete check.
 func PatchDeltaHypotheses(history validation.Value) []validation.Value {
 	out := []validation.Value{}
-	commits := objAt(history, "security_relevant_commits")
+	commits := validation.ObjAt(history, "security_relevant_commits")
 	for i, c := range commits.A {
-		for _, fv := range objAt(c, "files").A {
+		for _, fv := range validation.ObjAt(c, "files").A {
 			f := fv.S
 			id := "PD-" + pad3(i+1) + "-" + pyStem(f)
 			out = append(out, validation.VObj(
 				validation.KV{K: "hypothesis_id", V: validation.VStr(id)},
-				validation.KV{K: "fix_commit", V: objAt(c, "commit")},
-				validation.KV{K: "fix_subject", V: objAt(c, "subject")},
+				validation.KV{K: "fix_commit", V: validation.ObjAt(c, "commit")},
+				validation.KV{K: "fix_subject", V: validation.ObjAt(c, "subject")},
 				validation.KV{K: "file", V: validation.VStr(f)},
 				validation.KV{K: "question", V: validation.VStr("Commit " +
-					objStr(c, "commit") + " fixed " +
-					validation.PyReprStr(objStr(c, "subject")) + " in " + f +
+					validation.ObjStr(c, "commit") + " fixed " +
+					validation.PyReprStr(validation.ObjStr(c, "subject")) + " in " + f +
 					". Do sibling functions/paths in the same file still " +
 					"carry the pre-fix pattern?")},
 			))
@@ -148,19 +148,19 @@ func VerifyDeploymentSource(c *state.Campaign, snapshotID string,
 	contracts := []validation.Value{}
 	verified := 0
 	for _, d := range deployed {
-		name := objStr(d, "name")
+		name := validation.ObjStr(d, "name")
 		local, ok := localArtifacts[name]
 		var verdict string
 		switch {
 		case !ok:
 			verdict = "unverified"
-		case objAt(d, "bytecode_hash").Kind == validation.Str &&
-			objAt(d, "bytecode_hash").S == local:
+		case validation.ObjAt(d, "bytecode_hash").Kind == validation.Str &&
+			validation.ObjAt(d, "bytecode_hash").S == local:
 			verdict = "verified"
 		default:
 			verdict = "mismatch"
 		}
-		role := objStr(d, "role")
+		role := validation.ObjStr(d, "role")
 		if role == "" {
 			role = "core"
 		}
@@ -169,9 +169,9 @@ func VerifyDeploymentSource(c *state.Campaign, snapshotID string,
 		}
 		contracts = append(contracts, validation.VObj(
 			validation.KV{K: "name", V: validation.VStr(name)},
-			validation.KV{K: "address", V: objAt(d, "address")},
+			validation.KV{K: "address", V: validation.ObjAt(d, "address")},
 			validation.KV{K: "role", V: validation.VStr(role)},
-			validation.KV{K: "bytecode_hash", V: objAt(d, "bytecode_hash")},
+			validation.KV{K: "bytecode_hash", V: validation.ObjAt(d, "bytecode_hash")},
 			validation.KV{K: "source_match", V: validation.VStr(verdict)},
 		))
 	}
@@ -199,8 +199,8 @@ func VerifyDeploymentSource(c *state.Campaign, snapshotID string,
 	}
 	mismatches := []validation.Value{}
 	for _, ct := range contracts {
-		if objStr(ct, "source_match") == "mismatch" {
-			mismatches = append(mismatches, objAt(ct, "name"))
+		if validation.ObjStr(ct, "source_match") == "mismatch" {
+			mismatches = append(mismatches, validation.ObjAt(ct, "name"))
 		}
 	}
 	data := validation.VObj(
@@ -217,13 +217,13 @@ func VerifyDeploymentSource(c *state.Campaign, snapshotID string,
 // DeploymentRiskNotes is deployment_risk_notes: human-readable risk notes
 // from a deployment pin.
 func DeploymentRiskNotes(snap validation.Value) []string {
-	dep := objAt(snap, "deployment")
+	dep := validation.ObjAt(snap, "deployment")
 	if dep.Kind != validation.Obj {
 		return []string{"no deployment pin attached — source audit may be " +
 			"against code that is not what is deployed"}
 	}
 	notes := []string{}
-	ratio := objAt(dep, "verification_ratio")
+	ratio := validation.ObjAt(dep, "verification_ratio")
 	if ratio.Kind == validation.Flt || ratio.Kind == validation.Int {
 		if floatField(dep, "verification_ratio") < 1.0 {
 			notes = append(notes, "only "+
@@ -233,9 +233,9 @@ func DeploymentRiskNotes(snap validation.Value) []string {
 				"against bytecode")
 		}
 	}
-	for _, c := range objAt(dep, "contracts").A {
-		name := objStr(c, "name")
-		switch objStr(c, "source_match") {
+	for _, c := range validation.ObjAt(dep, "contracts").A {
+		name := validation.ObjStr(c, "name")
+		switch validation.ObjStr(c, "source_match") {
 		case "mismatch":
 			notes = append(notes, name+": DEPLOYED BYTECODE DIFFERS FROM "+
 				"SOURCE — audit the deployed code, not the repository")
@@ -243,8 +243,8 @@ func DeploymentRiskNotes(snap validation.Value) []string {
 			notes = append(notes, name+": unverified — treat repository "+
 				"source as unconfirmed for this address")
 		}
-		if objStr(c, "role") == "proxy" &&
-			objAt(c, "implementation_address").Kind == validation.Null {
+		if validation.ObjStr(c, "role") == "proxy" &&
+			validation.ObjAt(c, "implementation_address").Kind == validation.Null {
 			notes = append(notes, name+": proxy without recorded "+
 				"implementation — resolve before trusting any source-level "+
 				"finding")
@@ -295,7 +295,7 @@ func pyPercent(x float64) string {
 }
 
 func floatField(v validation.Value, key string) float64 {
-	f := objAt(v, key)
+	f := validation.ObjAt(v, key)
 	switch f.Kind {
 	case validation.Flt:
 		return f.F
@@ -307,23 +307,6 @@ func floatField(v validation.Value, key string) float64 {
 		return float64(f.I)
 	}
 	return 0
-}
-
-func objAt(v validation.Value, key string) validation.Value {
-	for _, kv := range v.O {
-		if kv.K == key {
-			return kv.V
-		}
-	}
-	return validation.VNull()
-}
-
-func objStr(v validation.Value, key string) string {
-	f := objAt(v, key)
-	if f.Kind == validation.Str {
-		return f.S
-	}
-	return ""
 }
 
 // lookupKey distinguishes an absent key from a present null (Python's

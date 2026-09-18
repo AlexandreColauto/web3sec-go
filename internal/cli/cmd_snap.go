@@ -121,7 +121,7 @@ func runSnap(root string, args []string, stdout io.Writer) error {
 				strings.Join(silent, ", "))
 		}
 	}
-	src := objAt(snap, "source")
+	src := validation.ObjAt(snap, "source")
 	// R2-2 (critic): a pin that captures zero files proves nothing about
 	// any target — empty tree or over-broad excludes. Python stored the
 	// empty snapshot; this CLI refuses it (divergence is a refusal, never
@@ -135,8 +135,8 @@ func runSnap(root string, args []string, stdout io.Writer) error {
 			"delete it with `webv2 doctor` review before re-pinning")
 	}
 	fmt.Fprintf(stdout, "pinned %s (%s, %d files)\n",
-		objStr(snap, "snapshot_id"), objStr(src, "ladder"), objInt(src, "file_count"))
-	if root := objStr(src, "root"); root != "" {
+		validation.ObjStr(snap, "snapshot_id"), validation.ObjStr(src, "ladder"), objInt(src, "file_count"))
+	if root := validation.ObjStr(src, "root"); root != "" {
 		if links, err := snapshot.PinnedSymlinks(root); err == nil && len(links) > 0 {
 			// r14/r15: custody is a claim, so the pin says exactly what
 			// it does NOT take — every escaping link by name (a bare
@@ -159,11 +159,11 @@ func runSnap(root string, args []string, stdout io.Writer) error {
 				"alone\n", len(links), word, strings.Join(shown, ", "))
 		}
 	}
-	if cfg := objAt(snap, "config"); cfg.Kind == validation.Obj && len(cfg.O) > 0 {
+	if cfg := validation.ObjAt(snap, "config"); cfg.Kind == validation.Obj && len(cfg.O) > 0 {
 		fmt.Fprintf(stdout, "  toolchain: %s — solc %s (detected from the pinned tree)\n",
-			objStr(cfg, "build_system"), objStr(cfg, "compiler"))
+			validation.ObjStr(cfg, "build_system"), validation.ObjStr(cfg, "compiler"))
 	}
-	if excl := objAt(src, "excluded"); excl.Kind == validation.Arr && len(excl.A) > 0 {
+	if excl := validation.ObjAt(src, "excluded"); excl.Kind == validation.Arr && len(excl.A) > 0 {
 		var names []string
 		for _, e := range excl.A {
 			if e.Kind == validation.Str {
@@ -197,27 +197,27 @@ func runSnap(root string, args []string, stdout io.Writer) error {
 		if err != nil {
 			return err
 		}
-		dep := objAt(snap, "deployment")
+		dep := validation.ObjAt(snap, "deployment")
 		n := 0
-		if contracts := objAt(dep, "contracts"); contracts.Kind == validation.Arr {
+		if contracts := validation.ObjAt(dep, "contracts"); contracts.Kind == validation.Arr {
 			n = len(contracts.A)
 		}
-		fmt.Fprintf(stdout, "  deployment: %s (%d contracts)\n", objStr(dep, "network"), n)
+		fmt.Fprintf(stdout, "  deployment: %s (%d contracts)\n", validation.ObjStr(dep, "network"), n)
 	}
 	if chain != "" {
 		snap, err = attachChain(c, snap, chain)
 		if err != nil {
 			return err
 		}
-		ch := objAt(snap, "chain")
-		fmt.Fprintf(stdout, "  chain: %s @ %s\n", scalarStr(objAt(ch, "chain_id")), scalarStr(objAt(ch, "fork_block")))
+		ch := validation.ObjAt(snap, "chain")
+		fmt.Fprintf(stdout, "  chain: %s @ %s\n", scalarStr(validation.ObjAt(ch, "chain_id")), scalarStr(validation.ObjAt(ch, "fork_block")))
 	}
 	// M5: untracked files inside the pinned tree. Covered by copytree
 	// pins, silently dropped by the git-clean worktree — either way the
 	// operator names what the pin did with them.
 	if total, names := untrackedSummary(snapshot.UntrackedInTarget(pos[1], extra)); total > 0 {
 		covered := "covered by this pin but not in git"
-		if objStr(objAt(snap, "source"), "ladder") == "git-clean" {
+		if validation.ObjStr(validation.ObjAt(snap, "source"), "ladder") == "git-clean" {
 			covered = "NOT covered by this git-clean pin (the worktree " +
 				"pins the commit, not the workdir)"
 		}
@@ -336,7 +336,7 @@ func attachDeployment(c *state.Campaign, snap validation.Value, path string) (va
 	if err != nil {
 		return validation.VNull(), err
 	}
-	return snapshot.AttachDeploymentPin(c, objStr(snap, "snapshot_id"), dep)
+	return snapshot.AttachDeploymentPin(c, validation.ObjStr(snap, "snapshot_id"), dep)
 }
 
 func attachChain(c *state.Campaign, snap validation.Value, path string) (validation.Value, error) {
@@ -348,7 +348,7 @@ func attachChain(c *state.Campaign, snap validation.Value, path string) (validat
 	if err != nil {
 		return validation.VNull(), err
 	}
-	return snapshot.AttachChainPin(c, objStr(snap, "snapshot_id"), ch)
+	return snapshot.AttachChainPin(c, validation.ObjStr(snap, "snapshot_id"), ch)
 }
 
 func init() {

@@ -93,8 +93,8 @@ func mintRelevanceFinding(t *testing.T, c *state.Campaign, class, cwe string,
 			kv("capabilities", validation.VArr()),
 		)),
 		kv("capabilities", validation.VObj(
-			kv("granted", strArr(granted)),
-			kv("required", strArr(required)),
+			kv("granted", validation.StrArr(granted)),
+			kv("required", validation.StrArr(required)),
 		)),
 	), "code", "", "")
 	if err != nil {
@@ -108,7 +108,7 @@ func recordCheck(t *testing.T, c *state.Campaign, findingID string,
 	ids []string, mode string, note string) validation.Value {
 	t.Helper()
 	check := validation.VObj(
-		kv("memory_ids", strArr(ids)),
+		kv("memory_ids", validation.StrArr(ids)),
 		kv("mode", validation.VStr(mode)),
 	)
 	if note != "" {
@@ -123,7 +123,7 @@ func recordCheck(t *testing.T, c *state.Campaign, findingID string,
 
 // memoryEntries is out["provenance"]["memory_checks"].
 func memoryEntries(v validation.Value) []validation.Value {
-	return objAt(asDict(objAt(v, "provenance")), "memory_checks").A
+	return validation.ObjAt(asDict(validation.ObjAt(v, "provenance")), "memory_checks").A
 }
 
 // corpusGapData is every corpus.gap event's data, in log order.
@@ -135,8 +135,8 @@ func corpusGapData(t *testing.T, c *state.Campaign) []validation.Value {
 	}
 	out := []validation.Value{}
 	for _, e := range events {
-		if objStr(e, "type") == "corpus.gap" {
-			out = append(out, asDict(objAt(e, "data")))
+		if validation.ObjStr(e, "type") == "corpus.gap" {
+			out = append(out, asDict(validation.ObjAt(e, "data")))
 		}
 	}
 	return out
@@ -167,7 +167,7 @@ func orderedJSON(v validation.Value) string {
 // canonRelevance is the ordered compact JSON of an entry's verdict.
 func canonRelevance(t *testing.T, entry validation.Value) string {
 	t.Helper()
-	return orderedJSON(objAt(entry, "relevance"))
+	return orderedJSON(validation.ObjAt(entry, "relevance"))
 }
 
 // ---- 1. zero-overlap: stamped, logged, and the gate clause still passes ----
@@ -177,10 +177,10 @@ func TestZeroOverlapCheckIsStampedLoggedAndStillSatisfiesGate(t *testing.T) {
 	c := ingestCamp(t)
 	installMemoryStore(t, relevanceRow("MEM-defi0001", "oracle-manipulation"))
 	f := mintRelevanceFinding(t, c, "logic-error", "", nil, nil)
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	out := recordCheck(t, c, fid, []string{"MEM-defi0001"}, "negative", "")
 	entry := memoryEntries(out)[0]
-	if v := objAt(entry, "recalled_irrelevant"); v.Kind != validation.Bool || !v.B {
+	if v := validation.ObjAt(entry, "recalled_irrelevant"); v.Kind != validation.Bool || !v.B {
 		t.Errorf("recalled_irrelevant = %v, want true", v)
 	}
 	if got := canonRelevance(t, entry); got != `{"overlapping":[],"basis":[]}` {
@@ -192,24 +192,24 @@ func TestZeroOverlapCheckIsStampedLoggedAndStillSatisfiesGate(t *testing.T) {
 		t.Fatalf("corpus.gap events = %d, want 1", len(gaps))
 	}
 	data := gaps[0]
-	if got := objStr(data, "finding"); got != fid {
+	if got := validation.ObjStr(data, "finding"); got != fid {
 		t.Errorf("gap finding = %q, want %q", got, fid)
 	}
-	if got := validation.CanonCompact(objAt(data, "memory_ids")); got !=
+	if got := validation.CanonCompact(validation.ObjAt(data, "memory_ids")); got !=
 		`["MEM-defi0001"]` {
 		t.Errorf("gap memory_ids = %s", got)
 	}
-	if got := objStr(data, "mode"); got != "negative" {
+	if got := validation.ObjStr(data, "mode"); got != "negative" {
 		t.Errorf("gap mode = %q, want negative", got)
 	}
-	if got := validation.CanonCompact(objAt(data, "lineage")); got !=
+	if got := validation.CanonCompact(validation.ObjAt(data, "lineage")); got !=
 		`["bug_class=logic-error"]` {
 		t.Errorf("gap lineage = %s", got)
 	}
-	if objStr(data, "reason") == "" {
+	if validation.ObjStr(data, "reason") == "" {
 		t.Error("gap reason empty")
 	}
-	if got := objStr(data, "reason_code"); got != GAP_NO_SHARED_TAG {
+	if got := validation.ObjStr(data, "reason_code"); got != GAP_NO_SHARED_TAG {
 		t.Errorf("reason_code = %q, want %q", got, GAP_NO_SHARED_TAG)
 	}
 
@@ -226,23 +226,23 @@ func TestZeroRowCheckIsStampedAndLogged(t *testing.T) {
 	c := ingestCamp(t)
 	installMemoryStore(t)
 	f := mintRelevanceFinding(t, c, "logic-error", "", nil, nil)
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	out := recordCheck(t, c, fid, nil, "negative", "")
 	entry := memoryEntries(out)[0]
-	if v := objAt(entry, "recalled_irrelevant"); v.Kind != validation.Bool || !v.B {
+	if v := validation.ObjAt(entry, "recalled_irrelevant"); v.Kind != validation.Bool || !v.B {
 		t.Errorf("recalled_irrelevant = %v, want true", v)
 	}
 	if got := canonRelevance(t, entry); got != `{"overlapping":[],"basis":[]}` {
 		t.Errorf("relevance = %s", got)
 	}
 	gaps := corpusGapData(t, c)
-	if len(gaps) != 1 || len(objAt(gaps[0], "memory_ids").A) != 0 {
+	if len(gaps) != 1 || len(validation.ObjAt(gaps[0], "memory_ids").A) != 0 {
 		t.Fatalf("gaps = %v", gaps)
 	}
-	if got := objStr(gaps[0], "reason_code"); got != GAP_NO_ROWS_CITED {
+	if got := validation.ObjStr(gaps[0], "reason_code"); got != GAP_NO_ROWS_CITED {
 		t.Errorf("reason_code = %q, want %q", got, GAP_NO_ROWS_CITED)
 	}
-	reason := objStr(gaps[0], "reason")
+	reason := validation.ObjStr(gaps[0], "reason")
 	if !strings.Contains(reason, "no rows") {
 		t.Errorf("reason %q misses 'no rows'", reason)
 	}
@@ -259,7 +259,7 @@ func TestRepeatingAnIdenticalCheckLogsNoSecondGap(t *testing.T) {
 	c := ingestCamp(t)
 	installMemoryStore(t, relevanceRow("MEM-defi0001", "oracle-manipulation"))
 	f := mintRelevanceFinding(t, c, "logic-error", "", nil, nil)
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	recordCheck(t, c, fid, []string{"MEM-defi0001"}, "negative", "")
 	out := recordCheck(t, c, fid, []string{"MEM-defi0001"}, "negative", "")
 	if n := len(memoryEntries(out)); n != 1 {
@@ -277,7 +277,7 @@ func TestDiscriminativeBugClassAloneIsOverlap(t *testing.T) {
 	c := ingestCamp(t)
 	installMemoryStore(t, relevanceRow("MEM-bridge01", "bridge-message"))
 	f := mintRelevanceFinding(t, c, "bridge-message", "", nil, nil)
-	out := recordCheck(t, c, objStr(f, "finding_id"),
+	out := recordCheck(t, c, validation.ObjStr(f, "finding_id"),
 		[]string{"MEM-bridge01"}, "negative", "")
 	entry := memoryEntries(out)[0]
 	if _, ok := fieldAt(entry, "recalled_irrelevant"); ok {
@@ -299,38 +299,38 @@ func TestCoarseClassAloneIsStampedAndLogsOneGap(t *testing.T) {
 	c := ingestCamp(t)
 	installMemoryStore(t, relevanceRow("MEM-rollup01", "logic-error"))
 	f := mintRelevanceFinding(t, c, "logic-error", "", nil, nil)
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	out := recordCheck(t, c, fid, []string{"MEM-rollup01"}, "negative", "")
 	entry := memoryEntries(out)[0]
-	if v := objAt(entry, "recalled_irrelevant"); v.Kind != validation.Bool || !v.B {
+	if v := validation.ObjAt(entry, "recalled_irrelevant"); v.Kind != validation.Bool || !v.B {
 		t.Errorf("recalled_irrelevant = %v, want true", v)
 	}
-	rel := objAt(entry, "relevance")
-	if got := validation.CanonCompact(objAt(rel, "overlapping")); got != "[]" {
+	rel := validation.ObjAt(entry, "relevance")
+	if got := validation.CanonCompact(validation.ObjAt(rel, "overlapping")); got != "[]" {
 		t.Errorf("overlapping = %s", got)
 	}
-	if got := validation.CanonCompact(objAt(rel, "basis")); got != "[]" {
+	if got := validation.CanonCompact(validation.ObjAt(rel, "basis")); got != "[]" {
 		t.Errorf("basis = %s", got)
 	}
-	if got := validation.CanonCompact(objAt(rel, "discounted")); got !=
+	if got := validation.CanonCompact(validation.ObjAt(rel, "discounted")); got !=
 		`["bug_class=logic-error"]` {
 		t.Errorf("discounted = %s", got)
 	}
-	if rule := objStr(rel, "rule"); !strings.Contains(rule, "second basis") {
+	if rule := validation.ObjStr(rel, "rule"); !strings.Contains(rule, "second basis") {
 		t.Errorf("rule %q misses 'second basis'", rule)
 	}
 	gaps := corpusGapData(t, c)
 	if len(gaps) != 1 {
 		t.Fatalf("corpus.gap events = %d, want 1", len(gaps))
 	}
-	if got := validation.CanonCompact(objAt(gaps[0], "memory_ids")); got !=
+	if got := validation.CanonCompact(validation.ObjAt(gaps[0], "memory_ids")); got !=
 		`["MEM-rollup01"]` {
 		t.Errorf("gap memory_ids = %s", got)
 	}
-	if got := objStr(gaps[0], "reason_code"); got != GAP_SHARED_CATCH_ALL_ONLY {
+	if got := validation.ObjStr(gaps[0], "reason_code"); got != GAP_SHARED_CATCH_ALL_ONLY {
 		t.Errorf("reason_code = %q, want %q", got, GAP_SHARED_CATCH_ALL_ONLY)
 	}
-	if reason := objStr(gaps[0], "reason"); !strings.Contains(reason,
+	if reason := validation.ObjStr(gaps[0], "reason"); !strings.Contains(reason,
 		"second basis") {
 		t.Errorf("gap reason %q misses 'second basis'", reason)
 	}
@@ -344,10 +344,10 @@ func TestDiscountedGapReasonDoesNotClaimCorpusSilence(t *testing.T) {
 	c := ingestCamp(t)
 	installMemoryStore(t, relevanceRow("MEM-rollup01", "logic-error"))
 	f := mintRelevanceFinding(t, c, "logic-error", "", nil, nil)
-	recordCheck(t, c, objStr(f, "finding_id"),
+	recordCheck(t, c, validation.ObjStr(f, "finding_id"),
 		[]string{"MEM-rollup01"}, "negative", "")
 	data := corpusGapData(t, c)[0]
-	reason := objStr(data, "reason")
+	reason := validation.ObjStr(data, "reason")
 	for _, want := range []string{"non-discriminative class label",
 		"bug_class=logic-error", "second basis"} {
 		if !strings.Contains(reason, want) {
@@ -369,7 +369,7 @@ func TestDiscountedGapReasonDoesNotClaimCorpusSilence(t *testing.T) {
 	if strings.Join(gotKeys, ",") != strings.Join(wantKeys, ",") {
 		t.Errorf("gap keys = %v, want %v", gotKeys, wantKeys)
 	}
-	if got := validation.CanonCompact(objAt(data, "lineage")); got !=
+	if got := validation.CanonCompact(validation.ObjAt(data, "lineage")); got !=
 		`["bug_class=logic-error"]` {
 		t.Errorf("lineage = %s", got)
 	}
@@ -380,13 +380,13 @@ func TestTrulySilentGapKeepsTheSilenceWording(t *testing.T) {
 	c := ingestCamp(t)
 	installMemoryStore(t, relevanceRow("MEM-miss01", "proof-forgery"))
 	f := mintRelevanceFinding(t, c, "logic-error", "", nil, nil)
-	recordCheck(t, c, objStr(f, "finding_id"),
+	recordCheck(t, c, validation.ObjStr(f, "finding_id"),
 		[]string{"MEM-miss01"}, "negative", "")
 	data := corpusGapData(t, c)[0]
-	if got := objStr(data, "reason_code"); got != GAP_NO_SHARED_TAG {
+	if got := validation.ObjStr(data, "reason_code"); got != GAP_NO_SHARED_TAG {
 		t.Errorf("reason_code = %q, want %q", got, GAP_NO_SHARED_TAG)
 	}
-	reason := objStr(data, "reason")
+	reason := validation.ObjStr(data, "reason")
 	if !strings.Contains(strings.ToLower(reason), "silent") {
 		t.Errorf("reason %q must claim silence", reason)
 	}
@@ -420,7 +420,7 @@ func TestSameClassCiteCountsForEveryClassButTheCatchAll(t *testing.T) {
 			c := ingestCamp(t)
 			installMemoryStore(t, relevanceRow("MEM-sameline01", cls))
 			f := mintRelevanceFinding(t, c, cls, "", nil, nil)
-			fid := objStr(f, "finding_id")
+			fid := validation.ObjStr(f, "finding_id")
 			out := recordCheck(t, c, fid, []string{"MEM-sameline01"},
 				"negative", "")
 			entry := memoryEntries(out)[0]
@@ -460,13 +460,13 @@ func TestTwentyCoarseClassRowsForARollupFindingAreAllIrrelevant(t *testing.T) {
 	}
 	installMemoryStore(t, rows...)
 	f := mintRelevanceFinding(t, c, "logic-error", "", nil, nil)
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	out := recordCheck(t, c, fid, ids, "negative", "")
 	entry := memoryEntries(out)[0]
-	if v := objAt(entry, "recalled_irrelevant"); v.Kind != validation.Bool || !v.B {
+	if v := validation.ObjAt(entry, "recalled_irrelevant"); v.Kind != validation.Bool || !v.B {
 		t.Errorf("recalled_irrelevant = %v, want true", v)
 	}
-	if got := validation.CanonCompact(objAt(objAt(entry, "relevance"),
+	if got := validation.CanonCompact(validation.ObjAt(validation.ObjAt(entry, "relevance"),
 		"overlapping")); got != "[]" {
 		t.Errorf("overlapping = %s", got)
 	}
@@ -476,8 +476,8 @@ func TestTwentyCoarseClassRowsForARollupFindingAreAllIrrelevant(t *testing.T) {
 	}
 	sorted := append([]string(nil), ids...)
 	sort.Strings(sorted)
-	if got := validation.CanonCompact(objAt(gaps[0], "memory_ids")); got !=
-		validation.CanonCompact(strArr(sorted)) {
+	if got := validation.CanonCompact(validation.ObjAt(gaps[0], "memory_ids")); got !=
+		validation.CanonCompact(validation.StrArr(sorted)) {
 		t.Errorf("gap memory_ids = %s", got)
 	}
 	if fails, err := MemoryCheckFails(c, fid); err != nil || fails != nil {
@@ -495,30 +495,30 @@ func TestCoarseClassPlusSharedCapabilityIsNotStamped(t *testing.T) {
 	derived := relevanceRow("MEM-derived01", "logic-error",
 		kv("pattern", validation.VStr("share-price read from a manipulable "+
 			"spot market")),
-		kv("granted", strArr([]string{"control_perceived_asset_price"})))
+		kv("granted", validation.StrArr([]string{"control_perceived_asset_price"})))
 	installRelevanceStore(t, nil, []validation.Value{derived})
 	f := mintRelevanceFinding(t, c, "logic-error", "",
 		[]string{"control_perceived_asset_price"}, nil)
-	out := recordCheck(t, c, objStr(f, "finding_id"),
+	out := recordCheck(t, c, validation.ObjStr(f, "finding_id"),
 		[]string{"MEM-derived01"}, "comparative", "same capability primitive")
 	entry := memoryEntries(out)[0]
 	if _, ok := fieldAt(entry, "recalled_irrelevant"); ok {
 		t.Error("recalled_irrelevant must be absent")
 	}
-	rel := objAt(entry, "relevance")
-	if got := validation.CanonCompact(objAt(rel, "overlapping")); got !=
+	rel := validation.ObjAt(entry, "relevance")
+	if got := validation.CanonCompact(validation.ObjAt(rel, "overlapping")); got !=
 		`["MEM-derived01"]` {
 		t.Errorf("overlapping = %s", got)
 	}
-	if got := validation.CanonCompact(objAt(rel, "basis")); got !=
+	if got := validation.CanonCompact(validation.ObjAt(rel, "basis")); got !=
 		`["capability"]` {
 		t.Errorf("basis = %s", got)
 	}
-	if got := validation.CanonCompact(objAt(rel, "discounted")); got !=
+	if got := validation.CanonCompact(validation.ObjAt(rel, "discounted")); got !=
 		`["bug_class=logic-error"]` {
 		t.Errorf("discounted = %s", got)
 	}
-	if rule := objStr(rel, "rule"); !strings.Contains(rule, "second basis") {
+	if rule := validation.ObjStr(rel, "rule"); !strings.Contains(rule, "second basis") {
 		t.Errorf("rule %q misses 'second basis'", rule)
 	}
 	if gaps := corpusGapData(t, c); len(gaps) != 0 {
@@ -533,7 +533,7 @@ func TestMixedCiteWhoseOnlySharedClassIsARealLineageCounts(t *testing.T) {
 		relevanceRow("MEM-oracle01", "oracle-manipulation"),
 		relevanceRow("MEM-miss01", "proof-forgery"))
 	f := mintRelevanceFinding(t, c, "oracle-manipulation", "", nil, nil)
-	out := recordCheck(t, c, objStr(f, "finding_id"),
+	out := recordCheck(t, c, validation.ObjStr(f, "finding_id"),
 		[]string{"MEM-miss01", "MEM-oracle01"}, "negative", "")
 	entry := memoryEntries(out)[0]
 	if _, ok := fieldAt(entry, "recalled_irrelevant"); ok {
@@ -554,7 +554,7 @@ func TestCWEEOverlapIsNotStamped(t *testing.T) {
 	installMemoryStore(t, relevanceRow("MEM-cwe01", "oracle-manipulation",
 		kv("cwe", validation.VStr("CWE-682"))))
 	f := mintRelevanceFinding(t, c, "logic-error", "CWE-682", nil, nil)
-	out := recordCheck(t, c, objStr(f, "finding_id"),
+	out := recordCheck(t, c, validation.ObjStr(f, "finding_id"),
 		[]string{"MEM-cwe01"}, "comparative", "same arithmetic root cause")
 	entry := memoryEntries(out)[0]
 	if _, ok := fieldAt(entry, "recalled_irrelevant"); ok {
@@ -575,10 +575,10 @@ func TestCWEEOverlapIsNotStamped(t *testing.T) {
 func TestCapabilityLabelOverlapIsNotStamped(t *testing.T) {
 	c := ingestCamp(t)
 	installMemoryStore(t, relevanceRow("MEM-cap01", "oracle-manipulation",
-		kv("granted", strArr([]string{"Control-Perceived_Asset Price"}))))
+		kv("granted", validation.StrArr([]string{"Control-Perceived_Asset Price"}))))
 	f := mintRelevanceFinding(t, c, "logic-error", "",
 		[]string{"control_perceived_asset_price"}, nil)
-	out := recordCheck(t, c, objStr(f, "finding_id"),
+	out := recordCheck(t, c, validation.ObjStr(f, "finding_id"),
 		[]string{"MEM-cap01"}, "comparative", "same capability primitive")
 	entry := memoryEntries(out)[0]
 	if _, ok := fieldAt(entry, "recalled_irrelevant"); ok {
@@ -600,7 +600,7 @@ func TestRowTerminalCountsAsCapabilityLabel(t *testing.T) {
 		kv("terminal", validation.VStr("extract_protocol_liquidity"))))
 	f := mintRelevanceFinding(t, c, "logic-error", "",
 		[]string{"extract_protocol_liquidity"}, nil)
-	out := recordCheck(t, c, objStr(f, "finding_id"),
+	out := recordCheck(t, c, validation.ObjStr(f, "finding_id"),
 		[]string{"MEM-term01"}, "negative", "")
 	entry := memoryEntries(out)[0]
 	if got := canonRelevance(t, entry); got !=
@@ -622,11 +622,11 @@ func TestRowTerminalCountsAsCapabilityLabel(t *testing.T) {
 func TestCiteAgainstACampaignDerivedRowOverlapsOnCapability(t *testing.T) {
 	c := ingestCamp(t)
 	derived := relevanceRow("MEM-derived02", "logic-error",
-		kv("granted", strArr([]string{"control_perceived_asset_price"})))
+		kv("granted", validation.StrArr([]string{"control_perceived_asset_price"})))
 	installRelevanceStore(t, nil, []validation.Value{derived})
 	f := mintRelevanceFinding(t, c, "oracle-manipulation", "",
 		[]string{"control_perceived_asset_price"}, nil)
-	out := recordCheck(t, c, objStr(f, "finding_id"),
+	out := recordCheck(t, c, validation.ObjStr(f, "finding_id"),
 		[]string{"MEM-derived02"}, "comparative", "same capability primitive")
 	entry := memoryEntries(out)[0]
 	if _, ok := fieldAt(entry, "recalled_irrelevant"); ok {
@@ -648,7 +648,7 @@ func TestMixedCiteIsNotStampedAndListsOnlyOverlappingRows(t *testing.T) {
 		relevanceRow("MEM-over01", "bridge-message"),
 		relevanceRow("MEM-miss01", "proof-forgery"))
 	f := mintRelevanceFinding(t, c, "bridge-message", "", nil, nil)
-	out := recordCheck(t, c, objStr(f, "finding_id"),
+	out := recordCheck(t, c, validation.ObjStr(f, "finding_id"),
 		[]string{"MEM-miss01", "MEM-over01"}, "negative", "")
 	entry := memoryEntries(out)[0]
 	if _, ok := fieldAt(entry, "recalled_irrelevant"); ok {
@@ -672,17 +672,17 @@ func TestMixedCiteWhereTheOnlySharedClassIsCoarseIsStamped(t *testing.T) {
 		relevanceRow("MEM-coarse01", "logic-error"),
 		relevanceRow("MEM-miss01", "proof-forgery"))
 	f := mintRelevanceFinding(t, c, "logic-error", "", nil, nil)
-	out := recordCheck(t, c, objStr(f, "finding_id"),
+	out := recordCheck(t, c, validation.ObjStr(f, "finding_id"),
 		[]string{"MEM-miss01", "MEM-coarse01"}, "negative", "")
 	entry := memoryEntries(out)[0]
-	if v := objAt(entry, "recalled_irrelevant"); v.Kind != validation.Bool || !v.B {
+	if v := validation.ObjAt(entry, "recalled_irrelevant"); v.Kind != validation.Bool || !v.B {
 		t.Errorf("recalled_irrelevant = %v, want true", v)
 	}
-	rel := objAt(entry, "relevance")
-	if got := validation.CanonCompact(objAt(rel, "overlapping")); got != "[]" {
+	rel := validation.ObjAt(entry, "relevance")
+	if got := validation.CanonCompact(validation.ObjAt(rel, "overlapping")); got != "[]" {
 		t.Errorf("overlapping = %s", got)
 	}
-	if got := validation.CanonCompact(objAt(rel, "discounted")); got !=
+	if got := validation.CanonCompact(validation.ObjAt(rel, "discounted")); got !=
 		`["bug_class=logic-error"]` {
 		t.Errorf("discounted = %s", got)
 	}
@@ -700,10 +700,10 @@ func TestProseOnlySimilarityScoresZeroOverlap(t *testing.T) {
 		kv("pattern", validation.VStr("Donation attack on share price")),
 		kv("evidence_summary", validation.VStr("Donation attack on share price"))))
 	f := mintRelevanceFinding(t, c, "logic-error", "", nil, nil)
-	out := recordCheck(t, c, objStr(f, "finding_id"),
+	out := recordCheck(t, c, validation.ObjStr(f, "finding_id"),
 		[]string{"MEM-prose01"}, "comparative", "identical prose, different lineage")
 	entry := memoryEntries(out)[0]
-	if v := objAt(entry, "recalled_irrelevant"); v.Kind != validation.Bool || !v.B {
+	if v := validation.ObjAt(entry, "recalled_irrelevant"); v.Kind != validation.Bool || !v.B {
 		t.Errorf("recalled_irrelevant = %v, want true", v)
 	}
 	if got := canonRelevance(t, entry); got != `{"overlapping":[],"basis":[]}` {
@@ -722,9 +722,9 @@ func TestPreExistingCheckWithoutRelevanceStillVerifiesUnchanged(t *testing.T) {
 	row := relevanceRow("MEM-old00001", "logic-error")
 	installMemoryStore(t, row)
 	f := mintRelevanceFinding(t, c, "logic-error", "", nil, nil)
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	legacy := validation.VObj(
-		kv("memory_ids", strArr([]string{"MEM-old00001"})),
+		kv("memory_ids", validation.StrArr([]string{"MEM-old00001"})),
 		kv("mode", validation.VStr("negative")),
 		kv("consulted_at", validation.VStr("2026-09-01T00:00:00+00:00")),
 		kv("row_digest", validation.VStr(ComputeRowDigest(
@@ -781,7 +781,7 @@ func TestTwoIdenticalRecordingsProduceIdenticalEntries(t *testing.T) {
 		"second deterministic recording"} {
 		f := mintRelevanceFinding(t, c, "bridge-message", "", nil, nil)
 		f.O = validation.SetOrAppend(f.O, "title", validation.VStr(title))
-		out := recordCheck(t, c, objStr(f, "finding_id"),
+		out := recordCheck(t, c, validation.ObjStr(f, "finding_id"),
 			[]string{"MEM-miss001", "MEM-det00001"}, "negative", "")
 		entries = append(entries, memoryEntries(out)[0])
 	}
@@ -790,7 +790,7 @@ func TestTwoIdenticalRecordingsProduceIdenticalEntries(t *testing.T) {
 	if a != b {
 		t.Errorf("entries differ:\n%s\n%s", a, b)
 	}
-	if got := validation.CanonCompact(objAt(entries[0], "memory_ids")); got !=
+	if got := validation.CanonCompact(validation.ObjAt(entries[0], "memory_ids")); got !=
 		`["MEM-det00001","MEM-miss001"]` {
 		t.Errorf("memory_ids = %s", got)
 	}
@@ -810,7 +810,7 @@ func TestTwoIdenticalCoarseRecordingsProduceIdenticalEntries(t *testing.T) {
 		"second coarse recording"} {
 		f := mintRelevanceFinding(t, c, "logic-error", "", nil, nil)
 		f.O = validation.SetOrAppend(f.O, "title", validation.VStr(title))
-		out := recordCheck(t, c, objStr(f, "finding_id"),
+		out := recordCheck(t, c, validation.ObjStr(f, "finding_id"),
 			[]string{"MEM-coarse01"}, "negative", "")
 		entries = append(entries, memoryEntries(out)[0])
 	}
@@ -819,18 +819,18 @@ func TestTwoIdenticalCoarseRecordingsProduceIdenticalEntries(t *testing.T) {
 	if a != b {
 		t.Errorf("entries differ:\n%s\n%s", a, b)
 	}
-	rel := objAt(entries[0], "relevance")
-	if got := validation.CanonCompact(objAt(rel, "overlapping")); got != "[]" {
+	rel := validation.ObjAt(entries[0], "relevance")
+	if got := validation.CanonCompact(validation.ObjAt(rel, "overlapping")); got != "[]" {
 		t.Errorf("overlapping = %s", got)
 	}
-	if got := validation.CanonCompact(objAt(rel, "basis")); got != "[]" {
+	if got := validation.CanonCompact(validation.ObjAt(rel, "basis")); got != "[]" {
 		t.Errorf("basis = %s", got)
 	}
-	if got := validation.CanonCompact(objAt(rel, "discounted")); got !=
+	if got := validation.CanonCompact(validation.ObjAt(rel, "discounted")); got !=
 		`["bug_class=logic-error"]` {
 		t.Errorf("discounted = %s", got)
 	}
-	if rule := objStr(rel, "rule"); !strings.Contains(rule, "second basis") {
+	if rule := validation.ObjStr(rel, "rule"); !strings.Contains(rule, "second basis") {
 		t.Errorf("rule %q misses 'second basis'", rule)
 	}
 }
@@ -861,44 +861,44 @@ func TestCorpusRecallGapsCountsTheSplitAdditively(t *testing.T) {
 	silent := mintRelevanceFinding(t, c, "logic-error", "", nil, nil)
 	noRows := mintRelevanceFinding(t, c, "logic-error", "", nil, nil)
 	miss := mintRelevanceFinding(t, c, "logic-error", "", nil, nil)
-	recordCheck(t, c, objStr(labelOnly, "finding_id"),
+	recordCheck(t, c, validation.ObjStr(labelOnly, "finding_id"),
 		[]string{"MEM-rollup01"}, "negative", "")
-	recordCheck(t, c, objStr(silent, "finding_id"),
+	recordCheck(t, c, validation.ObjStr(silent, "finding_id"),
 		[]string{"MEM-miss01"}, "negative", "")
-	recordCheck(t, c, objStr(noRows, "finding_id"), nil, "negative", "")
-	recordCheck(t, c, objStr(miss, "finding_id"),
+	recordCheck(t, c, validation.ObjStr(noRows, "finding_id"), nil, "negative", "")
+	recordCheck(t, c, validation.ObjStr(miss, "finding_id"),
 		[]string{"MEM-defi0001"}, "negative", "")
 
 	got, err := CorpusRecallGaps(c)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if v := objAt(got, "checks"); v.I != 4 {
+	if v := validation.ObjAt(got, "checks"); v.I != 4 {
 		t.Errorf("checks = %v, want 4", v)
 	}
-	if v := objAt(got, "irrelevant_checks"); v.I != 4 {
+	if v := validation.ObjAt(got, "irrelevant_checks"); v.I != 4 {
 		t.Errorf("irrelevant_checks = %v, want 4", v)
 	}
-	if v := objAt(got, "label_only_checks"); v.I != 1 {
+	if v := validation.ObjAt(got, "label_only_checks"); v.I != 1 {
 		t.Errorf("label_only_checks = %v, want 1", v)
 	}
-	if v := objAt(got, "no_rows_checks"); v.I != 1 {
+	if v := validation.ObjAt(got, "no_rows_checks"); v.I != 1 {
 		t.Errorf("no_rows_checks = %v, want 1", v)
 	}
-	if v := objAt(got, "silent_checks"); v.I != 2 {
+	if v := validation.ObjAt(got, "silent_checks"); v.I != 2 {
 		t.Errorf("silent_checks = %v, want 2", v)
 	}
-	if gotLabels := validation.CanonCompact(objAt(got, "discounted")); gotLabels !=
+	if gotLabels := validation.CanonCompact(validation.ObjAt(got, "discounted")); gotLabels !=
 		`["bug_class=logic-error"]` {
 		t.Errorf("discounted = %s", gotLabels)
 	}
-	ids := []string{objStr(labelOnly, "finding_id"), objStr(silent, "finding_id"),
-		objStr(noRows, "finding_id"), objStr(miss, "finding_id")}
+	ids := []string{validation.ObjStr(labelOnly, "finding_id"), validation.ObjStr(silent, "finding_id"),
+		validation.ObjStr(noRows, "finding_id"), validation.ObjStr(miss, "finding_id")}
 	sort.Strings(ids)
-	if gotFindings := validation.CanonCompact(objAt(got, "findings")); gotFindings !=
-		validation.CanonCompact(strArr(ids)) {
+	if gotFindings := validation.CanonCompact(validation.ObjAt(got, "findings")); gotFindings !=
+		validation.CanonCompact(validation.StrArr(ids)) {
 		t.Errorf("findings = %s, want %s", gotFindings,
-			validation.CanonCompact(strArr(ids)))
+			validation.CanonCompact(validation.StrArr(ids)))
 	}
 }
 
@@ -931,7 +931,7 @@ func TestBareStringCapabilityFieldIsOneLabel(t *testing.T) {
 	row := relevanceRow("MEM-capstr01", "oracle-manipulation",
 		kv("granted", validation.VStr("Control-Perceived_Asset Price")))
 	tags := MemoryRowRelevanceTags(row)
-	if got := validation.CanonCompact(strArr(tags["capability"])); got !=
+	if got := validation.CanonCompact(validation.StrArr(tags["capability"])); got !=
 		`["control_perceived_asset_price"]` {
 		t.Fatalf("capability tags = %s", got)
 	}
@@ -940,7 +940,7 @@ func TestBareStringCapabilityFieldIsOneLabel(t *testing.T) {
 	installMemoryStore(t, row)
 	f := mintRelevanceFinding(t, c, "logic-error", "",
 		[]string{"control_perceived_asset_price"}, nil)
-	out := recordCheck(t, c, objStr(f, "finding_id"),
+	out := recordCheck(t, c, validation.ObjStr(f, "finding_id"),
 		[]string{"MEM-capstr01"}, "comparative", "same primitive")
 	if got := canonRelevance(t, memoryEntries(out)[0]); got !=
 		`{"overlapping":["MEM-capstr01"],"basis":["capability"]}` {
@@ -961,24 +961,24 @@ func TestCorpusRecallGapsIgnoresAStampThatIsNotTrue(t *testing.T) {
 	f := mintRelevanceFinding(t, c, "logic-error", "", nil, nil)
 	checks := validation.VArr(
 		validation.VObj(
-			kv("memory_ids", strArr([]string{"MEM-x"})),
+			kv("memory_ids", validation.StrArr([]string{"MEM-x"})),
 			kv("mode", validation.VStr("negative")),
 			kv("recalled_irrelevant", validation.VInt(1)),
 		),
 		validation.VObj(
-			kv("memory_ids", strArr([]string{"MEM-y"})),
+			kv("memory_ids", validation.StrArr([]string{"MEM-y"})),
 			kv("mode", validation.VStr("negative")),
 			kv("recalled_irrelevant", validation.VBool(true)),
 			kv("relevance", validation.VObj(
 				kv("overlapping", validation.VArr()),
 				kv("basis", validation.VArr()),
-				kv("discounted", strArr([]string{"bug_class=logic-error"})),
+				kv("discounted", validation.StrArr([]string{"bug_class=logic-error"})),
 			)),
 		),
 	)
 	f.O = validation.SetOrAppend(f.O, "provenance",
 		validation.VObj(kv("memory_checks", checks)))
-	if err := validation.WriteJson(FindingPath(c, objStr(f, "finding_id")), f,
+	if err := validation.WriteJson(FindingPath(c, validation.ObjStr(f, "finding_id")), f,
 		""); err != nil {
 		t.Fatal(err)
 	}
@@ -986,16 +986,16 @@ func TestCorpusRecallGapsIgnoresAStampThatIsNotTrue(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if v := objAt(got, "checks"); v.I != 2 {
+	if v := validation.ObjAt(got, "checks"); v.I != 2 {
 		t.Errorf("checks = %v, want 2", v)
 	}
-	if v := objAt(got, "irrelevant_checks"); v.I != 1 {
+	if v := validation.ObjAt(got, "irrelevant_checks"); v.I != 1 {
 		t.Errorf("irrelevant_checks = %v, want 1", v)
 	}
-	if v := objAt(got, "label_only_checks"); v.I != 1 {
+	if v := validation.ObjAt(got, "label_only_checks"); v.I != 1 {
 		t.Errorf("label_only_checks = %v, want 1", v)
 	}
-	if v := objAt(got, "silent_checks"); v.I != 0 {
+	if v := validation.ObjAt(got, "silent_checks"); v.I != 0 {
 		t.Errorf("silent_checks = %v, want 0", v)
 	}
 }

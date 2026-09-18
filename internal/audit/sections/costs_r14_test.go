@@ -39,7 +39,7 @@ func TestCostProjectionIsPoliced(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !objAt(sec, "ok").B {
+	if !validation.ObjAt(sec, "ok").B {
 		t.Fatalf("honest cost must be green: %s",
 			validation.DumpsOrdered(sec, false))
 	}
@@ -50,7 +50,7 @@ func TestCostProjectionIsPoliced(t *testing.T) {
 		t.Fatal(err)
 	}
 	body := validation.DumpsOrdered(sec, false)
-	if objAt(sec, "ok").B || !strings.Contains(body, "COST-aaaaaaaaaa") {
+	if validation.ObjAt(sec, "ok").B || !strings.Contains(body, "COST-aaaaaaaaaa") {
 		t.Fatalf("deleted costs.jsonl must burn red naming the cost: %s",
 			body)
 	}
@@ -65,7 +65,7 @@ func TestCostProjectionIsPoliced(t *testing.T) {
 		t.Fatal(err)
 	}
 	body = validation.DumpsOrdered(sec, false)
-	if objAt(sec, "ok").B || !strings.Contains(body, "COST-ghostghost") ||
+	if validation.ObjAt(sec, "ok").B || !strings.Contains(body, "COST-ghostghost") ||
 		!strings.Contains(body, "webv2 cost") {
 		t.Fatalf("ghost row must burn red naming the sanctioned verb: %s",
 			body)

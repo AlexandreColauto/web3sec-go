@@ -228,13 +228,13 @@ func budgetShow(c *state.Campaign, a *budgetArgs, r *Runner) error {
 	if err != nil {
 		return err
 	}
-	if objStr(st, "status") == "no-limit" {
+	if validation.ObjStr(st, "status") == "no-limit" {
 		fmt.Fprintf(r.Out, "cost: $%s spent — NO CEILING SET (unbounded; "+
 			"set one with `webv2 budget %s --set USD --actor <name>`)\n",
 			t14Money(objFlt(st, "spent_usd")), c.CampaignID)
 	} else {
 		pos := "within limit"
-		if objStr(st, "status") == "exceeded" {
+		if validation.ObjStr(st, "status") == "exceeded" {
 			pos = "EXCEEDED by $" + t14Money(objFlt(st, "over_by_usd"))
 		}
 		fmt.Fprintf(r.Out, "cost: $%s spent vs $%s limit — %s ($%s "+
@@ -251,7 +251,7 @@ func budgetShow(c *state.Campaign, a *budgetArgs, r *Runner) error {
 
 // objFlt is objAt + the float value (ints widen; absent is 0.0).
 func objFlt(v validation.Value, key string) float64 {
-	f := objAt(v, key)
+	f := validation.ObjAt(v, key)
 	switch f.Kind {
 	case validation.Flt:
 		return f.F

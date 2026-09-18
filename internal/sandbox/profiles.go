@@ -423,22 +423,9 @@ func containerValue(meta ContainerMeta) validation.Value {
 
 // boolAt is the boolean field reader (a missing/non-bool key reads false).
 func boolAt(v validation.Value, key string) bool {
-	f := objAt(v, key)
+	f := validation.ObjAt(v, key)
 	return f.Kind == validation.Bool && f.B
 }
 
 // strAt is objStr spelled for the seam code.
-func strAt(v validation.Value, key string) string { return objStr(v, key) }
-
-// objAt is the sandbox-local dict lookup (a missing key reads as null).
-func objAt(v validation.Value, key string) validation.Value {
-	if v.Kind != validation.Obj {
-		return validation.VNull()
-	}
-	for _, kv := range v.O {
-		if kv.K == key {
-			return kv.V
-		}
-	}
-	return validation.VNull()
-}
+func strAt(v validation.Value, key string) string { return validation.ObjStr(v, key) }

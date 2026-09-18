@@ -93,7 +93,7 @@ func seqAuditCampaign(t *testing.T) (*state.Campaign, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	f, err = findings.LoadFinding(c, fid)
 	if err != nil {
 		t.Fatal(err)
@@ -144,7 +144,7 @@ func seqSection(t *testing.T, c *state.Campaign) validation.Value {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sec := objAt(objAt(rep, "sections"), "sequence_coverage")
+	sec := validation.ObjAt(validation.ObjAt(rep, "sections"), "sequence_coverage")
 	if sec.Kind != validation.Obj {
 		t.Fatalf("section = %v", sec)
 	}
@@ -153,7 +153,7 @@ func seqSection(t *testing.T, c *state.Campaign) validation.Value {
 
 func seqInt(t *testing.T, sec validation.Value, key string) int64 {
 	t.Helper()
-	v := objAt(sec, key)
+	v := validation.ObjAt(sec, key)
 	if v.Kind != validation.Int {
 		t.Fatalf("%s = %v, want int", key, v)
 	}
@@ -181,7 +181,7 @@ func seqStageCovered(t *testing.T, c *state.Campaign, fid string,
 	rec validation.Value) {
 	t.Helper()
 	spec := seqSpec(t, fid)
-	out := filepath.Dir(objStr(rec, "stdout_path"))
+	out := filepath.Dir(validation.ObjStr(rec, "stdout_path"))
 	if err := os.WriteFile(filepath.Join(out, "spec.json"),
 		sequencepoc.CanonicalJSON(spec), 0o644); err != nil {
 		t.Fatal(err)
@@ -221,12 +221,12 @@ func TestAuditSectionFlagsUncovered(t *testing.T) {
 	if n := seqInt(t, sec, "covered"); n != 0 {
 		t.Errorf("covered = %d, want 0", n)
 	}
-	if v := objAt(sec, "ok"); v.Kind != validation.Bool || v.B {
+	if v := validation.ObjAt(sec, "ok"); v.Kind != validation.Bool || v.B {
 		t.Errorf("ok = %v, want false", v)
 	}
-	rows := seqList(objAt(sec, "rows"))
-	if len(rows) != 1 || objAt(rows[0], "problem").Kind != validation.Str {
-		t.Fatalf("rows = %s", validation.DumpIndented(objAt(sec, "rows")))
+	rows := seqList(validation.ObjAt(sec, "rows"))
+	if len(rows) != 1 || validation.ObjAt(rows[0], "problem").Kind != validation.Str {
+		t.Fatalf("rows = %s", validation.DumpIndented(validation.ObjAt(sec, "rows")))
 	}
 }
 
@@ -243,7 +243,7 @@ func TestAuditSectionPassesWhenCovered(t *testing.T) {
 		t.Fatal(err)
 	}
 	seqStageCovered(t, c, fid, rec)
-	tier, execID := "T4", objStr(rec, "exec_id")
+	tier, execID := "T4", validation.ObjStr(rec, "exec_id")
 	if _, err := reproduction.RecordAttempt(c, fid, "reproduced",
 		reproduction.RecordOpts{Tier: &tier, ExecID: &execID}); err != nil {
 		t.Fatal(err)
@@ -255,7 +255,7 @@ func TestAuditSectionPassesWhenCovered(t *testing.T) {
 	if n := seqInt(t, sec, "covered"); n != 1 {
 		t.Errorf("covered = %d, want 1", n)
 	}
-	if v := objAt(sec, "ok"); v.Kind != validation.Bool || !v.B {
+	if v := validation.ObjAt(sec, "ok"); v.Kind != validation.Bool || !v.B {
 		t.Errorf("ok = %v, want true", v)
 	}
 }
@@ -281,10 +281,10 @@ func TestAuditSkipsMalformedAttemptEntries(t *testing.T) {
 	if n := seqInt(t, sec, "covered"); n != 0 {
 		t.Errorf("covered = %d, want 0", n)
 	}
-	if v := objAt(sec, "ok"); v.Kind != validation.Bool || v.B {
+	if v := validation.ObjAt(sec, "ok"); v.Kind != validation.Bool || v.B {
 		t.Errorf("ok = %v, want false", v)
 	}
-	for _, p := range seqList(objAt(sec, "problems")) {
+	for _, p := range seqList(validation.ObjAt(sec, "problems")) {
 		if p.Kind == validation.Str && strings.Contains(p.S, "section failed") {
 			t.Errorf("section degraded: %q", p.S)
 		}

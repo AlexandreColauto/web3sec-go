@@ -20,7 +20,7 @@ import (
 func TestGateDryrunListsFailingChecksWithFixes(t *testing.T) {
 	c, root := t15Campaign(t, "gate")
 	f := t15Finding(t, c, "an inflation hypothesis", "first-depositor-inflation")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	code, out, errS := run(t, "--root", root, "gate", c.CampaignID, fid)
 	if code != 1 {
 		t.Fatalf("exit %d, want 1: %q", code, errS)
@@ -59,15 +59,15 @@ func TestGateDryrunAllChecksPass(t *testing.T) {
 	c, root := t15Campaign(t, "gate-pass")
 	t15GlobalRow(t, "MEM-global01", "logic-error")
 	f := t15Finding(t, c, "a logic flow hypothesis", "logic-error")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	rec := t15ExecRecordFor(t, c, "EXEC-0000000001", fid)
 	item := validation.VObj(
 		kvT("evidence_id", validation.VStr("EV-1")),
 		kvT("level", validation.VStr("E4")),
 		kvT("type", validation.VStr("foundry-test")),
 		kvT("description", validation.VStr("PoC passes")),
-		kvT("sandbox_profile", objAt(rec, "profile")),
-		kvT("artifact_id", objAt(rec, "exec_id")),
+		kvT("sandbox_profile", validation.ObjAt(rec, "profile")),
+		kvT("artifact_id", validation.ObjAt(rec, "exec_id")),
 	)
 	if _, err := findings.AddEvidence(c, fid, item); err != nil {
 		t.Fatalf("add evidence: %v", err)
@@ -78,7 +78,7 @@ func TestGateDryrunAllChecksPass(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ver := asDictCLI(objAt(vf, "verification"))
+	ver := asDictCLI(validation.ObjAt(vf, "verification"))
 	ver = setObjFieldCLI(ver, "reproduction", validation.VObj(
 		kvT("tier_reached", validation.VStr("T2")),
 		kvT("status", validation.VStr("reproduced")),

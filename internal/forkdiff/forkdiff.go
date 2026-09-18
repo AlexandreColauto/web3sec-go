@@ -80,21 +80,21 @@ func FingerprintTree(root string) (validation.Value, error) {
 		[]string{}, []string{}, []string{}, []string{}
 	selSeen := map[string]bool{}
 	for _, n := range nodes {
-		switch objStr(n, "kind") {
+		switch validation.ObjStr(n, "kind") {
 		case "contract", "interface", "library":
-			contracts = append(contracts, objStr(n, "name"))
+			contracts = append(contracts, validation.ObjStr(n, "name"))
 		case "function":
-			if s := objStr(n, "selector"); s != "" && !selSeen[s] {
+			if s := validation.ObjStr(n, "selector"); s != "" && !selSeen[s] {
 				selSeen[s] = true
 				selectors = append(selectors, s)
 			}
 			if len(objListAt(n, "delegatecalls")) > 0 {
-				deleg = append(deleg, objStr(n, "id"))
+				deleg = append(deleg, validation.ObjStr(n, "id"))
 			}
 		case "state-variable":
-			stateVars = append(stateVars, objStr(n, "name"))
+			stateVars = append(stateVars, validation.ObjStr(n, "name"))
 		case "modifier":
-			modifiers = append(modifiers, objStr(n, "name"))
+			modifiers = append(modifiers, validation.ObjStr(n, "name"))
 		}
 	}
 	sort.Strings(contracts)
@@ -104,11 +104,11 @@ func FingerprintTree(root string) (validation.Value, error) {
 	sort.Strings(deleg)
 	inherits := []string{}
 	for _, e := range objListAt(tree, "edges") {
-		if objStr(e, "rel") != "inherits" {
+		if validation.ObjStr(e, "rel") != "inherits" {
 			continue
 		}
-		from := objStr(e, "from")
-		to := objStr(e, "to")
+		from := validation.ObjStr(e, "from")
+		to := validation.ObjStr(e, "to")
 		if i := strings.Index(from, "#"); i >= 0 {
 			from = from[i+1:]
 		}
@@ -119,12 +119,12 @@ func FingerprintTree(root string) (validation.Value, error) {
 	}
 	sort.Strings(inherits)
 	return validation.VObj(
-		validation.KV{K: "contracts", V: strArr(contracts)},
-		validation.KV{K: "selectors", V: strArr(selectors)},
-		validation.KV{K: "state_vars", V: strArr(stateVars)},
-		validation.KV{K: "modifiers", V: strArr(modifiers)},
-		validation.KV{K: "delegatecall_functions", V: strArr(deleg)},
-		validation.KV{K: "inherits", V: strArr(inherits)},
+		validation.KV{K: "contracts", V: validation.StrArr(contracts)},
+		validation.KV{K: "selectors", V: validation.StrArr(selectors)},
+		validation.KV{K: "state_vars", V: validation.StrArr(stateVars)},
+		validation.KV{K: "modifiers", V: validation.StrArr(modifiers)},
+		validation.KV{K: "delegatecall_functions", V: validation.StrArr(deleg)},
+		validation.KV{K: "inherits", V: validation.StrArr(inherits)},
 	), nil
 }
 
@@ -192,8 +192,8 @@ func Match(targetFP, baselineFP validation.Value, name string) validation.Value 
 		)},
 		validation.KV{K: "score", V: validation.VFloat(score)},
 		validation.KV{K: "verdict", V: validation.VStr(verdict)},
-		validation.KV{K: "extra_selectors", V: strArr(extra)},
-		validation.KV{K: "missing_selectors", V: strArr(missing)},
+		validation.KV{K: "extra_selectors", V: validation.StrArr(extra)},
+		validation.KV{K: "missing_selectors", V: validation.StrArr(missing)},
 	)
 }
 
@@ -219,7 +219,7 @@ func difference(a, b []string) []string {
 }
 
 func strs(v validation.Value, key string) []string {
-	x := objAt(v, key)
+	x := validation.ObjAt(v, key)
 	if x.Kind != validation.Arr {
 		return nil
 	}
@@ -232,47 +232,12 @@ func strs(v validation.Value, key string) []string {
 	return out
 }
 
-func objAt(v validation.Value, key string) validation.Value {
-	if v.Kind != validation.Obj {
-		return validation.VNull()
-	}
-	for _, kv := range v.O {
-		if kv.K == key {
-			return kv.V
-		}
-	}
-	return validation.VNull()
-}
-
-func objStr(v validation.Value, key string) string {
-	x := objAt(v, key)
-	if x.Kind == validation.Str {
-		return x.S
-	}
-	return ""
-}
-
 func objListAt(v validation.Value, key string) []validation.Value {
-	x := objAt(v, key)
+	x := validation.ObjAt(v, key)
 	if x.Kind != validation.Arr {
 		return nil
 	}
 	return x.A
-}
-
-func strArr(xs []string) validation.Value {
-	out := make([]validation.Value, 0, len(xs))
-	for _, x := range xs {
-		out = append(out, validation.VStr(x))
-	}
-	return validation.VArr(out...)
-}
-
-func nowIso() string {
-	if v := os.Getenv("WEBV2_NOW"); v != "" {
-		return v
-	}
-	return state.NowIso()
 }
 
 // checkName is _check_name.
@@ -377,7 +342,7 @@ func AddBaseline(name, srcPath string, sourceURL, licenseID *string) (validation
 	}
 	meta := validation.VObj(
 		validation.KV{K: "name", V: validation.VStr(name)},
-		validation.KV{K: "added_at", V: validation.VStr(nowIso())},
+		validation.KV{K: "added_at", V: validation.VStr(state.NowIso())},
 		validation.KV{K: "source_url", V: optStr(sourceURL)},
 		validation.KV{K: "license", V: optStr(licenseID)},
 		validation.KV{K: "fingerprint", V: fp},
@@ -401,8 +366,8 @@ func AddBaseline(name, srcPath string, sourceURL, licenseID *string) (validation
 	if !found {
 		names = append(names, name)
 	}
-	man = setKey(man, "baselines", strArr(names))
-	man = setKey(man, "updated_at", validation.VStr(nowIso()))
+	man = setKey(man, "baselines", validation.StrArr(names))
+	man = setKey(man, "updated_at", validation.VStr(state.NowIso()))
 	if err := validation.WriteJson(manifestPath(), man, ""); err != nil {
 		return validation.VNull(), err
 	}
@@ -509,7 +474,7 @@ func ListBaselines() ([]validation.Value, error) {
 		out = append(out, m)
 	}
 	sort.SliceStable(out, func(i, j int) bool {
-		return objStr(out[i], "name") < objStr(out[j], "name")
+		return validation.ObjStr(out[i], "name") < validation.ObjStr(out[j], "name")
 	})
 	return out, nil
 }
@@ -535,8 +500,8 @@ func RemoveBaseline(name string) error {
 			kept = append(kept, n)
 		}
 	}
-	man = setKey(man, "baselines", strArr(kept))
-	man = setKey(man, "updated_at", validation.VStr(nowIso()))
+	man = setKey(man, "baselines", validation.StrArr(kept))
+	man = setKey(man, "updated_at", validation.VStr(state.NowIso()))
 	return validation.WriteJson(manifestPath(), man, "")
 }
 
@@ -554,8 +519,8 @@ func ForkdiffReport(c *state.Campaign, snapshotRoot string) (validation.Value, e
 	}
 	matches := make([]validation.Value, 0, len(baselines))
 	for _, b := range baselines {
-		matches = append(matches, Match(fp, objAt(b, "fingerprint"),
-			objStr(b, "name")))
+		matches = append(matches, Match(fp, validation.ObjAt(b, "fingerprint"),
+			validation.ObjStr(b, "name")))
 	}
 	var best validation.Value
 	hasBest := false
@@ -576,17 +541,17 @@ func ForkdiffReport(c *state.Campaign, snapshotRoot string) (validation.Value, e
 	diffSummary := "no baselines registered"
 	extraSel, missingSel := validation.VArr(), validation.VArr()
 	if hasBest {
-		extraSel = objAt(best, "extra_selectors")
-		missingSel = objAt(best, "missing_selectors")
+		extraSel = validation.ObjAt(best, "extra_selectors")
+		missingSel = validation.ObjAt(best, "missing_selectors")
 		diffSummary = fmt.Sprintf("score %s (%s) vs %s",
-			pyFixed2(scoreOf(best)), objStr(best, "verdict"),
-			objStr(best, "baseline"))
-		if objStr(best, "verdict") != "none" {
-			matchedBaseline = objAt(best, "baseline")
+			pyFixed2(scoreOf(best)), validation.ObjStr(best, "verdict"),
+			validation.ObjStr(best, "baseline"))
+		if validation.ObjStr(best, "verdict") != "none" {
+			matchedBaseline = validation.ObjAt(best, "baseline")
 		}
 	}
 	report := validation.VObj(
-		validation.KV{K: "generated_at", V: validation.VStr(nowIso())},
+		validation.KV{K: "generated_at", V: validation.VStr(state.NowIso())},
 		validation.KV{K: "snapshot_id", V: validation.VStr(snapID)},
 		validation.KV{K: "matched_baseline", V: matchedBaseline},
 		validation.KV{K: "diff_summary", V: validation.VStr(diffSummary)},
@@ -612,7 +577,7 @@ func ForkdiffReport(c *state.Campaign, snapshotRoot string) (validation.Value, e
 }
 
 func scoreOf(m validation.Value) float64 {
-	x := objAt(m, "score")
+	x := validation.ObjAt(m, "score")
 	if x.Kind == validation.Flt {
 		return x.F
 	}

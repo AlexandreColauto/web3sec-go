@@ -77,7 +77,7 @@ func t35RecordCheck(t *testing.T, c *state.Campaign, fid string,
 func t35CorpusLines(t *testing.T, b validation.Value) []string {
 	t.Helper()
 	out := []string{}
-	for _, a := range objAt(b, "next_actions").A {
+	for _, a := range validation.ObjAt(b, "next_actions").A {
 		if strings.Contains(a.S, "  # corpus: ") {
 			out = append(out, a.S)
 		}
@@ -90,7 +90,7 @@ func TestBriefShowsCorpusLineWhenChecksAreIrrelevant(t *testing.T) {
 	c := newCamp(t, "Acme Program")
 	t35SeedGlobal(t, t35GlobalRow("MEM-defi0001", "oracle-manipulation"))
 	f := hypo(t, c, "logic-error", nil, nil, "Untitled finding")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	t35RecordCheck(t, c, fid, []string{"MEM-defi0001"})
 	b := build(t, c, false)
 	lines := t35CorpusLines(t, b)
@@ -104,10 +104,10 @@ func TestBriefShowsCorpusLineWhenChecksAreIrrelevant(t *testing.T) {
 	if !strings.Contains(lines[0], wantCmd) {
 		t.Errorf("line %q lacks the runnable command %q", lines[0], wantCmd)
 	}
-	cr := objAt(b, "corpus_recall")
+	cr := validation.ObjAt(b, "corpus_recall")
 	for k, want := range map[string]int64{
 		"irrelevant_checks": 1, "silent_checks": 1, "label_only_checks": 0} {
-		if got := objAt(cr, k).I; got != want {
+		if got := validation.ObjAt(cr, k).I; got != want {
 			t.Errorf("corpus_recall.%s = %d, want %d", k, got, want)
 		}
 	}
@@ -124,9 +124,9 @@ func TestBriefLineNamesDiscountedLabelAndNeverClaimsSilence(t *testing.T) {
 		t35GlobalRow("MEM-miss01", "proof-forgery"))
 	f1 := hypo(t, c, "logic-error", nil, nil, "label-only gap finding")
 	f2 := hypo(t, c, "logic-error", nil, nil, "silent gap finding")
-	t35RecordCheck(t, c, objStr(f1, "finding_id"),
+	t35RecordCheck(t, c, validation.ObjStr(f1, "finding_id"),
 		[]string{"MEM-rollup01"})
-	t35RecordCheck(t, c, objStr(f2, "finding_id"), []string{"MEM-miss01"})
+	t35RecordCheck(t, c, validation.ObjStr(f2, "finding_id"), []string{"MEM-miss01"})
 	b := build(t, c, false)
 	lines := t35CorpusLines(t, b)
 	if len(lines) != 1 {
@@ -141,10 +141,10 @@ func TestBriefLineNamesDiscountedLabelAndNeverClaimsSilence(t *testing.T) {
 	if strings.Contains(strings.ToLower(lines[0]), "silent") {
 		t.Errorf("line must not claim silence: %q", lines[0])
 	}
-	cr := objAt(b, "corpus_recall")
+	cr := validation.ObjAt(b, "corpus_recall")
 	for k, want := range map[string]int64{
 		"irrelevant_checks": 2, "label_only_checks": 1, "silent_checks": 1} {
-		if got := objAt(cr, k).I; got != want {
+		if got := validation.ObjAt(cr, k).I; got != want {
 			t.Errorf("corpus_recall.%s = %d, want %d", k, got, want)
 		}
 	}
@@ -153,7 +153,7 @@ func TestBriefLineNamesDiscountedLabelAndNeverClaimsSilence(t *testing.T) {
 		t.Errorf("corpus_recall.discounted = %v", got)
 	}
 	got := objStringList(t, cr, "findings")
-	want := []string{objStr(f1, "finding_id"), objStr(f2, "finding_id")}
+	want := []string{validation.ObjStr(f1, "finding_id"), validation.ObjStr(f2, "finding_id")}
 	if !sameStringSet(got, want) {
 		t.Errorf("corpus_recall.findings = %v, want %v", got, want)
 	}
@@ -165,15 +165,15 @@ func TestBriefCorpusCommandNamesCampaignAndCountsExtraFindings(t *testing.T) {
 	t35SeedGlobal(t, t35GlobalRow("MEM-defi0001", "oracle-manipulation"))
 	f1 := hypo(t, c, "logic-error", nil, nil, "first gap finding")
 	f2 := hypo(t, c, "logic-error", nil, nil, "second gap finding")
-	t35RecordCheck(t, c, objStr(f1, "finding_id"), []string{"MEM-defi0001"})
-	t35RecordCheck(t, c, objStr(f2, "finding_id"), []string{"MEM-defi0001"})
+	t35RecordCheck(t, c, validation.ObjStr(f1, "finding_id"), []string{"MEM-defi0001"})
+	t35RecordCheck(t, c, validation.ObjStr(f2, "finding_id"), []string{"MEM-defi0001"})
 	b := build(t, c, false)
 	lines := t35CorpusLines(t, b)
 	if len(lines) != 1 {
 		t.Fatalf("corpus lines = %v, want exactly 1", lines)
 	}
-	first := objStr(f1, "finding_id")
-	if second := objStr(f2, "finding_id"); second < first {
+	first := validation.ObjStr(f1, "finding_id")
+	if second := validation.ObjStr(f2, "finding_id"); second < first {
 		first = second
 	}
 	if !strings.Contains(lines[0], "webv2 recall "+c.CampaignID+
@@ -185,7 +185,7 @@ func TestBriefCorpusCommandNamesCampaignAndCountsExtraFindings(t *testing.T) {
 		// reason suffix rewords the old "(+1 more finding(s))"
 		t.Errorf("line %q lacks the extra-findings count", lines[0])
 	}
-	if got := objAt(objAt(b, "corpus_recall"), "irrelevant_checks").I; got != 2 {
+	if got := validation.ObjAt(validation.ObjAt(b, "corpus_recall"), "irrelevant_checks").I; got != 2 {
 		t.Errorf("irrelevant_checks = %d, want 2", got)
 	}
 }
@@ -195,13 +195,13 @@ func TestBriefHasNoCorpusLineWithoutIrrelevantChecks(t *testing.T) {
 	c := newCamp(t, "Acme Program")
 	t35SeedGlobal(t, t35GlobalRow("MEM-over01", "bridge-message"))
 	f := hypo(t, c, "bridge-message", nil, nil, "overlapping finding")
-	t35RecordCheck(t, c, objStr(f, "finding_id"), []string{"MEM-over01"})
+	t35RecordCheck(t, c, validation.ObjStr(f, "finding_id"), []string{"MEM-over01"})
 	b := build(t, c, false)
 	if lines := t35CorpusLines(t, b); len(lines) != 0 {
 		t.Errorf("corpus lines = %v, want none", lines)
 	}
-	cr := objAt(b, "corpus_recall")
-	if got := objAt(cr, "irrelevant_checks").I; got != 0 {
+	cr := validation.ObjAt(b, "corpus_recall")
+	if got := validation.ObjAt(cr, "irrelevant_checks").I; got != 0 {
 		t.Errorf("irrelevant_checks = %d, want 0", got)
 	}
 	if got := objStringList(t, cr, "findings"); len(got) != 0 {
@@ -216,16 +216,16 @@ func TestBriefIsCleanOnAnEmptyCampaign(t *testing.T) {
 	if lines := t35CorpusLines(t, b); len(lines) != 0 {
 		t.Errorf("corpus lines = %v, want none", lines)
 	}
-	cr := objAt(b, "corpus_recall")
+	cr := validation.ObjAt(b, "corpus_recall")
 	for k, want := range map[string]int64{
 		"checks": 0, "irrelevant_checks": 0, "label_only_checks": 0,
 		"no_rows_checks": 0, "silent_checks": 0} {
-		if got := objAt(cr, k).I; got != want {
+		if got := validation.ObjAt(cr, k).I; got != want {
 			t.Errorf("corpus_recall.%s = %d, want 0", k, got)
 		}
 	}
 	for _, k := range []string{"discounted", "findings"} {
-		if got := objAt(cr, k); got.Kind != validation.Arr || len(got.A) != 0 {
+		if got := validation.ObjAt(cr, k); got.Kind != validation.Arr || len(got.A) != 0 {
 			t.Errorf("corpus_recall.%s = %v, want []", k, got)
 		}
 	}

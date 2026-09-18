@@ -56,25 +56,25 @@ func runRelations(root string, args []string, r *Runner) int {
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(r.Out, "edges: %s\n", pyIntText(objAt(v, "edge_count")))
-		byKind := objAt(v, "by_kind")
-		policies := objAt(v, "policies")
+		fmt.Fprintf(r.Out, "edges: %s\n", pyIntText(validation.ObjAt(v, "edge_count")))
+		byKind := validation.ObjAt(v, "by_kind")
+		policies := validation.ObjAt(v, "policies")
 		for _, entry := range byKind.O {
 			kind := entry.K
 			edges := entry.V.A
 			fmt.Fprintf(r.Out, "  %s (%s): %d\n", kind,
-				objStr(policies, kind), len(edges))
+				validation.ObjStr(policies, kind), len(edges))
 			for _, e := range edges {
 				sup := ""
-				if support := objAt(e, "support"); support.Kind != validation.Null {
-					sup = firstNonEmpty(objStr(support, "chain_id"),
-						objStr(support, "evidence_id"),
-						objStr(support, "pin"),
-						objStr(support, "memory_id"),
-						objStr(support, "commit"), "attested")
+				if support := validation.ObjAt(e, "support"); support.Kind != validation.Null {
+					sup = firstNonEmpty(validation.ObjStr(support, "chain_id"),
+						validation.ObjStr(support, "evidence_id"),
+						validation.ObjStr(support, "pin"),
+						validation.ObjStr(support, "memory_id"),
+						validation.ObjStr(support, "commit"), "attested")
 				}
 				who := ""
-				if actor := objAt(e, "actor"); actor.Kind == validation.Str &&
+				if actor := validation.ObjAt(e, "actor"); actor.Kind == validation.Str &&
 					actor.S != "" {
 					who = " [actor " + actor.S + "]"
 				}
@@ -82,8 +82,8 @@ func runRelations(root string, args []string, r *Runner) int {
 					sup = "n/a"
 				}
 				fmt.Fprintf(r.Out, "    %s -> %s  (anchor: %s)%s\n",
-					objStr(objAt(e, "src"), "id"),
-					objStr(objAt(e, "dst"), "id"), sup, who)
+					validation.ObjStr(validation.ObjAt(e, "src"), "id"),
+					validation.ObjStr(validation.ObjAt(e, "dst"), "id"), sup, who)
 			}
 		}
 		return nil

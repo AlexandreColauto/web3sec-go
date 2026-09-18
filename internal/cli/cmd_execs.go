@@ -71,7 +71,7 @@ func runExecs(root string, args []string, r *Runner) int {
 	if haveID && id != "" {
 		var rec *validation.Value
 		for i := range execs {
-			if objStr(execs[i], "exec_id") == id {
+			if validation.ObjStr(execs[i], "exec_id") == id {
 				rec = &execs[i]
 				break
 			}
@@ -94,26 +94,26 @@ func runExecs(root string, args []string, r *Runner) int {
 	}
 	for _, e := range execs {
 		profile := "?"
-		if p := objAt(e, "profile"); p.Kind == validation.Str {
+		if p := validation.ObjAt(e, "profile"); p.Kind == validation.Str {
 			profile = p.S
 		}
 		state := execState(e)
-		fmt.Fprintf(r.Out, "%s  [%s] %s %s\n", objStr(e, "exec_id"), profile,
-			pyLeft(state, 12), pyHead(objStr(e, "command"), 70))
+		fmt.Fprintf(r.Out, "%s  [%s] %s %s\n", validation.ObjStr(e, "exec_id"), profile,
+			pyLeft(state, 12), pyHead(validation.ObjStr(e, "command"), 70))
 	}
 	return 0
 }
 
 // execState is cmd_execs' state column: refused / exit N / incomplete.
 func execState(e validation.Value) string {
-	verdict := objAt(e, "policy_verdict")
-	for _, v := range objAt(verdict, "violations").A {
+	verdict := validation.ObjAt(e, "policy_verdict")
+	for _, v := range validation.ObjAt(verdict, "violations").A {
 		if v.Kind == validation.Str && v.S == "execution-refused" {
 			return "refused"
 		}
 	}
-	if objAt(e, "finished_at").Kind != validation.Null {
-		return "exit " + scalarStr(objAt(e, "exit_status"))
+	if validation.ObjAt(e, "finished_at").Kind != validation.Null {
+		return "exit " + scalarStr(validation.ObjAt(e, "exit_status"))
 	}
 	return "incomplete"
 }

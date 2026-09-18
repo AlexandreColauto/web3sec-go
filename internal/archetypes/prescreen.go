@@ -25,13 +25,6 @@ func overridesPath(c *state.Campaign) string {
 	return filepath.Join(c.ArtifactsDir, overridesFile)
 }
 
-func nowIso() string {
-	if v := os.Getenv("WEBV2_NOW"); v != "" {
-		return v
-	}
-	return state.NowIso()
-}
-
 // Prescreen is prescreen: run every archetype against the index and write
 // the report artifact. force adds operator overrides (persisted + logged). A
 // stale stored index is rebuilt first (structidx.EnsureFreshIndex), so the
@@ -51,7 +44,7 @@ func Prescreen(c *state.Campaign, snapshotRoot string,
 	}
 	forcedIDs := map[string]bool{}
 	for _, o := range overrides {
-		forcedIDs[objStr(o, "archetype_id")] = true
+		forcedIDs[validation.ObjStr(o, "archetype_id")] = true
 	}
 	available, err := AvailableArchetypes()
 	if err != nil {
@@ -81,7 +74,7 @@ func logOverrideProblems(c *state.Campaign, problems []string) error {
 	if len(problems) == 0 {
 		return nil
 	}
-	data := validation.VObj(validation.KV{K: "problems", V: strArr(problems)})
+	data := validation.VObj(validation.KV{K: "problems", V: validation.StrArr(problems)})
 	_, err := c.Log("prescreen.overrides_corrupt", nil, &data)
 	return err
 }
@@ -103,7 +96,7 @@ func applyForces(c *state.Campaign, overrides *[]validation.Value,
 		forcedIDs[aid] = true
 		*overrides = append(*overrides, validation.VObj(
 			validation.KV{K: "archetype_id", V: validation.VStr(aid)},
-			validation.KV{K: "at", V: validation.VStr(nowIso())},
+			validation.KV{K: "at", V: validation.VStr(state.NowIso())},
 		))
 		ref := aid
 		data := validation.VObj(validation.KV{K: "note", V: validation.VStr(
@@ -135,10 +128,10 @@ func runArchetypes(idx validation.Value, available []string,
 	matched := []string{}
 	forcedCount := int64(0)
 	for _, r := range results {
-		if objAt(r, "match").B {
-			matched = append(matched, objStr(r, "id"))
+		if validation.ObjAt(r, "match").B {
+			matched = append(matched, validation.ObjStr(r, "id"))
 		}
-		if objAt(r, "forced").B {
+		if validation.ObjAt(r, "forced").B {
 			forcedCount++
 		}
 	}
@@ -156,17 +149,17 @@ func prescreenReport(c *state.Campaign, idx validation.Value,
 	results []validation.Value, matched []string, forcedCount int64,
 	problems []string) validation.Value {
 	return validation.VObj(
-		validation.KV{K: "generated_at", V: validation.VStr(nowIso())},
+		validation.KV{K: "generated_at", V: validation.VStr(state.NowIso())},
 		validation.KV{K: "campaign_id", V: validation.VStr(c.CampaignID)},
-		validation.KV{K: "snapshot_id", V: objAt(idx, "snapshot_id")},
+		validation.KV{K: "snapshot_id", V: validation.ObjAt(idx, "snapshot_id")},
 		validation.KV{K: "results", V: validation.VArr(results...)},
-		validation.KV{K: "matched_ids", V: strArr(matched)},
+		validation.KV{K: "matched_ids", V: validation.StrArr(matched)},
 		validation.KV{K: "stats", V: validation.VObj(
 			validation.KV{K: "archetypes", V: validation.VInt(int64(len(results)))},
 			validation.KV{K: "matched", V: validation.VInt(int64(len(matched)))},
 			validation.KV{K: "forced", V: validation.VInt(forcedCount)},
 		)},
-		validation.KV{K: "problems", V: strArr(problems)},
+		validation.KV{K: "problems", V: validation.StrArr(problems)},
 	)
 }
 
@@ -212,8 +205,8 @@ func persistPrescreen(c *state.Campaign, report validation.Value,
 		return err
 	}
 	data := validation.VObj(
-		validation.KV{K: "matched", V: strArr(matched)},
-		validation.KV{K: "forced", V: strArr(sortedKeys(forcedIDs))},
+		validation.KV{K: "matched", V: validation.StrArr(matched)},
+		validation.KV{K: "forced", V: validation.StrArr(sortedKeys(forcedIDs))},
 	)
 	_, err := c.Log("prescreen.completed", nil, &data)
 	return err
@@ -231,7 +224,7 @@ func prescreenRow(aid string, arch, idx validation.Value,
 			return validation.VNull(), err
 		}
 		checksOut = append(checksOut, validation.VObj(
-			validation.KV{K: "type", V: validation.VStr(objStr(check, "type"))},
+			validation.KV{K: "type", V: validation.VStr(validation.ObjStr(check, "type"))},
 			validation.KV{K: "result", V: validation.VStr(result)},
 			validation.KV{K: "detail", V: validation.VStr(detail)},
 		))
@@ -250,13 +243,13 @@ func prescreenRow(aid string, arch, idx validation.Value,
 	}
 	return validation.VObj(
 		validation.KV{K: "id", V: validation.VStr(aid)},
-		validation.KV{K: "name", V: objAt(arch, "name")},
-		validation.KV{K: "criticality", V: objAt(arch, "criticality")},
+		validation.KV{K: "name", V: validation.ObjAt(arch, "name")},
+		validation.KV{K: "criticality", V: validation.ObjAt(arch, "criticality")},
 		validation.KV{K: "match", V: validation.VBool(allPresent)},
 		validation.KV{K: "forced", V: validation.VBool(forced)},
 		validation.KV{K: "checks", V: validation.VArr(checksOut...)},
-		validation.KV{K: "near_matches", V: strArr(near)},
-		validation.KV{K: "playbook_hint", V: objAt(arch, "playbook_hint")},
+		validation.KV{K: "near_matches", V: validation.StrArr(near)},
+		validation.KV{K: "playbook_hint", V: validation.ObjAt(arch, "playbook_hint")},
 	), nil
 }
 
@@ -269,10 +262,10 @@ func corpusSurfaceSection(cs validation.Value) (validation.Value, error) {
 	top := make([]validation.Value, 0, len(exposure))
 	for _, r := range exposure {
 		top = append(top, validation.VObj(
-			validation.KV{K: "bug_class", V: objAt(r, "bug_class")},
-			validation.KV{K: "exposed", V: objAt(r, "exposed")},
-			validation.KV{K: "score", V: objAt(r, "score")},
-			validation.KV{K: "confidence", V: objAt(r, "confidence")},
+			validation.KV{K: "bug_class", V: validation.ObjAt(r, "bug_class")},
+			validation.KV{K: "exposed", V: validation.ObjAt(r, "exposed")},
+			validation.KV{K: "score", V: validation.ObjAt(r, "score")},
+			validation.KV{K: "confidence", V: validation.ObjAt(r, "confidence")},
 		))
 	}
 	matches := listAt(cs, "shape_matches")
@@ -281,11 +274,11 @@ func corpusSurfaceSection(cs validation.Value) (validation.Value, error) {
 	}
 	files := make([]string, 0, len(matches))
 	for _, m := range matches {
-		files = append(files, objStr(m, "file"))
+		files = append(files, validation.ObjStr(m, "file"))
 	}
 	return validation.VObj(
 		validation.KV{K: "top_exposure", V: validation.VArr(top...)},
-		validation.KV{K: "shape_match_files", V: strArr(files)},
+		validation.KV{K: "shape_match_files", V: validation.StrArr(files)},
 	), nil
 }
 
@@ -315,7 +308,7 @@ func loadOverrides(c *state.Campaign) ([]validation.Value, []string, error) {
 		return nil, []string{overridesMalformed()}, nil
 	}
 	for _, o := range raw.A {
-		if o.Kind != validation.Obj || objAt(o, "archetype_id").Kind != validation.Str {
+		if o.Kind != validation.Obj || validation.ObjAt(o, "archetype_id").Kind != validation.Str {
 			return nil, []string{overridesMalformed()}, nil
 		}
 	}
@@ -330,14 +323,6 @@ func overridesUnreadable(err error) string {
 func overridesMalformed() string {
 	return "archetype_overrides.json malformed (expected a list of " +
 		"{archetype_id, ...} entries) -- stored overrides not applied"
-}
-
-func strArr(items []string) validation.Value {
-	out := make([]validation.Value, len(items))
-	for i, s := range items {
-		out[i] = validation.VStr(s)
-	}
-	return validation.VArr(out...)
 }
 
 func itoa(n int64) string {

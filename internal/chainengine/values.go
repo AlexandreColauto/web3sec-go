@@ -5,46 +5,18 @@
 package chainengine
 
 import (
-	"fmt"
-	"os"
 	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	"websec/internal/state"
 	"websec/internal/validation"
 )
 
-// nowIso is now_iso (mirrors state.nowIso, unexported there): WEBV2_NOW pins
-// the clock for the golden suite.
-func nowIso() string {
-	if v := os.Getenv("WEBV2_NOW"); v != "" {
-		return v
-	}
-	now := time.Now().UTC()
-	return fmt.Sprintf("%s.%06d+00:00",
-		now.Format("2006-01-02T15:04:05"), now.Nanosecond()/1000)
-}
-
 // chainPath is `campaign.chains_dir / f"{chain_id}.json"`.
 func chainPath(c *state.Campaign, chainID string) string {
 	return filepath.Join(c.ChainsDir, chainID+".json")
-}
-
-// objAt is `d.get(key)` for object values (VNull when absent or not an
-// object — Python would raise on a non-dict, the schema forbids it).
-func objAt(v validation.Value, key string) validation.Value {
-	if v.Kind != validation.Obj {
-		return validation.VNull()
-	}
-	for _, kv := range v.O {
-		if kv.K == key {
-			return kv.V
-		}
-	}
-	return validation.VNull()
 }
 
 // hasKey is `key in d`.
@@ -60,14 +32,6 @@ func hasKey(v validation.Value, key string) bool {
 	return false
 }
 
-// objStr is `d.get(key)` when the field is a string, "" otherwise.
-func objStr(v validation.Value, key string) string {
-	if f := objAt(v, key); f.Kind == validation.Str {
-		return f.S
-	}
-	return ""
-}
-
 // asObj is `d.get(key) or {}`.
 func asObj(v validation.Value) validation.Value {
 	if v.Kind == validation.Obj {
@@ -78,7 +42,7 @@ func asObj(v validation.Value) validation.Value {
 
 // listOf is `d.get(key) or []` for list-valued fields.
 func listOf(v validation.Value, key string) validation.Value {
-	if f := objAt(v, key); f.Kind == validation.Arr {
+	if f := validation.ObjAt(v, key); f.Kind == validation.Arr {
 		return f
 	}
 	return validation.VArr()
@@ -221,15 +185,6 @@ func setKeys(s map[string]struct{}) []string {
 	}
 	sort.Strings(out)
 	return out
-}
-
-// strArr renders a []string as a JSON array value.
-func strArr(items []string) validation.Value {
-	out := make([]validation.Value, 0, len(items))
-	for _, s := range items {
-		out = append(out, validation.VStr(s))
-	}
-	return validation.VArr(out...)
 }
 
 // valueArr renders a []Value as an array value.

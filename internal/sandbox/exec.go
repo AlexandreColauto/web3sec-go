@@ -687,7 +687,7 @@ func (s *Sandbox) Run(command string, opts RunOpts) (validation.Value, error) {
 	if err != nil {
 		return validation.VNull(), err
 	}
-	started := nowIso()
+	started := state.NowIso()
 
 	var containerArgv []string
 	var container validation.Value = validation.VNull()
@@ -727,21 +727,21 @@ func (s *Sandbox) Run(command string, opts RunOpts) (validation.Value, error) {
 	}
 
 	if !truthy(verdict, "allowed") {
-		violations := objAt(verdict, "violations")
+		violations := validation.ObjAt(verdict, "violations")
 		extended := append(append([]validation.Value(nil), violations.A...),
 			validation.VStr("execution-refused"))
 		record = setKey(record, "policy_verdict", validation.VObj(
-			validation.KV{K: "allowed", V: objAt(verdict, "allowed")},
+			validation.KV{K: "allowed", V: validation.ObjAt(verdict, "allowed")},
 			validation.KV{K: "violations", V: validation.VArr(extended...)},
-			validation.KV{K: "checked_rules", V: objAt(verdict, "checked_rules")},
+			validation.KV{K: "checked_rules", V: validation.ObjAt(verdict, "checked_rules")},
 		))
-		record = setKey(record, "finished_at", validation.VStr(nowIso()))
+		record = setKey(record, "finished_at", validation.VStr(state.NowIso()))
 		if err := validation.WriteJson(path, record, "sandbox_execution"); err != nil {
 			return validation.VNull(), txn.fail(err)
 		}
 		ref := execID
 		data := validation.VObj(validation.KV{K: "violations",
-			V: objAt(verdict, "violations")})
+			V: validation.ObjAt(verdict, "violations")})
 		if _, err := s.Campaign.Log("sandbox.refused", &ref, &data); err != nil {
 			// The refused act (a policy refusal) must not leave debris
 			// behind either, and it must not hide what already happened:
@@ -784,7 +784,7 @@ func (s *Sandbox) Run(command string, opts RunOpts) (validation.Value, error) {
 		validation.KV{K: "stdout.log", V: validation.VStr(shaFile(stdoutPath))},
 		validation.KV{K: "stderr.log", V: validation.VStr(shaFile(stderrPath))},
 	)
-	record = setKey(record, "finished_at", validation.VStr(nowIso()))
+	record = setKey(record, "finished_at", validation.VStr(state.NowIso()))
 	record = setKey(record, "exit_status", validation.VInt(int64(exitStatus)))
 	record = setKey(record, "artifact_hashes", hashes)
 	record = setKey(record, "output_capture", outputCaptureValue(caps))
@@ -1203,7 +1203,7 @@ func RegisterExec(c *state.Campaign, opts RegisterOpts) (validation.Value, error
 	if err := os.WriteFile(stderrPath, []byte(opts.StderrText), 0o644); err != nil {
 		return validation.VNull(), txn.fail(err)
 	}
-	started, finished := nowIso(), nowIso()
+	started, finished := state.NowIso(), state.NowIso()
 	if opts.StartedAt != nil {
 		started = *opts.StartedAt
 	}
@@ -1448,21 +1448,10 @@ func shortID(n int) string {
 	return ""
 }
 
-// nowIso is now_iso (mirrors state.nowIso, unexported there). WEBV2_NOW is
-// honoured identically.
-func nowIso() string {
-	if v := os.Getenv("WEBV2_NOW"); v != "" {
-		return v
-	}
-	now := time.Now().UTC()
-	return fmt.Sprintf("%s.%06d+00:00",
-		now.Format("2006-01-02T15:04:05"), now.Nanosecond()/1000)
-}
-
 // --- small value helpers ---------------------------------------------------
 
 func truthy(v validation.Value, key string) bool {
-	f := objAt(v, key)
+	f := validation.ObjAt(v, key)
 	return f.Kind == validation.Bool && f.B
 }
 

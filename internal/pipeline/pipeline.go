@@ -27,7 +27,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	"websec/internal/findings"
 	"websec/internal/state"
@@ -415,7 +414,7 @@ func (defaultCosts) BudgetStatus(c *state.Campaign) (validation.Value, error) {
 	if err != nil {
 		return validation.VNull(), err
 	}
-	limit := objAt(b, "max_total_cost_usd")
+	limit := validation.ObjAt(b, "max_total_cost_usd")
 	if limit.Kind == validation.Null {
 		return validation.VObj(
 			kvOf("limit_usd", validation.VNull()),
@@ -524,14 +523,14 @@ func (p *Pipeline) Completed() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	stages := objAt(st, "stages")
+	stages := validation.ObjAt(st, "stages")
 	out := []string{}
 	for _, sid := range StageIDs {
-		entry := objAt(stages, sid)
+		entry := validation.ObjAt(stages, sid)
 		if entry.Kind != validation.Obj {
 			continue
 		}
-		if objStr(entry, "status") == "done" {
+		if validation.ObjStr(entry, "status") == "done" {
 			out = append(out, sid)
 		}
 	}
@@ -640,7 +639,7 @@ func (p *Pipeline) Run(opts RunOpts) (validation.Value, error) {
 			break
 		}
 	}
-	if len(blocked) > 0 && objStr(summary, "status") == "complete" {
+	if len(blocked) > 0 && validation.ObjStr(summary, "status") == "complete" {
 		vset(&summary, "status", validation.VStr("needs-model"))
 		vset(&summary, "halt", validation.VStr("blocked on model stages: "+
 			pyListRepr(sortedKeys(blocked))))
@@ -661,7 +660,7 @@ const (
 func newSummary(skipped []string) validation.Value {
 	return validation.VObj(
 		kvOf("ran", validation.VArr()),
-		kvOf("skipped_completed", strArr(skipped)),
+		kvOf("skipped_completed", validation.StrArr(skipped)),
 		kvOf("halt", validation.VNull()),
 		kvOf("needs_model", validation.VNull()),
 		kvOf("blocked_stages", validation.VArr()),
@@ -754,7 +753,7 @@ func (p *Pipeline) costHalt(summary *validation.Value) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	if objStr(bstat, "status") != "exceeded" {
+	if validation.ObjStr(bstat, "status") != "exceeded" {
 		return false, nil
 	}
 	spent, err := moneyField(bstat, "spent_usd")
@@ -776,8 +775,8 @@ func (p *Pipeline) costHalt(summary *validation.Value) (bool, error) {
 	vset(summary, "halt", validation.VStr(halt))
 	vset(summary, "status", validation.VStr("halted"))
 	data := validation.VObj(
-		kvOf("spent_usd", objAt(bstat, "spent_usd")),
-		kvOf("limit_usd", objAt(bstat, "limit_usd")),
+		kvOf("spent_usd", validation.ObjAt(bstat, "spent_usd")),
+		kvOf("limit_usd", validation.ObjAt(bstat, "limit_usd")),
 	)
 	if _, err := p.C.Log("pipeline.budget_halt", nil, &data); err != nil {
 		return false, err
@@ -810,7 +809,7 @@ func (p *Pipeline) blockModel(sid string, stage Stage, done, blocked map[string]
 	if err != nil {
 		return false, err
 	}
-	if proof.Kind == validation.Obj && validation.PyTruthy(objAt(proof, "done")) {
+	if proof.Kind == validation.Obj && validation.PyTruthy(validation.ObjAt(proof, "done")) {
 		done[sid] = true
 		note := validation.VStr("auto-completed: completion proof holds")
 		if err := p.C.SetStage(sid, "done", note, strPtr("derived")); err != nil {
@@ -823,7 +822,7 @@ func (p *Pipeline) blockModel(sid string, stage Stage, done, blocked map[string]
 		appendTo(summary, "ran", validation.VStr(sid))
 		data := validation.VObj(kvOf("kind", validation.VStr(stage.Kind)),
 			kvOf("phase", validation.VStr(stage.Phase)),
-			kvOf("note", objAt(proof, "note")))
+			kvOf("note", validation.ObjAt(proof, "note")))
 		if _, err := p.C.Log("pipeline.stage_auto_completed", &sid, &data); err != nil {
 			return false, err
 		}
@@ -840,27 +839,27 @@ func (p *Pipeline) blockModel(sid string, stage Stage, done, blocked map[string]
 		return false, err
 	}
 	blocked[sid] = true
-	if objAt(*summary, "needs_model").Kind == validation.Null {
+	if validation.ObjAt(*summary, "needs_model").Kind == validation.Null {
 		vset(summary, "needs_model", bundle)
 	}
 	appendTo(summary, "blocked_stages", validation.VStr(sid))
 	missing := []string{"no completion proof declared"}
 	missingData := validation.VArr()
 	if proof.Kind == validation.Obj {
-		mv := objAt(proof, "missing")
+		mv := validation.ObjAt(proof, "missing")
 		missingData = mv
 		if validation.PyTruthy(mv) {
 			missing = stringSlice(mv, 3)
 		}
 	}
-	note := "blocked: model stage without handler (" + objStr(bundle, "prompt_path") +
+	note := "blocked: model stage without handler (" + validation.ObjStr(bundle, "prompt_path") +
 		") — missing: " + strings.Join(missing, "; ")
 	if err := p.C.SetStage(sid, "needs-model", validation.VStr(note), strPtr("model")); err != nil {
 		return false, err
 	}
 	data := validation.VObj(
 		kvOf("reason", validation.VStr("model stage without handler")),
-		kvOf("prompt", validation.VStr(objStr(bundle, "prompt_path"))),
+		kvOf("prompt", validation.VStr(validation.ObjStr(bundle, "prompt_path"))),
 		kvOf("missing", missingData),
 	)
 	if _, err := p.C.Log("pipeline.blocked", &sid, &data); err != nil {
@@ -877,7 +876,7 @@ func (p *Pipeline) advancePhase(phase, reason string) error {
 	if err != nil {
 		return err
 	}
-	cur, okCur := phaseIndex(objStr(st, "phase"))
+	cur, okCur := phaseIndex(validation.ObjStr(st, "phase"))
 	next, okNext := phaseIndex(phase)
 	if okCur && okNext && next > cur {
 		return p.C.SetPhase(phase, reason)
@@ -900,7 +899,7 @@ func (p *Pipeline) modelBundle(sid string) (validation.Value, error) {
 	}
 	missing := validation.VArr()
 	if proof.Kind == validation.Obj {
-		missing = objAt(proof, "missing")
+		missing = validation.ObjAt(proof, "missing")
 	}
 	bundle := validation.VObj(
 		kvOf("stage", validation.VStr(sid)),
@@ -926,7 +925,7 @@ func (p *Pipeline) modelBundle(sid string) (validation.Value, error) {
 			return adapterKeyError(bundle, stage, key), nil
 		}
 	}
-	blocksVal := objAt(ctx, "blocks")
+	blocksVal := validation.ObjAt(ctx, "blocks")
 	if blocksVal.Kind != validation.Arr {
 		return validation.VNull(), errors.New("adapter context blocks is not a list")
 	}
@@ -935,17 +934,17 @@ func (p *Pipeline) modelBundle(sid string) (validation.Value, error) {
 		if !hasKey(b, "title") {
 			return adapterKeyError(bundle, stage, "title"), nil
 		}
-		blocks = append(blocks, objAt(b, "title"))
+		blocks = append(blocks, validation.ObjAt(b, "title"))
 	}
 	if !hasKey(ctx, "structured_outputs") {
 		return adapterKeyError(bundle, stage, "structured_outputs"), nil
 	}
 	bundle.O = append(bundle.O,
 		kvOf("adapter_stage", validation.VStr(stage)),
-		kvOf("prompt_path", objAt(ctx, "prompt_path")),
-		kvOf("budget_class", objAt(ctx, "budget_class")),
+		kvOf("prompt_path", validation.ObjAt(ctx, "prompt_path")),
+		kvOf("budget_class", validation.ObjAt(ctx, "budget_class")),
 		kvOf("blocks", validation.VArr(blocks...)),
-		kvOf("how_to_feed_back", objAt(ctx, "structured_outputs")))
+		kvOf("how_to_feed_back", validation.ObjAt(ctx, "structured_outputs")))
 	return bundle, nil
 }
 
@@ -971,7 +970,7 @@ func (p *Pipeline) ladderPaths(stage string) ([]string, error) {
 		return nil, err
 	}
 	for _, f := range ladders {
-		fid := objStr(f, "finding_id")
+		fid := validation.ObjStr(f, "finding_id")
 		lad, err := maximizationImpl.LoadLadder(p.C, fid)
 		if err != nil {
 			return nil, err
@@ -991,7 +990,7 @@ func (p *Pipeline) ladderFindings() ([]validation.Value, error) {
 	}
 	out := []validation.Value{}
 	for _, f := range all {
-		if validation.PyTruthy(objAt(objAt(f, "maximization"), "ladder_id")) {
+		if validation.PyTruthy(validation.ObjAt(validation.ObjAt(f, "maximization"), "ladder_id")) {
 			out = append(out, f)
 		}
 	}
@@ -1017,7 +1016,7 @@ func (p *Pipeline) builtin(sid string) (validation.Value, error) {
 		if err != nil {
 			return validation.VNull(), err
 		}
-		stats := objAt(index, "stats")
+		stats := validation.ObjAt(index, "stats")
 		return validation.VObj(
 			kvOf("solidity_files", objOr(stats, "solidity_files", validation.VInt(0))),
 			kvOf("contracts", objOr(stats, "contracts", validation.VInt(0))),
@@ -1071,7 +1070,7 @@ func (p *Pipeline) builtinCampaignPlanning(
 	if err != nil {
 		return validation.VNull(), err
 	}
-	if res.Kind == validation.Obj && validation.PyTruthy(objAt(res, "read_only")) {
+	if res.Kind == validation.Obj && validation.PyTruthy(validation.ObjAt(res, "read_only")) {
 		return validation.VStr("existing plan reused read-only — " +
 			"`webv2 plan " + p.C.CampaignID + " --rebuild` to regenerate"), nil
 	}
@@ -1108,7 +1107,7 @@ func Status(c *state.Campaign) (validation.Value, error) {
 	deps := []validation.KV{}
 	joins := []validation.KV{}
 	for _, sid := range stageJoinOrder {
-		deps = append(deps, kvOf(sid, strArr(StageDeps[sid])))
+		deps = append(deps, kvOf(sid, validation.StrArr(StageDeps[sid])))
 		joins = append(joins, kvOf(sid, validation.VStr(StageJoins[sid].Kind)))
 	}
 	nextV := validation.VNull()
@@ -1116,13 +1115,13 @@ func Status(c *state.Campaign) (validation.Value, error) {
 		nextV = validation.VStr(*next)
 	}
 	return validation.VObj(
-		kvOf("completed", strArr(completed)),
+		kvOf("completed", validation.StrArr(completed)),
 		kvOf("next", nextV),
-		kvOf("ready", strArr(ready)),
-		kvOf("stages", strArr(StageIDs)),
+		kvOf("ready", validation.StrArr(ready)),
+		kvOf("stages", validation.StrArr(StageIDs)),
 		kvOf("deps", validation.VObj(deps...)),
 		kvOf("joins", validation.VObj(joins...)),
-		kvOf("updated_at", validation.VStr(nowIso())),
+		kvOf("updated_at", validation.VStr(state.NowIso())),
 	), nil
 }
 
@@ -1132,28 +1131,9 @@ func kvOf(k string, v validation.Value) validation.KV {
 	return validation.KV{K: k, V: v}
 }
 
-func objAt(v validation.Value, key string) validation.Value {
-	if v.Kind == validation.Obj {
-		for _, kv := range v.O {
-			if kv.K == key {
-				return kv.V
-			}
-		}
-	}
-	return validation.VNull()
-}
-
-func objStr(v validation.Value, key string) string {
-	x := objAt(v, key)
-	if x.Kind == validation.Str {
-		return x.S
-	}
-	return ""
-}
-
 func objOr(v validation.Value, key string, def validation.Value) validation.Value {
 	if hasKey(v, key) {
-		return objAt(v, key)
+		return validation.ObjAt(v, key)
 	}
 	return def
 }
@@ -1189,13 +1169,6 @@ func appendTo(v *validation.Value, key string, val validation.Value) {
 	}
 	v.O = append(v.O, kvOf(key, validation.VArr(val)))
 }
-func strArr(items []string) validation.Value {
-	out := make([]validation.Value, len(items))
-	for i, s := range items {
-		out[i] = validation.VStr(s)
-	}
-	return validation.VArr(out...)
-}
 
 func strPtr(s string) *string { return &s }
 
@@ -1227,7 +1200,7 @@ func pyTupleRepr(items []string) string {
 
 // pyListRepr is Python's repr of a list of strings.
 func pyListRepr(items []string) string {
-	return validation.PyRepr(strArr(items))
+	return validation.PyRepr(validation.StrArr(items))
 }
 
 func pyOptIntRepr(v *int) string {
@@ -1282,7 +1255,7 @@ var errFileNotFound = fmt.Errorf("file not found: %w", os.ErrNotExist)
 
 // moneyField formats one budget_status field as Python f"{x:,.2f}".
 func moneyField(bstat validation.Value, key string) (string, error) {
-	v := objAt(bstat, key)
+	v := validation.ObjAt(bstat, key)
 	switch v.Kind {
 	case validation.Flt:
 		return pyMoney2f(v.F), nil
@@ -1377,15 +1350,4 @@ func groupThousands(digits string) string {
 		b.WriteString(digits[i : i+3])
 	}
 	return b.String()
-}
-
-// nowIso is now_iso (mirrors state.nowIso, unexported there). The WEBV2_NOW
-// golden-suite clock pin is honored identically.
-func nowIso() string {
-	if v := os.Getenv("WEBV2_NOW"); v != "" {
-		return v
-	}
-	now := time.Now().UTC()
-	return fmt.Sprintf("%s.%06d+00:00", now.Format("2006-01-02T15:04:05"),
-		now.Nanosecond()/1000)
 }

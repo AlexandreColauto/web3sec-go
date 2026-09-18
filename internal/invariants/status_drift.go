@@ -51,7 +51,7 @@ func ModelStatusDrift(c *state.Campaign,
 		return nil, err
 	}
 	out := []DriftRow{}
-	for _, inv := range objAt(model, "invariants").A {
+	for _, inv := range validation.ObjAt(model, "invariants").A {
 		if inv.Kind != validation.Obj {
 			continue
 		}
@@ -59,7 +59,7 @@ func ModelStatusDrift(c *state.Campaign,
 		if !ok {
 			continue
 		}
-		claimed := objStr(inv, "status")
+		claimed := validation.ObjStr(inv, "status")
 		if claimed == "" {
 			continue
 		}
@@ -99,7 +99,7 @@ func ledgerStatuses(c *state.Campaign) (map[string]string, error) {
 		if e.V.Kind != validation.Obj {
 			continue
 		}
-		st := objStr(e.V, "status")
+		st := validation.ObjStr(e.V, "status")
 		if !hasKey(e.V, "test_status") {
 			st = "UNVERIFIED"
 		}

@@ -57,16 +57,6 @@ func pair(k string, v validation.Value) validation.KV {
 	return validation.KV{K: k, V: v}
 }
 
-// objAt is dict.get(key) with a Null fallback.
-func objAt(v validation.Value, key string) validation.Value {
-	for _, e := range v.O {
-		if e.K == key {
-			return e.V
-		}
-	}
-	return validation.VNull()
-}
-
 // fieldAt is (value, present) — the absent vs present-as-null distinction
 // Python's .get(default) needs.
 func fieldAt(v validation.Value, key string) (validation.Value, bool) {
@@ -76,14 +66,6 @@ func fieldAt(v validation.Value, key string) (validation.Value, bool) {
 		}
 	}
 	return validation.VNull(), false
-}
-
-// objStr is objAt under Python str() ("" for a non-string).
-func objStr(v validation.Value, key string) string {
-	if x := objAt(v, key); x.Kind == validation.Str {
-		return x.S
-	}
-	return ""
 }
 
 // hasKey is `key in dict`.
@@ -143,14 +125,6 @@ func inList(list []string, s string) bool {
 		}
 	}
 	return false
-}
-
-func strArr(items []string) validation.Value {
-	out := make([]validation.Value, len(items))
-	for i, s := range items {
-		out[i] = validation.VStr(s)
-	}
-	return validation.VArr(out...)
 }
 
 // ---- registry I/O --------------------------------------------------------
@@ -251,7 +225,7 @@ func LinksThenLog(c *state.Campaign, save func() error, log func() error) error 
 // status resets to UNVERIFIED, source derives from the live documented set),
 // logging invariant.migrated per entry.
 func migrateLegacyEntries(c *state.Campaign, links *validation.Value) (bool, error) {
-	reg := objAt(*links, "invariants")
+	reg := validation.ObjAt(*links, "invariants")
 	if reg.Kind != validation.Obj {
 		return false, nil
 	}
@@ -288,7 +262,7 @@ func migrateLegacyEntries(c *state.Campaign, links *validation.Value) (bool, err
 		e.O = validation.SetDefault(e.O, "findings", validation.VArr())
 		e.O = validation.SetDefault(e.O, "tests", validation.VArr())
 		e.O = validation.SetDefault(e.O, "detectors", validation.VArr())
-		e.O = validation.SetOrAppend(e.O, "updated_at", validation.VStr(nowIso()))
+		e.O = validation.SetOrAppend(e.O, "updated_at", validation.VStr(state.NowIso()))
 		reg.O[i].V = e
 		oldV := validation.VNull()
 		if hasOld {
@@ -297,7 +271,7 @@ func migrateLegacyEntries(c *state.Campaign, links *validation.Value) (bool, err
 		migrated = append(migrated, validation.VObj(
 			pair("id", validation.VStr(iid)),
 			pair("old_status", oldV),
-			pair("source", objAt(e, "source")),
+			pair("source", validation.ObjAt(e, "source")),
 		))
 	}
 	*links = setObjKey(*links, "invariants", reg)
@@ -309,10 +283,10 @@ func migrateLegacyEntries(c *state.Campaign, links *validation.Value) (bool, err
 		return serr
 	}, func() error {
 		for _, m := range migrated {
-			ref := objStr(m, "id")
+			ref := validation.ObjStr(m, "id")
 			data := validation.VObj(
-				pair("old_status", objAt(m, "old_status")),
-				pair("source", objAt(m, "source")),
+				pair("old_status", validation.ObjAt(m, "old_status")),
+				pair("source", validation.ObjAt(m, "source")),
 			)
 			if _, lerr := c.Log("invariant.migrated", &ref, &data); lerr != nil {
 				return lerr
@@ -334,7 +308,7 @@ func setObjKey(links validation.Value, key string, v validation.Value) validatio
 // regOf is links.get("invariants", {}) under the port's fail-safe reading:
 // a non-object value is treated as an empty registry.
 func regOf(links validation.Value) validation.Value {
-	reg := objAt(links, "invariants")
+	reg := validation.ObjAt(links, "invariants")
 	if reg.Kind != validation.Obj {
 		return validation.VObj()
 	}
@@ -380,7 +354,7 @@ func SeedFromModel(c *state.Campaign, model validation.Value) (validation.Value,
 	if err != nil {
 		return validation.VNull(), err
 	}
-	invs := objAt(model, "invariants")
+	invs := validation.ObjAt(model, "invariants")
 	for _, inv := range invs.A {
 		iidV, ok := fieldAt(inv, "id")
 		if !ok {
@@ -427,16 +401,16 @@ func freshEntry(inv, stmt validation.Value, iid string, doc validation.Value) va
 		pair("test_status", validation.VStr("untested")),
 		// the model's claimed status is DATA, never a verdict
 		pair("status", validation.VStr("UNVERIFIED")),
-		pair("model_belief", objAt(inv, "model_belief")),
+		pair("model_belief", validation.ObjAt(inv, "model_belief")),
 		pair("depends_on", getOr(inv, "depends_on", validation.VArr())),
-		pair("modified_by", objAt(inv, "modified_by")),
+		pair("modified_by", validation.ObjAt(inv, "modified_by")),
 	}
 	kvs = append(kvs, entrySource(iid, doc)...)
 	kvs = append(kvs,
 		pair("findings", validation.VArr()),
 		pair("tests", validation.VArr()),
 		pair("detectors", validation.VArr()),
-		pair("updated_at", validation.VStr(nowIso())),
+		pair("updated_at", validation.VStr(state.NowIso())),
 	)
 	return validation.VObj(kvs...)
 }
@@ -444,8 +418,8 @@ func freshEntry(inv, stmt validation.Value, iid string, doc validation.Value) va
 // refreshSource is the re-seed one-way flip model → documented.
 func refreshSource(reg validation.Value, iid string, doc validation.Value) validation.Value {
 	src, detail := deriveSource(iid, doc)
-	e := objAt(reg, iid)
-	if src != "documented" || objStr(e, "source") == "documented" {
+	e := validation.ObjAt(reg, iid)
+	if src != "documented" || validation.ObjStr(e, "source") == "documented" {
 		return reg
 	}
 	e.O = validation.SetOrAppend(e.O, "source", validation.VStr("documented"))
@@ -453,8 +427,8 @@ func refreshSource(reg validation.Value, iid string, doc validation.Value) valid
 		e.O = validation.SetOrAppend(e.O, "source_detail", validation.VStr(*detail))
 	}
 	e.O = validation.SetOrAppend(e.O, "modified_by",
-		validation.VStr("source-refresh model->documented "+nowIso()))
-	e.O = validation.SetOrAppend(e.O, "updated_at", validation.VStr(nowIso()))
+		validation.VStr("source-refresh model->documented "+state.NowIso()))
+	e.O = validation.SetOrAppend(e.O, "updated_at", validation.VStr(state.NowIso()))
 	reg.O = validation.SetOrAppend(reg.O, iid, e)
 	return reg
 }
@@ -463,7 +437,7 @@ func refreshSource(reg validation.Value, iid string, doc validation.Value) valid
 func seedLiveness(c *state.Campaign, model validation.Value, reg *validation.Value,
 	doc validation.Value) error {
 	var machines []string
-	for _, sm := range objAt(model, "state_machines").A {
+	for _, sm := range validation.ObjAt(model, "state_machines").A {
 		if name, ok := fieldAt(sm, "name"); ok && validation.PyTruthy(name) {
 			machines = append(machines, pyStr(name))
 		}
@@ -477,10 +451,10 @@ func seedLiveness(c *state.Campaign, model validation.Value, reg *validation.Val
 	// machines hide a third uncovered one — the G-01 gap.)
 	covered := map[string]struct{}{}
 	for _, e := range reg.O {
-		if pyStr(objAt(e.V, "kind")) != "liveness" {
+		if pyStr(validation.ObjAt(e.V, "kind")) != "liveness" {
 			continue
 		}
-		for _, a := range objAt(e.V, "applies_to").A {
+		for _, a := range validation.ObjAt(e.V, "applies_to").A {
 			covered[pyStr(a)] = struct{}{}
 		}
 	}
@@ -512,7 +486,7 @@ func seedLiveness(c *state.Campaign, model validation.Value, reg *validation.Val
 		pair("statement", validation.VStr(stmt)),
 		pair("kind", validation.VStr("liveness")),
 		pair("severity_if_broken", validation.VStr("critical")),
-		pair("applies_to", strArr(machines)),
+		pair("applies_to", validation.StrArr(machines)),
 		pair("test_status", validation.VStr("untested")),
 		pair("status", validation.VStr("UNVERIFIED")),
 		pair("model_belief", validation.VNull()),
@@ -524,13 +498,13 @@ func seedLiveness(c *state.Campaign, model validation.Value, reg *validation.Val
 		pair("findings", validation.VArr()),
 		pair("tests", validation.VArr()),
 		pair("detectors", validation.VArr()),
-		pair("updated_at", validation.VStr(nowIso())),
+		pair("updated_at", validation.VStr(state.NowIso())),
 		pair("synthesized", validation.VStr("liveness-template")),
 	)
 	reg.O = validation.SetOrAppend(reg.O, key, validation.VObj(kvs...))
 	data := validation.VObj(
 		pair("id", validation.VStr(key)),
-		pair("machines", strArr(machines)),
+		pair("machines", validation.StrArr(machines)),
 	)
 	if _, err := c.Log("invariants.liveness_template", nil, &data); err != nil {
 		return err
@@ -566,7 +540,7 @@ func LinkFinding(c *state.Campaign, invariantID, findingID string,
 	if !hasKey(reg, invariantID) {
 		return validation.VNull(), unknownInvariant(invariantID)
 	}
-	entry := objAt(reg, invariantID)
+	entry := validation.ObjAt(reg, invariantID)
 	findings := getOr(entry, "findings", validation.VArr())
 	if !containsValue(findings, validation.VStr(findingID)) {
 		findings.A = append(findings.A, validation.VStr(findingID))
@@ -576,7 +550,7 @@ func LinkFinding(c *state.Campaign, invariantID, findingID string,
 		entry.O = validation.SetOrAppend(entry.O, "test_status", validation.VStr("violated"))
 		entry.O = validation.SetOrAppend(entry.O, "violated_by", validation.VStr(findingID))
 	}
-	entry.O = validation.SetOrAppend(entry.O, "updated_at", validation.VStr(nowIso()))
+	entry.O = validation.SetOrAppend(entry.O, "updated_at", validation.VStr(state.NowIso()))
 	reg.O = validation.SetOrAppend(reg.O, invariantID, entry)
 	links = setObjKey(links, "invariants", reg)
 	data := validation.VObj(
@@ -610,7 +584,7 @@ func LinkTest(c *state.Campaign, invariantID, artifactID string) (validation.Val
 	if !hasKey(reg, invariantID) {
 		return validation.VNull(), unknownInvariant(invariantID)
 	}
-	entry := objAt(reg, invariantID)
+	entry := validation.ObjAt(reg, invariantID)
 	tests := getOr(entry, "tests", validation.VArr())
 	if !containsValue(tests, validation.VStr(artifactID)) {
 		tests.A = append(tests.A, validation.VStr(artifactID))
@@ -620,7 +594,7 @@ func LinkTest(c *state.Campaign, invariantID, artifactID string) (validation.Val
 	if ts.Kind == validation.Str && (ts.S == "untested" || ts.S == "untestable") {
 		entry.O = validation.SetOrAppend(entry.O, "test_status", validation.VStr("held"))
 	}
-	entry.O = validation.SetOrAppend(entry.O, "updated_at", validation.VStr(nowIso()))
+	entry.O = validation.SetOrAppend(entry.O, "updated_at", validation.VStr(state.NowIso()))
 	reg.O = validation.SetOrAppend(reg.O, invariantID, entry)
 	links = setObjKey(links, "invariants", reg)
 	data := validation.VObj(pair("artifact", validation.VStr(artifactID)))
@@ -687,8 +661,8 @@ func Coverage(c *state.Campaign) (validation.Value, error) {
 		pair("total", validation.VInt(int64(total))),
 		pair("statuses", validation.VObj(kvs...)),
 		pair("test_coverage_ratio", ratio),
-		pair("violated_invariants", strArr(sortedByStatus(reg, "violated"))),
-		pair("uncovered", strArr(sortedByStatus(reg, "untested", "untestable"))),
+		pair("violated_invariants", validation.StrArr(sortedByStatus(reg, "violated"))),
+		pair("uncovered", validation.StrArr(sortedByStatus(reg, "untested", "untestable"))),
 	), nil
 }
 
@@ -742,7 +716,7 @@ func UncoveredCritical(c *state.Campaign, model validation.Value) ([]validation.
 		}
 	}
 	out := []validation.Value{}
-	for _, inv := range objAt(model, "invariants").A {
+	for _, inv := range validation.ObjAt(model, "invariants").A {
 		idV, ok := fieldAt(inv, "id")
 		if !ok {
 			return nil, fmt.Errorf("'id'")
@@ -755,13 +729,13 @@ func UncoveredCritical(c *state.Campaign, model validation.Value) ([]validation.
 		if ts.Kind != validation.Str || !inList([]string{"untested", "untestable"}, ts.S) {
 			continue
 		}
-		sev := objAt(inv, "severity_if_broken")
+		sev := validation.ObjAt(inv, "severity_if_broken")
 		if sev.Kind != validation.Str || !inList([]string{"critical", "high"}, sev.S) {
 			continue
 		}
 		out = append(out, validation.VObj(
 			pair("invariant_id", idV),
-			pair("statement", objAt(inv, "statement")),
+			pair("statement", validation.ObjAt(inv, "statement")),
 			pair("applies_to", getOr(inv, "applies_to", validation.VArr())),
 		))
 	}
@@ -846,7 +820,7 @@ func VerifyInvariantStatement(c *state.Campaign, invariantID,
 	if !hasKey(reg, invariantID) {
 		return validation.VNull(), unknownInvariant(invariantID)
 	}
-	entry := objAt(reg, invariantID)
+	entry := validation.ObjAt(reg, invariantID)
 	if !artifactReferencesInvariant(c, a, invariantID, entry) {
 		return validation.VNull(), irrelevantArtifact(artifactID, invariantID)
 	}
@@ -856,8 +830,8 @@ func VerifyInvariantStatement(c *state.Campaign, invariantID,
 	entry.O = validation.SetOrAppend(entry.O, verificationMethodKey,
 		validation.VStr(verificationMethodAttestation))
 	entry.O = popKey(entry.O, "contradiction")
-	entry.O = validation.SetOrAppend(entry.O, "modified_by", validation.VStr(nowIso()))
-	entry.O = validation.SetOrAppend(entry.O, "updated_at", validation.VStr(nowIso()))
+	entry.O = validation.SetOrAppend(entry.O, "modified_by", validation.VStr(state.NowIso()))
+	entry.O = validation.SetOrAppend(entry.O, "updated_at", validation.VStr(state.NowIso()))
 	reg.O = validation.SetOrAppend(reg.O, invariantID, entry)
 	links = setObjKey(links, "invariants", reg)
 	data := validation.VObj(
@@ -912,7 +886,7 @@ func artifactReferencesInvariant(c *state.Campaign, a validation.Value,
 // also in canonical spelling. Deduplicated; empty tokens dropped.
 func referenceTokens(invariantID string, entry validation.Value) []string {
 	cands := []string{invariantID}
-	for _, t := range objAt(entry, "applies_to").A {
+	for _, t := range validation.ObjAt(entry, "applies_to").A {
 		if t.Kind == validation.Str {
 			cands = append(cands, t.S)
 		}
@@ -967,7 +941,7 @@ func ExecTouchesInvariant(c *state.Campaign, invID, execID string) (bool, string
 	var rec validation.Value
 	found := false
 	for _, e := range execs {
-		if objStr(e, "exec_id") == execID {
+		if validation.ObjStr(e, "exec_id") == execID {
 			rec, found = e, true
 			break
 		}
@@ -975,7 +949,7 @@ func ExecTouchesInvariant(c *state.Campaign, invID, execID string) (bool, string
 	if !found {
 		return false, "no-exec-record"
 	}
-	command := stripShellQuotes(objStr(rec, "command"))
+	command := stripShellQuotes(validation.ObjStr(rec, "command"))
 	if command == "" {
 		return false, "no-command-record"
 	}
@@ -984,7 +958,7 @@ func ExecTouchesInvariant(c *state.Campaign, invID, execID string) (bool, string
 		// No readable registry, no applies_to targets: fail closed.
 		return false, "no-target-match"
 	}
-	for _, tok := range appliesToTokens(objAt(regOf(links), invID)) {
+	for _, tok := range appliesToTokens(validation.ObjAt(regOf(links), invID)) {
 		if tokenOccursLeftBound(command, tok) {
 			return true, ""
 		}
@@ -999,7 +973,7 @@ func ExecTouchesInvariant(c *state.Campaign, invID, execID string) (bool, string
 func appliesToTokens(entry validation.Value) []string {
 	seen := map[string]bool{}
 	out := []string{}
-	for _, t := range objAt(entry, "applies_to").A {
+	for _, t := range validation.ObjAt(entry, "applies_to").A {
 		if t.Kind != validation.Str {
 			continue
 		}
@@ -1075,12 +1049,12 @@ func ContradictInvariantStatement(c *state.Campaign, invariantID,
 	if !hasKey(reg, invariantID) {
 		return validation.VNull(), unknownInvariant(invariantID)
 	}
-	entry := objAt(reg, invariantID)
+	entry := validation.ObjAt(reg, invariantID)
 	entry.O = validation.SetOrAppend(entry.O, "status", validation.VStr("CONTRADICTED"))
 	entry.O = validation.SetOrAppend(entry.O, "contradiction", validation.VStr(evidenceRef))
 	entry.O = popKey(entry.O, "verified_by")
-	entry.O = validation.SetOrAppend(entry.O, "modified_by", validation.VStr(nowIso()))
-	entry.O = validation.SetOrAppend(entry.O, "updated_at", validation.VStr(nowIso()))
+	entry.O = validation.SetOrAppend(entry.O, "modified_by", validation.VStr(state.NowIso()))
+	entry.O = validation.SetOrAppend(entry.O, "updated_at", validation.VStr(state.NowIso()))
 	reg.O = validation.SetOrAppend(reg.O, invariantID, entry)
 	links = setObjKey(links, "invariants", reg)
 	data := validation.VObj(pair("evidence", validation.VStr(evidenceRef)))

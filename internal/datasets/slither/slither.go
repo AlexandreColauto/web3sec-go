@@ -75,16 +75,16 @@ func ToPayloads(doc validation.Value) ([]validation.Value, error) {
 		out   validation.Value
 	}
 	var rows []row
-	detectors := valsOf(objAt(objAt(doc, "results"), "detectors"))
+	detectors := valsOf(validation.ObjAt(validation.ObjAt(doc, "results"), "detectors"))
 	for _, r := range detectors {
-		check := objStr(r, "check")
+		check := validation.ObjStr(r, "check")
 		if check == "" {
 			return nil, fmt.Errorf("slither: result without 'check' id")
 		}
-		if !admittedImpacts[objStr(r, "impact")] {
+		if !admittedImpacts[validation.ObjStr(r, "impact")] {
 			continue
 		}
-		desc := strings.TrimSpace(objStr(r, "description"))
+		desc := strings.TrimSpace(validation.ObjStr(r, "description"))
 		if desc == "" {
 			continue
 		}
@@ -93,25 +93,25 @@ func ToPayloads(doc validation.Value) ([]validation.Value, error) {
 			line int64
 		}
 		var sites []site
-		for _, el := range valsOf(objAt(r, "elements")) {
-			sm := objAt(el, "source_mapping")
+		for _, el := range valsOf(validation.ObjAt(r, "elements")) {
+			sm := validation.ObjAt(el, "source_mapping")
 			if sm.Kind != validation.Obj {
 				continue
 			}
-			if objAt(sm, "is_dependency").B {
+			if validation.ObjAt(sm, "is_dependency").B {
 				continue // a dependency's location is not this repo's code
 			}
 			// The filename fallback chain: relative -> short -> absolute.
-			fn := objStr(sm, "filename_relative")
+			fn := validation.ObjStr(sm, "filename_relative")
 			if fn == "" {
-				fn = objStr(sm, "filename_short")
+				fn = validation.ObjStr(sm, "filename_short")
 			}
 			if fn == "" {
-				fn = objStr(sm, "filename_absolute")
+				fn = validation.ObjStr(sm, "filename_absolute")
 			}
 			// lines[0] anchors the element; an element without lines (or
 			// with an empty `lines` array) has no line we can render.
-			lines := valsOf(objAt(sm, "lines"))
+			lines := valsOf(validation.ObjAt(sm, "lines"))
 			if fn == "" || len(lines) == 0 || lines[0].Kind != validation.Int {
 				continue
 			}
@@ -196,20 +196,6 @@ func clip(s string, n int) string {
 // ---- local ordered-object helpers (same pattern as internal/dedup) -------
 
 func kv(k string, v validation.Value) validation.KV { return validation.KV{K: k, V: v} }
-
-func objAt(v validation.Value, key string) validation.Value {
-	if v.Kind != validation.Obj {
-		return validation.VNull()
-	}
-	for _, e := range v.O {
-		if e.K == key {
-			return e.V
-		}
-	}
-	return validation.VNull()
-}
-
-func objStr(v validation.Value, key string) string { return objAt(v, key).S }
 
 func valsOf(v validation.Value) []validation.Value {
 	if v.Kind != validation.Arr {

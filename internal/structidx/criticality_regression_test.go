@@ -33,11 +33,11 @@ func TestCriticalityTokenizesStateIDs(t *testing.T) {
 	got := CriticalityRank(model, validation.VObj())
 	found := false
 	for _, r := range got {
-		if objStr(r, "contract") != "Vault" {
+		if validation.ObjStr(r, "contract") != "Vault" {
 			continue
 		}
 		found = true
-		if tier := objStr(r, "tier"); tier != "consensus-critical" {
+		if tier := validation.ObjStr(r, "tier"); tier != "consensus-critical" {
 			t.Errorf("Vault tier = %q, want consensus-critical (state id must be tokenized)", tier)
 		}
 	}

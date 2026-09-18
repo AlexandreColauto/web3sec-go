@@ -101,9 +101,9 @@ func task10OpenQuestionRow(t *testing.T, c *state.Campaign) (string, string) {
 		t.Fatalf("load plan: %v", err)
 	}
 	for _, p := range listAt(plan, "priorities") {
-		q := objStr(p, "question")
+		q := validation.ObjStr(p, "question")
 		if strings.Contains(q, task10BriefQuestionText) {
-			return objStr(p, "id"), q
+			return validation.ObjStr(p, "id"), q
 		}
 	}
 	t.Fatalf("the plan carries no priority for %q: %s",

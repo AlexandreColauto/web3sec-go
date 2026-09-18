@@ -30,7 +30,7 @@ func queueMemoryRow(t *testing.T, c *state.Campaign, pattern string) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return objStr(mem, "memory_id")
+	return validation.ObjStr(mem, "memory_id")
 }
 
 // eventTypes lists the campaign's logged event types, in order.
@@ -42,7 +42,7 @@ func eventTypes(t *testing.T, c *state.Campaign) []string {
 	}
 	out := make([]string, 0, len(events))
 	for _, ev := range events {
-		out = append(out, objStr(ev, "type"))
+		out = append(out, validation.ObjStr(ev, "type"))
 	}
 	return out
 }
@@ -98,7 +98,7 @@ func TestMemoryReflectWritesLearningsJsonl(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(entry, "campaign_id"); got != cid {
+	if got := validation.ObjStr(entry, "campaign_id"); got != cid {
 		t.Errorf("entry campaign_id = %q want %q", got, cid)
 	}
 	if !strings.Contains(lines[0], sentence) {
@@ -164,7 +164,7 @@ func TestMemoryRejectRecordsReasonAndClass(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(row, "promotion_status"); got != "rejected" {
+	if got := validation.ObjStr(row, "promotion_status"); got != "rejected" {
 		t.Errorf("promotion_status = %q want rejected", got)
 	}
 	// The reason is NOT in the row (the memory schema is
@@ -187,7 +187,7 @@ func TestMemoryRejectRecordsReasonAndClass(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(row, "rejection_class"); got != "invalid-hypothesis" {
+	if got := validation.ObjStr(row, "rejection_class"); got != "invalid-hypothesis" {
 		t.Errorf("rejection_class = %q want invalid-hypothesis", got)
 	}
 }
@@ -226,7 +226,7 @@ func TestMemoryRejectRefusesUnknownAndIncomplete(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(row, "promotion_status"); got != "pending" {
+	if got := validation.ObjStr(row, "promotion_status"); got != "pending" {
 		t.Errorf("a refused rejection still changed the row: %q", got)
 	}
 }
@@ -252,7 +252,7 @@ func TestMemoryRejectRefusesAnApprovedRow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(row, "promotion_status"); got != "human-approved" {
+	if got := validation.ObjStr(row, "promotion_status"); got != "human-approved" {
 		t.Errorf("promotion_status = %q want human-approved (unchanged)", got)
 	}
 }
@@ -304,7 +304,7 @@ func learningMissing(t *testing.T, c *state.Campaign) []string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return strListCLI(objAt(pr, "missing"))
+	return strListCLI(validation.ObjAt(pr, "missing"))
 }
 
 // learningDemands is whether the learning proof still asks for a row for fid.
@@ -350,16 +350,16 @@ func TestMemoryQueueFindingSatisfiesLearningProof(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(row, "finding_id"); got != fid {
+	if got := validation.ObjStr(row, "finding_id"); got != fid {
 		t.Errorf("finding_id = %q want %q", got, fid)
 	}
-	if got := objStr(row, "status"); got != "CONFIRMED" {
+	if got := validation.ObjStr(row, "status"); got != "CONFIRMED" {
 		t.Errorf("status = %q want CONFIRMED", got)
 	}
-	if got := objStr(row, "pattern"); got != title {
+	if got := validation.ObjStr(row, "pattern"); got != title {
 		t.Errorf("pattern = %q want the finding title %q", got, title)
 	}
-	if got := objStr(row, "promotion_status"); got != "pending" {
+	if got := validation.ObjStr(row, "promotion_status"); got != "pending" {
 		t.Errorf("promotion_status = %q want pending (queued, never approved)",
 			got)
 	}
@@ -417,13 +417,13 @@ func TestMemoryQueueFindingKindDerivation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(row, "kind"); got != "disproved" {
+	if got := validation.ObjStr(row, "kind"); got != "disproved" {
 		t.Errorf("kind = %q want disproved (derived from DISPROVED)", got)
 	}
-	if got := objStr(row, "status"); got != "DISPROVED" {
+	if got := validation.ObjStr(row, "status"); got != "DISPROVED" {
 		t.Errorf("status = %q want DISPROVED", got)
 	}
-	if got := objStr(row, "pattern"); got != "oracle assumed spot-priced" {
+	if got := validation.ObjStr(row, "pattern"); got != "oracle assumed spot-priced" {
 		t.Errorf("pattern = %q want the explicit --pattern", got)
 	}
 	// An explicit --kind wins over the status default.
@@ -441,7 +441,7 @@ func TestMemoryQueueFindingKindDerivation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(secondRow, "kind"); got != "confirmed" {
+	if got := validation.ObjStr(secondRow, "kind"); got != "confirmed" {
 		t.Errorf("explicit --kind ignored: kind = %q", got)
 	}
 	// DUPLICATE is a memory status but has no default kind.
@@ -523,7 +523,7 @@ func TestMemoryApproveWarnsOnStaleClass(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rc := objAt(f, "root_cause")
+	rc := validation.ObjAt(f, "root_cause")
 	rc.O = validation.SetOrAppend(rc.O, "class",
 		validation.VStr("access-control"))
 	f.O = validation.SetOrAppend(f.O, "root_cause", rc)
@@ -566,7 +566,7 @@ func TestMemoryApproveWarnsAcrossSupersede(t *testing.T) {
 	cid := c.CampaignID
 	t15GlobalRow(t, "MEM-global01", "logic-error")
 	f := cliPassingLogicError(t, c)
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	if code, _, errS := run(t, "--root", root, "move", cid, fid,
 		"POSSIBLE", "--reason", "triage survived the critic",
 		"--actor", "golden"); code != 0 {

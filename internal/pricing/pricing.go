@@ -15,7 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
+
 	"unicode"
 
 	"golang.org/x/text/cases"
@@ -64,7 +64,7 @@ func LoadTable(campaign *state.Campaign) (validation.Value, error) {
 func SaveTable(campaign *state.Campaign, table *validation.Value) (string, error) {
 	table.O = validation.SetOrAppend(table.O, "campaign_id",
 		validation.VStr(campaign.CampaignID))
-	table.O = validation.SetOrAppend(table.O, "updated_at", validation.VStr(nowIso()))
+	table.O = validation.SetOrAppend(table.O, "updated_at", validation.VStr(state.NowIso()))
 	if err := validation.Validate(*table, "price_table", 1); err != nil {
 		return "", err
 	}
@@ -147,21 +147,21 @@ func SetPrice(campaign *state.Campaign, asset string, usd float64, source,
 		validation.KV{K: "as_of",
 			V: validation.VStr(pyStrip(asOfOrNow(asOf)))},
 		validation.KV{K: "set_by", V: validation.VStr(pyStrip(actor))},
-		validation.KV{K: "set_at", V: validation.VStr(nowIso())},
+		validation.KV{K: "set_at", V: validation.VStr(state.NowIso())},
 	)
-	prices := objAt(table, "prices")
+	prices := validation.ObjAt(table, "prices")
 	prices.A = append(prices.A, row)
 	table.O = validation.SetOrAppend(table.O, "prices", prices)
 	// r40b P2-2: the row without its price.set event is a ghost the audit
 	// can never repair. Unwind.
 	data := validation.VObj(
-		validation.KV{K: "asset", V: objAt(row, "asset")},
-		validation.KV{K: "usd", V: objAt(row, "usd")},
-		validation.KV{K: "source", V: objAt(row, "source")},
+		validation.KV{K: "asset", V: validation.ObjAt(row, "asset")},
+		validation.KV{K: "usd", V: validation.ObjAt(row, "usd")},
+		validation.KV{K: "source", V: validation.ObjAt(row, "source")},
 		// The log keeps the RAW actor; only the row stores the stripped one.
 		validation.KV{K: "actor", V: validation.VStr(actor)},
 	)
-	ref := objStr(row, "price_id")
+	ref := validation.ObjStr(row, "price_id")
 	if err := saveTableThenLog(campaign, &table, func() error {
 		_, lerr := campaign.Log("price.set", &ref, &data)
 		return lerr
@@ -178,8 +178,8 @@ func PriceRow(campaign *state.Campaign, priceID string) (*validation.Value,
 	if err != nil {
 		return nil, err
 	}
-	for _, r := range objAt(table, "prices").A {
-		if objStr(r, "price_id") == priceID {
+	for _, r := range validation.ObjAt(table, "prices").A {
+		if validation.ObjStr(r, "price_id") == priceID {
 			row := r
 			return &row, nil
 		}
@@ -190,7 +190,7 @@ func PriceRow(campaign *state.Campaign, priceID string) (*validation.Value,
 // asOfOrNow is `as_of or now_iso()`.
 func asOfOrNow(asOf string) string {
 	if asOf == "" {
-		return nowIso()
+		return state.NowIso()
 	}
 	return asOf
 }
@@ -202,26 +202,6 @@ func idTail(id string) string {
 		return ""
 	}
 	return parts[1]
-}
-
-// objAt is d.get(key) as a Value: a missing key reads as Null.
-func objAt(v validation.Value, key string) validation.Value {
-	for _, kv := range v.O {
-		if kv.K == key {
-			return kv.V
-		}
-	}
-	return validation.VNull()
-}
-
-// objStr is a string field's value ("" when absent/non-string).
-func objStr(v validation.Value, key string) string {
-	for _, kv := range v.O {
-		if kv.K == key {
-			return kv.V.S
-		}
-	}
-	return ""
 }
 
 // pyStrip is Python's str.strip() with no argument.
@@ -237,15 +217,4 @@ func pySpace(r rune) bool {
 		return true
 	}
 	return unicode.IsSpace(r)
-}
-
-// nowIso is now_iso (mirrors state.nowIso, unexported there). The WEBV2_NOW
-// golden-suite clock pin is honored identically.
-func nowIso() string {
-	if v := os.Getenv("WEBV2_NOW"); v != "" {
-		return v
-	}
-	now := time.Now().UTC()
-	return fmt.Sprintf("%s.%06d+00:00",
-		now.Format("2006-01-02T15:04:05"), now.Nanosecond()/1000)
 }

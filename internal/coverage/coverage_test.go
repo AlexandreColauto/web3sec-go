@@ -34,7 +34,7 @@ func readTest(t *testing.T, name string) validation.Value {
 // casesOf is doc.cases.
 func casesOf(t *testing.T, doc validation.Value) []validation.Value {
 	t.Helper()
-	cases := objAt(doc, "cases")
+	cases := validation.ObjAt(doc, "cases")
 	if cases.Kind != validation.Arr {
 		t.Fatalf("cases: not an array")
 	}
@@ -63,11 +63,11 @@ func wantCanon(t *testing.T, label string, got validation.Value, want string) {
 // CLI prints (KeyError renders as the repr of its message).
 func wantError(t *testing.T, label string, err error, c validation.Value) {
 	t.Helper()
-	ec := objAt(c, "error")
+	ec := validation.ObjAt(c, "error")
 	if err == nil {
-		t.Fatalf("%s: expected %s, got nil", label, objStr(ec, "type"))
+		t.Fatalf("%s: expected %s, got nil", label, validation.ObjStr(ec, "type"))
 	}
-	if want := objStr(ec, "str"); err.Error() != want {
+	if want := validation.ObjStr(ec, "str"); err.Error() != want {
 		t.Errorf("%s: error = %q, want %q", label, err.Error(), want)
 	}
 }
@@ -106,7 +106,7 @@ func newCamp(t *testing.T, cid string) *state.Campaign {
 func seedCampaign(t *testing.T, label, seed string) *state.Campaign {
 	t.Helper()
 	doc := parseCanon(t, label, seed)
-	cid := objStr(doc, "campaign_id")
+	cid := validation.ObjStr(doc, "campaign_id")
 	if cid == "" {
 		t.Fatalf("%s: seed has no campaign_id", label)
 	}
@@ -122,7 +122,7 @@ func seedCampaign(t *testing.T, label, seed string) *state.Campaign {
 func writeFindings(t *testing.T, c *state.Campaign, findings []validation.Value) {
 	t.Helper()
 	for _, f := range findings {
-		p := filepath.Join(c.FindingsDir, objStr(f, "finding_id")+".json")
+		p := filepath.Join(c.FindingsDir, validation.ObjStr(f, "finding_id")+".json")
 		if err := validation.WriteJson(p, f, ""); err != nil {
 			t.Fatal(err)
 		}
@@ -141,7 +141,7 @@ func setActiveSnapshot(t *testing.T, c *state.Campaign, sid validation.Value) {
 	if validation.PyTruthy(sid) {
 		st.O = validation.SetOrAppend(st.O, "snapshots", validation.VArr(validation.VObj(
 			kv("snapshot_id", sid),
-			kv("pinned_at", validation.VStr(nowIso())),
+			kv("pinned_at", validation.VStr(state.NowIso())),
 			kv("status", validation.VStr("pinned")),
 		)))
 	}
@@ -167,7 +167,7 @@ func writeSnapshot(t *testing.T, c *state.Campaign, sid, body string) {
 func fakeExternalSurface(index validation.Value) []validation.Value {
 	out := []validation.Value{}
 	for _, n := range listField(index, "nodes") {
-		if objStr(n, "kind") == "function" && validation.PyTruthy(objAt(n, "is_entry_point")) {
+		if validation.ObjStr(n, "kind") == "function" && validation.PyTruthy(validation.ObjAt(n, "is_entry_point")) {
 			out = append(out, n)
 		}
 	}
@@ -178,10 +178,10 @@ func fakeExternalSurface(index validation.Value) []validation.Value {
 func fakeExternalCallSites(index validation.Value) []validation.Value {
 	out := []validation.Value{}
 	for _, n := range listField(index, "nodes") {
-		if objStr(n, "kind") != "function" {
+		if validation.ObjStr(n, "kind") != "function" {
 			continue
 		}
-		if validation.PyTruthy(objAt(n, "calls_external")) || validation.PyTruthy(objAt(n, "delegatecalls")) {
+		if validation.PyTruthy(validation.ObjAt(n, "calls_external")) || validation.PyTruthy(validation.ObjAt(n, "delegatecalls")) {
 			out = append(out, n)
 		}
 	}
@@ -203,7 +203,7 @@ func installFakeIndex(t *testing.T) {
 func idsOf(nodes []validation.Value) validation.Value {
 	out := make([]validation.Value, len(nodes))
 	for i, n := range nodes {
-		out[i] = validation.VStr(objStr(n, "id"))
+		out[i] = validation.VStr(validation.ObjStr(n, "id"))
 	}
 	return validation.VArr(out...)
 }
@@ -212,8 +212,8 @@ func idsOf(nodes []validation.Value) validation.Value {
 // the real Python structural_index oracle.
 func TestStructuralIndexSeam(t *testing.T) {
 	doc := readTest(t, "structural_index.json")
-	index := objAt(doc, "index")
-	oracle := objAt(doc, "oracle")
+	index := validation.ObjAt(doc, "index")
+	oracle := validation.ObjAt(doc, "oracle")
 
 	SetStructuralIndex(StructuralIndexAPI{})
 	if got := siAPI.ExternalSurface(index); len(got) != 0 {
@@ -229,21 +229,21 @@ func TestStructuralIndexSeam(t *testing.T) {
 
 	installFakeIndex(t)
 	wantCanon(t, "external_surface", idsOf(fakeExternalSurface(index)),
-		validation.CanonCompact(objAt(oracle, "external_surface")))
+		validation.CanonCompact(validation.ObjAt(oracle, "external_surface")))
 	wantCanon(t, "external_call_sites", idsOf(fakeExternalCallSites(index)),
-		validation.CanonCompact(objAt(oracle, "external_call_sites")))
+		validation.CanonCompact(validation.ObjAt(oracle, "external_call_sites")))
 	wantCanon(t, "external_surface_truthy",
-		idsOf(fakeExternalSurface(objAt(doc, "index_truthy"))),
-		validation.CanonCompact(objAt(oracle, "external_surface_truthy")))
+		idsOf(fakeExternalSurface(validation.ObjAt(doc, "index_truthy"))),
+		validation.CanonCompact(validation.ObjAt(oracle, "external_surface_truthy")))
 	wantCanon(t, "external_call_sites_truthy",
-		idsOf(fakeExternalCallSites(objAt(doc, "index_truthy"))),
-		validation.CanonCompact(objAt(oracle, "external_call_sites_truthy")))
+		idsOf(fakeExternalCallSites(validation.ObjAt(doc, "index_truthy"))),
+		validation.CanonCompact(validation.ObjAt(oracle, "external_call_sites_truthy")))
 	wantCanon(t, "external_surface_empty",
-		idsOf(fakeExternalSurface(objAt(doc, "empty_index"))),
-		validation.CanonCompact(objAt(oracle, "external_surface_empty")))
+		idsOf(fakeExternalSurface(validation.ObjAt(doc, "empty_index"))),
+		validation.CanonCompact(validation.ObjAt(oracle, "external_surface_empty")))
 	wantCanon(t, "external_call_sites_empty",
-		idsOf(fakeExternalCallSites(objAt(doc, "empty_index"))),
-		validation.CanonCompact(objAt(oracle, "external_call_sites_empty")))
+		idsOf(fakeExternalCallSites(validation.ObjAt(doc, "empty_index"))),
+		validation.CanonCompact(validation.ObjAt(oracle, "external_call_sites_empty")))
 }
 
 // TestInitFromIndex replays every init_from_index oracle: the returned dict,
@@ -254,13 +254,13 @@ func TestInitFromIndex(t *testing.T) {
 	doc := readTest(t, "oracle_init.json")
 	installFakeIndex(t)
 	for _, c := range casesOf(t, doc) {
-		label := objStr(c, "label")
-		index := parseCanon(t, label, objStr(c, "index"))
-		model := parseCanon(t, label, objStr(c, "model"))
-		want := objStr(c, "coverage")
-		camp := newCamp(t, objStr(c, "campaign_id"))
+		label := validation.ObjStr(c, "label")
+		index := parseCanon(t, label, validation.ObjStr(c, "index"))
+		model := parseCanon(t, label, validation.ObjStr(c, "model"))
+		want := validation.ObjStr(c, "coverage")
+		camp := newCamp(t, validation.ObjStr(c, "campaign_id"))
 		got, err := InitFromIndex(camp, index, model)
-		if objAt(c, "error").Kind == validation.Obj {
+		if validation.ObjAt(c, "error").Kind == validation.Obj {
 			wantError(t, label, err, c)
 			continue
 		}
@@ -268,7 +268,7 @@ func TestInitFromIndex(t *testing.T) {
 			t.Fatalf("%s: %v", label, err)
 		}
 		wantCanon(t, label, got, want)
-		wantFile(t, label, Path(camp), objStr(c, "file"))
+		wantFile(t, label, Path(camp), validation.ObjStr(c, "file"))
 	}
 }
 
@@ -278,23 +278,23 @@ func TestInitFromIndex(t *testing.T) {
 func TestInitFromIndexSeamAbsent(t *testing.T) {
 	t.Setenv("WEBV2_NOW", pinnedNow)
 	doc := readTest(t, "oracle_init.json")
-	index := parseCanon(t, "index", objStr(casesOf(t, doc)[0], "index"))
-	model := parseCanon(t, "model", objStr(casesOf(t, doc)[0], "model"))
+	index := parseCanon(t, "index", validation.ObjStr(casesOf(t, doc)[0], "index"))
+	model := parseCanon(t, "model", validation.ObjStr(casesOf(t, doc)[0], "model"))
 	SetStructuralIndex(StructuralIndexAPI{})
 	camp := newCamp(t, "C-covabsent01")
 	cov, err := InitFromIndex(camp, index, model)
 	if err != nil {
 		t.Fatal(err)
 	}
-	surf := objAt(objAt(cov, "surfaces"), "external_call_sites")
-	if got := objAt(surf, "total").I; got != 0 {
+	surf := validation.ObjAt(validation.ObjAt(cov, "surfaces"), "external_call_sites")
+	if got := validation.ObjAt(surf, "total").I; got != 0 {
 		t.Errorf("external_call_sites.total = %d, want 0", got)
 	}
-	row := objAt(cov, "contracts").A[0]
-	if got := objAt(row, "entry_points_total").I; got != 0 {
+	row := validation.ObjAt(cov, "contracts").A[0]
+	if got := validation.ObjAt(row, "entry_points_total").I; got != 0 {
 		t.Errorf("entry_points_total = %d, want 0", got)
 	}
-	if got := objAt(row, "functions_total").I; got != 5 {
+	if got := validation.ObjAt(row, "functions_total").I; got != 5 {
 		t.Errorf("functions_total = %d, want 5 (index-only count)", got)
 	}
 }
@@ -304,23 +304,23 @@ func TestRecordSweep(t *testing.T) {
 	t.Setenv("WEBV2_NOW", pinnedNow)
 	doc := readTest(t, "oracle_sweeps.json")
 	for _, c := range casesOf(t, doc) {
-		label := objStr(c, "label")
-		camp := seedCampaign(t, label, objStr(c, "seed"))
-		got, err := RecordSweep(camp, objStr(c, "contract"), objStr(c, "trajectory"),
+		label := validation.ObjStr(c, "label")
+		camp := seedCampaign(t, label, validation.ObjStr(c, "seed"))
+		got, err := RecordSweep(camp, validation.ObjStr(c, "contract"), validation.ObjStr(c, "trajectory"),
 			SweepOpts{
-				EntryPointsReviewed: objAt(c, "entry_points_reviewed").I,
-				FunctionsReviewed:   objAt(c, "functions_reviewed").I,
-				Complete:            objAt(c, "complete").B,
+				EntryPointsReviewed: validation.ObjAt(c, "entry_points_reviewed").I,
+				FunctionsReviewed:   validation.ObjAt(c, "functions_reviewed").I,
+				Complete:            validation.ObjAt(c, "complete").B,
 			})
-		if objAt(c, "error").Kind == validation.Obj {
+		if validation.ObjAt(c, "error").Kind == validation.Obj {
 			wantError(t, label, err, c)
 		} else {
 			if err != nil {
 				t.Fatalf("%s: %v", label, err)
 			}
-			wantCanon(t, label, got, objStr(c, "result"))
+			wantCanon(t, label, got, validation.ObjStr(c, "result"))
 		}
-		wantFile(t, label, Path(camp), objStr(c, "file"))
+		wantFile(t, label, Path(camp), validation.ObjStr(c, "file"))
 	}
 }
 
@@ -329,11 +329,11 @@ func TestRecordSurface(t *testing.T) {
 	t.Setenv("WEBV2_NOW", pinnedNow)
 	doc := readTest(t, "oracle_surfaces.json")
 	for _, c := range casesOf(t, doc) {
-		label := objStr(c, "label")
-		camp := seedCampaign(t, label, objStr(c, "seed"))
-		reviewed := objAt(c, "reviewed").I
-		err := RecordSurface(camp, objStr(c, "surface"), reviewed)
-		if objAt(c, "error").Kind == validation.Obj {
+		label := validation.ObjStr(c, "label")
+		camp := seedCampaign(t, label, validation.ObjStr(c, "seed"))
+		reviewed := validation.ObjAt(c, "reviewed").I
+		err := RecordSurface(camp, validation.ObjStr(c, "surface"), reviewed)
+		if validation.ObjAt(c, "error").Kind == validation.Obj {
 			wantError(t, label, err, c)
 		} else if err != nil {
 			t.Fatalf("%s: %v", label, err)
@@ -342,14 +342,14 @@ func TestRecordSurface(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			seed := parseCanon(t, label, objStr(c, "seed"))
-			total := objAt(objAt(objAt(seed, "surfaces"), objStr(c, "surface")), "total").I
-			row := objAt(objAt(doc, "surfaces"), objStr(c, "surface"))
-			if got := objAt(row, "reviewed").I; got != min(reviewed, total) {
+			seed := parseCanon(t, label, validation.ObjStr(c, "seed"))
+			total := validation.ObjAt(validation.ObjAt(validation.ObjAt(seed, "surfaces"), validation.ObjStr(c, "surface")), "total").I
+			row := validation.ObjAt(validation.ObjAt(doc, "surfaces"), validation.ObjStr(c, "surface"))
+			if got := validation.ObjAt(row, "reviewed").I; got != min(reviewed, total) {
 				t.Errorf("%s: reviewed = %d, want min(%d, %d)", label, got, reviewed, total)
 			}
 		}
-		wantFile(t, label, Path(camp), objStr(c, "file"))
+		wantFile(t, label, Path(camp), validation.ObjStr(c, "file"))
 	}
 }
 
@@ -358,17 +358,17 @@ func TestThinCoverage(t *testing.T) {
 	t.Setenv("WEBV2_NOW", pinnedNow)
 	doc := readTest(t, "oracle_thin.json")
 	for _, c := range casesOf(t, doc) {
-		label := objStr(c, "label")
-		camp := seedCampaign(t, label, objStr(c, "seed"))
-		got, err := ThinCoverage(camp, objAt(c, "min_trajectories").I)
-		if objAt(c, "error").Kind == validation.Obj {
+		label := validation.ObjStr(c, "label")
+		camp := seedCampaign(t, label, validation.ObjStr(c, "seed"))
+		got, err := ThinCoverage(camp, validation.ObjAt(c, "min_trajectories").I)
+		if validation.ObjAt(c, "error").Kind == validation.Obj {
 			wantError(t, label, err, c)
 			continue
 		}
 		if err != nil {
 			t.Fatalf("%s: %v", label, err)
 		}
-		wantCanon(t, label, validation.VArr(got...), objStr(c, "result"))
+		wantCanon(t, label, validation.VArr(got...), validation.ObjStr(c, "result"))
 	}
 }
 
@@ -378,23 +378,23 @@ func TestRefreshGaps(t *testing.T) {
 	t.Setenv("WEBV2_NOW", pinnedNow)
 	doc := readTest(t, "oracle_gaps.json")
 	for _, c := range casesOf(t, doc) {
-		label := objStr(c, "label")
-		camp := seedCampaign(t, label, objStr(c, "seed"))
-		sid := objAt(c, "active_snapshot_id")
+		label := validation.ObjStr(c, "label")
+		camp := seedCampaign(t, label, validation.ObjStr(c, "seed"))
+		sid := validation.ObjAt(c, "active_snapshot_id")
 		setActiveSnapshot(t, camp, sid)
-		if body := objAt(c, "snapshot_json"); body.Kind == validation.Str {
+		if body := validation.ObjAt(c, "snapshot_json"); body.Kind == validation.Str {
 			writeSnapshot(t, camp, sid.S, body.S)
 		}
-		got, err := RefreshGaps(camp, parseCanon(t, label, objStr(c, "model")))
-		if objAt(c, "error").Kind == validation.Obj {
+		got, err := RefreshGaps(camp, parseCanon(t, label, validation.ObjStr(c, "model")))
+		if validation.ObjAt(c, "error").Kind == validation.Obj {
 			wantError(t, label, err, c)
 			continue
 		}
 		if err != nil {
 			t.Fatalf("%s: %v", label, err)
 		}
-		wantCanon(t, label, validation.VArr(got...), objStr(c, "result"))
-		wantFile(t, label, Path(camp), objStr(c, "file"))
+		wantCanon(t, label, validation.VArr(got...), validation.ObjStr(c, "result"))
+		wantFile(t, label, Path(camp), validation.ObjStr(c, "file"))
 	}
 }
 
@@ -403,19 +403,19 @@ func TestUpdateFunnel(t *testing.T) {
 	t.Setenv("WEBV2_NOW", pinnedNow)
 	doc := readTest(t, "oracle_funnel.json")
 	for _, c := range casesOf(t, doc) {
-		label := objStr(c, "label")
-		camp := seedCampaign(t, label, objStr(c, "seed"))
-		writeFindings(t, camp, objAt(c, "findings").A)
+		label := validation.ObjStr(c, "label")
+		camp := seedCampaign(t, label, validation.ObjStr(c, "seed"))
+		writeFindings(t, camp, validation.ObjAt(c, "findings").A)
 		got, err := UpdateFunnel(camp)
-		if objAt(c, "error").Kind == validation.Obj {
+		if validation.ObjAt(c, "error").Kind == validation.Obj {
 			wantError(t, label, err, c)
 			continue
 		}
 		if err != nil {
 			t.Fatalf("%s: %v", label, err)
 		}
-		wantCanon(t, label, got, objStr(c, "result"))
-		wantFile(t, label, Path(camp), objStr(c, "file"))
+		wantCanon(t, label, got, validation.ObjStr(c, "result"))
+		wantFile(t, label, Path(camp), validation.ObjStr(c, "file"))
 	}
 }
 
@@ -424,24 +424,24 @@ func TestBuildSummary(t *testing.T) {
 	t.Setenv("WEBV2_NOW", pinnedNow)
 	doc := readTest(t, "oracle_summary.json")
 	for _, c := range casesOf(t, doc) {
-		label := objStr(c, "label")
-		camp := seedCampaign(t, label, objStr(c, "seed"))
-		if links := objAt(c, "links"); links.Kind == validation.Str {
+		label := validation.ObjStr(c, "label")
+		camp := seedCampaign(t, label, validation.ObjStr(c, "seed"))
+		if links := validation.ObjAt(c, "links"); links.Kind == validation.Str {
 			p := filepath.Join(camp.ArtifactsDir, "invariant_links.json")
 			if err := validation.WriteJson(p, parseCanon(t, label, links.S), ""); err != nil {
 				t.Fatal(err)
 			}
 		}
 		got, err := BuildSummary(camp, validation.VObj(), validation.VObj())
-		if objAt(c, "error").Kind == validation.Obj {
+		if validation.ObjAt(c, "error").Kind == validation.Obj {
 			wantError(t, label, err, c)
 			continue
 		}
 		if err != nil {
 			t.Fatalf("%s: %v", label, err)
 		}
-		wantCanon(t, label, got, objStr(c, "result"))
-		wantFile(t, label, Path(camp), objStr(c, "file"))
+		wantCanon(t, label, got, validation.ObjStr(c, "result"))
+		wantFile(t, label, Path(camp), validation.ObjStr(c, "file"))
 	}
 }
 
@@ -449,13 +449,13 @@ func TestBuildSummary(t *testing.T) {
 func TestLoadSaveMisc(t *testing.T) {
 	t.Setenv("WEBV2_NOW", pinnedNow)
 	misc := readTest(t, "oracle_misc.json")
-	camp := seedCampaign(t, "misc", objStr(misc, "seed"))
+	camp := seedCampaign(t, "misc", validation.ObjStr(misc, "seed"))
 
 	got, err := Load(camp)
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantCanon(t, "load", got, objStr(misc, "load"))
+	wantCanon(t, "load", got, validation.ObjStr(misc, "load"))
 	if want := filepath.Join(camp.ArtifactsDir, "coverage.json"); Path(camp) != want {
 		t.Errorf("Path = %q, want %q", Path(camp), want)
 	}
@@ -466,13 +466,13 @@ func TestLoadSaveMisc(t *testing.T) {
 	if path != Path(camp) {
 		t.Errorf("Save path = %q, want %q", path, Path(camp))
 	}
-	wantFile(t, "saved_file", path, objStr(misc, "saved_file"))
+	wantFile(t, "saved_file", path, validation.ObjStr(misc, "saved_file"))
 
-	bad := parseCanon(t, "bad", objStr(misc, "bad"))
+	bad := parseCanon(t, "bad", validation.ObjStr(misc, "bad"))
 	camp2 := newCamp(t, "C-covmisc002")
 	if _, err := Save(camp2, &bad); err == nil {
 		t.Fatal("save_invalid: expected a SchemaError")
-	} else if want := objStr(objAt(misc, "save_invalid"), "str"); err.Error() != want {
+	} else if want := validation.ObjStr(validation.ObjAt(misc, "save_invalid"), "str"); err.Error() != want {
 		t.Errorf("save_invalid = %q, want %q", err.Error(), want)
 	}
 	missing := newCamp(t, "C-covmisc003")
@@ -488,25 +488,25 @@ func TestLoadSaveMisc(t *testing.T) {
 // Python twin's coverage.json and events.jsonl byte for byte.
 func TestGoldenReplay(t *testing.T) {
 	g := readTest(t, "golden_replay.json")
-	t.Setenv("WEBV2_NOW", objStr(g, "now"))
+	t.Setenv("WEBV2_NOW", validation.ObjStr(g, "now"))
 	installFakeIndex(t)
 
-	camp := newCamp(t, objStr(g, "campaign_id"))
+	camp := newCamp(t, validation.ObjStr(g, "campaign_id"))
 	sid := "SNAP-covt10"
 	setActiveSnapshot(t, camp, validation.VStr(sid))
 	snap := validation.VObj(
 		kv("snapshot_id", validation.VStr(sid)),
-		kv("deployment", objAt(g, "deployment")),
+		kv("deployment", validation.ObjAt(g, "deployment")),
 	)
 	writeSnapshot(t, camp, sid, validation.CanonSpaced(snap))
-	links := objAt(g, "links")
+	links := validation.ObjAt(g, "links")
 	if err := validation.WriteJson(
 		filepath.Join(camp.ArtifactsDir, "invariant_links.json"), links, ""); err != nil {
 		t.Fatal(err)
 	}
-	writeFindings(t, camp, objAt(g, "findings").A)
+	writeFindings(t, camp, validation.ObjAt(g, "findings").A)
 
-	index, model := objAt(g, "index"), objAt(g, "model")
+	index, model := validation.ObjAt(g, "index"), validation.ObjAt(g, "model")
 	if _, err := InitFromIndex(camp, index, model); err != nil {
 		t.Fatal(err)
 	}
@@ -544,10 +544,10 @@ func TestGoldenReplay(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	wantCanon(t, "thin_coverage", validation.VArr(thin...), objStr(g, "thin_coverage"))
-	wantCanon(t, "summary", summary, objStr(g, "summary"))
-	wantFile(t, "coverage.json", Path(camp), objStr(g, "coverage_json"))
-	wantFile(t, "events.jsonl", camp.EventsPath, objStr(g, "events_jsonl"))
+	wantCanon(t, "thin_coverage", validation.VArr(thin...), validation.ObjStr(g, "thin_coverage"))
+	wantCanon(t, "summary", summary, validation.ObjStr(g, "summary"))
+	wantFile(t, "coverage.json", Path(camp), validation.ObjStr(g, "coverage_json"))
+	wantFile(t, "events.jsonl", camp.EventsPath, validation.ObjStr(g, "events_jsonl"))
 	verdict, err := camp.VerifyLog()
 	if err != nil {
 		t.Fatal(err)

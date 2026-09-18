@@ -138,7 +138,7 @@ func TestR40BRefusedIngestLeavesNoFindingAndRetryDoesNotDouble(t *testing.T) {
 	if err != nil {
 		t.Fatalf("retry on a repaired ledger: %v", err)
 	}
-	if objStr(f, "finding_id") == "" {
+	if validation.ObjStr(f, "finding_id") == "" {
 		t.Fatal("retry returned a finding with no id")
 	}
 	if got := r40bFindingsDigest(t, c.FindingsDir); got == "empty" {
@@ -169,7 +169,7 @@ func TestR40BRefusedMitigationScanRestoresFindingBytes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	id := objStr(f, "finding_id")
+	id := validation.ObjStr(f, "finding_id")
 	// NOTE: ingestHypothesis itself runs a fail-open RecordMitigationScan,
 	// so the ledger already holds one anchor — count the DELTA.
 	eventsBaseline := r40bEventCount(t, c, "finding.mitigation_scanned")
@@ -215,8 +215,8 @@ func TestR40BRefusedIngestStillIngestsHappily(t *testing.T) {
 	if err != nil {
 		t.Fatalf("honest ingest refused: %v", err)
 	}
-	if objStr(f, "status") != "HYPOTHESIS" {
-		t.Fatalf("status = %q, want HYPOTHESIS", objStr(f, "status"))
+	if validation.ObjStr(f, "status") != "HYPOTHESIS" {
+		t.Fatalf("status = %q, want HYPOTHESIS", validation.ObjStr(f, "status"))
 	}
 	if got := r40bEventCount(t, c, "finding.ingested"); got != 1 {
 		t.Fatalf("finding.ingested events = %d, want 1", got)

@@ -62,10 +62,10 @@ func runStatus(root string, args []string, stdout io.Writer) error {
 	}
 	status := validation.VObj(
 		validation.KV{K: "campaign_id", V: validation.VStr(c.CampaignID)},
-		validation.KV{K: "program", V: objAt(st, "program")},
-		validation.KV{K: "phase", V: objAt(st, "phase")},
-		validation.KV{K: "pass", V: objAt(objAt(st, "budget"), "pass")},
-		validation.KV{K: "active_snapshot", V: objAt(st, "active_snapshot_id")},
+		validation.KV{K: "program", V: validation.ObjAt(st, "program")},
+		validation.KV{K: "phase", V: validation.ObjAt(st, "phase")},
+		validation.KV{K: "pass", V: validation.ObjAt(validation.ObjAt(st, "budget"), "pass")},
+		validation.KV{K: "active_snapshot", V: validation.ObjAt(st, "active_snapshot_id")},
 		validation.KV{K: "findings", V: findings},
 		validation.KV{K: "coverage_summary", V: coverage},
 		validation.KV{K: "stages", V: statusStages(st, verbose)},
@@ -100,7 +100,7 @@ func statusFindings(c *state.Campaign) (validation.Value, error) {
 		if err != nil {
 			return validation.VNull(), err
 		}
-		rows = append(rows, row{objStr(f, "created_at"), objStr(f, "finding_id"), objStr(f, "status")})
+		rows = append(rows, row{validation.ObjStr(f, "created_at"), validation.ObjStr(f, "finding_id"), validation.ObjStr(f, "status")})
 	}
 	sort.Slice(rows, func(i, j int) bool {
 		if rows[i].created != rows[j].created {
@@ -141,7 +141,7 @@ func statusCoverage(c *state.Campaign) (validation.Value, error) {
 	if err != nil {
 		return validation.VNull(), err
 	}
-	if s := objAt(doc, "summary"); s.Kind == validation.Obj {
+	if s := validation.ObjAt(doc, "summary"); s.Kind == validation.Obj {
 		return s, nil
 	}
 	return validation.VObj(), nil
@@ -150,7 +150,7 @@ func statusCoverage(c *state.Campaign) (validation.Value, error) {
 // statusStages copies the stages dict, truncating long notes to the
 // display cap unless verbose (rune-wise, like Python's note[:200]).
 func statusStages(st validation.Value, verbose bool) validation.Value {
-	stages := objAt(st, "stages")
+	stages := validation.ObjAt(st, "stages")
 	if stages.Kind != validation.Obj {
 		return validation.VObj()
 	}
@@ -161,7 +161,7 @@ func statusStages(st validation.Value, verbose bool) validation.Value {
 			kvs := make([]validation.KV, len(entry.O))
 			copy(kvs, entry.O)
 			entry = validation.VObj(kvs...)
-			if note := objAt(entry, "note"); note.Kind == validation.Str && !verbose {
+			if note := validation.ObjAt(entry, "note"); note.Kind == validation.Str && !verbose {
 				if n := runeLen(note.S); n > statusNoteCap {
 					short := string([]rune(note.S)[:statusNoteCap]) + " …[truncated; use --verbose]"
 					for i := range entry.O {

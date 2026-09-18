@@ -49,11 +49,11 @@ func runResemble(root string, args []string, r *Runner) int {
 		if err != nil {
 			return err
 		}
-		required := joinOrNone(listStringsCLI(objAt(rep, "candidate_required")))
+		required := joinOrNone(listStringsCLI(validation.ObjAt(rep, "candidate_required")))
 		fmt.Fprintf(r.Out, "candidate %s (class %s, requires %s)\n",
-			objStr(rep, "candidate_id"),
-			scalarStr(objAt(rep, "candidate_class")), required)
-		matches := objAt(rep, "matches").A
+			validation.ObjStr(rep, "candidate_id"),
+			scalarStr(validation.ObjAt(rep, "candidate_class")), required)
+		matches := validation.ObjAt(rep, "matches").A
 		if len(matches) == 0 {
 			fmt.Fprint(r.Out,
 				"  no confirmed primitive resembles this candidate\n")
@@ -61,22 +61,22 @@ func runResemble(root string, args []string, r *Runner) int {
 		}
 		for _, m := range matches {
 			tag := "cap-overlap"
-			if objAt(m, "class_match").B {
+			if validation.ObjAt(m, "class_match").B {
 				tag = "class-match"
 			}
 			term := ""
-			if objAt(m, "candidate_reaches_terminal").B {
+			if validation.ObjAt(m, "candidate_reaches_terminal").B {
 				term = " [reaches terminal]"
 			}
-			overlap := joinOrNone(listStringsCLI(objAt(m, "granted_overlap")))
+			overlap := joinOrNone(listStringsCLI(validation.ObjAt(m, "granted_overlap")))
 			fmt.Fprintf(r.Out, "  %s [%s] similarity=%s overlap=%s%s\n",
-				objStr(m, "primitive_id"), tag,
-				scalarStr(objAt(m, "similarity")), overlap, term)
-			if missing := listStringsCLI(objAt(m, "missing")); len(missing) > 0 {
+				validation.ObjStr(m, "primitive_id"), tag,
+				scalarStr(validation.ObjAt(m, "similarity")), overlap, term)
+			if missing := listStringsCLI(validation.ObjAt(m, "missing")); len(missing) > 0 {
 				fmt.Fprintf(r.Out, "    missing required caps: %s\n",
 					strings.Join(missing, ", "))
 			}
-			fmt.Fprintf(r.Out, "    %s\n", objStr(m, "advisory"))
+			fmt.Fprintf(r.Out, "    %s\n", validation.ObjStr(m, "advisory"))
 		}
 		return nil
 	})

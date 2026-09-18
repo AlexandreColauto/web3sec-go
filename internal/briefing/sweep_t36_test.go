@@ -79,7 +79,7 @@ func TestBriefSurfacesOpenSiblingPriority(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	acts := strListOf(objAt(b, "next_actions"))
+	acts := strListOf(validation.ObjAt(b, "next_actions"))
 	found := false
 	for _, a := range acts {
 		// Task 7 fix round 1 (I-2): command-first line, reason carries

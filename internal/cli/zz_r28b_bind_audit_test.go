@@ -78,8 +78,8 @@ func zzR28bDrift(t *testing.T, c *state.Campaign, stmt string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	reg := objAt(links, "invariants")
-	entry := objAt(reg, "INV-1")
+	reg := validation.ObjAt(links, "invariants")
+	entry := validation.ObjAt(reg, "INV-1")
 	if entry.Kind != validation.Obj {
 		t.Fatal("no INV-1 entry")
 	}
@@ -111,7 +111,7 @@ func zzR28bHarness(t *testing.T, c *state.Campaign) validation.Value {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return objAt(objAt(objAt(objAt(links, "invariants"), "INV-1"),
+	return validation.ObjAt(validation.ObjAt(validation.ObjAt(validation.ObjAt(links, "invariants"), "INV-1"),
 		"verification"), "harness")
 }
 
@@ -128,14 +128,14 @@ func zzR28bAudit(t *testing.T, root, cid string) (int, bool, string,
 	if err != nil {
 		t.Fatalf("audit --json did not parse: %v\n%s", err, out)
 	}
-	sect := objAt(objAt(rep, "sections"), "invariant_verification")
-	ok := objAt(sect, "ok")
+	sect := validation.ObjAt(validation.ObjAt(rep, "sections"), "invariant_verification")
+	ok := validation.ObjAt(sect, "ok")
 	joined := ""
-	for _, p := range objAt(sect, "problems").A {
+	for _, p := range validation.ObjAt(sect, "problems").A {
 		joined += p.S
 	}
 	return code, ok.Kind == validation.Bool && ok.B, joined,
-		objAt(sect, "harness_runs")
+		validation.ObjAt(sect, "harness_runs")
 }
 
 // TestZZR28BClaimDriftBurnsOnBothSides is repro (A): the bind lands
@@ -156,7 +156,7 @@ func TestZZR28BClaimDriftBurnsOnBothSides(t *testing.T) {
 			zzR28bBind(t, root, c.CampaignID, execID), want)
 	}
 	h := zzR28bHarness(t, c)
-	if got := objStr(h, "summary"); got != "proved bounded (k=4)" {
+	if got := validation.ObjStr(h, "summary"); got != "proved bounded (k=4)" {
 		t.Fatalf("bound summary = %q", got)
 	}
 	// Baseline: the campaign is green while the claim still matches.
@@ -195,10 +195,10 @@ func TestZZR28BClaimDriftBurnsOnBothSides(t *testing.T) {
 		t.Fatalf("re-bind stdout = %q", out)
 	}
 	h = zzR28bHarness(t, c)
-	if got := objStr(h, "summary"); got != zzR28bDegraded {
+	if got := validation.ObjStr(h, "summary"); got != zzR28bDegraded {
 		t.Fatalf("re-bind summary = %q, want %q", got, zzR28bDegraded)
 	}
-	if bk := objAt(h, "bounded_k"); bk.Kind != validation.Null {
+	if bk := validation.ObjAt(h, "bounded_k"); bk.Kind != validation.Null {
 		t.Fatalf("a degraded refusal carries no bound: %s",
 			validation.CanonCompact(h))
 	}
@@ -241,7 +241,7 @@ func TestZZR28BForeignHashBurnsOnBothSides(t *testing.T) {
 		"INV-1: inconclusive (minicertora, "+execID+")\n" {
 		t.Fatalf("re-bind stdout = %q", out)
 	}
-	if got := objStr(zzR28bHarness(t, c), "summary"); got != zzR28bViolation {
+	if got := validation.ObjStr(zzR28bHarness(t, c), "summary"); got != zzR28bViolation {
 		t.Fatalf("re-bind summary = %q, want %q", got, zzR28bViolation)
 	}
 }
@@ -260,10 +260,10 @@ func TestZZR28BHonestUnboundAuditsGreen(t *testing.T) {
 	}
 	h := zzR28bHarness(t, c)
 	wantSummary := "proved bounded (k=4)" + zzR28bUnboundSuffix
-	if got := objStr(h, "summary"); got != wantSummary {
+	if got := validation.ObjStr(h, "summary"); got != wantSummary {
 		t.Fatalf("unbound summary = %q, want %q", got, wantSummary)
 	}
-	if bk := objAt(h, "bounded_k"); bk.Kind != validation.Int || bk.I != 4 {
+	if bk := validation.ObjAt(h, "bounded_k"); bk.Kind != validation.Int || bk.I != 4 {
 		t.Fatalf("bounded_k = %s, want 4", validation.CanonCompact(bk))
 	}
 	code, ok, joined, runs := zzR28bAudit(t, root, c.CampaignID)
@@ -323,7 +323,7 @@ func TestZZR28BPinnedBindSummaries(t *testing.T) {
 		"INV-1: proved-bounded (minicertora, k=4, "+execID+")\n" {
 		t.Fatalf("proved-bounded stdout = %q", out)
 	}
-	if got := objStr(zzR28bHarness(t, c), "summary"); got !=
+	if got := validation.ObjStr(zzR28bHarness(t, c), "summary"); got !=
 		"proved bounded (k=4)" {
 		t.Fatalf("proved-bounded summary = %q", got)
 	}
@@ -333,7 +333,7 @@ func TestZZR28BPinnedBindSummaries(t *testing.T) {
 		"INV-1: inconclusive (minicertora, "+execID+")\n" {
 		t.Fatalf("degraded stdout = %q", out)
 	}
-	if got := objStr(zzR28bHarness(t, c), "summary"); got != zzR28bDegraded {
+	if got := validation.ObjStr(zzR28bHarness(t, c), "summary"); got != zzR28bDegraded {
 		t.Fatalf("degraded summary = %q, want %q", got, zzR28bDegraded)
 	}
 	// The violation arm: a harness-named hash entry with a foreign sha.
@@ -346,7 +346,7 @@ func TestZZR28BPinnedBindSummaries(t *testing.T) {
 		"INV-1: inconclusive (minicertora, "+execID+")\n" {
 		t.Fatalf("violation stdout = %q", out)
 	}
-	if got := objStr(zzR28bHarness(t, c2), "summary"); got != zzR28bViolation {
+	if got := validation.ObjStr(zzR28bHarness(t, c2), "summary"); got != zzR28bViolation {
 		t.Fatalf("violation summary = %q, want %q", got, zzR28bViolation)
 	}
 	// The unbound arm's suffix, verbatim.
@@ -357,7 +357,7 @@ func TestZZR28BPinnedBindSummaries(t *testing.T) {
 		"INV-1: proved-bounded (minicertora, k=4, "+execID+")\n" {
 		t.Fatalf("unbound stdout = %q", out)
 	}
-	if got := objStr(zzR28bHarness(t, c3), "summary"); got !=
+	if got := validation.ObjStr(zzR28bHarness(t, c3), "summary"); got !=
 		"proved bounded (k=4)"+zzR28bUnboundSuffix {
 		t.Fatalf("unbound summary = %q", got)
 	}

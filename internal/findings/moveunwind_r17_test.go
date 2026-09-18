@@ -24,7 +24,7 @@ func TestRefusedMoveKeepsTheFindingOpen(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	id := objStr(f, "finding_id")
+	id := validation.ObjStr(f, "finding_id")
 	if id == "" {
 		t.Fatal("ingest lost the finding")
 	}
@@ -40,7 +40,7 @@ func TestRefusedMoveKeepsTheFindingOpen(t *testing.T) {
 		t.Fatal(err)
 	}
 	body := validation.DumpsOrdered(g, false)
-	if objStr(g, "status") != "HYPOTHESIS" {
+	if validation.ObjStr(g, "status") != "HYPOTHESIS" {
 		t.Fatalf("refused DISPROVED move must have been unwound: %s",
 			body[:min(len(body), 160)])
 	}

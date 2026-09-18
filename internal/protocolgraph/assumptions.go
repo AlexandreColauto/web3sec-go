@@ -26,7 +26,7 @@ var assumptionDetailFields = []string{
 // declared order, plus deduped gaps sorted by hop then chain then reason.
 func AssumptionTable(model validation.Value) ([]validation.Value, []validation.Value) {
 	chains := []string{}
-	if v := objAt(model, "chains"); v.Kind == validation.Arr {
+	if v := validation.ObjAt(model, "chains"); v.Kind == validation.Arr {
 		for _, c := range v.A {
 			if c.Kind == validation.Str {
 				chains = append(chains, c.S)
@@ -34,13 +34,13 @@ func AssumptionTable(model validation.Value) ([]validation.Value, []validation.V
 		}
 	}
 	var assumptions []validation.Value
-	if v := objAt(model, "chain_assumptions"); v.Kind == validation.Arr {
+	if v := validation.ObjAt(model, "chain_assumptions"); v.Kind == validation.Arr {
 		assumptions = v.A
 	}
 	// findEntry is the assumption lookup: first item whose chain equals.
 	findEntry := func(name string) (validation.Value, bool) {
 		for _, a := range assumptions {
-			if c := objAt(a, "chain"); c.Kind == validation.Str && c.S == name {
+			if c := validation.ObjAt(a, "chain"); c.Kind == validation.Str && c.S == name {
 				return a, true
 			}
 		}
@@ -56,7 +56,7 @@ func AssumptionTable(model validation.Value) ([]validation.Value, []validation.V
 			if found {
 				// objAt is Null when absent: the declared-none rule emits
 				// nulls, never empty strings.
-				val = objAt(entry, f)
+				val = validation.ObjAt(entry, f)
 			}
 			pairs = append(pairs, kv(f, val))
 		}
@@ -67,10 +67,10 @@ func AssumptionTable(model validation.Value) ([]validation.Value, []validation.V
 	seen := map[gapKey]struct{}{}
 	gaps := []validation.Value{}
 	for _, r := range listField(model, "relations") {
-		if objAt(r, "rel").S != "BRIDGES" {
+		if validation.ObjAt(r, "rel").S != "BRIDGES" {
 			continue
 		}
-		from, to, via := pyStr(objAt(r, "from")), pyStr(objAt(r, "to")), pyStr(objAt(r, "via"))
+		from, to, via := pyStr(validation.ObjAt(r, "from")), pyStr(validation.ObjAt(r, "to")), pyStr(validation.ObjAt(r, "via"))
 		hop := from + "->" + to
 		for _, name := range chains {
 			if name == "" {
@@ -84,8 +84,8 @@ func AssumptionTable(model validation.Value) ([]validation.Value, []validation.V
 			switch {
 			case !found:
 				reason = "missing-assumptions"
-			case objAt(entry, "finality").Kind == validation.Null &&
-				objAt(entry, "confirmation_depth").Kind == validation.Null:
+			case validation.ObjAt(entry, "finality").Kind == validation.Null &&
+				validation.ObjAt(entry, "confirmation_depth").Kind == validation.Null:
 				reason = "finality-unspecified"
 			}
 			if reason == "" {
@@ -105,13 +105,13 @@ func AssumptionTable(model validation.Value) ([]validation.Value, []validation.V
 	}
 	sort.Slice(gaps, func(i, j int) bool {
 		gi, gj := gaps[i], gaps[j]
-		if hi, hj := objAt(gi, "hop").S, objAt(gj, "hop").S; hi != hj {
+		if hi, hj := validation.ObjAt(gi, "hop").S, validation.ObjAt(gj, "hop").S; hi != hj {
 			return hi < hj
 		}
-		if ci, cj := objAt(gi, "chain").S, objAt(gj, "chain").S; ci != cj {
+		if ci, cj := validation.ObjAt(gi, "chain").S, validation.ObjAt(gj, "chain").S; ci != cj {
 			return ci < cj
 		}
-		return objAt(gi, "reason").S < objAt(gj, "reason").S
+		return validation.ObjAt(gi, "reason").S < validation.ObjAt(gj, "reason").S
 	})
 	return rows, gaps
 }

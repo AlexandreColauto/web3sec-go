@@ -32,11 +32,11 @@ func TestProbeLensViewAxesSplit(t *testing.T) {
 	surface, index, plan := pvFixtures(t)
 	withProbes(t, probeEnv{surface: &surface, index: &index})
 	view := probeLensView(plan, "L-03", DivergenceOpts{Surface: &surface})
-	requireJSON(t, "axes", strArr(view.axes), jsonValue(t,
+	requireJSON(t, "axes", validation.StrArr(view.axes), jsonValue(t,
 		`["enforcement-timing"]`))
-	requireJSON(t, "present", strArr(view.present), jsonValue(t,
+	requireJSON(t, "present", validation.StrArr(view.present), jsonValue(t,
 		`["enforcement-timing"]`))
-	requireJSON(t, "missing axes", strArr(view.missingAxes),
+	requireJSON(t, "missing axes", validation.StrArr(view.missingAxes),
 		validation.VArr())
 	// a surface that carries no axis at all: the lens reports the axis missing
 	bare := jsonValue(t, `{"axes":[],"rows":[]}`)
@@ -47,8 +47,8 @@ func TestProbeLensViewAxesSplit(t *testing.T) {
 	if len(view.present) != 0 || len(view.missingAxes) != len(view.axes) {
 		t.Fatalf("a lens with no surface axis must report all missing: %s",
 			validation.CanonCompact(validation.VObj(
-				kv("present", strArr(view.present)),
-				kv("missing", strArr(view.missingAxes)))))
+				kv("present", validation.StrArr(view.present)),
+				kv("missing", validation.StrArr(view.missingAxes)))))
 	}
 	if view.counts != nil {
 		t.Fatalf("no present axis means no counts")
@@ -65,12 +65,12 @@ func TestProbeLensViewCounts(t *testing.T) {
 		t.Fatalf("expected counts for a present axis")
 	}
 	c := *view.counts
-	requireJSON(t, "rows", objAt(c, "rows"), validation.VInt(10))
-	requireJSON(t, "dispositioned", objAt(c, "dispositioned"),
+	requireJSON(t, "rows", validation.ObjAt(c, "rows"), validation.VInt(10))
+	requireJSON(t, "dispositioned", validation.ObjAt(c, "dispositioned"),
 		validation.VInt(0))
-	requireJSON(t, "open", objAt(c, "open"), validation.VInt(10))
-	requireJSON(t, "closed", objAt(c, "closed"), validation.VBool(false))
-	msg := objStr(c, "message")
+	requireJSON(t, "open", validation.ObjAt(c, "open"), validation.VInt(10))
+	requireJSON(t, "closed", validation.ObjAt(c, "closed"), validation.VBool(false))
+	msg := validation.ObjStr(c, "message")
 	if !strings.HasPrefix(msg, "L-03 open — 0/10 rows dispositioned") {
 		t.Fatalf("counts message = %q", msg)
 	}
@@ -83,10 +83,10 @@ func TestProbeLensViewStaleDisposition(t *testing.T) {
 	withProbes(t, probeEnv{surface: &surface, index: &index})
 	plan = deepCopy(t, plan)
 	for i, p := range listOf(plan, "priorities") {
-		if objStr(p, "id") != "Q-005" {
+		if validation.ObjStr(p, "id") != "Q-005" {
 			continue
 		}
-		prov := objAt(p, "probe")
+		prov := validation.ObjAt(p, "probe")
 		prov.O = validation.SetOrAppend(prov.O, "shape_sha", validation.VStr("deadbeef"))
 		p.O = validation.SetOrAppend(p.O, "probe", prov)
 		p.O = validation.SetOrAppend(p.O, "status", validation.VStr("answered"))
@@ -96,11 +96,11 @@ func TestProbeLensViewStaleDisposition(t *testing.T) {
 	}
 	view := probeLensView(plan, "L-03", DivergenceOpts{Surface: &surface})
 	c := *view.counts
-	requireJSON(t, "stale", objAt(c, "stale"), validation.VInt(1))
-	requireJSON(t, "dispositioned", objAt(c, "dispositioned"),
+	requireJSON(t, "stale", validation.ObjAt(c, "stale"), validation.VInt(1))
+	requireJSON(t, "dispositioned", validation.ObjAt(c, "dispositioned"),
 		validation.VInt(0))
-	if !strings.Contains(objStr(c, "message"), "0/10 rows dispositioned") {
-		t.Fatalf("message = %q", objStr(c, "message"))
+	if !strings.Contains(validation.ObjStr(c, "message"), "0/10 rows dispositioned") {
+		t.Fatalf("message = %q", validation.ObjStr(c, "message"))
 	}
 	found := false
 	for _, iss := range view.issues {
@@ -145,7 +145,7 @@ func TestLensProbeClosureMatchesView(t *testing.T) {
 	requireJSON(t, "closure == counts", *closure, *view.counts)
 	pub := LensProbeClosure(plan, "L-03", opts)
 	requireJSON(t, "public closure", *pub, *closure)
-	if objStr(*closure, "message") == "" {
+	if validation.ObjStr(*closure, "message") == "" {
 		t.Fatalf("closure message must not be empty")
 	}
 }
@@ -178,15 +178,15 @@ func TestProbeCountsTailAndBlind(t *testing.T) {
 	withProbes(t, probeEnv{surface: &surface, index: &index})
 	c := *probeCounts(surface, DivergenceOpts{Surface: &surface}, "L-03",
 		[]string{"enforcement-timing"}, 4, 6, 0, []string{})
-	requireJSON(t, "rows", objAt(c, "rows"), validation.VInt(10))
-	requireJSON(t, "emitted", objAt(c, "emitted"), validation.VInt(10))
-	requireJSON(t, "tail", objAt(c, "tail"), validation.VInt(0))
-	requireJSON(t, "blind", objAt(c, "blind"), validation.VInt(4))
-	requireJSON(t, "dispositioned", objAt(c, "dispositioned"),
+	requireJSON(t, "rows", validation.ObjAt(c, "rows"), validation.VInt(10))
+	requireJSON(t, "emitted", validation.ObjAt(c, "emitted"), validation.VInt(10))
+	requireJSON(t, "tail", validation.ObjAt(c, "tail"), validation.VInt(0))
+	requireJSON(t, "blind", validation.ObjAt(c, "blind"), validation.VInt(4))
+	requireJSON(t, "dispositioned", validation.ObjAt(c, "dispositioned"),
 		validation.VInt(4))
-	requireJSON(t, "open", objAt(c, "open"), validation.VInt(6))
-	requireJSON(t, "closed", objAt(c, "closed"), validation.VBool(true))
-	if msg := objStr(c, "message"); !strings.Contains(msg,
+	requireJSON(t, "open", validation.ObjAt(c, "open"), validation.VInt(6))
+	requireJSON(t, "closed", validation.ObjAt(c, "closed"), validation.VBool(true))
+	if msg := validation.ObjStr(c, "message"); !strings.Contains(msg,
 		"4/10 rows dispositioned, 0 in tail, 4 blind keys disclosed") {
 		t.Fatalf("message = %q", msg)
 	}
@@ -203,13 +203,13 @@ func TestProbeCountsAttestedBlind(t *testing.T) {
 	if len(blind) == 0 {
 		t.Fatalf("fixture axis must disclose a blind key")
 	}
-	key := objStr(blind[0], "key")
+	key := validation.ObjStr(blind[0], "key")
 	opts := DivergenceOpts{Surface: &surface, Blanks: map[string]validation.Value{
 		"enforcement-timing": validation.VObj(kv("anchor_blind",
 			validation.VStr(key)))}}
 	c := *probeCounts(surface, opts, "L-03", []string{"enforcement-timing"},
 		0, 10, 0, []string{"still open"})
-	requireJSON(t, "blind_attested", objAt(c, "blind_attested"),
+	requireJSON(t, "blind_attested", validation.ObjAt(c, "blind_attested"),
 		validation.VInt(1))
-	requireJSON(t, "closed", objAt(c, "closed"), validation.VBool(false))
+	requireJSON(t, "closed", validation.ObjAt(c, "closed"), validation.VBool(false))
 }

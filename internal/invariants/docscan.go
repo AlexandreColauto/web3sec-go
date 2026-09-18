@@ -9,7 +9,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
+
 	"unicode"
 	"unicode/utf8"
 
@@ -19,18 +19,6 @@ import (
 
 // docSuffixes is _DOC_SUFFIXES.
 var docSuffixes = []string{".md", ".rst", ".adoc", ".txt"}
-
-// nowIso is state.now_iso: UTC with 6-digit microseconds and +00:00, with
-// the WEBV2_NOW golden-suite pin honored verbatim (the recipe pins the clock
-// so a replay emits byte-identical artifacts).
-func nowIso() string {
-	if v := os.Getenv("WEBV2_NOW"); v != "" {
-		return v
-	}
-	now := time.Now().UTC()
-	return fmt.Sprintf("%s.%06d+00:00",
-		now.Format("2006-01-02T15:04:05"), now.Nanosecond()/1000)
-}
 
 // ---- documented set ------------------------------------------------------
 
@@ -385,12 +373,12 @@ func DocumentedRef(c *state.Campaign, invariantID string,
 	if err != nil {
 		return nil, err
 	}
-	entry := objAt(doc, NormalizeInvID(invariantID))
+	entry := validation.ObjAt(doc, NormalizeInvID(invariantID))
 	if entry.Kind != validation.Obj || len(entry.O) == 0 {
 		return nil, nil
 	}
-	ref := objStr(entry, "file") + "#L" +
-		strconv.FormatInt(objAt(entry, "line").I, 10)
+	ref := validation.ObjStr(entry, "file") + "#L" +
+		strconv.FormatInt(validation.ObjAt(entry, "line").I, 10)
 	return &ref, nil
 }
 
@@ -402,7 +390,7 @@ func Reconcile(c *state.Campaign, model validation.Value) (validation.Value, err
 		return validation.VNull(), err
 	}
 	modelIDs := map[string]struct{}{}
-	for _, inv := range objAt(model, "invariants").A {
+	for _, inv := range validation.ObjAt(model, "invariants").A {
 		idV, ok := fieldAt(inv, "id")
 		if !ok {
 			return validation.VNull(), fmt.Errorf("'id'")
@@ -418,17 +406,17 @@ func Reconcile(c *state.Campaign, model validation.Value) (validation.Value, err
 			"ids (INV-1..N) so findings and the spec point at the same invariant"
 	}
 	rep := validation.VObj(
-		pair("documented", strArr(sortedKeys(docIDs))),
-		pair("in_model", strArr(sortedKeys(modelIDs))),
-		pair("missing_from_model", strArr(missing)),
-		pair("extra_in_model", strArr(extra)),
+		pair("documented", validation.StrArr(sortedKeys(docIDs))),
+		pair("in_model", validation.StrArr(sortedKeys(modelIDs))),
+		pair("missing_from_model", validation.StrArr(missing)),
+		pair("extra_in_model", validation.StrArr(extra)),
 		pair("documentation", doc),
 		pair("note", validation.VStr(note)),
 	)
 	data := validation.VObj(
-		pair("documented", strArr(sortedKeys(docIDs))),
-		pair("missing_from_model", strArr(missing)),
-		pair("extra_in_model", strArr(extra)),
+		pair("documented", validation.StrArr(sortedKeys(docIDs))),
+		pair("missing_from_model", validation.StrArr(missing)),
+		pair("extra_in_model", validation.StrArr(extra)),
 	)
 	if _, err := c.Log("invariants.reconciled", nil, &data); err != nil {
 		return validation.VNull(), err

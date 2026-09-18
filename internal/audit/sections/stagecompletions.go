@@ -26,7 +26,7 @@ func StageCompletions(c *state.Campaign) (validation.Value, error) {
 	if err != nil {
 		return validation.Value{}, err
 	}
-	ledger := objAt(st, "stages")
+	ledger := validation.ObjAt(st, "stages")
 	all, err := completion.AllProofStatus(c)
 	if err != nil {
 		return validation.Value{}, err
@@ -37,17 +37,17 @@ func StageCompletions(c *state.Campaign) (validation.Value, error) {
 		if pr.Kind != validation.Obj || len(pr.O) == 0 {
 			continue // Python `if pr`
 		}
-		if validation.PyTruthy(objAt(pr, "authoritative")) || validation.PyTruthy(objAt(pr, "done")) {
+		if validation.PyTruthy(validation.ObjAt(pr, "authoritative")) || validation.PyTruthy(validation.ObjAt(pr, "done")) {
 			continue
 		}
-		entry := orEmptyObj(objAt(ledger, kv.K))
-		if objStr(entry, "status") != "done" {
+		entry := orEmptyObj(validation.ObjAt(ledger, kv.K))
+		if validation.ObjStr(entry, "status") != "done" {
 			continue
 		}
 		advisory = append(advisory, validation.VStr(fmt.Sprintf(
 			"stage %s is marked done but its advisory proof is open: %s",
 			validation.PyReprStr(kv.K),
-			strings.Join(headStrs(strListOf(objAt(pr, "missing")), 3), "; "))))
+			strings.Join(headStrs(strListOf(validation.ObjAt(pr, "missing")), 3), "; "))))
 	}
 	return validation.VObj(
 		KV("checked", validation.VInt(int64(len(completion.Proofs)))),

@@ -30,7 +30,7 @@ func proofMaximalExploitation(c *state.Campaign) (validation.Value, error) {
 	}
 	items := []proofItem{}
 	for _, f := range found {
-		fid := objStr(f, "finding_id")
+		fid := validation.ObjStr(f, "finding_id")
 		lad, err := maximizationImpl.LoadLadder(c, fid)
 		if err != nil {
 			return validation.VNull(), err
@@ -40,7 +40,7 @@ func proofMaximalExploitation(c *state.Campaign) (validation.Value, error) {
 				"no variant ladder — webv2 ladder start " + fid})
 			continue
 		}
-		disp := objAt(orEmpty(objAt(lad, "disposition")), "state")
+		disp := validation.ObjAt(orEmpty(validation.ObjAt(lad, "disposition")), "state")
 		if disp.Kind == validation.Str && disp.S == "complete" {
 			continue
 		}
@@ -87,12 +87,12 @@ func proofIndependentVerification(c *state.Campaign) (validation.Value, error) {
 	}
 	items := []proofItem{}
 	for _, f := range found {
-		iv := orEmpty(objAt(orEmpty(objAt(f, "verification")),
+		iv := orEmpty(validation.ObjAt(orEmpty(validation.ObjAt(f, "verification")),
 			"independent_reproduction"))
-		if objStr(iv, "status") == "matches" && pyTruthyBigNonEmpty(objAt(iv, "verifier")) {
+		if validation.ObjStr(iv, "status") == "matches" && pyTruthyBigNonEmpty(validation.ObjAt(iv, "verifier")) {
 			continue
 		}
-		items = append(items, proofItem{objStr(f, "finding_id"),
+		items = append(items, proofItem{validation.ObjStr(f, "finding_id"),
 			"no E6 independent reproduction (run the " +
 				"independent-verification stage; mint with " +
 				"webv2 verify --exec ...)"})
@@ -117,11 +117,11 @@ func proofRiskCalibration(c *state.Campaign) (validation.Value, error) {
 	}
 	items := []proofItem{}
 	for _, f := range found {
-		band := objAt(orEmpty(objAt(orEmpty(objAt(f, "risk")), "validated")), "band")
+		band := validation.ObjAt(orEmpty(validation.ObjAt(orEmpty(validation.ObjAt(f, "risk")), "validated")), "band")
 		if pyTruthyBigNonEmpty(band) {
 			continue
 		}
-		items = append(items, proofItem{objStr(f, "finding_id"),
+		items = append(items, proofItem{validation.ObjStr(f, "finding_id"),
 			"not calibrated (no risk.validated.band)"})
 	}
 	missing := unwaived(items, wmap, func(s, m string) string { return s + ": " + m })
@@ -155,7 +155,7 @@ func proofMainnetForkPoc(c *state.Campaign) (validation.Value, error) {
 			if reason != nil && *reason != "" {
 				text = *reason
 			}
-			items = append(items, proofItem{objStr(f, "finding_id"), text})
+			items = append(items, proofItem{validation.ObjStr(f, "finding_id"), text})
 		}
 	}
 	missing := unwaived(items, wmap, func(s, m string) string { return s + ": " + m })
@@ -180,10 +180,10 @@ func proofBountyGate(c *state.Campaign) (validation.Value, error) {
 	}
 	items := []proofItem{}
 	for _, f := range found {
-		if pyTruthyBigNonEmpty(objAt(orEmpty(objAt(f, "bounty")), "policy_checks")) {
+		if pyTruthyBigNonEmpty(validation.ObjAt(orEmpty(validation.ObjAt(f, "bounty")), "policy_checks")) {
 			continue
 		}
-		items = append(items, proofItem{objStr(f, "finding_id"),
+		items = append(items, proofItem{validation.ObjStr(f, "finding_id"),
 			"bounty gate never evaluated"})
 	}
 	missing := unwaived(items, wmap, func(s, m string) string { return s + ": " + m })
@@ -229,10 +229,10 @@ func proofReport(c *state.Campaign) (validation.Value, error) {
 	fresh := false
 	if len(events) > 0 {
 		head := events[len(events)-1]
-		if h := objAt(head, "event_hash"); h.Kind == validation.Str {
+		if h := validation.ObjAt(head, "event_hash"); h.Kind == validation.Str {
 			headHash = h.S
 		}
-		fresh = objStr(head, "type") == "report.generated"
+		fresh = validation.ObjStr(head, "type") == "report.generated"
 	}
 	raw, err := os.ReadFile(p)
 	if err != nil {
@@ -304,7 +304,7 @@ func proofLearning(c *state.Campaign) (validation.Value, error) {
 	}
 	linked := map[string]bool{}
 	for _, m := range mems {
-		if fid := objStr(m, "finding_id"); fid != "" {
+		if fid := validation.ObjStr(m, "finding_id"); fid != "" {
 			linked[fid] = true
 		}
 	}
@@ -314,7 +314,7 @@ func proofLearning(c *state.Campaign) (validation.Value, error) {
 		return validation.VNull(), err
 	}
 	for _, f := range terminal {
-		fid := objStr(f, "finding_id")
+		fid := validation.ObjStr(f, "finding_id")
 		if linked[fid] {
 			continue
 		}

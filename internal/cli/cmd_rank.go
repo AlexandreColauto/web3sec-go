@@ -92,17 +92,17 @@ func rankCmd(root string, args []string, r *Runner) error {
 	// both resolve from the one loaded policy (absent/unloadable = VNull
 	// = today's behavior for both).
 	policy := validation.VNull()
-	if p := objStr(st, "policy_path"); p != "" {
+	if p := validation.ObjStr(st, "policy_path"); p != "" {
 		if loaded, perr := bounty.LoadPolicy(p); perr == nil {
 			policy = loaded
 		}
 	}
-	if sb := objAt(policy, "submission_budget"); sb.Kind ==
+	if sb := validation.ObjAt(policy, "submission_budget"); sb.Kind ==
 		validation.Obj {
-		if rb := objStr(sb, "rank_by"); rb == "severity" {
+		if rb := validation.ObjStr(sb, "rank_by"); rb == "severity" {
 			rankBy = "severity"
 		}
-		if mf := objAt(sb, "max_findings"); mf.Kind == validation.Int &&
+		if mf := validation.ObjAt(sb, "max_findings"); mf.Kind == validation.Int &&
 			mf.I > 0 {
 			budgetNote = fmt.Sprintf(
 				", submission budget %d", mf.I)
@@ -115,7 +115,7 @@ func rankCmd(root string, args []string, r *Runner) error {
 	actionable := make([]validation.Value, 0, len(live))
 	heldBack := 0
 	for _, f := range live {
-		if st := objStr(f, "status"); st == "DISPROVED" ||
+		if st := validation.ObjStr(f, "status"); st == "DISPROVED" ||
 			st == "INFORMATIONAL" {
 			heldBack++
 			continue
@@ -156,7 +156,7 @@ func rankCmd(root string, args []string, r *Runner) error {
 		"(key: %s%s)\n", len(entries), keyName, budgetNote)
 	// A campaign with no policy is UNSCORED: the ranking is a severity order,
 	// not a submission order. Say so rather than let it read as advice.
-	if p := objStr(st, "policy_path"); p == "" {
+	if p := validation.ObjStr(st, "policy_path"); p == "" {
 		fmt.Fprint(r.Out, rankUnscopedNote)
 	}
 	fmt.Fprintln(r.Out, "  #  id  score  band  evidence  critic  title")
@@ -186,7 +186,7 @@ const rankUnscopedNote = "  scope: NO POLICY LOADED — ranked without acceptanc
 	"--policy before treating this as a submission order\n"
 
 func rankID(e risk.AcceptanceEntry) string {
-	return objStr(e.Finding, "finding_id")
+	return validation.ObjStr(e.Finding, "finding_id")
 }
 
 func rankScore(e risk.AcceptanceEntry) string {
@@ -206,8 +206,8 @@ func rankScore(e risk.AcceptanceEntry) string {
 }
 
 func rankBand(e risk.AcceptanceEntry) string {
-	riskObj := asDictCLI(objAt(e.Finding, "risk"))
-	b := objStr(asDictCLI(objAt(riskObj, "validated")), "band")
+	riskObj := asDictCLI(validation.ObjAt(e.Finding, "risk"))
+	b := validation.ObjStr(asDictCLI(validation.ObjAt(riskObj, "validated")), "band")
 	if b == "" {
 		b = "—"
 	}
@@ -223,7 +223,7 @@ func rankEvidence(e risk.AcceptanceEntry) string {
 }
 
 func rankCritic(e risk.AcceptanceEntry) string {
-	v := objStr(objAt(e.Finding, "verification"), "critic_verdict")
+	v := validation.ObjStr(validation.ObjAt(e.Finding, "verification"), "critic_verdict")
 	if v == "" {
 		return "—"
 	}
@@ -231,7 +231,7 @@ func rankCritic(e risk.AcceptanceEntry) string {
 }
 
 func rankTitle(e risk.AcceptanceEntry) string {
-	t := objStr(e.Finding, "title")
+	t := validation.ObjStr(e.Finding, "title")
 	// Runes, not bytes: a byte slice through a multi-byte character emits
 	// invalid UTF-8 to the terminal.
 	if r := []rune(t); len(r) > 44 {

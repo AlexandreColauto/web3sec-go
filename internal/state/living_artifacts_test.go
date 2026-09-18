@@ -66,8 +66,8 @@ func TestLivingRegisterOrRefreshReusesRow(t *testing.T) {
 	}
 	st := mustState(t, c)
 	var rows []validation.Value
-	for _, a := range objAt(st, "artifacts").A {
-		if objStr(a, "artifact_id") == aid1 {
+	for _, a := range validation.ObjAt(st, "artifacts").A {
+		if validation.ObjStr(a, "artifact_id") == aid1 {
 			rows = append(rows, a)
 		}
 	}
@@ -75,13 +75,13 @@ func TestLivingRegisterOrRefreshReusesRow(t *testing.T) {
 		t.Fatalf("rows for %s: %d", aid1, len(rows))
 	}
 	a := rows[0]
-	if got := objAt(a, "refresh_count"); got.Kind != validation.Int || got.I != 1 {
+	if got := validation.ObjAt(a, "refresh_count"); got.Kind != validation.Int || got.I != 1 {
 		t.Errorf("refresh_count: %v", got)
 	}
-	if got := objStr(a, "refresh_reason"); !strings.Contains(got, "round 2") {
+	if got := validation.ObjStr(a, "refresh_reason"); !strings.Contains(got, "round 2") {
 		t.Errorf("refresh_reason: %q", got)
 	}
-	if got := objStr(a, "refreshed_at"); got == "" {
+	if got := validation.ObjStr(a, "refreshed_at"); got == "" {
 		t.Error("refreshed_at empty")
 	}
 }
@@ -94,12 +94,12 @@ func TestLivingRegisterOrRefreshUpdatesHash(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	old := objStr(livingRow(t, c, aid), "sha256")
+	old := validation.ObjStr(livingRow(t, c, aid), "sha256")
 	livingWritePlan(t, c, "v2 mutated")
 	if _, err := c.RegisterOrRefresh("plan", p, "", nil, "v2"); err != nil {
 		t.Fatal(err)
 	}
-	newSha := objStr(livingRow(t, c, aid), "sha256")
+	newSha := validation.ObjStr(livingRow(t, c, aid), "sha256")
 	if newSha == old {
 		t.Fatalf("hash unchanged after refresh: %s", newSha)
 	}
@@ -128,7 +128,7 @@ func TestLivingLogRecordsOldNewHashes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	old := objStr(livingRow(t, c, aid), "sha256")
+	old := validation.ObjStr(livingRow(t, c, aid), "sha256")
 	livingWritePlan(t, c, "after")
 	if _, err := c.RefreshArtifact(aid, "drift update", "learning"); err != nil {
 		t.Fatal(err)
@@ -139,24 +139,24 @@ func TestLivingLogRecordsOldNewHashes(t *testing.T) {
 	}
 	var refreshed []validation.Value
 	for _, e := range evs {
-		if objStr(e, "type") == "artifact.refreshed" {
+		if validation.ObjStr(e, "type") == "artifact.refreshed" {
 			refreshed = append(refreshed, e)
 		}
 	}
 	if len(refreshed) != 1 {
 		t.Fatalf("artifact.refreshed events: %d", len(refreshed))
 	}
-	d := objAt(refreshed[0], "data")
-	if got := objStr(d, "old_sha256"); got != old {
+	d := validation.ObjAt(refreshed[0], "data")
+	if got := validation.ObjStr(d, "old_sha256"); got != old {
 		t.Errorf("old_sha256: %q", got)
 	}
-	if got := objStr(d, "new_sha256"); got == old {
+	if got := validation.ObjStr(d, "new_sha256"); got == old {
 		t.Errorf("new_sha256 still old: %q", got)
 	}
-	if got := objStr(d, "actor"); got != "learning" {
+	if got := validation.ObjStr(d, "actor"); got != "learning" {
 		t.Errorf("actor: %q", got)
 	}
-	if got := objAt(d, "refresh_count"); got.Kind != validation.Int || got.I != 1 {
+	if got := validation.ObjAt(d, "refresh_count"); got.Kind != validation.Int || got.I != 1 {
 		t.Errorf("refresh_count: %v", got)
 	}
 }
@@ -190,10 +190,10 @@ func TestLivingDifferentKindSamePathMigratesRow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(a, "kind"); got != "report" {
+	if got := validation.ObjStr(a, "kind"); got != "report" {
 		t.Errorf("migrated kind: %q", got)
 	}
-	if got := objStr(a, "sha256"); got != validation.Sha256Hex([]byte(`{"x": 2}`)) {
+	if got := validation.ObjStr(a, "sha256"); got != validation.Sha256Hex([]byte(`{"x": 2}`)) {
 		t.Errorf("migrated sha256: %q", got)
 	}
 }

@@ -26,11 +26,11 @@ func Artifacts(c *state.Campaign) (validation.Value, error) {
 	if err != nil {
 		return validation.Value{}, err
 	}
-	artifacts := objAt(st, "artifacts")
+	artifacts := validation.ObjAt(st, "artifacts")
 	var problems []validation.Value
 	for _, a := range artifacts.A {
-		p := filepath.IsAbs(objStr(a, "path"))
-		path := objStr(a, "path")
+		p := filepath.IsAbs(validation.ObjStr(a, "path"))
+		path := validation.ObjStr(a, "path")
 		var resolved string
 		if p {
 			resolved = path
@@ -39,10 +39,10 @@ func Artifacts(c *state.Campaign) (validation.Value, error) {
 		}
 		if _, err := os.Stat(resolved); err != nil {
 			problems = append(problems, validation.VStr(
-				fmt.Sprintf("%s: missing file %s", objStr(a, "artifact_id"), path)))
+				fmt.Sprintf("%s: missing file %s", validation.ObjStr(a, "artifact_id"), path)))
 			continue
 		}
-		stored := objAt(a, "sha256")
+		stored := validation.ObjAt(a, "sha256")
 		if stored.Kind != validation.Str || stored.S == "" {
 			// A row with no hash cannot be verified at all, and until
 			// 2026-09-10 this branch skipped it silently while the section
@@ -53,7 +53,7 @@ func Artifacts(c *state.Campaign) (validation.Value, error) {
 			// against the bytes on disk and logs artifact.refreshed).
 			problems = append(problems, validation.VStr(fmt.Sprintf(
 				"%s: registered without a sha256 — content unverified (%s)",
-				objStr(a, "artifact_id"), path)))
+				validation.ObjStr(a, "artifact_id"), path)))
 			continue
 		}
 		actual, err := validation.Sha256File(resolved)
@@ -63,7 +63,7 @@ func Artifacts(c *state.Campaign) (validation.Value, error) {
 		if actual != stored.S {
 			problems = append(problems, validation.VStr(
 				fmt.Sprintf("%s: content hash mismatch (stored %s..., actual %s...)",
-					objStr(a, "artifact_id"), trunc12(stored.S), actual[:12])))
+					validation.ObjStr(a, "artifact_id"), trunc12(stored.S), actual[:12])))
 		}
 	}
 	return validation.VObj(

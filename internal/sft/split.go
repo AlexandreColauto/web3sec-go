@@ -44,16 +44,16 @@ func SplitExamples(seed int) (validation.Value, error) {
 	if err != nil {
 		return validation.VNull(), err
 	}
-	examples := objAt(store, "examples").A
+	examples := validation.ObjAt(store, "examples").A
 	curated := []validation.Value{}
 	for _, e := range examples {
-		if objStr(e, "status") == "curated" {
+		if validation.ObjStr(e, "status") == "curated" {
 			curated = append(curated, e)
 		}
 	}
 	total := len(curated)
 	clusterOf := func(e validation.Value) string {
-		return objStr(objAt(e, "source"), "cluster")
+		return validation.ObjStr(validation.ObjAt(e, "source"), "cluster")
 	}
 	clusters := map[string][]validation.Value{}
 	order := []string{}
@@ -84,7 +84,7 @@ func SplitExamples(seed int) (validation.Value, error) {
 	updated := append([]validation.Value(nil), examples...)
 	anyCurated := false
 	for i, e := range updated {
-		if objStr(e, "status") != "curated" {
+		if validation.ObjStr(e, "status") != "curated" {
 			continue
 		}
 		anyCurated = true
@@ -108,7 +108,7 @@ func SplitExamples(seed int) (validation.Value, error) {
 	}
 	unsplit := 0
 	for _, e := range examples {
-		if objStr(e, "status") != "curated" {
+		if validation.ObjStr(e, "status") != "curated" {
 			unsplit++
 		}
 	}
@@ -136,10 +136,10 @@ func MixReport() (validation.Value, error) {
 	if err != nil {
 		return validation.VNull(), err
 	}
-	examples := objAt(store, "examples").A
+	examples := validation.ObjAt(store, "examples").A
 	curated := []validation.Value{}
 	for _, e := range examples {
-		if objStr(e, "status") == "curated" {
+		if validation.ObjStr(e, "status") == "curated" {
 			curated = append(curated, e)
 		}
 	}
@@ -148,7 +148,7 @@ func MixReport() (validation.Value, error) {
 	for _, tt := range TaxonomyTargets {
 		count := 0
 		for _, e := range curated {
-			if objStr(e, "taxonomy") == tt.Taxonomy {
+			if validation.ObjStr(e, "taxonomy") == tt.Taxonomy {
 				count++
 			}
 		}
@@ -166,7 +166,7 @@ func MixReport() (validation.Value, error) {
 	}
 	withPivot := 0
 	for _, e := range curated {
-		if intOf(objAt(objAt(e, "structured"), "pivot_count")) >= 1 {
+		if intOf(validation.ObjAt(validation.ObjAt(e, "structured"), "pivot_count")) >= 1 {
 			withPivot++
 		}
 	}
@@ -177,7 +177,7 @@ func MixReport() (validation.Value, error) {
 	sourceRows := []validation.KV{}
 	sourceSeen := map[string]bool{}
 	for _, e := range curated {
-		k := objStrDefault(objAt(e, "source"), "kind", "unknown")
+		k := objStrDefault(validation.ObjAt(e, "source"), "kind", "unknown")
 		if !sourceSeen[k] {
 			sourceSeen[k] = true
 			sourceRows = append(sourceRows, validation.KV{K: k,
@@ -186,15 +186,15 @@ func MixReport() (validation.Value, error) {
 	}
 	counts := map[string]int{}
 	for _, e := range curated {
-		counts[objStrDefault(objAt(e, "source"), "kind", "unknown")]++
+		counts[objStrDefault(validation.ObjAt(e, "source"), "kind", "unknown")]++
 	}
 	for i := range sourceRows {
 		sourceRows[i].V = validation.VInt(int64(counts[sourceRows[i].K]))
 	}
 	partitionCounts := map[string]int{"training": 0, "held-out": 0, "unsplit": 0}
 	for _, e := range examples {
-		p := objAt(e, "partition")
-		if objStr(e, "status") != "curated" || p.Kind == validation.Null {
+		p := validation.ObjAt(e, "partition")
+		if validation.ObjStr(e, "status") != "curated" || p.Kind == validation.Null {
 			partitionCounts["unsplit"]++
 			continue
 		}
@@ -212,19 +212,19 @@ func MixReport() (validation.Value, error) {
 	}
 	warnings := []string{}
 	for _, e := range examples {
-		if objStr(e, "status") == "rejected" {
+		if validation.ObjStr(e, "status") == "rejected" {
 			continue
 		}
 		others := []validation.Value{}
 		for _, x := range curated {
-			if objStr(x, "id") != objStr(e, "id") {
+			if validation.ObjStr(x, "id") != validation.ObjStr(e, "id") {
 				others = append(others, x)
 			}
 		}
 		for _, r := range LintExample(e, others,
 			objStrDefault(e, "status", "draft")) {
 			if len(r) >= 5 && r[:5] == "warn:" {
-				warnings = append(warnings, objStr(e, "id")+": "+r)
+				warnings = append(warnings, validation.ObjStr(e, "id")+": "+r)
 			}
 		}
 	}
@@ -241,5 +241,5 @@ func MixReport() (validation.Value, error) {
 			validation.KV{K: "unsplit",
 				V: validation.VInt(int64(partitionCounts["unsplit"]))})},
 		validation.KV{K: "dedup_collisions", V: validation.VInt(int64(collisions))},
-		validation.KV{K: "warnings", V: strArr(warnings)}), nil
+		validation.KV{K: "warnings", V: validation.StrArr(warnings)}), nil
 }

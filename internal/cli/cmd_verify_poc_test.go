@@ -62,7 +62,7 @@ func assertAuditOK(t *testing.T, root string, c *state.Campaign) {
 	if err != nil {
 		t.Fatalf("audit --json: %v", err)
 	}
-	if ok := objAt(rep, "ok"); ok.Kind != validation.Bool || !ok.B {
+	if ok := validation.ObjAt(rep, "ok"); ok.Kind != validation.Bool || !ok.B {
 		t.Fatalf("audit not ok: %s", validation.CanonCompact(ok))
 	}
 }
@@ -77,8 +77,8 @@ func artifactsOfKind(t *testing.T, c *state.Campaign,
 		t.Fatal(err)
 	}
 	var out []validation.Value
-	for _, a := range objAt(st, "artifacts").A {
-		if objStr(a, "kind") == kind {
+	for _, a := range validation.ObjAt(st, "artifacts").A {
+		if validation.ObjStr(a, "kind") == kind {
 			out = append(out, a)
 		}
 	}
@@ -233,7 +233,7 @@ func TestVerifyHarnessResultWritesBridgedPoc(t *testing.T) {
 	if len(rows) != 1 {
 		t.Fatalf("sequence-poc rows = %d, want 1", len(rows))
 	}
-	if p := objStr(rows[0], "path"); !strings.HasSuffix(p,
+	if p := validation.ObjStr(rows[0], "path"); !strings.HasSuffix(p,
 		filepath.Join("artifacts", "harness", "INV-1", "poc-INV-1.json")) {
 		t.Fatalf("artifact row path = %q", p)
 	}
@@ -251,7 +251,7 @@ func TestVerifyHarnessResultWritesBridgedPoc(t *testing.T) {
 	if err != nil {
 		t.Fatalf("audit --json: %v", err)
 	}
-	runs := objAt(objAt(objAt(rep, "sections"), "invariant_verification"),
+	runs := validation.ObjAt(validation.ObjAt(validation.ObjAt(rep, "sections"), "invariant_verification"),
 		"harness_runs")
 	if runs.Kind != validation.Arr || len(runs.A) == 0 ||
 		runs.A[0].S != "INV-1: counterexample (minicertora, EXEC-20) | "+
@@ -285,7 +285,7 @@ func TestVerifyHarnessResultBridgedPocNoCalls(t *testing.T) {
 			"writes no file", err)
 	}
 	// The rung is untouched by the refusal — that is the whole point.
-	if r := objStr(mcHarness(t, c), "rung"); r != "counterexample" {
+	if r := validation.ObjStr(mcHarness(t, c), "rung"); r != "counterexample" {
 		t.Fatalf("rung = %q, want counterexample", r)
 	}
 	if rows := artifactsOfKind(t, c, "sequence-poc"); len(rows) != 0 {
@@ -319,7 +319,7 @@ func TestVerifyHarnessResultBridgedPocUnbridgable(t *testing.T) {
 	if _, err := os.Stat(pocPath(c.Dir)); !os.IsNotExist(err) {
 		t.Fatalf("poc artifact exists (stat err = %v)", err)
 	}
-	if r := objStr(mcHarness(t, c), "rung"); r != "counterexample" {
+	if r := validation.ObjStr(mcHarness(t, c), "rung"); r != "counterexample" {
 		t.Fatalf("rung = %q, want counterexample", r)
 	}
 	// A refused bridge is a counterexample WITHOUT a witness: the audit's
@@ -406,7 +406,7 @@ func TestVerifyHarnessResultBridgedPocLayoutSidecar(t *testing.T) {
 		t.Fatalf("poc bytes =\n%s\nwant\n%s", got, want)
 	}
 	doc := assertPocIsRunnable(t, pocPath(c.Dir))
-	fa := objAt(doc, "final_assertions")
+	fa := validation.ObjAt(doc, "final_assertions")
 	if fa.Kind != validation.Arr || len(fa.A) != 2 {
 		t.Fatalf("final_assertions = %s, want 2", validation.CanonCompact(fa))
 	}

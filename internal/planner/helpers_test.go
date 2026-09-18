@@ -102,9 +102,9 @@ func requireErr(t *testing.T, label string, err error, want validation.Value) {
 		t.Fatalf("%s: expected error %q, got nil",
 			label, validation.CanonCompact(want))
 	}
-	if got := err.Error(); got != objStr(want, "msg") {
+	if got := err.Error(); got != validation.ObjStr(want, "msg") {
 		t.Fatalf("%s: error mismatch\n got: %q\nwant: %q", label, got,
-			objStr(want, "msg"))
+			validation.ObjStr(want, "msg"))
 	}
 }
 
@@ -173,17 +173,17 @@ func registry(t *testing.T) probeRegistry {
 		regVal = probeRegistry{axes: map[string]AxisMeta{},
 			probes: map[string]ProbeSpec{}}
 		for _, k := range sortedMapKeys(listOfMap(v, "axes")) {
-			a := objAt(objAt(v, "axes"), k)
-			regVal.axes[k] = AxisMeta{Axis: objStr(a, "axis"),
-				Probe: objStr(a, "probe"), Lens: objStr(a, "lens")}
+			a := validation.ObjAt(validation.ObjAt(v, "axes"), k)
+			regVal.axes[k] = AxisMeta{Axis: validation.ObjStr(a, "axis"),
+				Probe: validation.ObjStr(a, "probe"), Lens: validation.ObjStr(a, "lens")}
 		}
 		for _, pid := range sortedMapKeys(listOfMap(v, "probes")) {
-			p := objAt(objAt(v, "probes"), pid)
+			p := validation.ObjAt(validation.ObjAt(v, "probes"), pid)
 			anchors := []string{}
 			for _, a := range listOf(p, "anchors") {
 				anchors = append(anchors, pyStr(a))
 			}
-			spec := ProbeSpec{Axis: objStr(p, "axis"), Lens: objStr(p, "lens")}
+			spec := ProbeSpec{Axis: validation.ObjStr(p, "axis"), Lens: validation.ObjStr(p, "lens")}
 			if hasKey(p, "anchors") {
 				spec.Anchors = &anchors
 			}
@@ -196,7 +196,7 @@ func registry(t *testing.T) probeRegistry {
 // listOfMap is v.get(key) as an object (for key enumeration).
 func listOfMap(v validation.Value, key string) map[string]validation.Value {
 	out := map[string]validation.Value{}
-	got := objAt(v, key)
+	got := validation.ObjAt(v, key)
 	if got.Kind != validation.Obj {
 		return out
 	}
@@ -255,15 +255,15 @@ func rowShapeSha(row validation.Value) string {
 	slots := []validation.Value{}
 	for _, f := range shapeAnchorFields {
 		slots = append(slots, validation.VArr(validation.VStr(f),
-			objAt(row, f), objAt(row, f+"_line")))
+			validation.ObjAt(row, f), validation.ObjAt(row, f+"_line")))
 	}
 	for _, f := range shapeClassFields {
-		slots = append(slots, validation.VArr(validation.VStr(f), objAt(row, f)))
+		slots = append(slots, validation.VArr(validation.VStr(f), validation.ObjAt(row, f)))
 	}
 	pairs := []validation.Value{}
 	for _, s := range listOf(row, "siblings") {
-		pairs = append(pairs, validation.VArr(objAt(s, "contract"),
-			objAt(s, "line")))
+		pairs = append(pairs, validation.VArr(validation.ObjAt(s, "contract"),
+			validation.ObjAt(s, "line")))
 	}
 	sortPairValues(pairs)
 	slots = append(slots, validation.VArr(pairs...))
@@ -272,7 +272,7 @@ func rowShapeSha(row validation.Value) string {
 		stranded = append(stranded, pyStr(e))
 	}
 	sort.Strings(stranded)
-	slots = append(slots, strArr(stranded))
+	slots = append(slots, validation.StrArr(stranded))
 	sum := sha256.Sum256([]byte(validation.CanonCompact(
 		validation.VArr(slots...))))
 	return hex.EncodeToString(sum[:])[:16]
@@ -295,16 +295,16 @@ func sortPairValues(pairs []validation.Value) {
 
 // axisSurfaceBlocker is probes.axis_surface_blocker: "" = no blocker.
 func axisSurfaceBlocker(axis validation.Value, blank *validation.Value) string {
-	status := objStr(axis, "status")
+	status := validation.ObjStr(axis, "status")
 	switch status {
 	case "no-sites":
 		return ""
 	case "blind":
 		return blindBlocker(axis, blank)
 	case "under-filled":
-		return "quota under-filled: " + objStr(axis, "probe") + " produced " +
-			pyStr(objAt(axis, "rows")) + " rows, emitted " +
-			pyStr(objAt(axis, "emitted")) + " — raise --per-axis or " +
+		return "quota under-filled: " + validation.ObjStr(axis, "probe") + " produced " +
+			pyStr(validation.ObjAt(axis, "rows")) + " rows, emitted " +
+			pyStr(validation.ObjAt(axis, "emitted")) + " — raise --per-axis or " +
 			"disposition the tail"
 	}
 	return ""
@@ -313,23 +313,23 @@ func axisSurfaceBlocker(axis validation.Value, blank *validation.Value) string {
 // blindBlocker is the blind-status arm of axis_surface_blocker.
 func blindBlocker(axis validation.Value, blank *validation.Value) string {
 	if blank == nil || !pyTruthyBigNonEmpty(*blank) {
-		return objStr(axis, "probe") + " saw " + pyStr(objAt(axis, "sites")) +
+		return validation.ObjStr(axis, "probe") + " saw " + pyStr(validation.ObjAt(axis, "sites")) +
 			" sites and rejected every one of them (" +
 			itoa(len(listOf(axis, "blind"))) + " blind keys published) — " +
-			"close it with `webv2 probes blank --axis " + objStr(axis, "lens") +
+			"close it with `webv2 probes blank --axis " + validation.ObjStr(axis, "lens") +
 			" --anchor-blind <key> --reason R --actor A`"
 	}
 	keys := map[string]struct{}{}
 	for _, b := range listOf(axis, "blind") {
-		keys[pyStr(objAt(b, "key"))] = struct{}{}
+		keys[pyStr(validation.ObjAt(b, "key"))] = struct{}{}
 	}
-	if _, ok := keys[pyStr(objAt(*blank, "anchor_blind"))]; !ok {
+	if _, ok := keys[pyStr(validation.ObjAt(*blank, "anchor_blind"))]; !ok {
 		return "blank attestation cites " +
-			validation.PyRepr(objAt(*blank, "anchor_blind")) +
+			validation.PyRepr(validation.ObjAt(*blank, "anchor_blind")) +
 			", which is not in the probe's blind[] keys: " +
-			validation.PyRepr(strArr(sortedKeys(keys)))
+			validation.PyRepr(validation.StrArr(sortedKeys(keys)))
 	}
-	if !pyTruthyBigNonEmpty(objAt(*blank, "reason")) || !pyTruthyBigNonEmpty(objAt(*blank, "actor")) {
+	if !pyTruthyBigNonEmpty(validation.ObjAt(*blank, "reason")) || !pyTruthyBigNonEmpty(validation.ObjAt(*blank, "actor")) {
 		return "blank attestation needs a written reason and an actor"
 	}
 	return ""
@@ -369,7 +369,7 @@ func anchorAllowed(probeID, anchor string) bool {
 // rowAnchorValue is probes.row_anchor_value.
 func rowAnchorValue(row validation.Value,
 	anchor string) (validation.Value, error) {
-	pid := objStr(row, "probe")
+	pid := validation.ObjStr(row, "probe")
 	if !anchorAllowed(pid, anchor) {
 		return validation.VNull(), errValue("anchor " +
 			validation.PyReprStr(anchor) + " is not produced by probe " +
@@ -381,7 +381,7 @@ func rowAnchorValue(row validation.Value,
 			validation.PyReprStr(pid) + " has no field " +
 			validation.PyReprStr(field))
 	}
-	return objAt(row, field), nil
+	return validation.ObjAt(row, field), nil
 }
 
 // anchorRef is probes.anchor_ref.
@@ -398,9 +398,9 @@ func anchorRef(row validation.Value, anchor string,
 	if !ok {
 		return renderAnchorValue(value), nil
 	}
-	line := objAt(row, site[1])
+	line := validation.ObjAt(row, site[1])
 	if line.Kind == validation.Int && line.I > 0 {
-		contract := objStr(row, site[0])
+		contract := validation.ObjStr(row, site[0])
 		token := contractPaths(index)[contract]
 		if token == "" {
 			token = contract
@@ -419,11 +419,11 @@ func siblingRef(row validation.Value, index *validation.Value,
 	paths := contractPaths(index)
 	pairs := []string{}
 	for _, s := range listOf(row, "siblings") {
-		line := objAt(s, "line")
+		line := validation.ObjAt(s, "line")
 		if line.Kind != validation.Int || line.I <= 0 {
 			continue
 		}
-		contract := objStr(s, "contract")
+		contract := validation.ObjStr(s, "contract")
 		token := paths[contract]
 		if token == "" {
 			token = contract
@@ -453,14 +453,14 @@ func contractPaths(index *validation.Value) map[string]string {
 	sorted := make([]validation.Value, len(nodes))
 	copy(sorted, nodes)
 	for i := 1; i < len(sorted); i++ {
-		for j := i; j > 0 && pyStr(objAt(sorted[j-1], "id")) >
-			pyStr(objAt(sorted[j], "id")); j-- {
+		for j := i; j > 0 && pyStr(validation.ObjAt(sorted[j-1], "id")) >
+			pyStr(validation.ObjAt(sorted[j], "id")); j-- {
 			sorted[j-1], sorted[j] = sorted[j], sorted[j-1]
 		}
 	}
 	for _, n := range sorted {
-		kind := objStr(n, "kind")
-		name := objStr(n, "name")
+		kind := validation.ObjStr(n, "kind")
+		name := validation.ObjStr(n, "name")
 		if name == "" || (kind != "contract" && kind != "interface" &&
 			kind != "library") {
 			continue
@@ -468,7 +468,7 @@ func contractPaths(index *validation.Value) map[string]string {
 		if _, seen := out[name]; seen {
 			continue
 		}
-		if path := objStr(n, "path"); path != "" {
+		if path := validation.ObjStr(n, "path"); path != "" {
 			out[name] = path
 		} else {
 			out[name] = name

@@ -103,7 +103,7 @@ func runInvariantVerify(root string, args []string, r *Runner) int {
 		return 2
 	}
 	fmt.Fprintf(r.Out, "%s: CHECKED_AGAINST_CODE (artifact %s)\n", invID,
-		objStr(entry, "verified_by"))
+		validation.ObjStr(entry, "verified_by"))
 	// The verdict above is an attestation, not a mechanical proof: say so on
 	// stderr so the summary line stays byte-compatible for existing callers.
 	fmt.Fprintln(r.Err, "invariant-verify: operator attestation recorded; "+
@@ -119,7 +119,7 @@ func resolveExecArtifact(c *state.Campaign, invID, execID string,
 	if err != nil {
 		return "", r.withErr(c.Root, func() error { return err })
 	}
-	reg := objAt(links, "invariants")
+	reg := validation.ObjAt(links, "invariants")
 	if reg.Kind != validation.Obj || !hasKeyCLI(reg, invID) {
 		fmt.Fprintf(r.Err, "invariant verify failed: unknown invariant %s\n",
 			validation.PyReprStr(invID))
@@ -132,7 +132,7 @@ func resolveExecArtifact(c *state.Campaign, invID, execID string,
 	var rec validation.Value
 	found := false
 	for _, e := range execs {
-		if objStr(e, "exec_id") == execID {
+		if validation.ObjStr(e, "exec_id") == execID {
 			rec, found = e, true
 			break
 		}
@@ -142,9 +142,9 @@ func resolveExecArtifact(c *state.Campaign, invID, execID string,
 			"exec ledger\n", validation.PyReprStr(execID))
 		return "", 2
 	}
-	refused := containsStrCLI(strListCLI(objAt(objAt(rec, "policy_verdict"),
+	refused := containsStrCLI(strListCLI(validation.ObjAt(validation.ObjAt(rec, "policy_verdict"),
 		"violations")), "execution-refused")
-	if !pyTruthyCLI(objAt(rec, "finished_at")) || refused {
+	if !pyTruthyCLI(validation.ObjAt(rec, "finished_at")) || refused {
 		why := "no finished_at"
 		if refused {
 			why = "refused by policy"
@@ -154,9 +154,9 @@ func resolveExecArtifact(c *state.Campaign, invID, execID string,
 			validation.PyReprStr(execID), why)
 		return "", 2
 	}
-	outPath := objStr(rec, "stdout_path")
+	outPath := validation.ObjStr(rec, "stdout_path")
 	if !isFile(outPath) {
-		if alt := objStr(rec, "stderr_path"); isFile(alt) {
+		if alt := validation.ObjStr(rec, "stderr_path"); isFile(alt) {
 			outPath = alt
 		}
 	}

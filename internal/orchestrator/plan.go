@@ -195,13 +195,13 @@ func (o *Orchestrator) writePlan(plan validation.Value, planPath string,
 
 // logReachability records the plan.reachability event when E5/E6 are blocked.
 func (o *Orchestrator) logReachability(reach validation.Value) error {
-	if !pyTruthyBigNonEmpty(objAt(reach, "e5")) && !pyTruthyBigNonEmpty(objAt(reach, "e6")) {
+	if !pyTruthyBigNonEmpty(validation.ObjAt(reach, "e5")) && !pyTruthyBigNonEmpty(validation.ObjAt(reach, "e6")) {
 		return nil
 	}
 	data := validation.VObj(
-		kvOf("e5", objAt(reach, "e5")),
-		kvOf("e6", objAt(reach, "e6")),
-		kvOf("classes_at_e5_plus", objAt(reach, "classes_at_e5_plus")),
+		kvOf("e5", validation.ObjAt(reach, "e5")),
+		kvOf("e6", validation.ObjAt(reach, "e6")),
+		kvOf("classes_at_e5_plus", validation.ObjAt(reach, "classes_at_e5_plus")),
 	)
 	_, err := o.C.Log("plan.reachability", nil, &data)
 	return err
@@ -252,8 +252,8 @@ func (o *Orchestrator) PlanReachability() (validation.Value, error) {
 			"confirmation while the prerequisites above are missing"
 	}
 	return validation.VObj(
-		kvOf("e5", strArr(e5)),
-		kvOf("e6", strArr(e6)),
+		kvOf("e5", validation.StrArr(e5)),
+		kvOf("e6", validation.StrArr(e6)),
 		kvOf("classes_at_e5_plus", validation.VObj(affected...)),
 		kvOf("note", validation.VStr(note)),
 	), nil

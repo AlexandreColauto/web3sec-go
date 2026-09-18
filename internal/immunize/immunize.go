@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"time"
 
 	"websec/internal/findings"
 	"websec/internal/forkpoc"
@@ -111,24 +110,24 @@ func requireForkBasis(campaign *state.Campaign, f validation.Value,
 		return validation.VNull(), &InputError{Msg: validation.PyReprStr(
 			"exec " + pocExecID + " not found in the campaign's exec ledger")}
 	}
-	if objStr(rec, "profile") != forkpoc.ForkProfile {
+	if validation.ObjStr(rec, "profile") != forkpoc.ForkProfile {
 		return validation.VNull(), &InputError{Msg: "immunization is based on " +
 			"the mainnet FORK PoC, not a unit test: " + pocExecID +
-			" ran under profile " + validation.PyRepr(objAt(rec, "profile")) +
+			" ran under profile " + validation.PyRepr(validation.ObjAt(rec, "profile")) +
 			". Re-run the PoC on the pinned fork (webv2 exec --profile " +
 			"fork-runner --command 'forge test --fork-url ...') and " +
 			"re-verify against that exec"}
 	}
 	if !exitIsZero(rec) {
 		return validation.VNull(), &InputError{Msg: pocExecID + " exited " +
-			validation.PyRepr(objAt(rec, "exit_status")) + " — the PoC must " +
+			validation.PyRepr(validation.ObjAt(rec, "exit_status")) + " — the PoC must " +
 			"have SUCCEEDED on the unpatched fork for the verification to " +
 			"mean anything"}
 	}
 	if !mintedOn(f, pocExecID) {
 		return validation.VNull(), &InputError{Msg: pocExecID + " is not " +
-			"minted on " + objStr(f, "finding_id") + " as E5/E6 fork " +
-			"evidence — mint it first: webv2 mint " + objStr(f, "finding_id") +
+			"minted on " + validation.ObjStr(f, "finding_id") + " as E5/E6 fork " +
+			"evidence — mint it first: webv2 mint " + validation.ObjStr(f, "finding_id") +
 			" --exec " + pocExecID + " --type fork-test"}
 	}
 	return rec, nil
@@ -141,13 +140,13 @@ func mintedOn(f validation.Value, pocExecID string) bool {
 		if e.Kind != validation.Obj {
 			continue
 		}
-		if objStr(e, "artifact_id") != pocExecID {
+		if validation.ObjStr(e, "artifact_id") != pocExecID {
 			continue
 		}
-		if !isForkLevel(objStr(e, "level")) {
+		if !isForkLevel(validation.ObjStr(e, "level")) {
 			continue
 		}
-		if objStr(e, "sandbox_profile") == forkpoc.ForkProfile {
+		if validation.ObjStr(e, "sandbox_profile") == forkpoc.ForkProfile {
 			return true
 		}
 	}
@@ -175,7 +174,7 @@ func Immunize(campaign *state.Campaign, findingID string,
 			"a written description (>=5 chars): which mutation, what it " +
 			"extracted"}
 	}
-	verification := objAt(f, "verification")
+	verification := validation.ObjAt(f, "verification")
 	if verification.Kind != validation.Obj {
 		verification = validation.VObj()
 	}
@@ -187,7 +186,7 @@ func Immunize(campaign *state.Campaign, findingID string,
 		kv("patch", validation.VStr(strip(o.Patch))),
 		kv("mutations", mutationsValue(o.Mutations)),
 		kv("actor", validation.VStr(o.Actor)),
-		kv("at", validation.VStr(nowIso())),
+		kv("at", validation.VStr(state.NowIso())),
 	}
 	if o.Bypass != nil {
 		pairs = append(pairs, kv("bypass", validation.VStr(strip(*o.Bypass))))
@@ -221,10 +220,10 @@ func IsImmunized(f validation.Value) bool {
 	if pv.Kind != validation.Obj {
 		return false
 	}
-	return isTrue(objAt(pv, "patch_blocks_poc")) &&
-		intEq(objAt(pv, "boundary_mutations_tested"), MinMutations) &&
-		isFalse(objAt(pv, "boundary_bypass_found")) &&
-		pyTruthyLenientContainers(objAt(pv, "artifact_id"))
+	return isTrue(validation.ObjAt(pv, "patch_blocks_poc")) &&
+		intEq(validation.ObjAt(pv, "boundary_mutations_tested"), MinMutations) &&
+		isFalse(validation.ObjAt(pv, "boundary_bypass_found")) &&
+		pyTruthyLenientContainers(validation.ObjAt(pv, "artifact_id"))
 }
 
 // ImmunizationDetail is immunization_detail: (state, detail) for gate/report
@@ -235,31 +234,31 @@ func ImmunizationDetail(f validation.Value) (string, string) {
 		return "missing", "no patch verification recorded (webv2 " +
 			"immunize ... against the FORK PoC)"
 	}
-	if pyTruthyLenientContainers(objAt(pv, "boundary_bypass_found")) {
+	if pyTruthyLenientContainers(validation.ObjAt(pv, "boundary_bypass_found")) {
 		return "bypass", "boundary bypass found: " +
-			truncate(pyStr(objAt(pv, "bypass")), 60) +
+			truncate(pyStr(validation.ObjAt(pv, "bypass")), 60) +
 			" — the patch does not hold"
 	}
-	if !isTrue(objAt(pv, "patch_blocks_poc")) {
+	if !isTrue(validation.ObjAt(pv, "patch_blocks_poc")) {
 		return "partial", "patch_blocks_poc is not confirmed"
 	}
-	if !intEq(objAt(pv, "boundary_mutations_tested"), MinMutations) {
-		return "partial", "only " + pyStr(objAt(pv,
+	if !intEq(validation.ObjAt(pv, "boundary_mutations_tested"), MinMutations) {
+		return "partial", "only " + pyStr(validation.ObjAt(pv,
 			"boundary_mutations_tested")) + "/" +
 			fmt.Sprintf("%d", MinMutations) + " boundary mutations tested"
 	}
 	return "immunized", "patch blocks the fork PoC and all " +
 		fmt.Sprintf("%d", MinMutations) + " boundary mutations (basis: " +
-		pyStr(objAt(pv, "artifact_id")) + ")"
+		pyStr(validation.ObjAt(pv, "artifact_id")) + ")"
 }
 
 // patchVerified is (f.get("verification") or {}).get("patch_verified") or {}.
 func patchVerified(f validation.Value) validation.Value {
-	verification := objAt(f, "verification")
+	verification := validation.ObjAt(f, "verification")
 	if verification.Kind != validation.Obj {
 		verification = validation.VObj()
 	}
-	pv := objAt(verification, "patch_verified")
+	pv := validation.ObjAt(verification, "patch_verified")
 	if pv.Kind != validation.Obj {
 		return validation.VObj()
 	}
@@ -275,30 +274,12 @@ func mutationsValue(mutations []string) validation.Value {
 	return validation.VArr(out...)
 }
 
-// objAt is the dict lookup: the value, or Null.
-func objAt(v validation.Value, key string) validation.Value {
-	for _, kv := range v.O {
-		if kv.K == key {
-			return kv.V
-		}
-	}
-	return validation.VNull()
-}
-
 // listAt is `v.get(key) or []` for list-shaped fields.
 func listAt(v validation.Value, key string) []validation.Value {
-	if got := objAt(v, key); got.Kind == validation.Arr {
+	if got := validation.ObjAt(v, key); got.Kind == validation.Arr {
 		return got.A
 	}
 	return nil
-}
-
-// objStr is the dict string lookup ("" when absent or not a string).
-func objStr(v validation.Value, key string) string {
-	if got := objAt(v, key); got.Kind == validation.Str {
-		return got.S
-	}
-	return ""
 }
 
 // pyStr is Python's str() of a JSON scalar (f-string interpolation).
@@ -355,7 +336,7 @@ func isForkLevel(level string) bool {
 // exitIsZero is `rec.get("exit_status") != 0` negated (Python's None/False
 // semantics: None != 0 is True, False == 0 is True).
 func exitIsZero(rec validation.Value) bool {
-	v := objAt(rec, "exit_status")
+	v := validation.ObjAt(rec, "exit_status")
 	switch v.Kind {
 	case validation.Int:
 		return v.Big == "" && v.I == 0
@@ -395,17 +376,6 @@ func truncate(s string, n int) string {
 		return s
 	}
 	return s[:n]
-}
-
-// nowIso is state.now_iso (mirrored, unexported there): WEBV2_NOW verbatim
-// when the golden harness pins the clock, else UTC with 6-digit microseconds.
-func nowIso() string {
-	if v := os.Getenv("WEBV2_NOW"); v != "" {
-		return v
-	}
-	now := time.Now().UTC()
-	return fmt.Sprintf("%s.%06d+00:00",
-		now.Format("2006-01-02T15:04:05"), now.Nanosecond()/1000)
 }
 
 // kv is the vet-clean keyed KV constructor.

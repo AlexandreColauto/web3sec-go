@@ -123,7 +123,7 @@ func r45bNoDocker(t *testing.T) {
 
 func r45bSolcRow(t *testing.T, pre validation.Value) validation.Value {
 	t.Helper()
-	return objAt(objAt(pre, "checks"), "solc")
+	return validation.ObjAt(validation.ObjAt(pre, "checks"), "solc")
 }
 
 // TestR45bPinnedCompilerCopyMatchesSandboxDefault is THE differential: for
@@ -190,11 +190,11 @@ func TestR45bPinnedCompilerCopyMatchesSandboxDefault(t *testing.T) {
 				validation.CanonCompact(wiredRow),
 				validation.CanonCompact(defRow))
 		}
-		if got := objStr(wiredRow, "status"); got != tc.wantStatus {
+		if got := validation.ObjStr(wiredRow, "status"); got != tc.wantStatus {
 			t.Errorf("%s: solc status = %q, want %q (row %s)", tc.name, got,
 				tc.wantStatus, validation.CanonCompact(wiredRow))
 		}
-		if got := objStr(wiredRow, "detail"); !strings.Contains(got,
+		if got := validation.ObjStr(wiredRow, "detail"); !strings.Contains(got,
 			tc.wantDetail) {
 			t.Errorf("%s: detail %q lacks %q", tc.name, got, tc.wantDetail)
 		}
@@ -226,10 +226,10 @@ func TestR45bUnreadablePinRefusalMatchesSandbox(t *testing.T) {
 			validation.CanonCompact(wiredRow),
 			validation.CanonCompact(defRow))
 	}
-	if got := objStr(wiredRow, "status"); got != "fail" {
+	if got := validation.ObjStr(wiredRow, "status"); got != "fail" {
 		t.Errorf("EACCES: solc status = %q, want fail", got)
 	}
-	detail := objStr(wiredRow, "detail")
+	detail := validation.ObjStr(wiredRow, "detail")
 	if !strings.Contains(detail, pin) ||
 		!strings.Contains(detail, "permission denied") {
 		t.Errorf("EACCES: the refusal must name the path %s and the errno: %q",
@@ -260,8 +260,8 @@ func TestR45bUnreadablePinRefusalMatchesSandbox(t *testing.T) {
 			validation.CanonCompact(wiredRow2),
 			validation.CanonCompact(defRow2))
 	}
-	detail2 := objStr(wiredRow2, "detail")
-	if objStr(wiredRow2, "status") != "fail" ||
+	detail2 := validation.ObjStr(wiredRow2, "detail")
+	if validation.ObjStr(wiredRow2, "status") != "fail" ||
 		!strings.Contains(detail2, pin2) ||
 		!strings.Contains(detail2, "not a directory") {
 		t.Errorf("ENOTDIR: want a refusal naming %s, got %q", pin2, detail2)
@@ -303,10 +303,10 @@ func TestR45bSolcProbeReadsThePinHonestly(t *testing.T) {
 	if err != nil || out == nil {
 		t.Fatalf("normal pin: (out=%v, err=%v), want a probe result", out, err)
 	}
-	if got := objStr(*out, "required"); got != "0.8.24" {
+	if got := validation.ObjStr(*out, "required"); got != "0.8.24" {
 		t.Errorf("required = %q, want 0.8.24 (split + strip)", got)
 	}
-	if got := objStr(*out, "problem"); !strings.Contains(got, "not local") {
+	if got := validation.ObjStr(*out, "problem"); !strings.Contains(got, "not local") {
 		t.Errorf("problem = %q, want the image-not-local refusal", got)
 	}
 

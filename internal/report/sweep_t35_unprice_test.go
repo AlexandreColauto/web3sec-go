@@ -63,7 +63,7 @@ func t35GateReadyEconomic(t *testing.T) (*state.Campaign, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	rec, err := sandbox.RegisterExec(c, sandbox.RegisterOpts{
 		Profile: "docker-networkless",
 		Command: "forge test --match-test test_exploit", FindingID: &fid,
@@ -81,8 +81,8 @@ func t35GateReadyEconomic(t *testing.T) (*state.Campaign, string) {
 			kv("level", validation.VStr(lv)),
 			kv("type", validation.VStr(etype)),
 			kv("description", validation.VStr("gate fixture")),
-			kv("sandbox_profile", objAt(rec, "profile")),
-			kv("artifact_id", objAt(rec, "exec_id")))); err != nil {
+			kv("sandbox_profile", validation.ObjAt(rec, "profile")),
+			kv("artifact_id", validation.ObjAt(rec, "exec_id")))); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -100,7 +100,7 @@ func t35GateReadyEconomic(t *testing.T) (*state.Campaign, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ver := objAt(f, "verification")
+	ver := validation.ObjAt(f, "verification")
 	if ver.Kind != validation.Obj {
 		ver = validation.VObj()
 	}

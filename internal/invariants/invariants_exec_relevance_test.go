@@ -21,7 +21,7 @@ func seedBound(t *testing.T, c *state.Campaign, invID, statement string,
 	model := validation.VObj(kv("invariants", validation.VArr(validation.VObj(
 		kv("id", validation.VStr(invID)),
 		kv("statement", validation.VStr(statement)),
-		kv("applies_to", strArr(appliesTo)),
+		kv("applies_to", validation.StrArr(appliesTo)),
 	))))
 	if _, err := SeedFromModel(c, model); err != nil {
 		t.Fatalf("seed model: %v", err)
@@ -39,7 +39,7 @@ func execWithoutCommand(t *testing.T, c *state.Campaign) validation.Value {
 	t.Helper()
 	rec := execRan(t, c, "forge test --match-contract Staking")
 	rec.O = popKey(rec.O, "command")
-	p := filepath.Join(c.ExecsDir, objStr(rec, "exec_id"), "exec_record.json")
+	p := filepath.Join(c.ExecsDir, validation.ObjStr(rec, "exec_id"), "exec_record.json")
 	if err := validation.WriteJson(p, rec, ""); err != nil {
 		t.Fatal(err)
 	}
@@ -64,7 +64,7 @@ func TestExecTouchesInvariant(t *testing.T) {
 		"forge test --match-contract Staking && forge test",
 	} {
 		ex := execRan(t, c, cmd)
-		ok, reason := ExecTouchesInvariant(c, "INV-3", objStr(ex, "exec_id"))
+		ok, reason := ExecTouchesInvariant(c, "INV-3", validation.ObjStr(ex, "exec_id"))
 		if !ok || reason != "" {
 			t.Errorf("%q: ok=%v reason=%q, want true/\"\"", cmd, ok, reason)
 		}
@@ -77,7 +77,7 @@ func TestExecTouchesInvariant(t *testing.T) {
 		"forge test",
 	} {
 		ex := execRan(t, c, cmd)
-		ok, reason := ExecTouchesInvariant(c, "INV-3", objStr(ex, "exec_id"))
+		ok, reason := ExecTouchesInvariant(c, "INV-3", validation.ObjStr(ex, "exec_id"))
 		if ok || reason != "no-target-match" {
 			t.Errorf("%q: ok=%v reason=%q, want false/no-target-match", cmd, ok, reason)
 		}
@@ -101,7 +101,7 @@ func TestExecTouchesInvariantIgnoresInvariantID(t *testing.T) {
 		"forge test --match-path src/INV-003.t.sol",
 	} {
 		ex := execRan(t, c, cmd)
-		ok, reason := ExecTouchesInvariant(c, "INV-003", objStr(ex, "exec_id"))
+		ok, reason := ExecTouchesInvariant(c, "INV-003", validation.ObjStr(ex, "exec_id"))
 		if ok || reason != "no-target-match" {
 			t.Errorf("%q: ok=%v reason=%q, want false/no-target-match "+
 				"(the id is not an applies_to target)", cmd, ok, reason)
@@ -116,7 +116,7 @@ func TestExecTouchesInvariantEmptyAppliesTo(t *testing.T) {
 	c := invCamp(t)
 	seedBound(t, c, "INV-9", "unbound invariant")
 	ex := execRan(t, c, "forge test --match-contract Staking")
-	ok, reason := ExecTouchesInvariant(c, "INV-9", objStr(ex, "exec_id"))
+	ok, reason := ExecTouchesInvariant(c, "INV-9", validation.ObjStr(ex, "exec_id"))
 	if ok || reason != "no-target-match" {
 		t.Errorf("empty applies_to: ok=%v reason=%q, want false/no-target-match",
 			ok, reason)
@@ -131,10 +131,10 @@ func TestExecTouchesInvariantNoCommandRecord(t *testing.T) {
 	seedBound(t, c, "INV-3", "staking liveness", "Staking")
 	for _, ex := range []validation.Value{execRan(t, c, ""),
 		execWithoutCommand(t, c)} {
-		ok, reason := ExecTouchesInvariant(c, "INV-3", objStr(ex, "exec_id"))
+		ok, reason := ExecTouchesInvariant(c, "INV-3", validation.ObjStr(ex, "exec_id"))
 		if ok || reason != "no-command-record" {
 			t.Errorf("%s: ok=%v reason=%q, want false/no-command-record",
-				objStr(ex, "exec_id"), ok, reason)
+				validation.ObjStr(ex, "exec_id"), ok, reason)
 		}
 	}
 }

@@ -28,7 +28,7 @@ func ppCliExec(t *testing.T, c *state.Campaign, stdout string,
 	if err != nil {
 		t.Fatalf("register exec: %v", err)
 	}
-	return objStr(rec, "exec_id")
+	return validation.ObjStr(rec, "exec_id")
 }
 
 // ppCliCite appends one minted-style evidence item citing execID.
@@ -38,7 +38,7 @@ func ppCliCite(t *testing.T, c *state.Campaign, fid, execID string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ev := objAt(f, "evidence")
+	ev := validation.ObjAt(f, "evidence")
 	if ev.Kind != validation.Arr {
 		ev = validation.VArr()
 	}
@@ -63,7 +63,7 @@ func ppCliSetup(t *testing.T) (*state.Campaign, string, string, string) {
 	t.Helper()
 	c, root := t15Campaign(t, "post-patch")
 	f := t15Finding(t, c, "the post-patch hypothesis", "logic-error")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	base := ppCliExec(t, c, "PASS: test_exploit\n", 0)
 	ppCliCite(t, c, fid, base)
 	return c, root, fid, base
@@ -77,7 +77,7 @@ func ppCliRegression(t *testing.T, c *state.Campaign,
 	if err != nil {
 		t.Fatal(err)
 	}
-	return objAt(objAt(f, "verification"), "patch_regression")
+	return validation.ObjAt(validation.ObjAt(f, "verification"), "patch_regression")
 }
 
 func TestVerifyPostPatchNeedsExec(t *testing.T) {
@@ -144,11 +144,11 @@ func TestVerifyPostPatchStillReproducible(t *testing.T) {
 		}
 	}
 	pr := ppCliRegression(t, c, fid)
-	if objStr(pr, "verdict") != "still_reproducible" ||
-		objStr(pr, "exec") != next || objStr(pr, "base_exec") != base {
+	if validation.ObjStr(pr, "verdict") != "still_reproducible" ||
+		validation.ObjStr(pr, "exec") != next || validation.ObjStr(pr, "base_exec") != base {
 		t.Fatalf("record = %s", validation.CanonCompact(pr))
 	}
-	if objStr(pr, "detail") == "" {
+	if validation.ObjStr(pr, "detail") == "" {
 		t.Fatal("record must carry the detail")
 	}
 	if got := ppCliStatus(t, c, fid); got != statusBefore {
@@ -168,8 +168,8 @@ func TestVerifyPostPatchFixed(t *testing.T) {
 		t.Fatalf("output %q must name the verdict", out)
 	}
 	pr := ppCliRegression(t, c, fid)
-	if objStr(pr, "verdict") != "fixed" ||
-		objStr(pr, "base_exec") != base {
+	if validation.ObjStr(pr, "verdict") != "fixed" ||
+		validation.ObjStr(pr, "base_exec") != base {
 		t.Fatalf("record = %s", validation.CanonCompact(pr))
 	}
 }
@@ -177,7 +177,7 @@ func TestVerifyPostPatchFixed(t *testing.T) {
 func TestVerifyPostPatchNoBaseline(t *testing.T) {
 	c, root := t15Campaign(t, "post-patch")
 	f := t15Finding(t, c, "the lonely hypothesis", "logic-error")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	next := ppCliExec(t, c, "PASS: test_exploit\n", 0)
 	code, out, errS := run(t, "--root", root, "verify", c.CampaignID,
 		"--post-patch", fid, "--exec", next)
@@ -188,10 +188,10 @@ func TestVerifyPostPatchNoBaseline(t *testing.T) {
 		t.Fatalf("output %q must name the verdict", out)
 	}
 	pr := ppCliRegression(t, c, fid)
-	if objStr(pr, "verdict") != "indeterminate" {
+	if validation.ObjStr(pr, "verdict") != "indeterminate" {
 		t.Fatalf("record = %s", validation.CanonCompact(pr))
 	}
-	if objStr(pr, "detail") != "no baseline repro exec on the finding" {
+	if validation.ObjStr(pr, "detail") != "no baseline repro exec on the finding" {
 		t.Fatalf("detail = %q", validation.CanonCompact(pr))
 	}
 }
@@ -206,7 +206,7 @@ func TestVerifyPostPatchSnapshotRecorded(t *testing.T) {
 		t.Fatalf("exit %d: out=%q err=%q", code, out, errS)
 	}
 	pr := ppCliRegression(t, c, fid)
-	if objStr(pr, "snapshot") != "SID-pinned0001" {
+	if validation.ObjStr(pr, "snapshot") != "SID-pinned0001" {
 		t.Fatalf("record = %s", validation.CanonCompact(pr))
 	}
 	// The snapshot is recorded, not compared: the tree comparison is a
@@ -305,5 +305,5 @@ func ppCliStatus(t *testing.T, c *state.Campaign, fid string) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return objStr(f, "status")
+	return validation.ObjStr(f, "status")
 }

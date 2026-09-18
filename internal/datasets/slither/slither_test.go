@@ -70,32 +70,32 @@ func TestToPayloadsRealShape(t *testing.T) {
 	}
 	// Deterministic order: src/ES03BankReentrancy.sol before
 	// src/ES04LenderUnderflow.sol.
-	if got := objStr(objAt(ps[0], "root_cause"), "class"); got != "reentrancy" {
+	if got := validation.ObjStr(validation.ObjAt(ps[0], "root_cause"), "class"); got != "reentrancy" {
 		t.Fatalf("payload 0 class: %s", got)
 	}
-	if got := objStr(objAt(ps[1], "root_cause"), "class"); got != "unchecked-external-call" {
+	if got := validation.ObjStr(validation.ObjAt(ps[1], "root_cause"), "class"); got != "unchecked-external-call" {
 		t.Fatalf("payload 1 class: %s", got)
 	}
-	pro := objAt(ps[1], "provenance")
-	tools := valsOf(objAt(pro, "sast_tools"))
+	pro := validation.ObjAt(ps[1], "provenance")
+	tools := valsOf(validation.ObjAt(pro, "sast_tools"))
 	if len(tools) != 1 || tools[0].S != "slither:unchecked-lowlevel" {
 		t.Fatalf("sast_tools: %v", tools)
 	}
-	if objStr(pro, "discovered_by") != "sast/slither" {
+	if validation.ObjStr(pro, "discovered_by") != "sast/slither" {
 		t.Fatal("discovered_by must name the SAST lane")
 	}
 	// affected paths come from source_mapping.filename_relative, lines from
 	// source_mapping.lines[0]; reentrancy-eth has three anchorable elements.
-	aff := valsOf(objAt(ps[0], "affected"))
+	aff := valsOf(validation.ObjAt(ps[0], "affected"))
 	if len(aff) != 3 {
 		t.Fatalf("reentrancy affected: %d, want 3", len(aff))
 	}
 	got := []int64{}
 	for _, a := range aff {
-		if p := objStr(a, "path"); p != "src/ES03BankReentrancy.sol" {
+		if p := validation.ObjStr(a, "path"); p != "src/ES03BankReentrancy.sol" {
 			t.Fatalf("affected path: %q", p)
 		}
-		lines := valsOf(objAt(a, "lines"))
+		lines := valsOf(validation.ObjAt(a, "lines"))
 		if len(lines) != 2 || lines[0].I != lines[1].I {
 			t.Fatalf("affected lines shape: %v", lines)
 		}
@@ -109,12 +109,12 @@ func TestToPayloadsRealShape(t *testing.T) {
 	}
 	// unchecked-lowlevel has two anchorable elements (function at line 7 and
 	// the low-level call at line 10); both are affected sites.
-	aff1 := valsOf(objAt(ps[1], "affected"))
-	if len(aff1) != 2 || objStr(aff1[0], "path") != "src/ES04LenderUnderflow.sol" {
+	aff1 := valsOf(validation.ObjAt(ps[1], "affected"))
+	if len(aff1) != 2 || validation.ObjStr(aff1[0], "path") != "src/ES04LenderUnderflow.sol" {
 		t.Fatalf("unchecked-lowlevel affected: %v", aff1)
 	}
 	for i, wantLine := range []int64{7, 10} {
-		if ln := valsOf(objAt(aff1[i], "lines"))[0].I; ln != wantLine {
+		if ln := valsOf(validation.ObjAt(aff1[i], "lines"))[0].I; ln != wantLine {
 			t.Fatalf("unchecked-lowlevel affected[%d] line: %d, want %d", i, ln, wantLine)
 		}
 	}
@@ -132,10 +132,10 @@ func TestToPayloadsTolerantEdges(t *testing.T) {
 	if len(ps) != 1 {
 		t.Fatalf("want 1 payload (Informational + no-elements rows drop), got %d", len(ps))
 	}
-	if got := objStr(objAt(ps[0], "root_cause"), "class"); got != "unchecked-external-call" {
+	if got := validation.ObjStr(validation.ObjAt(ps[0], "root_cause"), "class"); got != "unchecked-external-call" {
 		t.Fatalf("class: %s", got)
 	}
-	aff := valsOf(objAt(ps[0], "affected"))
+	aff := valsOf(validation.ObjAt(ps[0], "affected"))
 	// element 0 (lines [7..11], relative filename) and element 3 (empty
 	// filename_relative -> filename_short, lines [9]); the dependency element
 	// and the empty-lines element are dropped.
@@ -143,10 +143,10 @@ func TestToPayloadsTolerantEdges(t *testing.T) {
 		t.Fatalf("affected: %d, want 2 (dep + empty-lines dropped)", len(aff))
 	}
 	for i, wantLine := range []int64{7, 9} {
-		if objStr(aff[i], "path") != "src/ES04LenderUnderflow.sol" {
-			t.Fatalf("affected[%d] path: %q", i, objStr(aff[i], "path"))
+		if validation.ObjStr(aff[i], "path") != "src/ES04LenderUnderflow.sol" {
+			t.Fatalf("affected[%d] path: %q", i, validation.ObjStr(aff[i], "path"))
 		}
-		if ln := valsOf(objAt(aff[i], "lines"))[0].I; ln != wantLine {
+		if ln := valsOf(validation.ObjAt(aff[i], "lines"))[0].I; ln != wantLine {
 			t.Fatalf("affected[%d] line: %d, want %d", i, ln, wantLine)
 		}
 	}
@@ -164,7 +164,7 @@ func TestUnmappedCheckKeepsDefaultClass(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(ps) != 1 || objStr(objAt(ps[0], "root_cause"), "class") != "logic-error" {
+	if len(ps) != 1 || validation.ObjStr(validation.ObjAt(ps[0], "root_cause"), "class") != "logic-error" {
 		t.Fatalf("unmapped checks must land logic-error, got %d payloads", len(ps))
 	}
 }
@@ -189,7 +189,7 @@ func TestPayloadPassesHypothesisValidation(t *testing.T) {
 	// finding_id/status yet, but the required non-system keys must be there.
 	for _, p := range ps {
 		for _, k := range []string{"title", "root_cause", "affected", "attacker", "evidence"} {
-			if objAt(p, k).Kind == validation.Null {
+			if validation.ObjAt(p, k).Kind == validation.Null {
 				t.Fatalf("payload missing %s", k)
 			}
 		}

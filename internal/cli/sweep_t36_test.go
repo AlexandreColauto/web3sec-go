@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"websec/internal/validation"
 
 	"websec/internal/findings"
 	"websec/internal/sandbox"
@@ -114,7 +115,7 @@ func t36Exec(t *testing.T, c *state.Campaign, fid, profile, command, stdout,
 	if err != nil {
 		t.Fatalf("register exec: %v", err)
 	}
-	return objStr(rec, "exec_id")
+	return validation.ObjStr(rec, "exec_id")
 }
 
 // t36EvidenceCount counts the evidence rows citing one exec.
@@ -126,7 +127,7 @@ func t36EvidenceCount(t *testing.T, c *state.Campaign, fid, execID string) int {
 	}
 	n := 0
 	for _, e := range t14List(f, "evidence").A {
-		if objStr(e, "artifact_id") == execID {
+		if validation.ObjStr(e, "artifact_id") == execID {
 			n++
 		}
 	}

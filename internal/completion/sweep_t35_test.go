@@ -156,9 +156,9 @@ func TestDiscoveryProofBlocksOnOpenLenses(t *testing.T) {
 	if !anyContains(missing, "L-03:") {
 		t.Errorf("missing does not name L-03: %v", missing)
 	}
-	if !strings.Contains(objStr(res, "note"), "divergence gate") {
+	if !strings.Contains(validation.ObjStr(res, "note"), "divergence gate") {
 		t.Errorf("note = %q, want it to name the divergence gate",
-			objStr(res, "note"))
+			validation.ObjStr(res, "note"))
 	}
 }
 

@@ -36,7 +36,7 @@ func AxisSurfaceBlocker(axis validation.Value, blank *validation.Value) string {
 		if _, ok := keys[cited]; !ok {
 			return sprintf("blank attestation cites %s, which is not in the "+
 				"probe's blind[] keys: %s", validation.PyReprStr(cited),
-				validation.PyRepr(strArr(sortedStrSet(keys))))
+				validation.PyRepr(validation.StrArr(sortedStrSet(keys))))
 		}
 		if !vTruthy(vGet(*blank, "reason")) || !vTruthy(vGet(*blank, "actor")) {
 			return "blank attestation needs a written reason and an actor"

@@ -183,10 +183,10 @@ func validatePlanKinds(kind string, payload validation.Value,
 		stepsKey = "steps"
 	}
 	tools := map[string]bool{}
-	if steps := objAt(payload, stepsKey); steps.Kind == validation.Arr {
+	if steps := validation.ObjAt(payload, stepsKey); steps.Kind == validation.Arr {
 		for _, s := range steps.A {
 			if s.Kind == validation.Obj {
-				tools[objStr(s, "tool_id")] = true
+				tools[validation.ObjStr(s, "tool_id")] = true
 			}
 		}
 	}
@@ -206,7 +206,7 @@ func validatePlanKinds(kind string, payload validation.Value,
 		return nil
 	}
 	if kind == "plan" {
-		fid := objStr(payload, "finding_id")
+		fid := validation.ObjStr(payload, "finding_id")
 		if _, err := findings.LoadFinding(campaign, fid); err != nil {
 			return &BoundaryError{Msg: fmt.Sprintf(
 				"plan references unknown finding %s", validation.PyReprStr(fid))}
@@ -222,12 +222,12 @@ func validatePlanKinds(kind string, payload validation.Value,
 	if err != nil {
 		return err
 	}
-	if d := objAt(payload, "differs_from_memory"); d.Kind == validation.Arr {
+	if d := validation.ObjAt(payload, "differs_from_memory"); d.Kind == validation.Arr {
 		for _, item := range d.A {
 			if item.Kind != validation.Obj {
 				continue
 			}
-			mid := objStr(item, "memory_id")
+			mid := validation.ObjStr(item, "memory_id")
 			if !known[mid] {
 				return &BoundaryError{Msg: fmt.Sprintf(
 					"hypothesis override names unknown memory row %s — an "+
@@ -251,15 +251,15 @@ func validateCriticVerdict(payload validation.Value,
 	if campaign == nil {
 		return nil
 	}
-	fid := objStr(payload, "finding_id")
+	fid := validation.ObjStr(payload, "finding_id")
 	finding, err := findings.LoadFinding(campaign, fid)
 	if err != nil {
 		return &BoundaryError{Msg: fmt.Sprintf(
 			"critic verdict references unknown finding %s",
 			validation.PyReprStr(fid))}
 	}
-	cur := objAt(finding, "claim_version")
-	claim := objAt(payload, "claim_version")
+	cur := validation.ObjAt(finding, "claim_version")
+	claim := validation.ObjAt(payload, "claim_version")
 	if cur.Kind != validation.Null && claim.Kind != validation.Null &&
 		!valueEq(claim, cur) {
 		return &BoundaryError{Msg: fmt.Sprintf(
@@ -275,7 +275,7 @@ func validateCriticVerdict(payload validation.Value,
 // the registry does not know.
 func unknownRecommendedTools(payload validation.Value) []string {
 	unknown := []string{}
-	checks := objAt(payload, "recommended_checks")
+	checks := validation.ObjAt(payload, "recommended_checks")
 	if checks.Kind != validation.Arr {
 		return unknown
 	}
@@ -284,7 +284,7 @@ func unknownRecommendedTools(payload validation.Value) []string {
 		if c.Kind != validation.Obj {
 			continue
 		}
-		id := objStr(c, "tool_id")
+		id := validation.ObjStr(c, "tool_id")
 		if !inRegistry(id) && !seen[id] {
 			seen[id] = true
 			unknown = append(unknown, id)
@@ -299,11 +299,11 @@ func unknownRecommendedTools(payload validation.Value) []string {
 func assumptionStatuses(finding validation.Value) (map[string]string, []string) {
 	curByID := map[string]string{}
 	ids := []string{}
-	if as := objAt(finding, "assumptions"); as.Kind == validation.Arr {
+	if as := validation.ObjAt(finding, "assumptions"); as.Kind == validation.Arr {
 		for _, a := range as.A {
 			if a.Kind == validation.Obj {
-				id := objStr(a, "id")
-				curByID[id] = objStr(a, "status")
+				id := validation.ObjStr(a, "id")
+				curByID[id] = validation.ObjStr(a, "status")
 				ids = append(ids, id)
 			}
 		}
@@ -323,7 +323,7 @@ func validateCriticMoves(payload validation.Value, campaign *state.Campaign,
 		"SUPPORTED": {"REFUTED"},
 		"REFUTED":   {"SUPPORTED"},
 	}
-	per := objAt(payload, "per_assumption")
+	per := validation.ObjAt(payload, "per_assumption")
 	if per.Kind != validation.Arr {
 		return nil
 	}
@@ -343,7 +343,7 @@ func validateCriticMoves(payload validation.Value, campaign *state.Campaign,
 func validateCriticMove(entry validation.Value, campaign *state.Campaign,
 	finding validation.Value, fid string, curByID map[string]string,
 	ids []string, legal map[string][]string) error {
-	aid := objStr(entry, "assumption_id")
+	aid := validation.ObjStr(entry, "assumption_id")
 	fromStatus, known := curByID[aid]
 	if !known {
 		return &BoundaryError{Msg: fmt.Sprintf(
@@ -351,7 +351,7 @@ func validateCriticMove(entry validation.Value, campaign *state.Campaign,
 				"assumption of %s (ids: %s)", validation.PyReprStr(aid),
 			fid, pyListRepr(ids))}
 	}
-	status := objStr(entry, "status")
+	status := validation.ObjStr(entry, "status")
 	if status == fromStatus {
 		return nil
 	}
@@ -360,7 +360,7 @@ func validateCriticMove(entry validation.Value, campaign *state.Campaign,
 			"critic entry for %s: %s -> %s is not a legal assumption move",
 			aid, fromStatus, status)}
 	}
-	cited := objAt(entry, "evidence_cited")
+	cited := validation.ObjAt(entry, "evidence_cited")
 	if status == "UNKNOWN" {
 		if cited.Kind == validation.Arr && len(cited.A) > 0 {
 			return &BoundaryError{Msg: fmt.Sprintf(
@@ -395,13 +395,13 @@ func validateReproducerRequest(payload validation.Value,
 	if campaign == nil {
 		return nil
 	}
-	profile := objStr(payload, "execution_profile")
+	profile := validation.ObjStr(payload, "execution_profile")
 	if !contains(sandbox.Profiles, profile) {
 		return &BoundaryError{Msg: fmt.Sprintf(
 			"reproducer request names unknown execution profile %s",
 			validation.PyReprStr(profile))}
 	}
-	fid := objStr(payload, "finding_id")
+	fid := validation.ObjStr(payload, "finding_id")
 	if _, err := findings.LoadFinding(campaign, fid); err != nil {
 		return &BoundaryError{Msg: fmt.Sprintf(
 			"reproducer request references unknown finding %s",
@@ -411,11 +411,11 @@ func validateReproducerRequest(payload validation.Value,
 	if err != nil {
 		return err
 	}
-	if active != nil && objStr(payload, "snapshot_id") != *active {
+	if active != nil && validation.ObjStr(payload, "snapshot_id") != *active {
 		return &BoundaryError{Msg: fmt.Sprintf(
 			"reproducer request pins snapshot %s but the active pin is %s — "+
 				"the request must not drift the deployment",
-			validation.PyReprStr(objStr(payload, "snapshot_id")),
+			validation.PyReprStr(validation.ObjStr(payload, "snapshot_id")),
 			validation.PyReprStr(*active))}
 	}
 	return nil
@@ -449,7 +449,7 @@ func campaignMemoryIDs(campaign *state.Campaign) (map[string]bool, error) {
 	}
 	ids := map[string]bool{}
 	for _, r := range rows {
-		if mid := objStr(r, "memory_id"); mid != "" {
+		if mid := validation.ObjStr(r, "memory_id"); mid != "" {
 			ids[mid] = true
 		}
 	}
@@ -462,11 +462,11 @@ func campaignMemoryIDs(campaign *state.Campaign) (map[string]bool, error) {
 	for _, w := range wrapped {
 		r := w
 		if w.Kind == validation.Obj {
-			if row := objAt(w, "row"); row.Kind != validation.Null {
+			if row := validation.ObjAt(w, "row"); row.Kind != validation.Null {
 				r = row
 			}
 		}
-		if mid := objStr(r, "memory_id"); mid != "" {
+		if mid := validation.ObjStr(r, "memory_id"); mid != "" {
 			ids[mid] = true
 		}
 	}
@@ -521,46 +521,46 @@ func statementOverlap(a, b string) bool {
 func memoryUtility(campaign *state.Campaign, findingID string,
 	raw validation.Value) error {
 	block, err := roles.KnownNonIssues(campaign,
-		strPtr(objStr(raw, "bug_class")), 12)
+		strPtr(validation.ObjStr(raw, "bug_class")), 12)
 	if err != nil {
 		return err
 	}
-	priors := objAt(block, "known_non_issues")
+	priors := validation.ObjAt(block, "known_non_issues")
 	if priors.Kind != validation.Arr || len(priors.A) == 0 {
 		return nil
 	}
 	declared := map[string]bool{}
-	if d := objAt(raw, "differs_from_memory"); d.Kind == validation.Arr {
+	if d := validation.ObjAt(raw, "differs_from_memory"); d.Kind == validation.Arr {
 		for _, item := range d.A {
 			if item.Kind == validation.Obj {
-				declared[objStr(item, "memory_id")] = true
+				declared[validation.ObjStr(item, "memory_id")] = true
 			}
 		}
 	}
 	hypAssumptions := []string{}
-	if as := objAt(raw, "assumptions"); as.Kind == validation.Arr {
+	if as := validation.ObjAt(raw, "assumptions"); as.Kind == validation.Arr {
 		for _, a := range as.A {
-			if a.Kind == validation.Obj && truthy(objAt(a, "blocking")) {
-				hypAssumptions = append(hypAssumptions, objStr(a, "claim"))
+			if a.Kind == validation.Obj && truthy(validation.ObjAt(a, "blocking")) {
+				hypAssumptions = append(hypAssumptions, validation.ObjStr(a, "claim"))
 			}
 		}
 	}
 	reRaised, overrideDeclared, notMatched := []string{}, []string{}, []string{}
 	inContext := []string{}
 	for _, prior := range priors.A {
-		mid := objStr(prior, "memory_id")
+		mid := validation.ObjStr(prior, "memory_id")
 		inContext = append(inContext, mid)
 		if declared[mid] {
 			overrideDeclared = append(overrideDeclared, mid)
 			continue
 		}
-		props := objAt(prior, "deciding_propositions")
+		props := validation.ObjAt(prior, "deciding_propositions")
 		hit := false
 		if props.Kind == validation.Arr && len(props.A) > 0 {
 			for _, h := range hypAssumptions {
 				for _, p := range props.A {
 					if p.Kind == validation.Obj &&
-						statementOverlap(h, objStr(p, "statement")) {
+						statementOverlap(h, validation.ObjStr(p, "statement")) {
 						hit = true
 						break
 					}
@@ -570,7 +570,7 @@ func memoryUtility(campaign *state.Campaign, findingID string,
 				}
 			}
 		} else {
-			hit = objStr(prior, "bug_class") == objStr(raw, "bug_class")
+			hit = validation.ObjStr(prior, "bug_class") == validation.ObjStr(raw, "bug_class")
 		}
 		if hit {
 			reRaised = append(reRaised, mid)
@@ -579,11 +579,11 @@ func memoryUtility(campaign *state.Campaign, findingID string,
 		}
 	}
 	data := validation.VObj(
-		validation.KV{K: "bug_class", V: objAt(raw, "bug_class")},
-		validation.KV{K: "memories_in_context", V: strArr(inContext)},
-		validation.KV{K: "re_raised", V: strArr(reRaised)},
-		validation.KV{K: "override_declared", V: strArr(overrideDeclared)},
-		validation.KV{K: "not_matched", V: strArr(notMatched)})
+		validation.KV{K: "bug_class", V: validation.ObjAt(raw, "bug_class")},
+		validation.KV{K: "memories_in_context", V: validation.StrArr(inContext)},
+		validation.KV{K: "re_raised", V: validation.StrArr(reRaised)},
+		validation.KV{K: "override_declared", V: validation.StrArr(overrideDeclared)},
+		validation.KV{K: "not_matched", V: validation.StrArr(notMatched)})
 	_, err = campaign.Log("memory.utility", &findingID, &data)
 	return err
 }
@@ -597,26 +597,6 @@ func contains(xs []string, want string) bool {
 		}
 	}
 	return false
-}
-
-func objAt(v validation.Value, key string) validation.Value {
-	if v.Kind != validation.Obj {
-		return validation.VNull()
-	}
-	for _, kv := range v.O {
-		if kv.K == key {
-			return kv.V
-		}
-	}
-	return validation.VNull()
-}
-
-func objStr(v validation.Value, key string) string {
-	x := objAt(v, key)
-	if x.Kind == validation.Str {
-		return x.S
-	}
-	return ""
 }
 
 func truthy(v validation.Value) bool {
@@ -705,14 +685,6 @@ func valueEq(a, b validation.Value) bool {
 		return a.B == b.B
 	}
 	return false
-}
-
-func strArr(xs []string) validation.Value {
-	out := make([]validation.Value, len(xs))
-	for i, x := range xs {
-		out[i] = validation.VStr(x)
-	}
-	return validation.VArr(out...)
 }
 
 func strPtr(s string) *string { return &s }

@@ -29,7 +29,7 @@ const (
 func TestAdversarialGameRecordsAndPrints(t *testing.T) {
 	c, root := t15Campaign(t, "adversarial-game")
 	f := t15Finding(t, c, "a chain-freeze hypothesis", "chain-freeze")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	code, out, errS := run(t, "--root", root, "adversarial-game",
 		c.CampaignID, fid,
 		"--who-profit", cliAgWho, "--mechanism", cliAgMech,
@@ -47,10 +47,10 @@ func TestAdversarialGameRecordsAndPrints(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ag := objAt(stored, "adversarial_game")
-	if objStr(ag, "who_profits") != cliAgWho ||
-		objStr(ag, "profit_mechanism") != cliAgMech ||
-		objStr(ag, "challenge_interplay") != cliAgInter {
+	ag := validation.ObjAt(stored, "adversarial_game")
+	if validation.ObjStr(ag, "who_profits") != cliAgWho ||
+		validation.ObjStr(ag, "profit_mechanism") != cliAgMech ||
+		validation.ObjStr(ag, "challenge_interplay") != cliAgInter {
 		t.Errorf("persisted clause = %s", validation.CanonSpaced(ag))
 	}
 	events, err := c.Events()
@@ -58,8 +58,8 @@ func TestAdversarialGameRecordsAndPrints(t *testing.T) {
 		t.Fatal(err)
 	}
 	last := events[len(events)-1]
-	if objStr(last, "type") != "finding.adversarial_game_set" {
-		t.Errorf("event type = %q", objStr(last, "type"))
+	if validation.ObjStr(last, "type") != "finding.adversarial_game_set" {
+		t.Errorf("event type = %q", validation.ObjStr(last, "type"))
 	}
 }
 
@@ -67,7 +67,7 @@ func TestAdversarialGameRecordsAndPrints(t *testing.T) {
 func TestAdversarialGameEqualsForm(t *testing.T) {
 	c, root := t15Campaign(t, "adversarial-game-eq")
 	f := t15Finding(t, c, "a sequencer-halt hypothesis", "sequencer-halt")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	code, out, errS := run(t, "--root", root, "adversarial-game",
 		c.CampaignID, fid,
 		"--who-profit="+cliAgWho, "--mechanism="+cliAgMech,
@@ -85,7 +85,7 @@ func TestAdversarialGameEqualsForm(t *testing.T) {
 func TestAdversarialGameShortFieldExitsTwo(t *testing.T) {
 	c, root := t15Campaign(t, "adversarial-game-short")
 	f := t15Finding(t, c, "a chain-freeze hypothesis", "chain-freeze")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	code, out, errS := run(t, "--root", root, "adversarial-game",
 		c.CampaignID, fid,
 		"--who-profit", cliAgWho, "--mechanism", "short",
@@ -103,7 +103,7 @@ func TestAdversarialGameShortFieldExitsTwo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objAt(stored, "adversarial_game").Kind != validation.Null {
+	if validation.ObjAt(stored, "adversarial_game").Kind != validation.Null {
 		t.Error("a rejected clause must not persist")
 	}
 }
@@ -113,7 +113,7 @@ func TestAdversarialGameShortFieldExitsTwo(t *testing.T) {
 func TestAdversarialGameArgparseFailures(t *testing.T) {
 	c, root := t15Campaign(t, "adversarial-game-argparse")
 	f := t15Finding(t, c, "a chain-freeze hypothesis", "chain-freeze")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 
 	// all three flags missing
 	code, out, errS := run(t, "--root", root, "adversarial-game",

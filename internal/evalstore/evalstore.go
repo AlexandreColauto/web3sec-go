@@ -135,9 +135,9 @@ func AddCase(caseDoc validation.Value) (validation.Value, error) {
 	if err != nil {
 		return validation.VNull(), err
 	}
-	cid := objStr(c, "case_id")
+	cid := validation.ObjStr(c, "case_id")
 	for _, existing := range cases {
-		if objStr(existing, "case_id") == cid {
+		if validation.ObjStr(existing, "case_id") == cid {
 			return validation.VNull(), fmt.Errorf(
 				"eval case %s already exists — case ids are unique per store; "+
 					"mint a new one instead of overwriting gold", cid)
@@ -154,7 +154,7 @@ func AddCase(caseDoc validation.Value) (validation.Value, error) {
 // gold.bug_class is a canonical class or the literal 'unmapped' — never a raw
 // dataset label.
 func checkGoldClass(c validation.Value) error {
-	bugClass := objAt(objAt(c, "gold"), "bug_class")
+	bugClass := validation.ObjAt(validation.ObjAt(c, "gold"), "bug_class")
 	if bugClass.Kind == validation.Str && bugClass.S == taxonomy.UNMAPPED {
 		return nil
 	}
@@ -176,16 +176,16 @@ func ListCases(partition, dataset, program *string) ([]validation.Value, error) 
 	}
 	out := make([]validation.Value, 0, len(cases))
 	for _, c := range cases {
-		if partition != nil && orDefault(objStr(c, "partition"), "dev") != *partition {
+		if partition != nil && orDefault(validation.ObjStr(c, "partition"), "dev") != *partition {
 			continue
 		}
 		if dataset != nil &&
-			objStr(objAt(c, "source"), "dataset") != *dataset {
+			validation.ObjStr(validation.ObjAt(c, "source"), "dataset") != *dataset {
 			continue
 		}
 		if program != nil {
 			got := strings.ToLower(strings.TrimSpace(
-				objStr(objAt(c, "program"), "program")))
+				validation.ObjStr(validation.ObjAt(c, "program"), "program")))
 			if got != strings.ToLower(strings.TrimSpace(*program)) {
 				continue
 			}
@@ -203,7 +203,7 @@ func LoadCase(caseID string) (validation.Value, error) {
 		return validation.VNull(), err
 	}
 	for _, c := range cases {
-		if objStr(c, "case_id") == caseID {
+		if validation.ObjStr(c, "case_id") == caseID {
 			return c, nil
 		}
 	}
@@ -258,7 +258,7 @@ func VerifyEvalStore() VerifyResult {
 			problems = append(problems,
 				fmt.Sprintf("%s[%d]: %v", CasesName, i, err))
 		}
-		cid := objStr(c, "case_id")
+		cid := validation.ObjStr(c, "case_id")
 		if cid != "" {
 			if _, dup := seen[cid]; dup {
 				problems = append(problems, fmt.Sprintf(
@@ -319,26 +319,6 @@ func fileExists(p string) bool {
 func copyObj(v validation.Value) validation.Value {
 	return validation.Value{Kind: validation.Obj,
 		O: append([]validation.KV(nil), v.O...)}
-}
-
-func objAt(v validation.Value, key string) validation.Value {
-	if v.Kind != validation.Obj {
-		return validation.VNull()
-	}
-	for _, kv := range v.O {
-		if kv.K == key {
-			return kv.V
-		}
-	}
-	return validation.VNull()
-}
-
-func objStr(v validation.Value, key string) string {
-	x := objAt(v, key)
-	if x.Kind == validation.Str {
-		return x.S
-	}
-	return ""
 }
 
 // orDefault is `c.get("partition") or "dev"`.

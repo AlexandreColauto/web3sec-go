@@ -108,14 +108,14 @@ func TestChainUnprovenMaterializes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(ch, "provenance"); got != "unproven" {
+	if got := validation.ObjStr(ch, "provenance"); got != "unproven" {
 		t.Errorf("provenance = %q", got)
 	}
 	link := listAtCLI(ch, "capability_links")[0]
-	if got := objStr(link, "link_evidence"); got != "E0" {
+	if got := validation.ObjStr(link, "link_evidence"); got != "E0" {
 		t.Errorf("link_evidence = %q, want E0", got)
 	}
-	if got := objStr(ch, "narrative"); got != "EOA pauses; nobody can unpause" {
+	if got := validation.ObjStr(ch, "narrative"); got != "EOA pauses; nobody can unpause" {
 		t.Errorf("narrative = %q", got)
 	}
 	// `chains` renders the provenance marker after the unchanged row.
@@ -136,9 +136,9 @@ func TestChainUnprovenMaterializes(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, f := range all {
-		if st := objStr(f, "status"); st != "HYPOTHESIS" {
+		if st := validation.ObjStr(f, "status"); st != "HYPOTHESIS" {
 			t.Errorf("%s status = %q, want HYPOTHESIS",
-				objStr(f, "finding_id"), st)
+				validation.ObjStr(f, "finding_id"), st)
 		}
 	}
 	if len(all) != 2 {

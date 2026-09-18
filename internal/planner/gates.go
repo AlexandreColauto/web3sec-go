@@ -41,7 +41,7 @@ type DivergenceOpts struct {
 // command with a hole where the campaign belongs.
 func campaignIDForPlan(plan validation.Value,
 	opts DivergenceOpts) string {
-	if cid := objStr(plan, "campaign_id"); cid != "" {
+	if cid := validation.ObjStr(plan, "campaign_id"); cid != "" {
 		return cid
 	}
 	if opts.CampaignID != "" {
@@ -100,7 +100,7 @@ func DivergenceStatus(plan validation.Value, opts DivergenceOpts) validation.Val
 	return validation.VObj(
 		kv("closed", validation.VBool(len(missing) == 0)),
 		kv("missing", validation.VArr(missing...)),
-		kv("named_classes", strArr(named)),
+		kv("named_classes", validation.StrArr(named)),
 		kv("lenses", validation.VArr(rows...)),
 	)
 }
@@ -113,8 +113,8 @@ type gateEntry struct {
 
 // lensGateEntry is the divergence_status loop body for one lens.
 func lensGateEntry(plan, l validation.Value, opts DivergenceOpts) gateEntry {
-	lid := objStr(l, "id")
-	lens := pyStr(objAt(l, "lens"))
+	lid := validation.ObjStr(l, "id")
+	lens := pyStr(validation.ObjAt(l, "lens"))
 	seeded := familyList(l)
 	checked := stringSet(listOf(l, "families_checked"))
 	symmetry, hasSymmetry := fieldAt(l, "symmetry")
@@ -123,9 +123,9 @@ func lensGateEntry(plan, l validation.Value, opts DivergenceOpts) gateEntry {
 	familiesOK, uncovered := lensFamiliesOK(symBranch, seeded, checked, symmetry)
 	closed := lensClosed(l, familiesOK)
 	row := validation.VObj(
-		kv("id", objAt(l, "id")),
-		kv("lens", objAt(l, "lens")),
-		kv("status", objAt(l, "status")),
+		kv("id", validation.ObjAt(l, "id")),
+		kv("lens", validation.ObjAt(l, "lens")),
+		kv("status", validation.ObjAt(l, "status")),
 	)
 	if opts.Surface != nil {
 		counts := lensProbeClosure(plan, lid, opts)
@@ -203,7 +203,7 @@ func symmetryPrimitives(symmetry validation.Value) map[string][]string {
 				prims = append(prims, pyStr(p))
 			}
 		}
-		out[pyStr(objAt(s, "family"))] = prims
+		out[pyStr(validation.ObjAt(s, "family"))] = prims
 	}
 	return out
 }
@@ -211,15 +211,15 @@ func symmetryPrimitives(symmetry validation.Value) map[string][]string {
 // lensClosed is the closure predicate: a written reason (>= 10 stripped
 // chars), an actor, and the family attestation.
 func lensClosed(l validation.Value, familiesOK bool) bool {
-	status := objStr(l, "status")
+	status := validation.ObjStr(l, "status")
 	if status != "answered" && status != "not-applicable" {
 		return false
 	}
-	reason := objAt(l, "closed_reason")
+	reason := validation.ObjAt(l, "closed_reason")
 	if reason.Kind != validation.Str || len(pyStrip(reason.S)) < 10 {
 		return false
 	}
-	if !pyTruthyBigNonEmpty(objAt(l, "closed_by")) {
+	if !pyTruthyBigNonEmpty(validation.ObjAt(l, "closed_by")) {
 		return false
 	}
 	return familiesOK
@@ -228,7 +228,7 @@ func lensClosed(l validation.Value, familiesOK bool) bool {
 // lensMissing is the what-text for one unresolved lens.
 func lensMissing(l validation.Value, lid, lens string, seeded,
 	uncovered []string, symBranch bool) validation.Value {
-	status := objStr(l, "status")
+	status := validation.ObjStr(l, "status")
 	resolved := status == "answered" || status == "not-applicable"
 	var what string
 	switch {
@@ -244,7 +244,7 @@ func lensMissing(l validation.Value, lid, lens string, seeded,
 			"answered C " + lid + " " + status + " --families " +
 			strings.Join(uncovered, ",") + " --reason R --actor A"
 	default:
-		what = "lens " + lens + " (" + pyStr(objAt(l, "surface")) +
+		what = "lens " + lens + " (" + pyStr(validation.ObjAt(l, "surface")) +
 			") not resolved — webv2 answered C " + lid +
 			" answered|not-applicable --families ... --reason R --actor A"
 	}
@@ -270,7 +270,7 @@ func symmetryStub(uncovered []string) []string {
 func namedClasses(plan validation.Value, campaign []string) []string {
 	seen := map[string]struct{}{}
 	for _, p := range listOf(plan, "priorities") {
-		if bc := objAt(p, "bug_class"); pyTruthyBigNonEmpty(bc) {
+		if bc := validation.ObjAt(p, "bug_class"); pyTruthyBigNonEmpty(bc) {
 			seen[pyStr(bc)] = struct{}{}
 		}
 	}
@@ -334,7 +334,7 @@ func campaignBugClasses(campaign *state.Campaign) ([]string, error) {
 	}
 	seen := map[string]struct{}{}
 	for _, f := range all {
-		cls, ok := fieldAt(objAt(f, "root_cause"), "class")
+		cls, ok := fieldAt(validation.ObjAt(f, "root_cause"), "class")
 		if !ok || cls.Kind != validation.Str || !isCanonicalClass(cls.S) {
 			continue
 		}
@@ -371,7 +371,7 @@ func probeMissing(plan validation.Value, opts DivergenceOpts) []validation.Value
 	out := []validation.Value{}
 	cid := campaignIDForPlan(plan, opts)
 	for _, l := range listOf(plan, "lenses") {
-		lid := objStr(l, "id")
+		lid := validation.ObjStr(l, "id")
 		view := probeLensView(plan, lid, opts)
 		if len(view.axes) == 0 {
 			continue

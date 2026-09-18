@@ -24,7 +24,7 @@ func bloat(t *testing.T, root, cid, stage string, chars int) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	stages := objAt(st, "stages")
+	stages := validation.ObjAt(st, "stages")
 	stages.O = validation.SetOrAppend(stages.O, stage, validation.VObj(
 		validation.KV{K: "status", V: validation.VStr("done")},
 		validation.KV{K: "note", V: validation.VStr(strings.Repeat("x", chars))},

@@ -39,11 +39,11 @@ func TestSentinelPassesQuotedJunkRefused(t *testing.T) {
 		}
 		// negative control: the refusal is a decision that did not happen
 		prio := storedPriority(t, camp, rowID)
-		if got := objStr(prio, "status"); got != "open" {
+		if got := validation.ObjStr(prio, "status"); got != "open" {
 			t.Fatalf("quoted junk %q refusal changed the status to %q",
 				junk, got)
 		}
-		if objAt(prio, "passes").Kind != validation.Null {
+		if validation.ObjAt(prio, "passes").Kind != validation.Null {
 			t.Fatalf("quoted junk %q refusal recorded passes", junk)
 		}
 	}
@@ -56,7 +56,7 @@ func TestSentinelPassesQuotedJunkRefused(t *testing.T) {
 	if err != nil {
 		t.Fatalf("honest quoted literal refused: %v", err)
 	}
-	if got := objStr(storedPriority(t, camp, rowID), "passes"); got != honest {
+	if got := validation.ObjStr(storedPriority(t, camp, rowID), "passes"); got != honest {
 		t.Errorf("passes = %q, want %q", got, honest)
 	}
 }
@@ -114,12 +114,12 @@ func TestPassesAlwaysValidated(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, q := range listOf(planAfter, "priorities") {
-		if objStr(q, "id") == "Q-900" {
-			if objAt(q, "passes").Kind != validation.Null {
+		if validation.ObjStr(q, "id") == "Q-900" {
+			if validation.ObjAt(q, "passes").Kind != validation.Null {
 				t.Fatalf("short --passes was recorded as %q",
-					objStr(q, "passes"))
+					validation.ObjStr(q, "passes"))
 			}
-			if got := objStr(q, "status"); got != "open" {
+			if got := validation.ObjStr(q, "status"); got != "open" {
 				t.Fatalf("refusal changed the status to %q", got)
 			}
 		}
@@ -145,8 +145,8 @@ func TestPassesAlwaysValidated(t *testing.T) {
 	}
 	var got string
 	for _, q := range listOf(plan3, "priorities") {
-		if objStr(q, "id") == "Q-900" {
-			got = objStr(q, "passes")
+		if validation.ObjStr(q, "id") == "Q-900" {
+			got = validation.ObjStr(q, "passes")
 		}
 	}
 	if got != literal {

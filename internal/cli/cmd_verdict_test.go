@@ -9,12 +9,13 @@ package cli
 import (
 	"strings"
 	"testing"
+	"websec/internal/validation"
 )
 
 func TestVerdictPrintsFullReason(t *testing.T) {
 	c, root := t15Campaign(t, "verdict")
 	f := t15Finding(t, c, "an inflation hypothesis", "logic-error")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	reason := "the attacker controls the share price through the " +
 		"first-depositor position and the direct-transfer path is " +
 		"unbounded" + strings.Repeat(" ", 20) +
@@ -72,7 +73,7 @@ func TestVerdictMissingOptionsIsArgparse(t *testing.T) {
 func TestVerdictDismissalVocabularyAdvisory(t *testing.T) {
 	c, root := t15Campaign(t, "verdict-warn")
 	f := t15Finding(t, c, "an inflation hypothesis", "logic-error")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	code, out, errS := run(t, "--root", root, "verdict", c.CampaignID, fid,
 		"--verdict", "disproved", "--reason",
 		"not exploitable, no economic impact")

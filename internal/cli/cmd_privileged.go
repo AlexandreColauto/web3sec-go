@@ -38,10 +38,10 @@ func runPrivileged(root string, args []string, r *Runner) int {
 }
 
 func printPrivilegedRole(r *Runner, role validation.Value) {
-	fmt.Fprintf(r.Out, "role: %s (%s)\n", objStr(role, "role"),
-		objStr(role, "role_label"))
+	fmt.Fprintf(r.Out, "role: %s (%s)\n", validation.ObjStr(role, "role"),
+		validation.ObjStr(role, "role_label"))
 	fmt.Fprintf(r.Out, "  baseline: %s\n", t14Join(t14List(role, "baseline")))
-	fmt.Fprintf(r.Out, "  band: %s\n", objStr(role, "exposure_band"))
+	fmt.Fprintf(r.Out, "  band: %s\n", validation.ObjStr(role, "exposure_band"))
 	fmt.Fprint(r.Out, "  constraints:\n")
 	constraints := t14List(role, "constraints")
 	if len(constraints.A) == 0 {
@@ -57,19 +57,19 @@ func printPrivilegedRole(r *Runner, role validation.Value) {
 // privilegedConstraint is one constraint line: capability (or the unnamed
 // placeholder), the mechanism, and the parenthesised qualifiers.
 func privilegedConstraint(con validation.Value) string {
-	capability := objStr(con, "capability")
+	capability := validation.ObjStr(con, "capability")
 	if capability == "" {
 		capability = "(unnamed capability)"
 	}
 	line := capability
-	if mech := objStr(con, "mechanism"); mech != "" {
+	if mech := validation.ObjStr(con, "mechanism"); mech != "" {
 		line += " via " + mech
 	}
 	quals := []string{}
-	if v := objAt(con, "timelocked"); v.Kind == validation.Bool && v.B {
+	if v := validation.ObjAt(con, "timelocked"); v.Kind == validation.Bool && v.B {
 		quals = append(quals, "timelocked")
 	}
-	if th := objAt(con, "multisig_threshold"); th.Kind != validation.Bool {
+	if th := validation.ObjAt(con, "multisig_threshold"); th.Kind != validation.Bool {
 		switch th.Kind {
 		case validation.Int, validation.Flt:
 			quals = append(quals, "threshold "+t23PyG(pyFloatOf(th)))
@@ -92,7 +92,7 @@ func printPrivilegedPaths(r *Runner, role validation.Value, key string) {
 	for _, p := range paths.A {
 		fmt.Fprintf(r.Out, "  %s: %s -> %s%s\n", key,
 			strings.Join(t14Strings(t14List(p, "path")), " -> "),
-			objStr(p, "terminal_capability"), t23CapSuffix(p))
+			validation.ObjStr(p, "terminal_capability"), t23CapSuffix(p))
 	}
 }
 

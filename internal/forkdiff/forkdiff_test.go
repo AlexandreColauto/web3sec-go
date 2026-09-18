@@ -93,11 +93,11 @@ func TestMatchStrongPartialNone(t *testing.T) {
 	a, b := trees(t)
 	fpa, fpb := fpOf(t, a), fpOf(t, b)
 	same := Match(fpa, fpa, "self")
-	if objStr(same, "verdict") != "strong" || scoreOf(same) != 1.0 {
+	if validation.ObjStr(same, "verdict") != "strong" || scoreOf(same) != 1.0 {
 		t.Fatalf("self match %v", same)
 	}
 	near := Match(fpa, fpb, "near")
-	if v := objStr(near, "verdict"); v != "strong" && v != "partial" {
+	if v := validation.ObjStr(near, "verdict"); v != "strong" && v != "partial" {
 		t.Fatalf("near verdict %q", v)
 	}
 	if !containsStr(strs(near, "missing_selectors"), "sweep(address)") {
@@ -112,7 +112,7 @@ func TestBaselineAddListRemove(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AddBaseline: %v", err)
 	}
-	if objStr(meta, "fingerprint_sha256") !=
+	if validation.ObjStr(meta, "fingerprint_sha256") !=
 		FingerprintSha256(fpOf(t, a)) {
 		t.Fatal("fingerprint_sha256 mismatch")
 	}
@@ -120,7 +120,7 @@ func TestBaselineAddListRemove(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(rows) != 1 || objStr(rows[0], "name") != "alpha-ref" {
+	if len(rows) != 1 || validation.ObjStr(rows[0], "name") != "alpha-ref" {
 		t.Fatalf("list %v", rows)
 	}
 	if err := RemoveBaseline("alpha-ref"); err != nil {
@@ -179,10 +179,10 @@ func TestReaddBaselineReplacesContent(t *testing.T) {
 
 func mkFP(selectors, stateVars, modifiers, contracts []string) validation.Value {
 	return validation.VObj(
-		validation.KV{K: "selectors", V: strArr(selectors)},
-		validation.KV{K: "state_vars", V: strArr(stateVars)},
-		validation.KV{K: "modifiers", V: strArr(modifiers)},
-		validation.KV{K: "contracts", V: strArr(contracts)},
+		validation.KV{K: "selectors", V: validation.StrArr(selectors)},
+		validation.KV{K: "state_vars", V: validation.StrArr(stateVars)},
+		validation.KV{K: "modifiers", V: validation.StrArr(modifiers)},
+		validation.KV{K: "contracts", V: validation.StrArr(contracts)},
 	)
 }
 
@@ -209,19 +209,19 @@ func TestMatchBoundaries(t *testing.T) {
 	base := mkFP([]string{"s1", "s2"}, []string{"v1"}, []string{"m1"}, []string{"C1"})
 	at := Match(mkFP([]string{"s1", "s2"}, []string{"v9"}, []string{"m9"},
 		[]string{"C1"}), base, "b")
-	if scoreOf(at) != 0.6 || objStr(at, "verdict") != "strong" {
+	if scoreOf(at) != 0.6 || validation.ObjStr(at, "verdict") != "strong" {
 		t.Fatalf("strong boundary %v", at)
 	}
 	below := Match(mkFP([]string{"s1", "s2"}, []string{"v9"}, []string{"m9"},
 		[]string{"C9"}), base, "b")
-	if scoreOf(below) != 0.5 || objStr(below, "verdict") != "partial" {
+	if scoreOf(below) != 0.5 || validation.ObjStr(below, "verdict") != "partial" {
 		t.Fatalf("partial boundary %v", below)
 	}
 	base5 := mkFP([]string{"s1", "s2", "s3", "s4", "s5"}, []string{"v1"},
 		[]string{"m1"}, []string{"C1"})
 	part := Match(mkFP([]string{"s1", "s2", "s3"}, []string{"v9"}, []string{"m9"},
 		[]string{"C1"}), base5, "b")
-	if scoreOf(part) != 0.4 || objStr(part, "verdict") != "partial" {
+	if scoreOf(part) != 0.4 || validation.ObjStr(part, "verdict") != "partial" {
 		t.Fatalf("partial 0.4 boundary %v", part)
 	}
 }
@@ -247,8 +247,8 @@ func TestForkdiffReportArtifactAndEvent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(rep, "matched_baseline") != "alpha-ref" {
-		t.Fatalf("matched_baseline %q", objStr(rep, "matched_baseline"))
+	if validation.ObjStr(rep, "matched_baseline") != "alpha-ref" {
+		t.Fatalf("matched_baseline %q", validation.ObjStr(rep, "matched_baseline"))
 	}
 	if _, err := os.Stat(filepath.Join(c.ArtifactsDir, "fork_diff.json")); err != nil {
 		t.Fatalf("artifact: %v", err)
@@ -269,14 +269,14 @@ func TestForkdiffReportWithoutBaselines(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objAt(rep, "matched_baseline").Kind != validation.Null {
+	if validation.ObjAt(rep, "matched_baseline").Kind != validation.Null {
 		t.Fatal("matched_baseline must be null")
 	}
 	if n := len(objListAt(rep, "all_matches")); n != 0 {
 		t.Fatalf("all_matches len %d", n)
 	}
-	if objStr(rep, "diff_summary") != "no baselines registered" {
-		t.Fatalf("diff_summary %q", objStr(rep, "diff_summary"))
+	if validation.ObjStr(rep, "diff_summary") != "no baselines registered" {
+		t.Fatalf("diff_summary %q", validation.ObjStr(rep, "diff_summary"))
 	}
 }
 
@@ -298,8 +298,8 @@ func TestAuditFlagsBaselineDrift(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sec := objAt(objAt(rep, "sections"), "baselines")
-	if ok := objAt(sec, "ok"); ok.Kind == validation.Bool && ok.B {
+	sec := validation.ObjAt(validation.ObjAt(rep, "sections"), "baselines")
+	if ok := validation.ObjAt(sec, "ok"); ok.Kind == validation.Bool && ok.B {
 		t.Fatalf("baselines section ok despite drift: %v", sec)
 	}
 	found := false
@@ -328,8 +328,8 @@ func TestAuditSurvivesManifestMissingBaselinesKey(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sec := objAt(objAt(rep, "sections"), "baselines")
-	if ok := objAt(sec, "ok"); ok.Kind == validation.Bool && ok.B {
+	sec := validation.ObjAt(validation.ObjAt(rep, "sections"), "baselines")
+	if ok := validation.ObjAt(sec, "ok"); ok.Kind == validation.Bool && ok.B {
 		t.Fatalf("baselines section ok despite bad manifest: %v", sec)
 	}
 }
@@ -349,8 +349,8 @@ func TestAuditSurvivesCorruptManifestJSON(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sec := objAt(objAt(rep, "sections"), "baselines")
-	if ok := objAt(sec, "ok"); ok.Kind == validation.Bool && ok.B {
+	sec := validation.ObjAt(validation.ObjAt(rep, "sections"), "baselines")
+	if ok := validation.ObjAt(sec, "ok"); ok.Kind == validation.Bool && ok.B {
 		t.Fatalf("baselines section ok despite corrupt manifest: %v", sec)
 	}
 	found := false
@@ -380,8 +380,8 @@ func TestAuditSurvivesUnreadableBaselineEntry(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sec := objAt(objAt(rep, "sections"), "baselines")
-	if ok := objAt(sec, "ok"); ok.Kind == validation.Bool && ok.B {
+	sec := validation.ObjAt(validation.ObjAt(rep, "sections"), "baselines")
+	if ok := validation.ObjAt(sec, "ok"); ok.Kind == validation.Bool && ok.B {
 		t.Fatalf("baselines section ok despite unreadable entry: %v", sec)
 	}
 	found := false

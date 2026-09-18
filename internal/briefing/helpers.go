@@ -16,18 +16,6 @@ func kv(k string, v validation.Value) validation.KV {
 	return validation.KV{K: k, V: v}
 }
 
-func objAt(v validation.Value, key string) validation.Value {
-	if v.Kind != validation.Obj {
-		return validation.VNull()
-	}
-	for _, pair := range v.O {
-		if pair.K == key {
-			return pair.V
-		}
-	}
-	return validation.VNull()
-}
-
 func hasKey(v validation.Value, key string) bool {
 	if v.Kind != validation.Obj {
 		return false
@@ -50,16 +38,8 @@ func setKey(v *validation.Value, key string, val validation.Value) {
 	v.O = append(v.O, validation.KV{K: key, V: val})
 }
 
-func objStr(v validation.Value, key string) string {
-	f := objAt(v, key)
-	if f.Kind == validation.Str {
-		return f.S
-	}
-	return ""
-}
-
 func objBool(v validation.Value, key string) bool {
-	f := objAt(v, key)
+	f := validation.ObjAt(v, key)
 	return f.Kind == validation.Bool && f.B
 }
 
@@ -71,7 +51,7 @@ func asObj(v validation.Value) validation.Value {
 }
 
 func listAt(v validation.Value, key string) []validation.Value {
-	f := objAt(v, key)
+	f := validation.ObjAt(v, key)
 	if f.Kind != validation.Arr {
 		return nil
 	}
@@ -79,7 +59,7 @@ func listAt(v validation.Value, key string) []validation.Value {
 }
 
 func intField(v validation.Value, key string) int64 {
-	f := objAt(v, key)
+	f := validation.ObjAt(v, key)
 	if f.Kind == validation.Int {
 		return f.I
 	}
@@ -131,14 +111,6 @@ func pyTruthyInt64Only(v validation.Value) bool {
 		return len(v.O) > 0
 	}
 	return false
-}
-
-func strArr(items []string) validation.Value {
-	out := make([]validation.Value, len(items))
-	for i, s := range items {
-		out[i] = validation.VStr(s)
-	}
-	return validation.VArr(out...)
 }
 
 func strListOf(v validation.Value) []string {
@@ -264,7 +236,7 @@ func pyCommaFloat(v float64, decimals int) string {
 var _ = fmt.Sprintf
 
 func objInt(v validation.Value, key string) int64 {
-	f := objAt(v, key)
+	f := validation.ObjAt(v, key)
 	if f.Kind == validation.Int {
 		return f.I
 	}

@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"websec/internal/validation"
 
 	"websec/internal/findings"
 )
@@ -16,7 +17,7 @@ import (
 func TestReproQueuePrintsOrderedCandidates(t *testing.T) {
 	c, root := t15Campaign(t, "repro-queue")
 	f := t15Finding(t, c, "an inflation hypothesis", "logic-error")
-	if _, err := findings.Transition(c, objStr(f, "finding_id"), "POSSIBLE",
+	if _, err := findings.Transition(c, validation.ObjStr(f, "finding_id"), "POSSIBLE",
 		"triage: reachable path", "", "", false); err != nil {
 		t.Fatalf("transition: %v", err)
 	}
@@ -29,7 +30,7 @@ func TestReproQueuePrintsOrderedCandidates(t *testing.T) {
 		MatchString(row) {
 		t.Fatalf("row %q does not match the queue shape", row)
 	}
-	if !strings.HasSuffix(row, objStr(f, "finding_id")) {
+	if !strings.HasSuffix(row, validation.ObjStr(f, "finding_id")) {
 		t.Fatalf("row %q must name the finding", row)
 	}
 }

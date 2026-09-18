@@ -136,7 +136,7 @@ func casePartition(caseID string) validation.Value {
 	if err != nil || loaded.Kind != validation.Obj {
 		return validation.VNull()
 	}
-	p := objAt(loaded, "partition")
+	p := validation.ObjAt(loaded, "partition")
 	if p.Kind == validation.Str {
 		return p
 	}
@@ -270,28 +270,28 @@ func ModelTrajectory(campaign *state.Campaign) ([]validation.Value, error) {
 	}
 	out := []validation.Value{}
 	for _, e := range events {
-		etype := objAt(e, "type")
+		etype := validation.ObjAt(e, "type")
 		if etype.Kind != validation.Str {
 			continue
 		}
 		if _, ok := eventDefinition[etype.S]; !ok {
 			continue
 		}
-		data := objAt(e, "data")
+		data := validation.ObjAt(e, "data")
 		role := validation.VNull()
 		if data.Kind == validation.Obj {
-			if r := objAt(data, "role"); r.Kind == validation.Str {
+			if r := validation.ObjAt(data, "role"); r.Kind == validation.Str {
 				role = r
 			}
 		}
 		out = append(out, validation.VObj(
-			validation.KV{K: "seq", V: objAt(e, "seq")},
-			validation.KV{K: "at", V: objAt(e, "at")},
+			validation.KV{K: "seq", V: validation.ObjAt(e, "seq")},
+			validation.KV{K: "at", V: validation.ObjAt(e, "at")},
 			validation.KV{K: "type", V: etype},
 			validation.KV{K: "role", V: role},
-			validation.KV{K: "ref", V: objAt(e, "ref")},
+			validation.KV{K: "ref", V: validation.ObjAt(e, "ref")},
 			validation.KV{K: "data", V: data},
-			validation.KV{K: "event_hash", V: objAt(e, "event_hash")},
+			validation.KV{K: "event_hash", V: validation.ObjAt(e, "event_hash")},
 		))
 	}
 	return out, nil
@@ -319,7 +319,7 @@ func VerifyTrajectory(campaign *state.Campaign) (validation.Value, error) {
 	}
 	modelEvents := []validation.Value{}
 	for _, e := range events {
-		etype := objAt(e, "type")
+		etype := validation.ObjAt(e, "type")
 		if etype.Kind == validation.Str {
 			if _, ok := eventDefinition[etype.S]; ok {
 				modelEvents = append(modelEvents, e)
@@ -358,9 +358,9 @@ func VerifyTrajectory(campaign *state.Campaign) (validation.Value, error) {
 func eventProblems(campaign *state.Campaign,
 	e validation.Value) ([]string, error) {
 	problems := []string{}
-	seq := scalarText(objAt(e, "seq"))
-	etype := objAt(e, "type").S
-	data := objAt(e, "data")
+	seq := scalarText(validation.ObjAt(e, "seq"))
+	etype := validation.ObjAt(e, "type").S
+	data := validation.ObjAt(e, "data")
 	if data.Kind != validation.Obj {
 		return append(problems, fmt.Sprintf(
 			"seq %s (%s): data is not a JSON object", seq, etype)), nil
@@ -378,8 +378,8 @@ func eventProblems(campaign *state.Campaign,
 		where string
 		val   validation.Value
 	}{
-		{"ref", objAt(e, "ref")},
-		{"data.finding_id", objAt(data, "finding_id")},
+		{"ref", validation.ObjAt(e, "ref")},
+		{"data.finding_id", validation.ObjAt(data, "finding_id")},
 	} {
 		fid := pair.val
 		if fid.Kind != validation.Str || !strings.HasPrefix(fid.S, "F-") {
@@ -452,18 +452,6 @@ func pyTypeName(v validation.Value) string {
 		return "NoneType"
 	}
 	return "dict"
-}
-
-func objAt(v validation.Value, key string) validation.Value {
-	if v.Kind != validation.Obj {
-		return validation.VNull()
-	}
-	for _, kv := range v.O {
-		if kv.K == key {
-			return kv.V
-		}
-	}
-	return validation.VNull()
 }
 
 // scalarText renders a scalar like Python's str() in an f-string.

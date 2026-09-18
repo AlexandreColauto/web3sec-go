@@ -44,7 +44,7 @@ func TestMitigationScanLeavesBountyByteIdentical(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	beforeBounty := validation.CanonCompact(objAt(before, "bounty"))
+	beforeBounty := validation.CanonCompact(validation.ObjAt(before, "bounty"))
 	// The scan must still fire (a skipped scan proves nothing about the
 	// writer surface — ES17 withdraw is the cei-order positive).
 	if hit, err := RecordMitigationScan(c, fid); err != nil {
@@ -57,13 +57,13 @@ func TestMitigationScanLeavesBountyByteIdentical(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := validation.CanonCompact(objAt(after, "bounty")); got !=
+	if got := validation.CanonCompact(validation.ObjAt(after, "bounty")); got !=
 		beforeBounty {
 		t.Errorf("mitigscan touched bounty:\n before %s\n after  %s",
 			beforeBounty, got)
 	}
 	// And the soundness record landed where it belongs.
-	mp := objAt(objAt(after, "dedup_meta"), "mitigation_present")
+	mp := validation.ObjAt(validation.ObjAt(after, "dedup_meta"), "mitigation_present")
 	if pattern, _, _, _, ok := ParseMitigationPresent(mp.S); !ok ||
 		pattern != "cei-order" {
 		t.Errorf("mitigation_present = %q, want a cei-order record", mp.S)

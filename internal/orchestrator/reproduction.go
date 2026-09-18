@@ -85,7 +85,7 @@ func defaultIsSequenceRequired(finding validation.Value) bool {
 	if finding.Kind != validation.Obj {
 		return false
 	}
-	seq := objAt(finding, "exploit_sequence")
+	seq := validation.ObjAt(finding, "exploit_sequence")
 	steps := []validation.Value{}
 	if seq.Kind == validation.Arr {
 		steps = seq.A
@@ -154,7 +154,7 @@ func joinActors(actors map[string]struct{}) int { return len(actors) }
 
 // declaredSequence is `f.get("exploit_sequence") or []` with its actor count.
 func declaredSequence(finding validation.Value) ([]validation.Value, int) {
-	seq := objAt(finding, "exploit_sequence")
+	seq := validation.ObjAt(finding, "exploit_sequence")
 	steps := []validation.Value{}
 	if seq.Kind == validation.Arr {
 		steps = seq.A

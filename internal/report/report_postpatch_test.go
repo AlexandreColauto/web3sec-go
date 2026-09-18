@@ -23,7 +23,7 @@ func ppBaselineExec(t *testing.T, camp *state.Campaign,
 		t.Fatal(err)
 	}
 	for _, e := range listAt(f, "evidence") {
-		if aid := objStr(e, "artifact_id"); strings.HasPrefix(aid,
+		if aid := validation.ObjStr(e, "artifact_id"); strings.HasPrefix(aid,
 			"EXEC-") {
 			return aid
 		}
@@ -41,7 +41,7 @@ func ppWriteRegression(t *testing.T, camp *state.Campaign, fid, verdict,
 	if err != nil {
 		t.Fatal(err)
 	}
-	ver := objAt(f, "verification")
+	ver := validation.ObjAt(f, "verification")
 	if ver.Kind != validation.Obj {
 		ver = validation.VObj()
 	}
@@ -61,7 +61,7 @@ func ppWriteRegression(t *testing.T, camp *state.Campaign, fid, verdict,
 func TestPatchRegressionStillReproducible(t *testing.T) {
 	camp := clusterCamp(t)
 	fs := fourSurfaces(t, camp)
-	fid := objStr(fs[2], "finding_id")
+	fid := validation.ObjStr(fs[2], "finding_id")
 	base := ppBaselineExec(t, camp, fid)
 	ppWriteRegression(t, camp, fid, "still_reproducible", "EXEC-ppnew0001",
 		base, "post-patch EXEC-ppnew0001 exits 0 with stdout matching "+
@@ -80,7 +80,7 @@ func TestPatchRegressionStillReproducible(t *testing.T) {
 func TestPatchRegressionFixed(t *testing.T) {
 	camp := clusterCamp(t)
 	fs := fourSurfaces(t, camp)
-	fid := objStr(fs[0], "finding_id")
+	fid := validation.ObjStr(fs[0], "finding_id")
 	base := ppBaselineExec(t, camp, fid)
 	ppWriteRegression(t, camp, fid, "fixed", "EXEC-ppnew0002", base,
 		"baseline "+base+" exits 0; post-patch EXEC-ppnew0002 exits 1")
@@ -94,7 +94,7 @@ func TestPatchRegressionFixed(t *testing.T) {
 func TestPatchRegressionIndeterminateNoDetailLine(t *testing.T) {
 	camp := clusterCamp(t)
 	fs := fourSurfaces(t, camp)
-	fid := objStr(fs[1], "finding_id")
+	fid := validation.ObjStr(fs[1], "finding_id")
 	base := ppBaselineExec(t, camp, fid)
 	ppWriteRegression(t, camp, fid, "indeterminate", "EXEC-ppnew0003",
 		base, "")

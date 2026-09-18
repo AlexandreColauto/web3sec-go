@@ -62,10 +62,10 @@ func TestR43aFindingsSectionAbsentStoreIsGreen(t *testing.T) {
 	if err != nil {
 		t.Fatalf("an absent findings store is an empty campaign: %v", err)
 	}
-	if n := objAt(sec, "checked").I; n != 0 {
+	if n := validation.ObjAt(sec, "checked").I; n != 0 {
 		t.Fatalf("checked = %d, want 0", n)
 	}
-	if ok := objAt(sec, "ok"); ok.Kind != validation.Bool || !ok.B {
+	if ok := validation.ObjAt(sec, "ok"); ok.Kind != validation.Bool || !ok.B {
 		t.Fatalf("ok = %v, want true", ok)
 	}
 }
@@ -76,7 +76,7 @@ func TestR43aFindingsSectionEmptyStoreIsGreen(t *testing.T) {
 	if err != nil {
 		t.Fatalf("a genuinely empty findings store: %v", err)
 	}
-	if ok := objAt(sec, "ok"); ok.Kind != validation.Bool || !ok.B {
+	if ok := validation.ObjAt(sec, "ok"); ok.Kind != validation.Bool || !ok.B {
 		t.Fatalf("ok = %v, want true", ok)
 	}
 }
@@ -120,7 +120,7 @@ func TestR43aProjectionAbsentChainStoreIsGreen(t *testing.T) {
 	if err != nil {
 		t.Fatalf("an absent chains store is an empty campaign: %v", err)
 	}
-	if ok := objAt(sec, "ok"); ok.Kind != validation.Bool || !ok.B {
+	if ok := validation.ObjAt(sec, "ok"); ok.Kind != validation.Bool || !ok.B {
 		t.Fatalf("ok = %v, want true", ok)
 	}
 }

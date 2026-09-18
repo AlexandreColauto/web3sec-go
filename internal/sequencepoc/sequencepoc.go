@@ -70,7 +70,7 @@ func IsSequenceRequired(finding validation.Value) bool {
 	if finding.Kind != validation.Obj {
 		return false
 	}
-	seq := objAt(finding, "exploit_sequence")
+	seq := validation.ObjAt(finding, "exploit_sequence")
 	if seq.Kind != validation.Arr {
 		return false
 	}
@@ -83,7 +83,7 @@ func IsSequenceRequired(finding validation.Value) bool {
 		if s.Kind != validation.Obj {
 			continue
 		}
-		if actor := objAt(s, "actor"); validation.PyTruthy(actor) {
+		if actor := validation.ObjAt(s, "actor"); validation.PyTruthy(actor) {
 			actors[valueKey(actor)] = struct{}{}
 		}
 	}
@@ -123,8 +123,8 @@ func SnapshotHasForkTarget(campaign *state.Campaign) (bool, error) {
 		return false, fmt.Errorf("the active snapshot's pin manifest %s "+
 			"cannot be read: %v", pinPath, err)
 	}
-	return validation.PyTruthy(objAt(pin, "deployment")) ||
-		validation.PyTruthy(objAt(pin, "chain")), nil
+	return validation.PyTruthy(validation.ObjAt(pin, "deployment")) ||
+		validation.PyTruthy(validation.ObjAt(pin, "chain")), nil
 }
 
 // OnchainSequenceRequiredErr is onchain_sequence_required with the refusal
@@ -183,8 +183,8 @@ func LoadSequenceSpec(path string) (validation.Value, error) {
 		return validation.VNull(), specErrf(
 			"sequence spec schema violation: %s", err)
 	}
-	actors := objAt(data, "actors")
-	steps := listOf(objAt(data, "steps"))
+	actors := validation.ObjAt(data, "actors")
+	steps := listOf(validation.ObjAt(data, "steps"))
 	if err := checkRoleKeys(actors); err != nil {
 		return validation.VNull(), err
 	}
@@ -233,18 +233,18 @@ func checkSteps(data, actors validation.Value,
 			continue
 		}
 		s.O = validation.SetDefault(s.O, "expect_revert", validation.VBool(false))
-		actor := objAt(*s, "actor")
+		actor := validation.ObjAt(*s, "actor")
 		if _, ok := actorKey(actors, actor); !ok {
 			return fail(fmt.Sprintf("steps[%d].actor", i), fmt.Sprintf(
 				"%s is not a key of 'actors' (known: %s)",
 				pyStr(actor), known))
 		}
-		n := intOf(objAt(*s, "step"))
+		n := intOf(validation.ObjAt(*s, "step"))
 		if _, dup := seen[n]; dup {
 			return fail(fmt.Sprintf("steps[%d].step", i), fmt.Sprintf(
 				"duplicate step number %s — steps must be strictly "+
 					"increasing by 1", validation.IntText(
-					objAt(*s, "step"))))
+					validation.ObjAt(*s, "step"))))
 		}
 		seen[n] = struct{}{}
 	}
@@ -260,11 +260,11 @@ func checkSteps(data, actors validation.Value,
 
 // checkAssertions validates the final_assertions field rules.
 func checkAssertions(data, actors validation.Value) error {
-	assertions := listOf(objAt(data, "final_assertions"))
+	assertions := listOf(validation.ObjAt(data, "final_assertions"))
 	known := pyListReprStrings(objKeys(actors))
 	seenIDs := map[string]struct{}{}
 	for i, a := range assertions {
-		id := objAt(a, "id")
+		id := validation.ObjAt(a, "id")
 		idKey := pyStr(id)
 		if _, dup := seenIDs[idKey]; dup {
 			return fail(fmt.Sprintf("final_assertions[%d].id", i),
@@ -283,25 +283,25 @@ func checkAssertions(data, actors validation.Value) error {
 // checkAssertionFields is the per-assertion kind/account rule block.
 func checkAssertionFields(i int, a, actors validation.Value,
 	known string) error {
-	kind := objStr(a, "kind")
+	kind := validation.ObjStr(a, "kind")
 	switch kind {
 	case "balance":
-		if !validation.PyTruthy(objAt(a, "account")) {
+		if !validation.PyTruthy(validation.ObjAt(a, "account")) {
 			return fail(fmt.Sprintf("final_assertions[%d].account", i),
 				"required for kind 'balance' (native ETH balance)")
 		}
 	case "storage":
-		if !validation.PyTruthy(objAt(a, "target")) || !validation.PyTruthy(objAt(a, "slot")) {
+		if !validation.PyTruthy(validation.ObjAt(a, "target")) || !validation.PyTruthy(validation.ObjAt(a, "slot")) {
 			return fail(fmt.Sprintf("final_assertions[%d]", i),
 				"kind 'storage' requires both 'target' and 'slot'")
 		}
 	case "call":
-		if !validation.PyTruthy(objAt(a, "target")) || !validation.PyTruthy(objAt(a, "function")) {
+		if !validation.PyTruthy(validation.ObjAt(a, "target")) || !validation.PyTruthy(validation.ObjAt(a, "function")) {
 			return fail(fmt.Sprintf("final_assertions[%d]", i),
 				"kind 'call' requires both 'target' and 'function'")
 		}
 	}
-	acct := objAt(a, "account")
+	acct := validation.ObjAt(a, "account")
 	if !validation.PyTruthy(acct) {
 		return nil
 	}
@@ -317,27 +317,6 @@ func checkAssertionFields(i int, a, actors validation.Value,
 }
 
 // --- small value helpers ---------------------------------------------------
-
-// objAt is the dict lookup: the value, or Null (Python's .get default).
-func objAt(v validation.Value, key string) validation.Value {
-	if v.Kind != validation.Obj {
-		return validation.VNull()
-	}
-	for _, kv := range v.O {
-		if kv.K == key {
-			return kv.V
-		}
-	}
-	return validation.VNull()
-}
-
-// objStr is the dict string lookup ("" when absent or not a string).
-func objStr(v validation.Value, key string) string {
-	if got := objAt(v, key); got.Kind == validation.Str {
-		return got.S
-	}
-	return ""
-}
 
 // listOf is Python `x or []` for list-shaped fields.
 func listOf(v validation.Value) []validation.Value {

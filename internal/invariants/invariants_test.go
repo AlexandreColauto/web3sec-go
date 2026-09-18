@@ -107,9 +107,9 @@ func registeredArtifact(t *testing.T, c *state.Campaign, name, text string) stri
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, a := range objAt(st, "artifacts").A {
-		if strings.HasSuffix(objStr(a, "path"), name) {
-			return objStr(a, "artifact_id")
+	for _, a := range validation.ObjAt(st, "artifacts").A {
+		if strings.HasSuffix(validation.ObjStr(a, "path"), name) {
+			return validation.ObjStr(a, "artifact_id")
 		}
 	}
 	t.Fatalf("no registered artifact ending in %q", name)
@@ -208,8 +208,8 @@ func evidenceItem(rec validation.Value, level, typ, eid string) validation.Value
 		kv("level", validation.VStr(level)),
 		kv("type", validation.VStr(typ)),
 		kv("description", validation.VStr("reproduction under sandbox")),
-		kv("sandbox_profile", objAt(rec, "profile")),
-		kv("artifact_id", objAt(rec, "exec_id")),
+		kv("sandbox_profile", validation.ObjAt(rec, "profile")),
+		kv("artifact_id", validation.ObjAt(rec, "exec_id")),
 	)
 }
 
@@ -319,17 +319,17 @@ func TestSeedSynthesizesLivenessInvariantForStateMachines(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	reg := objAt(links, "invariants")
+	reg := validation.ObjAt(links, "invariants")
 	if len(reg.O) != 2 {
 		t.Fatalf("registry size = %d, want 2", len(reg.O))
 	}
-	live := objAt(reg, "INV-2")
-	if objStr(live, "kind") != "liveness" {
-		t.Fatalf("synthesized kind = %q, want liveness", objStr(live, "kind"))
+	live := validation.ObjAt(reg, "INV-2")
+	if validation.ObjStr(live, "kind") != "liveness" {
+		t.Fatalf("synthesized kind = %q, want liveness", validation.ObjStr(live, "kind"))
 	}
-	if !strings.Contains(strings.ToLower(objStr(live, "statement")), "rollup") {
+	if !strings.Contains(strings.ToLower(validation.ObjStr(live, "statement")), "rollup") {
 		t.Errorf("liveness statement does not name the machine: %q",
-			objStr(live, "statement"))
+			validation.ObjStr(live, "statement"))
 	}
 }
 
@@ -339,29 +339,29 @@ func TestSeedNormalizesVerificationStatus(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	reg := objAt(links, "invariants")
-	if got := objStr(objAt(reg, "INV-1"), "test_status"); got != "untested" {
+	reg := validation.ObjAt(links, "invariants")
+	if got := validation.ObjStr(validation.ObjAt(reg, "INV-1"), "test_status"); got != "untested" {
 		t.Errorf("INV-1 test_status = %q", got)
 	}
-	if got := objStr(objAt(reg, "INV-2"), "test_status"); got != "untested" {
+	if got := validation.ObjStr(validation.ObjAt(reg, "INV-2"), "test_status"); got != "untested" {
 		t.Errorf("INV-2 test_status = %q", got)
 	}
 	// the model's self-claim is NOT honored
-	if got := objStr(objAt(reg, "INV-1"), "status"); got != "UNVERIFIED" {
+	if got := validation.ObjStr(validation.ObjAt(reg, "INV-1"), "status"); got != "UNVERIFIED" {
 		t.Errorf("INV-1 status = %q, want UNVERIFIED", got)
 	}
-	if got := objStr(objAt(reg, "INV-2"), "status"); got != "UNVERIFIED" {
+	if got := validation.ObjStr(validation.ObjAt(reg, "INV-2"), "status"); got != "UNVERIFIED" {
 		t.Errorf("INV-2 status = %q, want UNVERIFIED", got)
 	}
-	if got := objAt(objAt(reg, "INV-2"), "model_belief").F; got != 0.6 {
+	if got := validation.ObjAt(validation.ObjAt(reg, "INV-2"), "model_belief").F; got != 0.6 {
 		t.Errorf("model_belief = %v, want 0.6", got)
 	}
-	if got := objAt(objAt(reg, "INV-2"), "depends_on").A; len(got) != 1 ||
+	if got := validation.ObjAt(validation.ObjAt(reg, "INV-2"), "depends_on").A; len(got) != 1 ||
 		got[0].S != "INV-1" {
 		t.Errorf("depends_on = %s, want [INV-1]", validation.PyRepr(
-			objAt(objAt(reg, "INV-2"), "depends_on")))
+			validation.ObjAt(validation.ObjAt(reg, "INV-2"), "depends_on")))
 	}
-	if got := objStr(objAt(reg, "INV-2"), "source"); got != "model" {
+	if got := validation.ObjStr(validation.ObjAt(reg, "INV-2"), "source"); got != "model" {
 		t.Errorf("INV-2 source = %q, want model", got)
 	}
 }
@@ -374,11 +374,11 @@ func TestSeedDerivesDocumentedSource(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	reg := objAt(links, "invariants")
-	if got := objStr(objAt(reg, "INV-1"), "source"); got != "documented" {
+	reg := validation.ObjAt(links, "invariants")
+	if got := validation.ObjStr(validation.ObjAt(reg, "INV-1"), "source"); got != "documented" {
 		t.Errorf("INV-1 source = %q, want documented", got)
 	}
-	if got := objStr(objAt(reg, "INV-2"), "source"); got != "model" {
+	if got := validation.ObjStr(validation.ObjAt(reg, "INV-2"), "source"); got != "model" {
 		t.Errorf("INV-2 source = %q, want model", got)
 	}
 }
@@ -396,10 +396,10 @@ func TestVerifyRequiresRegisteredArtifact(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(e, "status"); got != "CHECKED_AGAINST_CODE" {
+	if got := validation.ObjStr(e, "status"); got != "CHECKED_AGAINST_CODE" {
 		t.Errorf("status = %q", got)
 	}
-	if got := objStr(e, "verified_by"); got != artID {
+	if got := validation.ObjStr(e, "verified_by"); got != artID {
 		t.Errorf("verified_by = %q, want %q", got, artID)
 	}
 }
@@ -413,10 +413,10 @@ func TestContradictSetsStatus(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(e, "status"); got != "CONTRADICTED" {
+	if got := validation.ObjStr(e, "status"); got != "CONTRADICTED" {
 		t.Errorf("status = %q, want CONTRADICTED", got)
 	}
-	if got := objStr(e, "contradiction"); got != "src/V.sol#L40" {
+	if got := validation.ObjStr(e, "contradiction"); got != "src/V.sol#L40" {
 		t.Errorf("contradiction = %q", got)
 	}
 }
@@ -431,10 +431,10 @@ func TestTestStatusAxisIsOrthogonal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(e, "test_status"); got != "held" {
+	if got := validation.ObjStr(e, "test_status"); got != "held" {
 		t.Errorf("test_status = %q, want held", got)
 	}
-	if got := objStr(e, "status"); got != "UNVERIFIED" {
+	if got := validation.ObjStr(e, "status"); got != "UNVERIFIED" {
 		t.Errorf("status = %q, want UNVERIFIED (orthogonal axis)", got)
 	}
 }
@@ -448,7 +448,7 @@ func TestReseedRefreshesModelToDocumented(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(objAt(objAt(links, "invariants"), "INV-2"), "source"); got != "model" {
+	if got := validation.ObjStr(validation.ObjAt(validation.ObjAt(links, "invariants"), "INV-2"), "source"); got != "model" {
 		t.Fatalf("INV-2 source before = %q, want model", got)
 	}
 	readmeSnap(t, c, "INV-2: fee accumulator cannot be set backwards.\n")
@@ -456,11 +456,11 @@ func TestReseedRefreshesModelToDocumented(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	e := objAt(objAt(links, "invariants"), "INV-2")
-	if got := objStr(e, "source"); got != "documented" {
+	e := validation.ObjAt(validation.ObjAt(links, "invariants"), "INV-2")
+	if got := validation.ObjStr(e, "source"); got != "documented" {
 		t.Errorf("INV-2 source after = %q, want documented", got)
 	}
-	if got := objStr(e, "modified_by"); !strings.Contains(got, "source-refresh") {
+	if got := validation.ObjStr(e, "modified_by"); !strings.Contains(got, "source-refresh") {
 		t.Errorf("modified_by = %q, want source-refresh provenance", got)
 	}
 }
@@ -487,17 +487,17 @@ func TestLinkFindingTracksViolation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(e, "test_status"); got != "violated" {
+	if got := validation.ObjStr(e, "test_status"); got != "violated" {
 		t.Errorf("test_status = %q, want violated", got)
 	}
-	if got := objStr(e, "violated_by"); got != "F-aaaaaaaaaaaa" {
+	if got := validation.ObjStr(e, "violated_by"); got != "F-aaaaaaaaaaaa" {
 		t.Errorf("violated_by = %q", got)
 	}
 	e, err = LinkFinding(c, "INV-1", "F-aaaaaaaaaaaa", false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := len(objAt(e, "findings").A); got != 1 {
+	if got := len(validation.ObjAt(e, "findings").A); got != 1 {
 		t.Errorf("findings length = %d, want 1 (no duplicates)", got)
 	}
 }
@@ -526,7 +526,7 @@ func TestNormalizeInvIDVectors(t *testing.T) {
 	}
 	bad := 0
 	for _, row := range vec.A {
-		in, want := objStr(row, "in"), objStr(row, "out")
+		in, want := validation.ObjStr(row, "in"), validation.ObjStr(row, "out")
 		if got := NormalizeInvID(in); got != want {
 			t.Errorf("NormalizeInvID(%q) = %q, want %q", in, got, want)
 			bad++
@@ -543,16 +543,16 @@ func TestCoverageVectors(t *testing.T) {
 		t.Fatalf("coverage vector file has %d rows, want >= 6", len(cases.A))
 	}
 	for _, tc := range cases.A {
-		name := objStr(tc, "name")
+		name := validation.ObjStr(tc, "name")
 		c := docCamp(t)
-		if _, err := SaveLinks(c, objAt(tc, "links")); err != nil {
+		if _, err := SaveLinks(c, validation.ObjAt(tc, "links")); err != nil {
 			t.Fatal(err)
 		}
 		got, err := Coverage(c)
 		if err != nil {
 			t.Fatal(err)
 		}
-		want := objAt(tc, "expected")
+		want := validation.ObjAt(tc, "expected")
 		if validation.DumpIndented(got) != validation.DumpIndented(want) {
 			t.Errorf("coverage[%s]\n got: %s\nwant: %s", name,
 				validation.DumpIndented(got), validation.DumpIndented(want))
@@ -712,7 +712,7 @@ func (s *scenarioChecker) check(label string) {
 		s.t.Fatalf("extra step %q (golden has %d)", label, len(s.steps.A))
 	}
 	row := s.steps.A[s.i]
-	if got := objStr(row, "label"); got != label {
+	if got := validation.ObjStr(row, "label"); got != label {
 		s.t.Fatalf("step %d label = %q, want %q", s.i, got, label)
 	}
 	links, err := LoadLinks(s.c)
@@ -720,7 +720,7 @@ func (s *scenarioChecker) check(label string) {
 		s.t.Fatal(err)
 	}
 	if got, want := validation.DumpIndented(links),
-		validation.DumpIndented(objAt(row, "links")); got != want {
+		validation.DumpIndented(validation.ObjAt(row, "links")); got != want {
 		s.t.Errorf("links after %q\n got: %s\nwant: %s", label, got, want)
 	}
 	s.i++
@@ -775,7 +775,7 @@ func replayScenario(t *testing.T, c *state.Campaign,
 		t.Fatal(err)
 	}
 	links.O = validation.SetOrAppend(links.O, "invariants", setObjKey(
-		objAt(links, "invariants"), "INV-4", validation.VObj(
+		validation.ObjAt(links, "invariants"), "INV-4", validation.VObj(
 			kv("statement", validation.VStr("legacy claim")),
 			kv("status", validation.VStr("held")),
 			kv("findings", validation.VArr()),
@@ -829,7 +829,7 @@ func TestLoadLinksDefaultsToEmptyRegistry(t *testing.T) {
 		t.Fatalf("fresh links = %s, want only an invariants key",
 			validation.DumpIndented(links))
 	}
-	if got := len(objAt(links, "invariants").O); got != 0 {
+	if got := len(validation.ObjAt(links, "invariants").O); got != 0 {
 		t.Errorf("registry size = %d, want 0", got)
 	}
 	if _, err := os.Stat(linksPath(c)); err == nil {
@@ -890,7 +890,7 @@ func livenessMachinesModel() validation.Value {
 // machine — the partial-coverage shape the gate must refuse.
 func livenessModelCovering(machine string) validation.Value {
 	model := livenessMachinesModel()
-	invs := objAt(model, "invariants")
+	invs := validation.ObjAt(model, "invariants")
 	first := invs.A[0]
 	first.O = validation.SetOrAppend(first.O, "kind",
 		validation.VStr("liveness"))
@@ -920,7 +920,7 @@ func TestPartialLivenessCoverageRefused(t *testing.T) {
 	if lerr != nil {
 		t.Fatal(lerr)
 	}
-	if got := len(objAt(links, "invariants").O); got != 0 {
+	if got := len(validation.ObjAt(links, "invariants").O); got != 0 {
 		t.Errorf("refused load left %d registry entries, want 0", got)
 	}
 	if _, serr := os.Stat(linksPath(c)); serr == nil {
@@ -931,7 +931,7 @@ func TestPartialLivenessCoverageRefused(t *testing.T) {
 		t.Fatal(eerr)
 	}
 	for _, e := range events {
-		if objStr(e, "type") == "invariants.liveness_template" {
+		if validation.ObjStr(e, "type") == "invariants.liveness_template" {
 			t.Errorf("refused load logged a liveness template event")
 		}
 	}
@@ -946,7 +946,7 @@ func TestZeroLivenessStillSynthesizes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(objAt(objAt(links, "invariants"), "INV-4"), "synthesized") != "liveness-template" {
+	if validation.ObjStr(validation.ObjAt(validation.ObjAt(links, "invariants"), "INV-4"), "synthesized") != "liveness-template" {
 		t.Fatalf("template synthesis regressed")
 	}
 }
@@ -957,7 +957,7 @@ func TestZeroLivenessStillSynthesizes(t *testing.T) {
 func TestFullLivenessCoverageNeedsNoTemplate(t *testing.T) {
 	c := invCamp(t)
 	model := livenessMachinesModel()
-	invs := objAt(model, "invariants")
+	invs := validation.ObjAt(model, "invariants")
 	invs.A = append(invs.A, validation.VObj(
 		kv("id", validation.VStr("INV-4")),
 		kv("statement", validation.VStr(
@@ -974,7 +974,7 @@ func TestFullLivenessCoverageNeedsNoTemplate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("full coverage refused: %v", err)
 	}
-	if got := objStr(objAt(objAt(links, "invariants"), "INV-4"),
+	if got := validation.ObjStr(validation.ObjAt(validation.ObjAt(links, "invariants"), "INV-4"),
 		"synthesized"); got != "" {
 		t.Errorf("full coverage synthesized a template (synthesized=%q)", got)
 	}
@@ -982,7 +982,7 @@ func TestFullLivenessCoverageNeedsNoTemplate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("re-seed with full coverage refused: %v", err)
 	}
-	if hasKey(objAt(links, "invariants"), "INV-5") {
+	if hasKey(validation.ObjAt(links, "invariants"), "INV-5") {
 		t.Errorf("re-seed synthesized a duplicate template (INV-5)")
 	}
 }
@@ -1021,11 +1021,11 @@ func TestVerifyRefusesIrrelevantArtifact(t *testing.T) {
 	if lerr != nil {
 		t.Fatal(lerr)
 	}
-	e := objAt(objAt(links, "invariants"), "INV-2")
-	if got := objStr(e, "verified_by"); got != "" {
+	e := validation.ObjAt(validation.ObjAt(links, "invariants"), "INV-2")
+	if got := validation.ObjStr(e, "verified_by"); got != "" {
 		t.Errorf("verified_by = %q, want empty on a refusal", got)
 	}
-	if got := objStr(e, "status"); got != "UNVERIFIED" {
+	if got := validation.ObjStr(e, "status"); got != "UNVERIFIED" {
 		t.Errorf("status = %q, want UNVERIFIED", got)
 	}
 	events, eerr := c.Events()
@@ -1033,7 +1033,7 @@ func TestVerifyRefusesIrrelevantArtifact(t *testing.T) {
 		t.Fatal(eerr)
 	}
 	for _, ev := range events {
-		if objStr(ev, "type") == "invariant.verified" {
+		if validation.ObjStr(ev, "type") == "invariant.verified" {
 			t.Errorf("a refusal logged invariant.verified")
 		}
 	}
@@ -1070,7 +1070,7 @@ func TestVerifyRefusesNearMissInvariantID(t *testing.T) {
 		artID := registeredArtifact(t, c, "near-miss.md", text)
 		_, err := VerifyInvariantStatement(c, "INV-2", artID)
 		wantErr(t, err, "does not reference INV-2")
-		if got := objStr(objAt(objAt(mustLinks(t, c), "invariants"), "INV-2"),
+		if got := validation.ObjStr(validation.ObjAt(validation.ObjAt(mustLinks(t, c), "invariants"), "INV-2"),
 			"status"); got != "UNVERIFIED" {
 			t.Errorf("%q: status = %q, want UNVERIFIED", text, got)
 		}
@@ -1222,17 +1222,17 @@ func TestVerifyRecordsOperatorAttestationProvenance(t *testing.T) {
 	if got := VerificationMethod(entry); got != "operator-attestation" {
 		t.Errorf("returned entry method = %q, want operator-attestation", got)
 	}
-	stored := objAt(objAt(mustLinks(t, c), "invariants"), "INV-2")
-	if got := objStr(stored, "verification_method"); got != "operator-attestation" {
+	stored := validation.ObjAt(validation.ObjAt(mustLinks(t, c), "invariants"), "INV-2")
+	if got := validation.ObjStr(stored, "verification_method"); got != "operator-attestation" {
 		t.Errorf("stored method = %q, want operator-attestation", got)
 	}
 	if got := VerificationMethod(stored); got != "operator-attestation" {
 		t.Errorf("helper over the stored entry = %q", got)
 	}
-	if got := objStr(stored, "verified_by"); got != artID {
+	if got := validation.ObjStr(stored, "verified_by"); got != artID {
 		t.Errorf("verified_by = %q, want %q (artifact ref retained)", got, artID)
 	}
-	if got := objStr(stored, "status"); got != "CHECKED_AGAINST_CODE" {
+	if got := validation.ObjStr(stored, "status"); got != "CHECKED_AGAINST_CODE" {
 		t.Errorf("status = %q, want CHECKED_AGAINST_CODE (compatibility)", got)
 	}
 	events, err := c.Events()
@@ -1241,15 +1241,15 @@ func TestVerifyRecordsOperatorAttestationProvenance(t *testing.T) {
 	}
 	seen := 0
 	for _, ev := range events {
-		if objStr(ev, "type") != "invariant.verified" ||
-			objStr(ev, "ref") != "INV-2" {
+		if validation.ObjStr(ev, "type") != "invariant.verified" ||
+			validation.ObjStr(ev, "ref") != "INV-2" {
 			continue
 		}
 		seen++
-		if got := objStr(objAt(ev, "data"), "artifact"); got != artID {
+		if got := validation.ObjStr(validation.ObjAt(ev, "data"), "artifact"); got != artID {
 			t.Errorf("event artifact = %q, want %q", got, artID)
 		}
-		if got := objStr(objAt(ev, "data"), "verification_method"); got != "operator-attestation" {
+		if got := validation.ObjStr(validation.ObjAt(ev, "data"), "verification_method"); got != "operator-attestation" {
 			t.Errorf("event method = %q, want operator-attestation", got)
 		}
 	}
@@ -1346,8 +1346,8 @@ func TestVerifyPreservesExistingVerificationHarness(t *testing.T) {
 	)
 	verification := validation.VObj(kv("harness", harness))
 	links := mustLinks(t, c)
-	reg := objAt(links, "invariants")
-	e := objAt(reg, "INV-2")
+	reg := validation.ObjAt(links, "invariants")
+	e := validation.ObjAt(reg, "INV-2")
 	e.O = validation.SetOrAppend(e.O, "verification", verification)
 	reg.O = validation.SetOrAppend(reg.O, "INV-2", e)
 	links = setObjKey(links, "invariants", reg)
@@ -1360,8 +1360,8 @@ func TestVerifyPreservesExistingVerificationHarness(t *testing.T) {
 	if _, err := VerifyInvariantStatement(c, "INV-2", artID); err != nil {
 		t.Fatal(err)
 	}
-	got := objAt(objAt(mustLinks(t, c), "invariants"), "INV-2")
-	if after := validation.CanonCompact(objAt(got, "verification")); after != wantVerification {
+	got := validation.ObjAt(validation.ObjAt(mustLinks(t, c), "invariants"), "INV-2")
+	if after := validation.CanonCompact(validation.ObjAt(got, "verification")); after != wantVerification {
 		t.Fatalf("verification subtree moved:\n before %s\n after  %s",
 			wantVerification, after)
 	}
@@ -1370,7 +1370,7 @@ func TestVerifyPreservesExistingVerificationHarness(t *testing.T) {
 			t.Errorf("attestation manufactured a top-level %q", key)
 		}
 	}
-	if n := len(objAt(got, "tests").A); n != 0 {
+	if n := len(validation.ObjAt(got, "tests").A); n != 0 {
 		t.Errorf("attestation manufactured %d test outcome(s)", n)
 	}
 }
@@ -1389,10 +1389,10 @@ func TestVerifyRefusalLeavesAttestationAbsent(t *testing.T) {
 	if _, err := VerifyInvariantStatement(c, "INV-2", artID); err == nil {
 		t.Fatal("irrelevant artifact was accepted")
 	}
-	stored := objAt(objAt(mustLinks(t, c), "invariants"), "INV-2")
+	stored := validation.ObjAt(validation.ObjAt(mustLinks(t, c), "invariants"), "INV-2")
 	if hasKey(stored, "verification_method") {
 		t.Errorf("refusal wrote a method: %q",
-			objStr(stored, "verification_method"))
+			validation.ObjStr(stored, "verification_method"))
 	}
 	if got := VerificationMethod(stored); got != "legacy-unspecified" {
 		t.Errorf("refusal method = %q, want legacy-unspecified", got)

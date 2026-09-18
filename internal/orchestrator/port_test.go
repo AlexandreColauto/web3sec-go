@@ -179,8 +179,8 @@ func portEvidenceItem(execRec validation.Value, level, typ, description,
 		kvOf("level", validation.VStr(level)),
 		kvOf("type", validation.VStr(typ)),
 		kvOf("description", validation.VStr(description)),
-		kvOf("sandbox_profile", objAt(execRec, "profile")),
-		kvOf("artifact_id", objAt(execRec, "exec_id")),
+		kvOf("sandbox_profile", validation.ObjAt(execRec, "profile")),
+		kvOf("artifact_id", validation.ObjAt(execRec, "exec_id")),
 	)
 }
 
@@ -264,7 +264,7 @@ func portMakeSubmissionReady(t *testing.T, c *state.Campaign, findingID,
 	if err != nil {
 		t.Fatalf("reload finding: %v", err)
 	}
-	ei := objAt(f, "economic_impact")
+	ei := validation.ObjAt(f, "economic_impact")
 	if ei.Kind != validation.Obj {
 		ei = validation.VObj()
 	}
@@ -438,7 +438,7 @@ func portStepIndex(t *testing.T, o *Orchestrator,
 	if err != nil {
 		t.Fatalf("build_structural_index: %v", err)
 	}
-	stats := objAt(index, "stats")
+	stats := validation.ObjAt(index, "stats")
 	if intAt(stats, "functions") < 1 {
 		t.Fatalf("stats.functions = %d, want >= 1", intAt(stats, "functions"))
 	}
@@ -478,7 +478,7 @@ func portStepModel(t *testing.T, o *Orchestrator,
 		t.Fatalf("invariants.load_links: %v", err)
 	}
 	liveness := 0
-	for _, kv := range objAt(links, "invariants").O {
+	for _, kv := range validation.ObjAt(links, "invariants").O {
 		e := kv.V
 		if strAt(e, "kind") != "liveness" {
 			continue
@@ -548,7 +548,7 @@ func portStepTriage(t *testing.T, o *Orchestrator, c *state.Campaign,
 		if _, ok := all[fid]; !ok {
 			t.Fatalf("triage row %s is not a live finding", fid)
 		}
-		prios[fid] = numAt(objAt(row, "prior"), "score")
+		prios[fid] = numAt(validation.ObjAt(row, "prior"), "score")
 	}
 	h1id := strAt(h1, "finding_id")
 	h3id := strAt(h3, "finding_id")
@@ -650,7 +650,7 @@ func portStepVerdict(t *testing.T, c *state.Campaign, fid string) {
 	if err != nil {
 		t.Fatalf("load finding: %v", err)
 	}
-	ver := objAt(vf, "verification")
+	ver := validation.ObjAt(vf, "verification")
 	if ver.Kind != validation.Obj {
 		ver = validation.VObj()
 	}
@@ -664,7 +664,7 @@ func portStepVerdict(t *testing.T, c *state.Campaign, fid string) {
 		kvOf("blast_radius", validation.VStr("protocol-solvency")),
 		kvOf("extractable_usd", validation.VInt(50000000)),
 	))
-	inv := objAt(vf, "invariant")
+	inv := validation.ObjAt(vf, "invariant")
 	if inv.Kind != validation.Obj {
 		inv = validation.VObj()
 	}
@@ -724,7 +724,7 @@ func portStepCalibration(t *testing.T, o *Orchestrator, c *state.Campaign,
 	if err != nil {
 		t.Fatalf("reload calibrated: %v", err)
 	}
-	band := strAt(objAt(objAt(calibrated, "risk"), "validated"), "band")
+	band := strAt(validation.ObjAt(validation.ObjAt(calibrated, "risk"), "validated"), "band")
 	if band != "critical" && band != "high" {
 		t.Fatalf("validated band = %s, want critical|high", band)
 	}
@@ -788,7 +788,7 @@ func portStepEndState(t *testing.T, o *Orchestrator) {
 	if err != nil {
 		t.Fatalf("status: %v", err)
 	}
-	counts := objAt(st, "findings")
+	counts := validation.ObjAt(st, "findings")
 	if intAt(counts, "CONFIRMED") != 1 {
 		t.Fatalf("status CONFIRMED = %d, want 1", intAt(counts, "CONFIRMED"))
 	}

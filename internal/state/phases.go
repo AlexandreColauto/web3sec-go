@@ -45,12 +45,12 @@ func (c *Campaign) SetPhase(phase, reason string) error {
 	if err != nil {
 		return err
 	}
-	prev := objStr(st, "phase")
+	prev := validation.ObjStr(st, "phase")
 	if prev == phase {
 		return nil
 	}
 	st.O = validation.SetOrAppend(st.O, "phase", validation.VStr(phase))
-	hist := objAt(st, "phase_history")
+	hist := validation.ObjAt(st, "phase_history")
 	hist.A = append(hist.A, validation.VObj(
 		kv("at", validation.VStr(nowIso())),
 		kv("from", validation.VStr(prev)),
@@ -177,7 +177,7 @@ func (c *Campaign) Budget() (validation.Value, error) {
 	if err != nil {
 		return validation.VNull(), err
 	}
-	return objAt(st, "budget"), nil
+	return validation.ObjAt(st, "budget"), nil
 }
 
 // ConsumeDiscoverySlot is consume_discovery_slot: increment the counter.
@@ -194,8 +194,8 @@ func (c *Campaign) ConsumeDiscoverySlot() error {
 	if err != nil {
 		return err
 	}
-	b := objAt(st, "budget")
-	v := objAt(b, "discovery_findings_so_far")
+	b := validation.ObjAt(st, "budget")
+	v := validation.ObjAt(b, "discovery_findings_so_far")
 	b.O = validation.SetOrAppend(b.O, "discovery_findings_so_far", validation.VInt(v.I+1))
 	st.O = validation.SetOrAppend(st.O, "budget", b)
 	return c.save(st)
@@ -219,8 +219,8 @@ func (c *Campaign) SetCostCeiling(ceil *validation.Value, actor string) (validat
 	if err != nil {
 		return validation.VNull(), err
 	}
-	b := objAt(st, "budget")
-	old := objAt(b, "max_total_cost_usd")
+	b := validation.ObjAt(st, "budget")
+	old := validation.ObjAt(b, "max_total_cost_usd")
 	newV := validation.VNull()
 	if ceil != nil {
 		newV = *ceil
@@ -245,7 +245,7 @@ func (c *Campaign) SetCostCeiling(ceil *validation.Value, actor string) (validat
 		}
 		return validation.VNull(), lerr
 	}
-	return objAt(st, "budget"), nil
+	return validation.ObjAt(st, "budget"), nil
 }
 
 // SetDiscoveryBudget is set_discovery_budget: set the deterministic
@@ -271,8 +271,8 @@ func (c *Campaign) SetDiscoveryBudget(maxFindings int64, actor string) (validati
 	if err != nil {
 		return validation.VNull(), err
 	}
-	b := objAt(st, "budget")
-	old := objAt(b, "max_discovery_findings")
+	b := validation.ObjAt(st, "budget")
+	old := validation.ObjAt(b, "max_discovery_findings")
 	b.O = validation.SetOrAppend(b.O, "max_discovery_findings", validation.VInt(maxFindings))
 	st.O = validation.SetOrAppend(st.O, "budget", b)
 	if err := c.save(st); err != nil {
@@ -293,5 +293,5 @@ func (c *Campaign) SetDiscoveryBudget(maxFindings int64, actor string) (validati
 		}
 		return validation.VNull(), lerr
 	}
-	return objAt(st, "budget"), nil
+	return validation.ObjAt(st, "budget"), nil
 }

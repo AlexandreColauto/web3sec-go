@@ -124,7 +124,7 @@ func TestPrescreenForceAppendsAndPersists(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(doc.A) != 1 || objStr(doc.A[0], "archetype_id") != "uninitialized-proxy" {
+	if len(doc.A) != 1 || validation.ObjStr(doc.A[0], "archetype_id") != "uninitialized-proxy" {
 		t.Fatalf("overrides = %v", doc)
 	}
 	// repeatable: a second --force appends rather than replacing
@@ -161,7 +161,7 @@ func TestPrescreenJSON(t *testing.T) {
 	if err != nil {
 		t.Fatalf("output is not JSON: %v\n%s", err, out)
 	}
-	if objStr(rep, "snapshot_id") == "" {
+	if validation.ObjStr(rep, "snapshot_id") == "" {
 		t.Fatal("snapshot_id missing")
 	}
 	matched := strListAtCLI(rep, "matched_ids")
@@ -170,7 +170,7 @@ func TestPrescreenJSON(t *testing.T) {
 	}
 	found := false
 	for _, row := range listAtCLI(rep, "results") {
-		if objStr(row, "id") == "unguarded-initialize" {
+		if validation.ObjStr(row, "id") == "unguarded-initialize" {
 			found = boolAtCLI(row, "match")
 		}
 	}

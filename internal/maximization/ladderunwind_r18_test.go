@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"websec/internal/validation"
 
 	"websec/internal/findings"
 )
@@ -20,7 +21,7 @@ import (
 func TestRefusedLadderStartLeavesNothingToHide(t *testing.T) {
 	c := newCampaign(t, "Ladder Burn")
 	f := confirmedFinding(t, c, "Fee skim via rounding")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	// Kill the ledger under the verb.
 	if err := os.WriteFile(c.EventsPath, []byte("{\"broken\n"), 0o644); err != nil {
 		t.Fatal(err)
@@ -67,7 +68,7 @@ func TestRefusedLadderStartLeavesNothingToHide(t *testing.T) {
 func TestFailedFindingSaveLeavesNoOrphanLadder(t *testing.T) {
 	c := newCampaign(t, "Orphan Burn")
 	f := confirmedFinding(t, c, "Flash-loan price manipulation")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	fdir := filepath.Join(c.Dir, "findings")
 	if err := os.Chmod(fdir, 0o555); err != nil {
 		t.Fatal(err)

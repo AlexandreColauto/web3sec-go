@@ -41,7 +41,7 @@ func pinnedWithManifest(t *testing.T) (*state.Campaign, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sid := objStr(snap, "snapshot_id")
+	sid := validation.ObjStr(snap, "snapshot_id")
 	if sid == "" {
 		t.Fatalf("no snapshot_id from pin: %v", snap)
 	}
@@ -87,9 +87,9 @@ func TestAuditDetectsEditedManifest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sections := objAt(report, "sections")
-	snaps := objAt(sections, "snapshots")
-	if objAt(snaps, "ok").B {
+	sections := validation.ObjAt(report, "sections")
+	snaps := validation.ObjAt(sections, "snapshots")
+	if validation.ObjAt(snaps, "ok").B {
 		t.Fatalf("an edited manifest must fail the snapshots section: %v",
 			problemsOf(report, "snapshots"))
 	}
@@ -113,8 +113,8 @@ func TestLegacySnapshotWithoutManifestStillAuditsClean(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	snaps := objAt(objAt(report, "sections"), "snapshots")
-	if !objAt(snaps, "ok").B {
+	snaps := validation.ObjAt(validation.ObjAt(report, "sections"), "snapshots")
+	if !validation.ObjAt(snaps, "ok").B {
 		t.Fatalf("a legacy pin without a manifest must audit clean: %v",
 			problemsOf(report, "snapshots"))
 	}

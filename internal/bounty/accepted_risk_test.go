@@ -29,8 +29,8 @@ func policyWithAcceptedRisk() validation.Value {
 }
 
 func checkRow(result validation.Value, name string) validation.Value {
-	for _, ck := range objAt(result, "policy_checks").A {
-		if objStr(ck, "check") == name {
+	for _, ck := range validation.ObjAt(result, "policy_checks").A {
+		if validation.ObjStr(ck, "check") == name {
 			return ck
 		}
 	}
@@ -45,36 +45,36 @@ func TestAcceptedRiskHitBlocksAndRecords(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objAt(result, "submission_ready"); got.Kind != validation.Bool || got.B {
+	if got := validation.ObjAt(result, "submission_ready"); got.Kind != validation.Bool || got.B {
 		t.Errorf("submission_ready = %s, want False (accepted risk blocks)",
 			validation.PyRepr(got))
 	}
-	if !anyContains(objAt(result, "blocking_reasons"), "accepted risk") {
+	if !anyContains(validation.ObjAt(result, "blocking_reasons"), "accepted risk") {
 		t.Errorf("no accepted-risk blocker in %s",
-			validation.CanonCompact(objAt(result, "blocking_reasons")))
+			validation.CanonCompact(validation.ObjAt(result, "blocking_reasons")))
 	}
 	row := checkRow(result, "accepted-risk")
 	if row.Kind == validation.Null {
 		t.Fatal("no accepted-risk row in policy_checks")
 	}
-	if objStr(row, "result") != "fail" {
-		t.Errorf("accepted-risk result = %s, want fail", objStr(row, "result"))
+	if validation.ObjStr(row, "result") != "fail" {
+		t.Errorf("accepted-risk result = %s, want fail", validation.ObjStr(row, "result"))
 	}
-	if !strings.Contains(objStr(row, "detail"), "not submittable") {
-		t.Errorf("accepted-risk detail = %q", objStr(row, "detail"))
+	if !strings.Contains(validation.ObjStr(row, "detail"), "not submittable") {
+		t.Errorf("accepted-risk detail = %q", validation.ObjStr(row, "detail"))
 	}
 	stored, err := findings.LoadFinding(c, fid)
 	if err != nil {
 		t.Fatal(err)
 	}
-	ar := objAt(objAt(stored, "bounty"), "accepted_risk")
-	if objStr(ar, "pattern") != "price skew" {
-		t.Errorf("recorded pattern = %q", objStr(ar, "pattern"))
+	ar := validation.ObjAt(validation.ObjAt(stored, "bounty"), "accepted_risk")
+	if validation.ObjStr(ar, "pattern") != "price skew" {
+		t.Errorf("recorded pattern = %q", validation.ObjStr(ar, "pattern"))
 	}
-	if objStr(ar, "kind") != "known-issue" {
-		t.Errorf("recorded kind = %q", objStr(ar, "kind"))
+	if validation.ObjStr(ar, "kind") != "known-issue" {
+		t.Errorf("recorded kind = %q", validation.ObjStr(ar, "kind"))
 	}
-	if objStr(ar, "reference") == "" {
+	if validation.ObjStr(ar, "reference") == "" {
 		t.Error("recorded reference missing")
 	}
 }
@@ -97,28 +97,28 @@ func TestAcceptedRiskWaiverUnblocks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objAt(result, "submission_ready"); got.Kind != validation.Bool || !got.B {
+	if got := validation.ObjAt(result, "submission_ready"); got.Kind != validation.Bool || !got.B {
 		t.Errorf("submission_ready = %s, want True (waiver unblocks)",
 			validation.PyRepr(got))
 	}
 	row := checkRow(result, "accepted-risk")
-	if objStr(row, "result") != "pass" {
+	if validation.ObjStr(row, "result") != "pass" {
 		t.Errorf("accepted-risk result = %s, want pass (waived)",
-			objStr(row, "result"))
+			validation.ObjStr(row, "result"))
 	}
-	if !strings.Contains(objStr(row, "detail"), "waived by bob") {
+	if !strings.Contains(validation.ObjStr(row, "detail"), "waived by bob") {
 		t.Errorf("accepted-risk detail = %q, want 'waived by bob'",
-			objStr(row, "detail"))
+			validation.ObjStr(row, "detail"))
 	}
-	if anyContains(objAt(result, "blocking_reasons"), "accepted risk") {
+	if anyContains(validation.ObjAt(result, "blocking_reasons"), "accepted risk") {
 		t.Errorf("accepted-risk blocker survived the waiver: %s",
-			validation.CanonCompact(objAt(result, "blocking_reasons")))
+			validation.CanonCompact(validation.ObjAt(result, "blocking_reasons")))
 	}
 	stored, err := findings.LoadFinding(c, fid)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(objAt(objAt(stored, "bounty"), "accepted_risk"), "pattern"); got != "price skew" {
+	if got := validation.ObjStr(validation.ObjAt(validation.ObjAt(stored, "bounty"), "accepted_risk"), "pattern"); got != "price skew" {
 		t.Errorf("waived finding must keep the record; pattern = %q", got)
 	}
 
@@ -136,7 +136,7 @@ func TestAcceptedRiskWaiverUnblocks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objAt(result2, "submission_ready"); got.Kind != validation.Bool || got.B {
+	if got := validation.ObjAt(result2, "submission_ready"); got.Kind != validation.Bool || got.B {
 		t.Errorf("submission_ready = %s, want False (waiver addressed elsewhere)",
 			validation.PyRepr(got))
 	}
@@ -167,20 +167,20 @@ func TestAcceptedRiskSuppressesSamePatternExclusion(t *testing.T) {
 		t.Fatal(err)
 	}
 	known := checkRow(result, "known-issue-check")
-	if objStr(known, "result") != "pass" {
+	if validation.ObjStr(known, "result") != "pass" {
 		t.Errorf("known-issue-check = %s, want pass (suppressed)",
-			objStr(known, "result"))
+			validation.ObjStr(known, "result"))
 	}
-	if !strings.Contains(objStr(known, "detail"), "suppressed") {
+	if !strings.Contains(validation.ObjStr(known, "detail"), "suppressed") {
 		t.Errorf("known-issue-check detail = %q, want the suppression note",
-			objStr(known, "detail"))
+			validation.ObjStr(known, "detail"))
 	}
-	if anyContains(objAt(result, "blocking_reasons"), "excluded:") {
+	if anyContains(validation.ObjAt(result, "blocking_reasons"), "excluded:") {
 		t.Errorf("exclusion blocker survived the narrower rule: %s",
-			validation.CanonCompact(objAt(result, "blocking_reasons")))
+			validation.CanonCompact(validation.ObjAt(result, "blocking_reasons")))
 	}
 	// The accepted-risk check still carries the block + the record.
-	if objStr(checkRow(result, "accepted-risk"), "result") != "fail" {
+	if validation.ObjStr(checkRow(result, "accepted-risk"), "result") != "fail" {
 		t.Error("accepted-risk must still fail (the record + block stand)")
 	}
 }
@@ -200,23 +200,23 @@ func TestAcceptedRiskMinSeverityCap(t *testing.T) {
 		t.Fatal(err)
 	}
 	row := checkRow(result, "accepted-risk")
-	if objStr(row, "result") != "fail" {
+	if validation.ObjStr(row, "result") != "fail" {
 		t.Fatalf("accepted-risk result = %s, want fail (not honored)",
-			objStr(row, "result"))
+			validation.ObjStr(row, "result"))
 	}
-	if !strings.Contains(objStr(row, "detail"), "does not apply") {
-		t.Errorf("detail = %q, want the not-honored note", objStr(row, "detail"))
+	if !strings.Contains(validation.ObjStr(row, "detail"), "does not apply") {
+		t.Errorf("detail = %q, want the not-honored note", validation.ObjStr(row, "detail"))
 	}
-	if !anyContains(objAt(result, "blocking_reasons"), "not honored") {
+	if !anyContains(validation.ObjAt(result, "blocking_reasons"), "not honored") {
 		t.Errorf("blocker must name the cap: %s",
-			validation.CanonCompact(objAt(result, "blocking_reasons")))
+			validation.CanonCompact(validation.ObjAt(result, "blocking_reasons")))
 	}
 	// No record when the acceptance does not apply.
 	stored, err := findings.LoadFinding(c, fid)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, had := fieldAt(objAt(stored, "bounty"), "accepted_risk"); had {
+	if _, had := fieldAt(validation.ObjAt(stored, "bounty"), "accepted_risk"); had {
 		t.Error("a voided acceptance must not record on the finding")
 	}
 
@@ -234,7 +234,7 @@ func TestAcceptedRiskMinSeverityCap(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(objAt(objAt(stored2, "bounty"), "accepted_risk"), "pattern"); got != "price skew" {
+	if got := validation.ObjStr(validation.ObjAt(validation.ObjAt(stored2, "bounty"), "accepted_risk"), "pattern"); got != "price skew" {
 		t.Errorf("below-floor acceptance must record; pattern = %q", got)
 	}
 }
@@ -331,9 +331,9 @@ func TestAcceptedRiskIgnoresMitigationPresent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rec1 := validation.CanonCompact(objAt(objAt(s1, "bounty"),
+	rec1 := validation.CanonCompact(validation.ObjAt(validation.ObjAt(s1, "bounty"),
 		"accepted_risk"))
-	rec2 := validation.CanonCompact(objAt(objAt(s2, "bounty"),
+	rec2 := validation.CanonCompact(validation.ObjAt(validation.ObjAt(s2, "bounty"),
 		"accepted_risk"))
 	if rec1 != rec2 {
 		t.Errorf("stored record moved with mitigation:\n %s\n %s",
@@ -343,7 +343,7 @@ func TestAcceptedRiskIgnoresMitigationPresent(t *testing.T) {
 	// in the mitigation JSON, never here).
 	for _, banned := range []string{"file", "line", "evidence",
 		"mitigation_present"} {
-		if _, ok := fieldAt(objAt(objAt(s2, "bounty"), "accepted_risk"),
+		if _, ok := fieldAt(validation.ObjAt(validation.ObjAt(s2, "bounty"), "accepted_risk"),
 			banned); ok {
 			t.Errorf("accepted_risk record carries soundness key %q",
 				banned)
@@ -364,8 +364,8 @@ func TestAcceptedRiskReferenceURLRidesThrough(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rec := objAt(objAt(stored, "bounty"), "accepted_risk")
-	if got := objStr(rec, "reference_url"); got !=
+	rec := validation.ObjAt(validation.ObjAt(stored, "bounty"), "accepted_risk")
+	if got := validation.ObjStr(rec, "reference_url"); got !=
 		"https://immunefi.com/acme/scope#price-skew" {
 		t.Errorf("reference_url = %q, want the policy URL", got)
 	}
@@ -379,7 +379,7 @@ func TestAcceptedRiskReferenceURLRidesThrough(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rec2 := objAt(objAt(stored2, "bounty"), "accepted_risk")
+	rec2 := validation.ObjAt(validation.ObjAt(stored2, "bounty"), "accepted_risk")
 	if _, ok := fieldAt(rec2, "reference_url"); ok {
 		t.Errorf("record gained reference_url unasked: %s",
 			validation.CanonCompact(rec2))

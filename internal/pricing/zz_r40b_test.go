@@ -109,7 +109,7 @@ func TestR40BRefusedSetPriceLeavesTableByteIdentical(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if n := len(objAt(table, "prices").A); n != 1 {
+	if n := len(validation.ObjAt(table, "prices").A); n != 1 {
 		t.Fatalf("rows after the refusal = %d, want 1 (the honest ETH row)", n)
 	}
 	// Repair (restore the cut tail), then the retry lands exactly ONE new
@@ -125,12 +125,12 @@ func TestR40BRefusedSetPriceLeavesTableByteIdentical(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if n := len(objAt(table, "prices").A); n != 2 {
+	if n := len(validation.ObjAt(table, "prices").A); n != 2 {
 		t.Fatalf("rows after the retry = %d, want 2 (ETH + exactly one WETH)", n)
 	}
-	for _, r := range objAt(table, "prices").A {
-		if objStr(r, "asset") == "WETH" &&
-			objStr(r, "price_id") != objStr(row, "price_id") {
+	for _, r := range validation.ObjAt(table, "prices").A {
+		if validation.ObjStr(r, "asset") == "WETH" &&
+			validation.ObjStr(r, "price_id") != validation.ObjStr(row, "price_id") {
 			t.Fatal("the ghost row survived the retry")
 		}
 	}

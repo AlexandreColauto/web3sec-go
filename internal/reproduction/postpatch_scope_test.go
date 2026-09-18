@@ -244,7 +244,7 @@ func stubScopePlant(t *testing.T, verdict map[string][2]string) {
 					V: validation.VStr(typ)}))}), nil
 		},
 		EvalCheck: func(check, _ validation.Value) (string, string, error) {
-			got := verdict[objStr(check, "type")]
+			got := verdict[validation.ObjStr(check, "type")]
 			return got[0], got[1], nil
 		},
 	})

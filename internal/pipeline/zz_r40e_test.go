@@ -58,7 +58,7 @@ func r40eEventCount(t *testing.T, c *state.Campaign, eventType string) int {
 	}
 	n := 0
 	for _, e := range evts {
-		if objStr(e, "type") == eventType {
+		if validation.ObjStr(e, "type") == eventType {
 			n++
 		}
 	}
@@ -74,7 +74,7 @@ func r40ePipelineEvents(t *testing.T, c *state.Campaign) int {
 	}
 	n := 0
 	for _, e := range evts {
-		if strings.HasPrefix(objStr(e, "type"), "pipeline.") {
+		if strings.HasPrefix(validation.ObjStr(e, "type"), "pipeline.") {
 			n++
 		}
 	}
@@ -160,7 +160,7 @@ func TestR40ERefusedStageFailedEventKeepsTheHonestFailureNote(t *testing.T) {
 	if serr != nil {
 		t.Fatal(serr)
 	}
-	if got := objStr(st, "phase"); got != "SCOPE" {
+	if got := validation.ObjStr(st, "phase"); got != "SCOPE" {
 		t.Fatalf("phase = %q, want SCOPE: SetPhase unwound its own write, so "+
 			"the phase must NOT ride a refused event", got)
 	}
@@ -312,7 +312,7 @@ func TestR40ERefusedBlockedEventKeepsTheNeedsModelRecord(t *testing.T) {
 	if err != nil {
 		t.Fatalf("retry on a repaired ledger: %v", err)
 	}
-	if got := objStr(summary, "status"); got != "needs-model" {
+	if got := validation.ObjStr(summary, "status"); got != "needs-model" {
 		t.Fatalf("retry status = %q, want needs-model", got)
 	}
 	if got := r40eEventCount(t, e.c, "pipeline.blocked"); got != 2 {
@@ -391,7 +391,7 @@ func TestR40EHealthyPipelinesStillWork(t *testing.T) {
 	if err != nil {
 		t.Fatalf("honest run refused: %v", err)
 	}
-	if got := objStr(summary, "status"); got != "needs-model" {
+	if got := validation.ObjStr(summary, "status"); got != "needs-model" {
 		t.Fatalf("status = %q, want needs-model", got)
 	}
 	if got := e.stageStatus(t, "protocol-model"); got != "needs-model" {

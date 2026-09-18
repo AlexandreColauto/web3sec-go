@@ -74,7 +74,7 @@ func reconSurfacePtr(t *testing.T, rows ...string) *validation.Value {
 func reconLens(t *testing.T, plan validation.Value, lid string) validation.Value {
 	t.Helper()
 	for _, l := range listOf(plan, "lenses") {
-		if objStr(l, "id") == lid {
+		if validation.ObjStr(l, "id") == lid {
 			return l
 		}
 	}
@@ -90,8 +90,8 @@ func TestParseReconcileShape(t *testing.T) {
 	if err != nil {
 		t.Fatalf("finding form: %v", err)
 	}
-	if len(recs) != 1 || objStr(recs[0], "row_id") != "divrow1" ||
-		objStr(recs[0], "finding") != "F-1a2b3c4d5e6f" {
+	if len(recs) != 1 || validation.ObjStr(recs[0], "row_id") != "divrow1" ||
+		validation.ObjStr(recs[0], "finding") != "F-1a2b3c4d5e6f" {
 		t.Fatalf("finding record = %s", validation.CanonCompact(recs[0]))
 	}
 	if got := listOf(recs[0], "cites"); len(got) != 0 {
@@ -102,14 +102,14 @@ func TestParseReconcileShape(t *testing.T) {
 	if err != nil {
 		t.Fatalf("cite form: %v", err)
 	}
-	if len(recs) != 1 || objStr(recs[0], "finding") != "" {
-		t.Fatalf("cite record finding = %q", objStr(recs[0], "finding"))
+	if len(recs) != 1 || validation.ObjStr(recs[0], "finding") != "" {
+		t.Fatalf("cite record finding = %q", validation.ObjStr(recs[0], "finding"))
 	}
 	if got := listOf(recs[0], "cites"); len(got) != 2 {
 		t.Fatalf("cite record carries %d cites", len(got))
 	}
-	if objStr(recs[0], "row_id") != "divrow1" {
-		t.Fatalf("row_id = %q", objStr(recs[0], "row_id"))
+	if validation.ObjStr(recs[0], "row_id") != "divrow1" {
+		t.Fatalf("row_id = %q", validation.ObjStr(recs[0], "row_id"))
 	}
 	// two entries, ';' separated
 	spec = reconGoodSpec + ";divrow2=F-1a2b3c4d5e6f"
@@ -163,13 +163,13 @@ func TestLensReconciliationAccepted(t *testing.T) {
 		t.Fatalf("attested closure refused: %v", err)
 	}
 	l := reconLens(t, plan, "L-04")
-	if got := objStr(l, "status"); got != "answered" {
+	if got := validation.ObjStr(l, "status"); got != "answered" {
 		t.Fatalf("status = %q", got)
 	}
 	recs := listOf(l, "reconciliation")
-	if len(recs) != 1 || objStr(recs[0], "row_id") != "divrow1" {
+	if len(recs) != 1 || validation.ObjStr(recs[0], "row_id") != "divrow1" {
 		t.Fatalf("reconciliation = %s", validation.CanonCompact(
-			objAt(l, "reconciliation")))
+			validation.ObjAt(l, "reconciliation")))
 	}
 	if got := listOf(recs[0], "cites"); len(got) != 2 {
 		t.Fatalf("recorded cites = %d, want 2", len(got))
@@ -211,9 +211,9 @@ func TestLensReconciliationFindingExit(t *testing.T) {
 	}
 	l := reconLens(t, plan, "L-04")
 	recs := listOf(l, "reconciliation")
-	if len(recs) != 1 || objStr(recs[0], "finding") != "F-111111111111" {
+	if len(recs) != 1 || validation.ObjStr(recs[0], "finding") != "F-111111111111" {
 		t.Fatalf("recorded finding = %s", validation.CanonCompact(
-			objAt(l, "reconciliation")))
+			validation.ObjAt(l, "reconciliation")))
 	}
 	// a malformed id is answered AS one, not as a shape error at the gate —
 	// a library caller can hand the gate a record past ParseReconcile
@@ -278,7 +278,7 @@ func TestLensReconciliationRefusesUncitedRow(t *testing.T) {
 		t.Fatal(err)
 	}
 	l := reconLens(t, plan, "L-04")
-	if got := objStr(l, "status"); got != "open" {
+	if got := validation.ObjStr(l, "status"); got != "open" {
 		t.Fatalf("refused attestation changed the status to %q", got)
 	}
 	if hasKey(l, "reconciliation") {
@@ -296,8 +296,8 @@ func TestLensReconciliationRefusesUncitedRow(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, e := range evts {
-		if objStr(e, "type") == "plan.lens_status" {
-			t.Fatalf("refused attestation logged %s", objStr(e, "type"))
+		if validation.ObjStr(e, "type") == "plan.lens_status" {
+			t.Fatalf("refused attestation logged %s", validation.ObjStr(e, "type"))
 		}
 	}
 }
@@ -533,7 +533,7 @@ func TestLensReconciliationTerminalFinding(t *testing.T) {
 	}
 	// negative control: the refusal is a decision that did not happen
 	l := reconLens(t, plan, "L-04")
-	if got := objStr(l, "status"); got != "open" {
+	if got := validation.ObjStr(l, "status"); got != "open" {
 		t.Fatalf("refused attestation changed the status to %q", got)
 	}
 	if hasKey(l, "reconciliation") {
@@ -554,9 +554,9 @@ func TestLensReconciliationTerminalFinding(t *testing.T) {
 		t.Fatalf("live finding refused: %v", err)
 	}
 	recs := listOf(reconLens(t, plan, "L-04"), "reconciliation")
-	if len(recs) != 1 || objStr(recs[0], "finding") != live {
+	if len(recs) != 1 || validation.ObjStr(recs[0], "finding") != live {
 		t.Fatalf("recorded finding = %s", validation.CanonCompact(
-			objAt(reconLens(t, plan, "L-04"), "reconciliation")))
+			validation.ObjAt(reconLens(t, plan, "L-04"), "reconciliation")))
 	}
 }
 
@@ -591,7 +591,7 @@ func TestLensReconciliationEmptySpecKeepsStored(t *testing.T) {
 		t.Fatalf("empty spec wiped the stored reconciliation: %d records left",
 			len(recs))
 	}
-	if got := objStr(recs[0], "row_id"); got != "divrow1" {
+	if got := validation.ObjStr(recs[0], "row_id"); got != "divrow1" {
 		t.Fatalf("stored record changed: %s",
 			validation.CanonCompact(recs[0]))
 	}

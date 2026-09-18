@@ -127,15 +127,15 @@ func TestSetAdversarialGame(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	got, err := SetAdversarialGame(c, fid, agWho, agMech, agInter)
 	if err != nil {
 		t.Fatal(err)
 	}
-	ag := objAt(got, "adversarial_game")
-	if objStr(ag, "who_profits") != agWho ||
-		objStr(ag, "profit_mechanism") != agMech ||
-		objStr(ag, "challenge_interplay") != agInter {
+	ag := validation.ObjAt(got, "adversarial_game")
+	if validation.ObjStr(ag, "who_profits") != agWho ||
+		validation.ObjStr(ag, "profit_mechanism") != agMech ||
+		validation.ObjStr(ag, "challenge_interplay") != agInter {
 		t.Errorf("clause = %s", validation.CanonSpaced(ag))
 	}
 	keys := make([]string, 0, len(ag.O))
@@ -149,7 +149,7 @@ func TestSetAdversarialGame(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(objAt(stored, "adversarial_game"), "who_profits") != agWho {
+	if validation.ObjStr(validation.ObjAt(stored, "adversarial_game"), "who_profits") != agWho {
 		t.Error("persisted clause missing")
 	}
 	events, err := c.Events()
@@ -158,19 +158,19 @@ func TestSetAdversarialGame(t *testing.T) {
 	}
 	n, ev := 0, validation.VNull()
 	for _, e := range events {
-		if objStr(e, "type") == "finding.adversarial_game_set" {
+		if validation.ObjStr(e, "type") == "finding.adversarial_game_set" {
 			n, ev = n+1, e
 		}
 	}
 	if n != 1 {
 		t.Fatalf("adversarial_game_set events = %d, want 1", n)
 	}
-	data := objAt(ev, "data")
-	if objAt(data, "who_profits_chars").I !=
+	data := validation.ObjAt(ev, "data")
+	if validation.ObjAt(data, "who_profits_chars").I !=
 		int64(len([]rune(agWho))) ||
-		objAt(data, "profit_mechanism_chars").I !=
+		validation.ObjAt(data, "profit_mechanism_chars").I !=
 			int64(len([]rune(agMech))) ||
-		objAt(data, "challenge_interplay_chars").I !=
+		validation.ObjAt(data, "challenge_interplay_chars").I !=
 			int64(len([]rune(agInter))) {
 		t.Errorf("event data = %s", validation.CanonSpaced(data))
 	}
@@ -192,7 +192,7 @@ func TestSetAdversarialGameShortField(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		fid := objStr(f, "finding_id")
+		fid := validation.ObjStr(f, "finding_id")
 		_, err = SetAdversarialGame(c, fid, s.who, s.mech, s.inter)
 		if err == nil {
 			t.Fatalf("%s: expected an error for a short field", s.field)
@@ -209,7 +209,7 @@ func TestSetAdversarialGameShortField(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if objAt(stored, "adversarial_game").Kind != validation.Null {
+		if validation.ObjAt(stored, "adversarial_game").Kind != validation.Null {
 			t.Errorf("%s: a rejected clause must not persist", s.field)
 		}
 		events, err := c.Events()
@@ -217,7 +217,7 @@ func TestSetAdversarialGameShortField(t *testing.T) {
 			t.Fatal(err)
 		}
 		for _, e := range events {
-			if objStr(e, "type") == "finding.adversarial_game_set" {
+			if validation.ObjStr(e, "type") == "finding.adversarial_game_set" {
 				t.Errorf("%s: a rejected clause must not log", s.field)
 			}
 		}
@@ -246,7 +246,7 @@ func TestSetAdversarialGameOverwrites(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	if _, err := SetAdversarialGame(c, fid, agWho, agMech, agInter); err != nil {
 		t.Fatal(err)
 	}
@@ -259,7 +259,7 @@ func TestSetAdversarialGameOverwrites(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(objAt(stored, "adversarial_game"), "who_profits"); got != who2 {
+	if got := validation.ObjStr(validation.ObjAt(stored, "adversarial_game"), "who_profits"); got != who2 {
 		t.Error("the second answer must replace the first")
 	}
 	events, err := c.Events()
@@ -268,7 +268,7 @@ func TestSetAdversarialGameOverwrites(t *testing.T) {
 	}
 	n := 0
 	for _, e := range events {
-		if objStr(e, "type") == "finding.adversarial_game_set" {
+		if validation.ObjStr(e, "type") == "finding.adversarial_game_set" {
 			n++
 		}
 	}

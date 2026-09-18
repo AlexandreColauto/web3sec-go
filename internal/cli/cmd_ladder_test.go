@@ -76,7 +76,7 @@ func t23Exec(t *testing.T, c *state.Campaign, fid string) string {
 	if err != nil {
 		t.Fatalf("register exec: %v", err)
 	}
-	return objStr(rec, "exec_id")
+	return validation.ObjStr(rec, "exec_id")
 }
 
 func TestLadderStartAndShow(t *testing.T) {
@@ -159,7 +159,7 @@ func TestLadderFailures(t *testing.T) {
 	if err != nil || lad == nil {
 		t.Fatalf("load ladder: %v", err)
 	}
-	base := objStr(t14List(*lad, "variants").A[0], "rung_id")
+	base := validation.ObjStr(t14List(*lad, "variants").A[0], "rung_id")
 	axes := "('capital-minimization', 'precondition-removal', " +
 		"'role-conflation', 'ordering-permutation', 'cap-saturation')"
 	cases := []struct {
@@ -214,7 +214,7 @@ func TestLadderDisproveNeedsReason(t *testing.T) {
 	if err != nil || lad == nil {
 		t.Fatalf("load ladder: %v", err)
 	}
-	rung := objStr(t14List(*lad, "variants").A[0], "rung_id")
+	rung := validation.ObjStr(t14List(*lad, "variants").A[0], "rung_id")
 	code, out, errS := run(t, "--root", root, "ladder", c.CampaignID,
 		"disprove", fid, rung)
 	if code != 2 || out != "" {

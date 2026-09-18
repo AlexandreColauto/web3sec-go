@@ -16,12 +16,12 @@ import (
 
 func nodesOf(index validation.Value, kind string) []validation.Value {
 	out := []validation.Value{}
-	arr := objAt(index, "nodes")
+	arr := validation.ObjAt(index, "nodes")
 	if arr.Kind != validation.Arr {
 		return out
 	}
 	for _, n := range arr.A {
-		if kind == "" || objStr(n, "kind") == kind {
+		if kind == "" || validation.ObjStr(n, "kind") == kind {
 			out = append(out, n)
 		}
 	}
@@ -29,7 +29,7 @@ func nodesOf(index validation.Value, kind string) []validation.Value {
 }
 
 func edgesOf(index validation.Value) []validation.Value {
-	arr := objAt(index, "edges")
+	arr := validation.ObjAt(index, "edges")
 	if arr.Kind != validation.Arr {
 		return nil
 	}
@@ -60,12 +60,12 @@ func hasPrefix2(s, p string) bool {
 // entry can match a name-carrying finding.)
 func ContractPath(index validation.Value, name string) string {
 	for _, n := range nodesOf(index, "") {
-		k := objStr(n, "kind")
+		k := validation.ObjStr(n, "kind")
 		if k != "contract" && k != "interface" && k != "library" {
 			continue
 		}
-		if objStr(n, "name") == name {
-			return objStr(n, "path")
+		if validation.ObjStr(n, "name") == name {
+			return validation.ObjStr(n, "path")
 		}
 	}
 	return ""
@@ -75,7 +75,7 @@ func ContractPath(index validation.Value, name string) string {
 func ExternalSurface(index validation.Value) []validation.Value {
 	out := []validation.Value{}
 	for _, n := range nodesOf(index, "function") {
-		if b := objAt(n, "is_entry_point"); b.Kind == validation.Bool && b.B {
+		if b := validation.ObjAt(n, "is_entry_point"); b.Kind == validation.Bool && b.B {
 			out = append(out, n)
 		}
 	}
@@ -90,12 +90,12 @@ func CallersOf(index validation.Value, nodeID string) []string {
 	}
 	seen := map[string]bool{}
 	for _, e := range edgesOf(index) {
-		if objStr(e, "rel") != "calls" {
+		if validation.ObjStr(e, "rel") != "calls" {
 			continue
 		}
-		to := objStr(e, "to")
+		to := validation.ObjStr(e, "to")
 		if to == nodeID || hasSuffix(to, "."+short) {
-			seen[objStr(e, "from")] = true
+			seen[validation.ObjStr(e, "from")] = true
 		}
 	}
 	out := make([]string, 0, len(seen))
@@ -114,9 +114,9 @@ func hasSuffix(s, suf string) bool {
 func StorageWriters(index validation.Value, varName string) []string {
 	out := []string{}
 	for _, n := range nodesOf(index, "function") {
-		for _, w := range strList(objAt(n, "writes_storage")) {
+		for _, w := range strList(validation.ObjAt(n, "writes_storage")) {
 			if w == varName {
-				out = append(out, objStr(n, "id"))
+				out = append(out, validation.ObjStr(n, "id"))
 				break
 			}
 		}
@@ -129,8 +129,8 @@ func StorageWriters(index validation.Value, varName string) []string {
 func ExternalCallSites(index validation.Value) []validation.Value {
 	out := []validation.Value{}
 	for _, n := range nodesOf(index, "function") {
-		if len(strList(objAt(n, "calls_external"))) > 0 ||
-			len(strList(objAt(n, "delegatecalls"))) > 0 {
+		if len(strList(validation.ObjAt(n, "calls_external"))) > 0 ||
+			len(strList(validation.ObjAt(n, "delegatecalls"))) > 0 {
 			out = append(out, n)
 		}
 	}
@@ -138,7 +138,7 @@ func ExternalCallSites(index validation.Value) []validation.Value {
 }
 
 func nodeGuardedBy(n validation.Value) []string {
-	return strList(objAt(n, "guarded_by"))
+	return strList(validation.ObjAt(n, "guarded_by"))
 }
 
 // GuardedEntryPoints is guarded_entry_points: entry points protected by an
@@ -178,9 +178,9 @@ func UnguardedEntryPoints(index validation.Value) []validation.Value {
 func PathExists(index validation.Value, src, dst string, maxDepth int) ([]string, bool) {
 	adj := map[string][]string{}
 	for _, e := range edgesOf(index) {
-		to := objStr(e, "to")
-		if objStr(e, "rel") == "calls" && !hasPrefix2(to, "*#") {
-			adj[objStr(e, "from")] = append(adj[objStr(e, "from")], to)
+		to := validation.ObjStr(e, "to")
+		if validation.ObjStr(e, "rel") == "calls" && !hasPrefix2(to, "*#") {
+			adj[validation.ObjStr(e, "from")] = append(adj[validation.ObjStr(e, "from")], to)
 		}
 	}
 	type item struct {
@@ -214,8 +214,8 @@ func PathExists(index validation.Value, src, dst string, maxDepth int) ([]string
 func SinkFunctions(index validation.Value) []validation.Value {
 	out := []validation.Value{}
 	for _, n := range nodesOf(index, "function") {
-		calls := append(strList(objAt(n, "calls_external")),
-			strList(objAt(n, "delegatecalls"))...)
+		calls := append(strList(validation.ObjAt(n, "calls_external")),
+			strList(validation.ObjAt(n, "delegatecalls"))...)
 		hits := map[string]bool{}
 		for _, c := range calls {
 			if isSinkCall(c) {
@@ -231,12 +231,12 @@ func SinkFunctions(index validation.Value) []validation.Value {
 		}
 		sort.Strings(keys)
 		out = append(out, validation.VObj(
-			validation.KV{K: "function_id", V: objAt(n, "id")},
-			validation.KV{K: "sink_calls", V: strArr(keys)},
+			validation.KV{K: "function_id", V: validation.ObjAt(n, "id")},
+			validation.KV{K: "sink_calls", V: validation.StrArr(keys)},
 		))
 	}
 	sort.SliceStable(out, func(i, j int) bool {
-		return objStr(out[i], "function_id") < objStr(out[j], "function_id")
+		return validation.ObjStr(out[i], "function_id") < validation.ObjStr(out[j], "function_id")
 	})
 	return out
 }
@@ -286,11 +286,11 @@ func BackwardSlice(index validation.Value, maxDepth int) []validation.Value {
 	rev := map[string]map[string]bool{}
 	fwd := map[string]map[string]bool{}
 	for _, e := range edgesOf(index) {
-		to := objStr(e, "to")
-		if objStr(e, "rel") != "calls" || hasPrefix2(to, "*#") {
+		to := validation.ObjStr(e, "to")
+		if validation.ObjStr(e, "rel") != "calls" || hasPrefix2(to, "*#") {
 			continue
 		}
-		from := objStr(e, "from")
+		from := validation.ObjStr(e, "from")
 		if rev[to] == nil {
 			rev[to] = map[string]bool{}
 		}
@@ -302,11 +302,11 @@ func BackwardSlice(index validation.Value, maxDepth int) []validation.Value {
 	}
 	fns := map[string]validation.Value{}
 	for _, n := range nodesOf(index, "function") {
-		fns[objStr(n, "id")] = n
+		fns[validation.ObjStr(n, "id")] = n
 	}
 	out := []validation.Value{}
 	for _, s := range SinkFunctions(index) {
-		fid := objStr(s, "function_id")
+		fid := validation.ObjStr(s, "function_id")
 		seen := map[string]bool{fid: true}
 		frontier := []string{fid}
 		for depth := 0; len(frontier) > 0 && depth < maxDepth; depth++ {
@@ -327,7 +327,7 @@ func BackwardSlice(index validation.Value, maxDepth int) []validation.Value {
 		}
 		entryPoints := []ep{}
 		for _, n := range ExternalSurface(index) {
-			id := objStr(n, "id")
+			id := validation.ObjStr(n, "id")
 			if !seen[id] {
 				continue
 			}
@@ -338,7 +338,7 @@ func BackwardSlice(index validation.Value, maxDepth int) []validation.Value {
 					break
 				}
 			}
-			entryPoints = append(entryPoints, ep{id, objStr(n, "name"), guarded})
+			entryPoints = append(entryPoints, ep{id, validation.ObjStr(n, "name"), guarded})
 		}
 		sort.SliceStable(entryPoints, func(i, j int) bool {
 			return entryPoints[i].id < entryPoints[j].id
@@ -347,7 +347,7 @@ func BackwardSlice(index validation.Value, maxDepth int) []validation.Value {
 		for _, e := range entryPoints {
 			if path, ok := witnessPath(fwd, e.id, fid, maxDepth); ok {
 				for _, pid := range path {
-					for _, v := range strList(objAt(fns[pid], "reads_storage")) {
+					for _, v := range strList(validation.ObjAt(fns[pid], "reads_storage")) {
 						varsRead[v] = true
 					}
 				}
@@ -367,13 +367,13 @@ func BackwardSlice(index validation.Value, maxDepth int) []validation.Value {
 		}
 		out = append(out, validation.VObj(
 			validation.KV{K: "sink_function", V: validation.VStr(fid)},
-			validation.KV{K: "sink_calls", V: objAt(s, "sink_calls")},
+			validation.KV{K: "sink_calls", V: validation.ObjAt(s, "sink_calls")},
 			validation.KV{K: "reachable_functions",
-				V: strArr(sortedKeys(seen))},
+				V: validation.StrArr(sortedKeys(seen))},
 			validation.KV{K: "entry_points", V: validation.VArr(epVals...)},
-			validation.KV{K: "unguarded_entry_points", V: strArr(unguarded)},
+			validation.KV{K: "unguarded_entry_points", V: validation.StrArr(unguarded)},
 			validation.KV{K: "state_vars_read_on_paths",
-				V: strArr(sortedKeys(varsRead))},
+				V: validation.StrArr(sortedKeys(varsRead))},
 		))
 	}
 	return out
@@ -400,7 +400,7 @@ func ValueFlowReport(c *state.Campaign, root string) (validation.Value, error) {
 	sinks := BackwardSlice(idx, 8)
 	unguarded := map[string]bool{}
 	for _, s := range sinks {
-		for _, e := range strList(objAt(s, "unguarded_entry_points")) {
+		for _, e := range strList(validation.ObjAt(s, "unguarded_entry_points")) {
 			unguarded[e] = true
 		}
 	}
@@ -409,10 +409,10 @@ func ValueFlowReport(c *state.Campaign, root string) (validation.Value, error) {
 		head = head[:25]
 	}
 	report := validation.VObj(
-		validation.KV{K: "generated_at", V: validation.VStr(nowIso())},
-		validation.KV{K: "snapshot_id", V: objAt(idx, "snapshot_id")},
+		validation.KV{K: "generated_at", V: validation.VStr(state.NowIso())},
+		validation.KV{K: "snapshot_id", V: validation.ObjAt(idx, "snapshot_id")},
 		validation.KV{K: "sinks", V: validation.VArr(sinks...)},
-		validation.KV{K: "unguarded_sink_paths", V: strArr(head)},
+		validation.KV{K: "unguarded_sink_paths", V: validation.StrArr(head)},
 		validation.KV{K: "stats", V: validation.VObj(
 			validation.KV{K: "sinks", V: validation.VInt(int64(len(sinks)))},
 			validation.KV{K: "unguarded_paths",
@@ -452,12 +452,12 @@ func ValueFlowReport(c *state.Campaign, root string) (validation.Value, error) {
 func AmplifierSignals(index validation.Value) validation.Value {
 	out := map[string][]string{}
 	for _, n := range nodesOf(index, "function") {
-		id := objStr(n, "id")
-		deleg := strList(objAt(n, "delegatecalls"))
+		id := validation.ObjStr(n, "id")
+		deleg := strList(validation.ObjAt(n, "delegatecalls"))
 		if len(deleg) > 0 {
 			out["delegatecall"] = append(out["delegatecall"], id)
 		}
-		calls := append(append([]string{}, strList(objAt(n, "calls_external"))...),
+		calls := append(append([]string{}, strList(validation.ObjAt(n, "calls_external"))...),
 			deleg...)
 		for _, ap := range amplifierPatterns {
 			for _, c := range calls {
@@ -470,8 +470,8 @@ func AmplifierSignals(index validation.Value) validation.Value {
 	}
 	for _, kind := range []string{"contract", "interface"} {
 		for _, n := range nodesOf(index, kind) {
-			name := objStr(n, "name")
-			id := objStr(n, "id")
+			name := validation.ObjStr(n, "name")
+			id := validation.ObjStr(n, "id")
 			for _, sig := range []string{"bridge", "cross-chain"} {
 				if ampPattern(sig).MatchString(name) && !containsStr(out[sig], id) {
 					out[sig] = append(out[sig], id)
@@ -487,7 +487,7 @@ func AmplifierSignals(index validation.Value) validation.Value {
 	kvs := make([]validation.KV, 0, len(keys))
 	for _, k := range keys {
 		kvs = append(kvs, validation.KV{K: k,
-			V: strArr(sortedKeys(dedupe(out[k])))})
+			V: validation.StrArr(sortedKeys(dedupe(out[k])))})
 	}
 	return validation.VObj(kvs...)
 }

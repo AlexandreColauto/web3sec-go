@@ -49,9 +49,9 @@ func TestR38bMintRefusesTruncatedCapture(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	r38bMarkRecordCapture(t, f.c, objStr(rec, "exec_id"),
+	r38bMarkRecordCapture(t, f.c, validation.ObjStr(rec, "exec_id"),
 		r38bTruncatedCapture(10485819))
-	id := objStr(rec, "exec_id")
+	id := validation.ObjStr(rec, "exec_id")
 	code, out, errS := run(t, "--root", f.root, "mint", f.c.CampaignID,
 		f.fid, "--exec", id, "--description", "the PoC reproduced it",
 		"--type", "foundry-test")
@@ -69,8 +69,8 @@ func TestR38bMintRefusesTruncatedCapture(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, e := range objAt(finding, "evidence").A {
-		if objStr(e, "artifact_id") == id {
+	for _, e := range validation.ObjAt(finding, "evidence").A {
+		if validation.ObjStr(e, "artifact_id") == id {
 			t.Fatalf("a truncated exec minted evidence: %s",
 				validation.CanonCompact(e))
 		}
@@ -94,9 +94,9 @@ func TestR38bMintUntruncatedUnchanged(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	r38bMarkRecordCapture(t, f.c, objStr(rec, "exec_id"),
+	r38bMarkRecordCapture(t, f.c, validation.ObjStr(rec, "exec_id"),
 		r38bCompleteCapture(105))
-	id := objStr(rec, "exec_id")
+	id := validation.ObjStr(rec, "exec_id")
 	code, out, errS := run(t, "--root", f.root, "mint", f.c.CampaignID,
 		f.fid, "--exec", id, "--description", "the PoC reproduced it",
 		"--type", "foundry-test")
@@ -161,7 +161,7 @@ func TestR38bHarnessBindUntruncatedUnchanged(t *testing.T) {
 	if out != "INV-1: counterexample (minicertora, "+execID+")\n" {
 		t.Fatalf("out = %q", out)
 	}
-	if got := objStr(mcHarness(t, c), "rung"); got != "counterexample" {
+	if got := validation.ObjStr(mcHarness(t, c), "rung"); got != "counterexample" {
 		t.Fatalf("rung = %q, want counterexample", got)
 	}
 }

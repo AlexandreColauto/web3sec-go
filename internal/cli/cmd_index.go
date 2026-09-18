@@ -64,7 +64,7 @@ func runIndex(root string, args []string, r *Runner) int {
 		// prescreen and sinks while every ledger check stayed green,
 		// because the Artifacts section hashes REGISTERED files only.
 		// Registration re-hashes on every audit and artifact-reconcile.
-		snapID := objStr(idx, "snapshot_id")
+		snapID := validation.ObjStr(idx, "snapshot_id")
 		var snapRef *string
 		if snapID != "" && snapID != "unpinned" {
 			snapRef = &snapID
@@ -75,14 +75,14 @@ func runIndex(root string, args []string, r *Runner) int {
 		}
 		if asJSON {
 			fmt.Fprintln(r.Out, validation.DumpIndentedASCII(validation.VObj(
-				validation.KV{K: "snapshot_id", V: objAt(idx, "snapshot_id")},
-				validation.KV{K: "entry_count", V: objAt(idx, "entry_count")},
-				validation.KV{K: "stats", V: objAt(idx, "stats")},
+				validation.KV{K: "snapshot_id", V: validation.ObjAt(idx, "snapshot_id")},
+				validation.KV{K: "entry_count", V: validation.ObjAt(idx, "entry_count")},
+				validation.KV{K: "stats", V: validation.ObjAt(idx, "stats")},
 			)))
 			return nil
 		}
 		fmt.Fprintf(r.Out, "index: %s entries (snapshot %s)\n",
-			pyIntText(objAt(idx, "entry_count")), objStr(idx, "snapshot_id"))
+			pyIntText(validation.ObjAt(idx, "entry_count")), validation.ObjStr(idx, "snapshot_id"))
 		return nil
 	})
 }

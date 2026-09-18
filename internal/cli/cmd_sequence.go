@@ -229,10 +229,10 @@ func sequenceRunExec(root string, a seqRunArgs, r *Runner) error {
 	if err != nil {
 		return t14ExitErr(2, "sequence run failed: %v\n", err)
 	}
-	exit := objAt(rec, "exit_status")
+	exit := validation.ObjAt(rec, "exit_status")
 	fmt.Fprintf(r.Out, "%s  [fork-runner] exit=%s spec=%s steps=%d\n",
-		objStr(rec, "exec_id"), scalarStr(exit), objStr(spec, "spec_id"),
-		len(listOfSequence(objAt(spec, "steps"))))
+		validation.ObjStr(rec, "exec_id"), scalarStr(exit), validation.ObjStr(spec, "spec_id"),
+		len(listOfSequence(validation.ObjAt(spec, "steps"))))
 	if exit.Kind == validation.Int && exit.I == 0 && exit.Big == "" {
 		fmt.Fprintf(r.Out, "T4 attempt recorded + E5 fork-test evidence "+
 			"minted — check coverage with `webv2 sequence verify %s %s`\n",
@@ -240,7 +240,7 @@ func sequenceRunExec(root string, a seqRunArgs, r *Runner) error {
 		return nil
 	}
 	fmt.Fprintf(r.Out, "T4 attempt recorded as failed (exit %s) — inspect %s\n",
-		scalarStr(exit), objStr(rec, "stderr_path"))
+		scalarStr(exit), validation.ObjStr(rec, "stderr_path"))
 	return nil
 }
 
@@ -350,7 +350,7 @@ func seqVerifyTargets(c *state.Campaign, f validation.Value,
 	}
 	execs := map[string]validation.Value{}
 	for _, rec := range recs {
-		if eid := objStr(rec, "exec_id"); eid != "" {
+		if eid := validation.ObjStr(rec, "exec_id"); eid != "" {
 			execs[eid] = rec
 		}
 	}
@@ -368,9 +368,9 @@ func seqVerifyTargets(c *state.Campaign, f validation.Value,
 	// dereferencing .get on whatever is there (attempts=None /
 	// verification="confirmed" used to traceback, exit 1, outside the 0/2/3
 	// contract).
-	ver := asDict(objAt(f, "verification"))
-	repro := asDict(objAt(ver, "reproduction"))
-	raw := objAt(repro, "attempts")
+	ver := asDict(validation.ObjAt(f, "verification"))
+	repro := asDict(validation.ObjAt(ver, "reproduction"))
+	raw := validation.ObjAt(repro, "attempts")
 	var attempts []validation.Value
 	if t14Truthy(raw) && raw.Kind == validation.Arr {
 		attempts = raw.A
@@ -379,7 +379,7 @@ func seqVerifyTargets(c *state.Campaign, f validation.Value,
 		if a.Kind != validation.Obj {
 			continue
 		}
-		if rec, ok := execs[objStr(a, "artifact_id")]; ok {
+		if rec, ok := execs[validation.ObjStr(a, "artifact_id")]; ok {
 			targets = append(targets, rec)
 		}
 	}
@@ -396,7 +396,7 @@ func seqVerifyReport(c *state.Campaign, f validation.Value,
 		if ok {
 			verdict = "PASS"
 		}
-		fmt.Fprintf(r.Out, "%s: %s\n", objStr(rec, "exec_id"), verdict)
+		fmt.Fprintf(r.Out, "%s: %s\n", validation.ObjStr(rec, "exec_id"), verdict)
 		for _, reason := range reasons {
 			fmt.Fprintf(r.Out, "  - %s\n", reason)
 		}

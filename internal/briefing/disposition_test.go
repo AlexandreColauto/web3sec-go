@@ -34,9 +34,9 @@ func drWritePlan(t *testing.T, camp *state.Campaign,
 	if err != nil {
 		t.Fatal(err)
 	}
-	prios := objAt(plan, "priorities")
+	prios := validation.ObjAt(plan, "priorities")
 	for i := range prios.A {
-		if objStr(prios.A[i], "id") == priorityID {
+		if validation.ObjStr(prios.A[i], "id") == priorityID {
 			prios.A[i].O = validation.SetOrAppend(prios.A[i].O, "status",
 				validation.VStr("answered"))
 			prios.A[i].O = validation.SetOrAppend(prios.A[i].O, "closed_reason",
@@ -61,27 +61,27 @@ func TestBriefDispositionReviewFlagged(t *testing.T) {
 
 	b := build(t, camp, false)
 
-	rev := objAt(b, "disposition_review")
+	rev := validation.ObjAt(b, "disposition_review")
 	if rev.Kind != validation.Arr || len(rev.A) != 1 {
 		t.Fatalf("disposition_review = %v, want exactly 1 entry", rev)
 	}
 	f := rev.A[0]
-	if got := objStr(f, "priority"); got != "Q-005" {
+	if got := validation.ObjStr(f, "priority"); got != "Q-005" {
 		t.Errorf("priority = %q, want Q-005", got)
 	}
-	if got := objStr(f, "row_id"); got != "81dfad6492" {
+	if got := validation.ObjStr(f, "row_id"); got != "81dfad6492" {
 		t.Errorf("row_id = %q, want 81dfad6492", got)
 	}
-	if got := objAt(f, "tier").I; got != 0 {
+	if got := validation.ObjAt(f, "tier").I; got != 0 {
 		t.Errorf("tier = %d, want 0", got)
 	}
-	if got := objAt(f, "assertion_gap").I; got != 4 {
+	if got := validation.ObjAt(f, "assertion_gap").I; got != 4 {
 		t.Errorf("assertion_gap = %d, want 4", got)
 	}
-	if got := objStr(f, "reason"); got != "liveness-only, the owner can revert" {
+	if got := validation.ObjStr(f, "reason"); got != "liveness-only, the owner can revert" {
 		t.Errorf("reason = %q", got)
 	}
-	phrases := objAt(f, "phrases")
+	phrases := validation.ObjAt(f, "phrases")
 	if phrases.Kind != validation.Arr || len(phrases.A) != 2 ||
 		phrases.A[0].S != "liveness-only" || phrases.A[1].S != "owner can revert" {
 		t.Errorf("phrases = %v, want [liveness-only owner can revert]", phrases)
@@ -103,7 +103,7 @@ func TestBriefDispositionReviewEmpty(t *testing.T) {
 
 	b := build(t, camp, false)
 
-	if got := objAt(b, "disposition_review"); got.Kind != validation.Null {
+	if got := validation.ObjAt(b, "disposition_review"); got.Kind != validation.Null {
 		t.Fatalf("clean campaign: disposition_review = %v, want absent", got)
 	}
 
@@ -111,7 +111,7 @@ func TestBriefDispositionReviewEmpty(t *testing.T) {
 	camp2 := newCamp(t, "Disposition Bare")
 	drSeam(t, &surface)
 	b2 := build(t, camp2, false)
-	if got := objAt(b2, "disposition_review"); got.Kind != validation.Null {
+	if got := validation.ObjAt(b2, "disposition_review"); got.Kind != validation.Null {
 		t.Fatalf("no-plan campaign: disposition_review = %v, want absent", got)
 	}
 }

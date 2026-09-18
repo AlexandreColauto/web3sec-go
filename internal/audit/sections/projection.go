@@ -37,11 +37,11 @@ func Projection(c *state.Campaign) (validation.Value, error) {
 	// artifact_refs: refs of artifact.registered events.
 	artifactRefs := refsOf(events, "artifact.registered")
 	if len(artifactRefs) > 0 {
-		for _, a := range objAt(st, "artifacts").A {
-			if _, ok := artifactRefs[objStr(a, "artifact_id")]; !ok {
+		for _, a := range validation.ObjAt(st, "artifacts").A {
+			if _, ok := artifactRefs[validation.ObjStr(a, "artifact_id")]; !ok {
 				proj = append(proj, validation.VStr(
 					fmt.Sprintf("state lists artifact %s with no artifact.registered event",
-						objStr(a, "artifact_id"))))
+						validation.ObjStr(a, "artifact_id"))))
 			}
 		}
 	}
@@ -56,11 +56,11 @@ func Projection(c *state.Campaign) (validation.Value, error) {
 	// of how many other pinned events exist. The ledger->state direction
 	// stays lenient (legacy), and the message is the twin's.
 	snapshotRefs := refsOf(events, "snapshot.pinned")
-	for _, s := range objAt(st, "snapshots").A {
-		if _, ok := snapshotRefs[objStr(s, "snapshot_id")]; !ok {
+	for _, s := range validation.ObjAt(st, "snapshots").A {
+		if _, ok := snapshotRefs[validation.ObjStr(s, "snapshot_id")]; !ok {
 			proj = append(proj, validation.VStr(
 				fmt.Sprintf("state lists snapshot %s with no snapshot.pinned event",
-					objStr(s, "snapshot_id"))))
+					validation.ObjStr(s, "snapshot_id"))))
 		}
 	}
 
@@ -131,8 +131,8 @@ func Projection(c *state.Campaign) (validation.Value, error) {
 	prunedRefs := refsOf(events, "artifact.pruned")
 	if len(refreshRefs) > 0 || len(prunedRefs) > 0 {
 		artIDs := map[string]struct{}{}
-		for _, a := range objAt(st, "artifacts").A {
-			artID := objStr(a, "artifact_id")
+		for _, a := range validation.ObjAt(st, "artifacts").A {
+			artID := validation.ObjStr(a, "artifact_id")
 			if artID != "" {
 				artIDs[artID] = struct{}{}
 			}
@@ -174,8 +174,8 @@ func Projection(c *state.Campaign) (validation.Value, error) {
 		// Matrix row 5: a state row that survived its own prune. The
 		// sanctioned heal re-registers under a NEW id, so no id in the
 		// state may also carry an artifact.pruned event.
-		for _, a := range objAt(st, "artifacts").A {
-			id := objStr(a, "artifact_id")
+		for _, a := range validation.ObjAt(st, "artifacts").A {
+			id := validation.ObjStr(a, "artifact_id")
 			if _, ok := pruneFirst[id]; ok {
 				proj = append(proj, validation.VStr(
 					fmt.Sprintf("state lists artifact %s but the log records artifact.pruned for it — a retired row reappeared in the state; the sanctioned heal is artifact-register, which mints a new id",
@@ -207,9 +207,9 @@ func Projection(c *state.Campaign) (validation.Value, error) {
 		// never ran (both presence-gated by the file/dir being empty).
 		chainEvents := map[string]string{}
 		for _, e := range events {
-			if typ := objStr(e, "type"); typ == "chain.materialized" ||
+			if typ := validation.ObjStr(e, "type"); typ == "chain.materialized" ||
 				typ == "chain.materialized_unproven" {
-				chainEvents[objStr(e, "ref")] = typ
+				chainEvents[validation.ObjStr(e, "ref")] = typ
 			}
 		}
 		docNames := map[string]bool{}
@@ -262,10 +262,10 @@ func Projection(c *state.Campaign) (validation.Value, error) {
 func refsOf(events []validation.Value, typ string) map[string]struct{} {
 	out := map[string]struct{}{}
 	for _, e := range events {
-		if objStr(e, "type") != typ {
+		if validation.ObjStr(e, "type") != typ {
 			continue
 		}
-		r := objAt(e, "ref")
+		r := validation.ObjAt(e, "ref")
 		if r.Kind == validation.Str && r.S != "" {
 			out[r.S] = struct{}{}
 		}
@@ -279,11 +279,11 @@ func refsOf(events []validation.Value, typ string) map[string]struct{} {
 func superOf(events []validation.Value) map[string]struct{} {
 	out := map[string]struct{}{}
 	for _, e := range events {
-		if objStr(e, "type") != "chain.materialized" {
+		if validation.ObjStr(e, "type") != "chain.materialized" {
 			continue
 		}
-		data := objAt(e, "data")
-		sf := objStr(data, "super_finding")
+		data := validation.ObjAt(e, "data")
+		sf := validation.ObjStr(data, "super_finding")
 		if sf != "" {
 			out[sf] = struct{}{}
 		}
@@ -301,14 +301,14 @@ func refSeqBounds(events []validation.Value, typ string) (first, last map[string
 	first = map[string]int64{}
 	last = map[string]int64{}
 	for _, e := range events {
-		if objStr(e, "type") != typ {
+		if validation.ObjStr(e, "type") != typ {
 			continue
 		}
-		r := objAt(e, "ref")
+		r := validation.ObjAt(e, "ref")
 		if r.Kind != validation.Str || r.S == "" {
 			continue
 		}
-		seq := objAt(e, "seq")
+		seq := validation.ObjAt(e, "seq")
 		if seq.Kind != validation.Int {
 			continue
 		}

@@ -17,7 +17,7 @@ func TestConfirmationGateIgnoresForkDiff(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	before, err := ConfirmationGateDetail(c, f)
 	if err != nil {
 		t.Fatal(err)
@@ -46,7 +46,7 @@ func TestConfirmationGateIgnoresForkDiff(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(objAt(reloaded, "fork_diff"), "verdict"); got != "strong" {
+	if got := validation.ObjStr(validation.ObjAt(reloaded, "fork_diff"), "verdict"); got != "strong" {
 		t.Fatalf("fork_diff.verdict = %q, want strong", got)
 	}
 	after, err := ConfirmationGateDetail(c, reloaded)

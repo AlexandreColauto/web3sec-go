@@ -31,7 +31,7 @@ func SetAssumptions(campaign *state.Campaign, findingID string,
 		if err := validation.Validate(a, "assumption", 1); err != nil {
 			return validation.VNull(), err
 		}
-		id := objStr(a, "id")
+		id := validation.ObjStr(a, "id")
 		if _, dup := seen[id]; dup {
 			return validation.VNull(), fmt.Errorf("duplicate assumption id %s", id)
 		}
@@ -64,8 +64,8 @@ func SetAssumptions(campaign *state.Campaign, findingID string,
 	ids := sortedSetKeys(seen)
 	data := validation.VObj(
 		validation.KV{K: "count", V: validation.VInt(int64(len(assumptions)))},
-		validation.KV{K: "ids", V: strArr(ids)},
-		validation.KV{K: "claim_version", V: objAt(finding, "claim_version")},
+		validation.KV{K: "ids", V: validation.StrArr(ids)},
+		validation.KV{K: "claim_version", V: validation.ObjAt(finding, "claim_version")},
 		validation.KV{K: "actor", V: validation.VStr(actor)},
 	)
 	if _, err := campaign.Log("finding.assumptions", &findingID,
@@ -80,18 +80,18 @@ func SetAssumptions(campaign *state.Campaign, findingID string,
 func checkFreshAssumptions(assumptions []validation.Value,
 	seen map[string]struct{}) error {
 	for _, a := range assumptions {
-		id := objStr(a, "id")
-		if st := objStr(a, "status"); st != "UNKNOWN" {
+		id := validation.ObjStr(a, "id")
+		if st := validation.ObjStr(a, "status"); st != "UNKNOWN" {
 			return fmt.Errorf("assumption %s installed with status %s: new "+
 				"assumptions start UNKNOWN; move them only through "+
 				"assumption_transition with evidence-store provenance", id, st)
 		}
-		if validation.PyTruthy(objAt(a, "support")) || validation.PyTruthy(objAt(a, "contradictions")) {
+		if validation.PyTruthy(validation.ObjAt(a, "support")) || validation.PyTruthy(validation.ObjAt(a, "contradictions")) {
 			return fmt.Errorf("assumption %s installed with "+
 				"support/contradictions: only the transition API may write "+
 				"those", id)
 		}
-		deps := objAt(a, "dependencies")
+		deps := validation.ObjAt(a, "dependencies")
 		if deps.Kind != validation.Arr {
 			continue
 		}
@@ -118,16 +118,16 @@ func withAssumptionDefaults(a validation.Value) validation.Value {
 
 // assumptionByID is _assumption_by_id.
 func assumptionByID(finding validation.Value, assumptionID string) (validation.Value, error) {
-	assumptions := objAt(finding, "assumptions")
+	assumptions := validation.ObjAt(finding, "assumptions")
 	for _, a := range assumptions.A {
-		if objStr(a, "id") == assumptionID {
+		if validation.ObjStr(a, "id") == assumptionID {
 			return a, nil
 		}
 	}
 	ids := make([]string, 0, len(assumptions.A))
 	for _, a := range assumptions.A {
 		if a.Kind == validation.Obj {
-			ids = append(ids, validation.PyReprStr(objStr(a, "id")))
+			ids = append(ids, validation.PyReprStr(validation.ObjStr(a, "id")))
 		}
 	}
 	return validation.VNull(), fmt.Errorf("%s is not an assumption of this "+
@@ -150,8 +150,8 @@ func joinRaw(items []string) string {
 // was; a hallucinated citation is a rejection, not a warning.
 func resolveEvidenceRef(campaign *state.Campaign, finding validation.Value,
 	refID string) (string, error) {
-	for _, e := range objAt(finding, "evidence").A {
-		if objStr(e, "evidence_id") == refID || objStr(e, "artifact_id") == refID {
+	for _, e := range validation.ObjAt(finding, "evidence").A {
+		if validation.ObjStr(e, "evidence_id") == refID || validation.ObjStr(e, "artifact_id") == refID {
 			return "evidence", nil
 		}
 	}
@@ -163,7 +163,7 @@ func resolveEvidenceRef(campaign *state.Campaign, finding validation.Value,
 		return "", err
 	}
 	for _, rec := range execs {
-		if objStr(rec, "exec_id") == refID {
+		if validation.ObjStr(rec, "exec_id") == refID {
 			return "exec", nil
 		}
 	}
@@ -238,7 +238,7 @@ func AssumptionTransition(campaign *state.Campaign, findingID, assumptionID,
 	if err != nil {
 		return validation.VNull(), err
 	}
-	fromStatus := objStr(assumption, "status")
+	fromStatus := validation.ObjStr(assumption, "status")
 	if err := checkAssumptionMove(assumptionID, fromStatus, toStatus,
 		evidenceIDs); err != nil {
 		return validation.VNull(), err
@@ -269,9 +269,9 @@ func AssumptionTransition(campaign *state.Campaign, findingID, assumptionID,
 		validation.KV{K: "from", V: validation.VStr(fromStatus)},
 		validation.KV{K: "to", V: validation.VStr(toStatus)},
 		validation.KV{K: "evidence_ids", V: validation.VArr(ids...)},
-		validation.KV{K: "kinds", V: strArr(kinds)},
+		validation.KV{K: "kinds", V: validation.StrArr(kinds)},
 		validation.KV{K: "actor", V: validation.VStr(actor)},
-		validation.KV{K: "claim_version", V: objAt(finding, "claim_version")},
+		validation.KV{K: "claim_version", V: validation.ObjAt(finding, "claim_version")},
 	)
 	if _, err := campaign.Log("finding.assumption_transition", &findingID,
 		&data); err != nil {
@@ -288,7 +288,7 @@ func recordAssumptionEvidence(assumption validation.Value, toStatus string,
 	if toStatus == "SUPPORTED" {
 		key = "support"
 	}
-	lst := objAt(assumption, key)
+	lst := validation.ObjAt(assumption, key)
 	if lst.Kind != validation.Arr {
 		lst = validation.VArr()
 	}
@@ -313,9 +313,9 @@ func recordAssumptionEvidence(assumption validation.Value, toStatus string,
 // assumptions list (Value is a copy; Python mutates the dict in place).
 func replaceAssumption(finding validation.Value, assumptionID string,
 	updated validation.Value) []validation.KV {
-	assumptions := objAt(finding, "assumptions")
+	assumptions := validation.ObjAt(finding, "assumptions")
 	for i, a := range assumptions.A {
-		if objStr(a, "id") == assumptionID {
+		if validation.ObjStr(a, "id") == assumptionID {
 			assumptions.A[i] = updated
 			break
 		}

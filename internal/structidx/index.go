@@ -36,7 +36,7 @@ func (e *StaleIndexError) Error() string { return e.Msg }
 func RequireParseVersion(index validation.Value, source string) error {
 	got := validation.VNull()
 	if index.Kind == validation.Obj {
-		got = objAt(index, "parse_version")
+		got = validation.ObjAt(index, "parse_version")
 	}
 	if got.Kind == validation.Str && got.S == ParseVersion {
 		return nil
@@ -46,20 +46,13 @@ func RequireParseVersion(index validation.Value, source string) error {
 	// hand-built value, as in the direct unit test) keeps the documented
 	// metavariable rather than an empty hole.
 	rebuild := IndexRebuildCommand
-	if cid := objStr(index, "campaign_id"); cid != "" {
+	if cid := validation.ObjStr(index, "campaign_id"); cid != "" {
 		rebuild = strings.Replace(rebuild, CampaignPlaceholder, cid, 1)
 	}
 	return &StaleIndexError{Msg: fmt.Sprintf(
 		"%s has parse_version=%s, need %s — rebuild it: `%s`",
 		source, validation.PyRepr(got), validation.PyRepr(validation.VStr(ParseVersion)),
 		rebuild)}
-}
-
-func nowIso() string {
-	if v := os.Getenv("WEBV2_NOW"); v != "" {
-		return v
-	}
-	return state.NowIso()
 }
 
 // IndexTreeValue is _index_tree's return dict: nodes deduped, closures
@@ -99,8 +92,8 @@ func IndexSnapshot(c *state.Campaign, root, backend string) (validation.Value, e
 	if err != nil {
 		return validation.VNull(), err
 	}
-	nodeVals := objList(objAt(tree, "nodes"))
-	edgeVals := objList(objAt(tree, "edges"))
+	nodeVals := objList(validation.ObjAt(tree, "nodes"))
+	edgeVals := objList(validation.ObjAt(tree, "edges"))
 	snap, err := c.ActiveSnapshotIDOrNone()
 	if err != nil {
 		return validation.VNull(), err
@@ -126,18 +119,18 @@ func IndexSnapshot(c *state.Campaign, root, backend string) (validation.Value, e
 	}
 	externalEdges := int64(0)
 	for _, e := range edgeVals {
-		if hasPrefix2(objStr(e, "to"), "*#") {
+		if hasPrefix2(validation.ObjStr(e, "to"), "*#") {
 			externalEdges++
 		}
 	}
 	var contracts, functions, stateVars, entryPoints int64
 	for _, n := range nodeVals {
-		switch objStr(n, "kind") {
+		switch validation.ObjStr(n, "kind") {
 		case "contract", "interface", "library":
 			contracts++
 		case "function":
 			functions++
-			if b := objAt(n, "is_entry_point"); b.Kind == validation.Bool && b.B {
+			if b := validation.ObjAt(n, "is_entry_point"); b.Kind == validation.Bool && b.B {
 				entryPoints++
 			}
 		case "state-variable":
@@ -145,8 +138,8 @@ func IndexSnapshot(c *state.Campaign, root, backend string) (validation.Value, e
 		}
 	}
 	stats := validation.VObj(
-		validation.KV{K: "solidity_files", V: objAt(tree, "solidity_files")},
-		validation.KV{K: "other_files_listed", V: objAt(tree, "other_files_listed")},
+		validation.KV{K: "solidity_files", V: validation.ObjAt(tree, "solidity_files")},
+		validation.KV{K: "other_files_listed", V: validation.ObjAt(tree, "other_files_listed")},
 		validation.KV{K: "contracts", V: validation.VInt(contracts)},
 		validation.KV{K: "functions", V: validation.VInt(functions)},
 		validation.KV{K: "state_variables", V: validation.VInt(stateVars)},
@@ -158,11 +151,11 @@ func IndexSnapshot(c *state.Campaign, root, backend string) (validation.Value, e
 		validation.KV{K: "snapshot_id", V: validation.VStr(snapID)},
 		validation.KV{K: "backend", V: validation.VStr(backend)},
 		validation.KV{K: "parse_version", V: validation.VStr(ParseVersion)},
-		validation.KV{K: "created_at", V: validation.VStr(nowIso())},
+		validation.KV{K: "created_at", V: validation.VStr(state.NowIso())},
 		validation.KV{K: "entry_count", V: validation.VInt(
 			int64(len(nodeVals) + len(edgeVals)))},
-		validation.KV{K: "nodes", V: objAt(tree, "nodes")},
-		validation.KV{K: "edges", V: objAt(tree, "edges")},
+		validation.KV{K: "nodes", V: validation.ObjAt(tree, "nodes")},
+		validation.KV{K: "edges", V: validation.ObjAt(tree, "edges")},
 		validation.KV{K: "stats", V: stats},
 	), nil
 }
@@ -247,9 +240,9 @@ func EnsureFreshIndex(c *state.Campaign, root string) (validation.Value, error) 
 			if aerr != nil {
 				return validation.VNull(), aerr
 			}
-			stored := objAt(idx, "snapshot_id")
+			stored := validation.ObjAt(idx, "snapshot_id")
 			if sameActive(stored, active) &&
-				objStr(idx, "parse_version") == ParseVersion {
+				validation.ObjStr(idx, "parse_version") == ParseVersion {
 				return idx, nil
 			}
 		}
@@ -267,7 +260,7 @@ func EnsureFreshIndex(c *state.Campaign, root string) (validation.Value, error) 
 	// sanctioned same-path seam — one row per resolved path, always
 	// refreshed) or the very next `audit` reads honest drift over a file
 	// this command itself regenerated.
-	snapID := objStr(idx, "snapshot_id")
+	snapID := validation.ObjStr(idx, "snapshot_id")
 	var snapRef *string
 	if snapID != "" && snapID != "unpinned" {
 		snapRef = &snapID
@@ -286,25 +279,4 @@ func sameActive(stored validation.Value, active *string) bool {
 		return stored.Kind == validation.Null
 	}
 	return stored.Kind == validation.Str && stored.S == *active
-}
-
-// objAt is v.get(key) with a missing key reading as None.
-func objAt(v validation.Value, key string) validation.Value {
-	if v.Kind != validation.Obj {
-		return validation.VNull()
-	}
-	for _, kv := range v.O {
-		if kv.K == key {
-			return kv.V
-		}
-	}
-	return validation.VNull()
-}
-
-func objStr(v validation.Value, key string) string {
-	x := objAt(v, key)
-	if x.Kind == validation.Str {
-		return x.S
-	}
-	return ""
 }

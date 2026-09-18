@@ -154,8 +154,8 @@ func runMint(root string, args []string, r *Runner) int {
 	// evidence item of a DIFFERENT type (feedback-triage A2: the reference
 	// keyed on exec alone, so the second type silently never landed).
 	effectiveType := reproduction.EffectiveEvidenceType(tierPtr, typePtr, f)
-	for _, e := range objAt(f, "evidence").A {
-		if objStr(e, "artifact_id") == execID && objStr(e, "type") == effectiveType {
+	for _, e := range validation.ObjAt(f, "evidence").A {
+		if validation.ObjStr(e, "artifact_id") == execID && validation.ObjStr(e, "type") == effectiveType {
 			level, err := findings.FindingLevel(f)
 			if err != nil {
 				return r.withErr(root, func() error { return err })

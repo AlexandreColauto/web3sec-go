@@ -130,7 +130,7 @@ func (c *Campaign) Log(eventType string, ref *string, data *validation.Value) (v
 		if gerr != nil {
 			return validation.VNull(), gerr
 		}
-		rewoundDropped = len(objAt(st, "events").A)
+		rewoundDropped = len(validation.ObjAt(st, "events").A)
 		// r38 P2-3: tailEvents keeps the last mirrorCap events, so a
 		// mirror that has EVER been truncated holds EXACTLY mirrorCap
 		// events — 1000 mirrored events stand equally for a 1000-event
@@ -206,7 +206,7 @@ func (c *Campaign) Log(eventType string, ref *string, data *validation.Value) (v
 		if serr != nil {
 			return validation.VNull(), serr
 		}
-		if mirror := objAt(st, "events"); mirror.Kind == validation.Arr {
+		if mirror := validation.ObjAt(st, "events"); mirror.Kind == validation.Arr {
 			switch mlen := len(mirror.A); {
 			case mlen > len(lines):
 				return validation.VNull(), fmt.Errorf(
@@ -230,7 +230,7 @@ func (c *Campaign) Log(eventType string, ref *string, data *validation.Value) (v
 	}
 	prevHash := GenesisHash
 	if hasLast {
-		if eh := objAt(last, "event_hash"); eh.Kind == validation.Str {
+		if eh := validation.ObjAt(last, "event_hash"); eh.Kind == validation.Str {
 			prevHash = eh.S
 		} else {
 			prevHash = legacyAnchor(last)
@@ -310,7 +310,7 @@ func (c *Campaign) Log(eventType string, ref *string, data *validation.Value) (v
 	if err != nil {
 		return validation.VNull(), err
 	}
-	existing := objAt(st, "events")
+	existing := validation.ObjAt(st, "events")
 	var have []validation.Value
 	if existing.Kind == validation.Arr {
 		have = existing.A
@@ -437,12 +437,12 @@ func classifyLaggingMirror(lines []string, mirror []validation.Value) (
 	}
 	divSeq, wantSeq := int64(-1), int64(-1)
 	if div < m {
-		if s := objAt(mirror[div], "seq"); s.Kind == validation.Int {
+		if s := validation.ObjAt(mirror[div], "seq"); s.Kind == validation.Int {
 			divSeq = s.I
 		}
 	}
 	if div < n {
-		if s := objAt(logEvents[div], "seq"); s.Kind == validation.Int {
+		if s := validation.ObjAt(logEvents[div], "seq"); s.Kind == validation.Int {
 			wantSeq = s.I
 		}
 	}
@@ -509,18 +509,6 @@ func (c *Campaign) Events() ([]validation.Value, error) {
 	return out, nil
 }
 
-func objAt(v validation.Value, key string) validation.Value {
-	if v.Kind != validation.Obj {
-		return validation.VNull()
-	}
-	for _, kv := range v.O {
-		if kv.K == key {
-			return kv.V
-		}
-	}
-	return validation.VNull()
-}
-
 // EventsMirrorFromLog is the sanctioned rebuild of the state's events
 // mirror: parse the log, keep exactly what a fresh Log would have kept
 // (tailEvents over the whole chain). doctor owns calling it; verify owns
@@ -557,22 +545,22 @@ func (c *Campaign) EventsMirrorFromLog() ([]validation.Value, error) {
 			return nil, fmt.Errorf("events.jsonl line %d is not a JSON object "+
 				"— tampered or corrupt ledger; rebuild refused", i+1)
 		}
-		seq := objAt(v, "seq")
+		seq := validation.ObjAt(v, "seq")
 		if seq.Kind != validation.Int || int64(len(all)) != seq.I {
 			return nil, fmt.Errorf("events.jsonl line %d breaks seq "+
 				"contiguity (wants %d) — the chain has been cut; rebuild "+
 				"refused", i+1, len(all))
 		}
-		if objStr(v, "prev_hash") == "" || objStr(v, "event_hash") == "" {
+		if validation.ObjStr(v, "prev_hash") == "" || validation.ObjStr(v, "event_hash") == "" {
 			return nil, fmt.Errorf("events.jsonl line %d lacks the hash "+
 				"contract keys; rebuild refused", i+1)
 		}
-		if len(all) > 0 && objStr(v, "prev_hash") != objStr(all[len(all)-1], "event_hash") {
+		if len(all) > 0 && validation.ObjStr(v, "prev_hash") != validation.ObjStr(all[len(all)-1], "event_hash") {
 			return nil, fmt.Errorf("events.jsonl line %d prev_hash does not "+
 				"continue the chain — an event was removed or edited; "+
 				"rebuild refused", i+1)
 		}
-		if recomputed := eventHash(v); recomputed != objStr(v, "event_hash") {
+		if recomputed := eventHash(v); recomputed != validation.ObjStr(v, "event_hash") {
 			// The line is well-formed AND continues the chain but its
 			// own content-hash lies: data was edited under a copied
 			// hash. Nothing downstream may vouch for it.

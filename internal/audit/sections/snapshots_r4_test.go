@@ -24,7 +24,7 @@ func TestSnapshotsGhostActivePinNamesIt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !objAt(rep, "ok").B {
+	if !validation.ObjAt(rep, "ok").B {
 		t.Fatalf("unpinned campaign must be clean: %s",
 			validation.DumpsOrdered(rep, false))
 	}
@@ -41,7 +41,7 @@ func TestSnapshotsGhostActivePinNamesIt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fake = objStr(snap, "snapshot_id")
+	fake = validation.ObjStr(snap, "snapshot_id")
 	if err := os.RemoveAll(filepath.Join(c.Dir, "snapshots", fake)); err != nil {
 		t.Fatal(err)
 	}
@@ -50,7 +50,7 @@ func TestSnapshotsGhostActivePinNamesIt(t *testing.T) {
 		t.Fatal(err)
 	}
 	body := validation.DumpsOrdered(rep, false)
-	if objAt(rep, "ok").B || !strings.Contains(body, fake) ||
+	if validation.ObjAt(rep, "ok").B || !strings.Contains(body, fake) ||
 		!strings.Contains(body, "does not exist") {
 		t.Fatalf("ghost pin must fail the section: %s", body)
 	}
@@ -87,7 +87,7 @@ func TestSnapshotsGhostInactiveRowNamesIt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	firstID := objStr(first, "snapshot_id")
+	firstID := validation.ObjStr(first, "snapshot_id")
 	t2 := t.TempDir()
 	if err := os.WriteFile(filepath.Join(t2, "W.sol"),
 		[]byte("contract W {}\n"), 0o644); err != nil {
@@ -97,7 +97,7 @@ func TestSnapshotsGhostInactiveRowNamesIt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	secondID := objStr(second, "snapshot_id")
+	secondID := validation.ObjStr(second, "snapshot_id")
 	if firstID == secondID {
 		t.Fatal("two distinct trees must pin distinctly")
 	}
@@ -110,7 +110,7 @@ func TestSnapshotsGhostInactiveRowNamesIt(t *testing.T) {
 		t.Fatal(err)
 	}
 	body := validation.DumpsOrdered(rep, false)
-	if objAt(rep, "ok").B || !strings.Contains(body, firstID) {
+	if validation.ObjAt(rep, "ok").B || !strings.Contains(body, firstID) {
 		t.Fatalf("inactive ghost row must fail the section: %s", body)
 	}
 	// The active row alone (dir back absent for BOTH) was already red;
@@ -132,7 +132,7 @@ func TestSnapshotsGhostInactiveRowNamesIt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !objAt(rep, "ok").B {
+	if !validation.ObjAt(rep, "ok").B {
 		t.Fatalf("restored store must clear the row ghost: %s",
 			validation.DumpsOrdered(rep, false))
 	}

@@ -1,5 +1,7 @@
 package invariants
 
+import "websec/internal/validation"
+
 import "testing"
 
 // Port of tests/test_review_fixes.py::test_link_test_requires_registered_artifact:
@@ -18,7 +20,7 @@ func TestLinkTestRequiresRegisteredArtifact(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(e, "test_status"); got != "held" {
+	if got := validation.ObjStr(e, "test_status"); got != "held" {
 		t.Errorf("test_status = %q, want held", got)
 	}
 }

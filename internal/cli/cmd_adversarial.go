@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"websec/internal/validation"
 
 	"websec/internal/findings"
 	"websec/internal/state"
@@ -146,8 +147,8 @@ func adversarialCmd(root string, args []string, r *Runner) error {
 		// missing campaign / finding: the generic handler (exit 1).
 		return err
 	}
-	ag := objAt(f, "adversarial_game")
-	runes := int64(len([]rune(objStr(ag, "who_profits"))))
+	ag := validation.ObjAt(f, "adversarial_game")
+	runes := int64(len([]rune(validation.ObjStr(ag, "who_profits"))))
 	fmt.Fprintf(r.Out, "%s: adversarial-game clause recorded (who_profits %d "+
 		"chars) — the adversarial-game gate clause is now complete\n",
 		pos[1], runes)

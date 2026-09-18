@@ -138,7 +138,7 @@ func mk(t *testing.T, camp *state.Campaign, hint, function,
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	if _, err := findings.Transition(camp, fid, "POSSIBLE", "triage", "triage",
 		"", false); err != nil {
 		t.Fatal(err)
@@ -161,16 +161,16 @@ func mk(t *testing.T, camp *state.Campaign, hint, function,
 		kv("level", validation.VStr("E4")),
 		kv("type", validation.VStr("foundry-test")),
 		kv("description", validation.VStr("repro under sandbox")),
-		kv("sandbox_profile", objAt(rec, "profile")),
-		kv("artifact_id", objAt(rec, "exec_id"))))
+		kv("sandbox_profile", validation.ObjAt(rec, "profile")),
+		kv("artifact_id", validation.ObjAt(rec, "exec_id"))))
 	add(validation.VObj(
 		kv("evidence_id", validation.VStr("EV-"+hint+"-diff")),
 		kv("level", validation.VStr("E4")),
 		kv("type", validation.VStr("differential")),
 		kv("description", validation.VStr(
 			"differential repro of the same root cause")),
-		kv("sandbox_profile", objAt(rec, "profile")),
-		kv("artifact_id", objAt(rec, "exec_id"))))
+		kv("sandbox_profile", validation.ObjAt(rec, "profile")),
+		kv("artifact_id", validation.ObjAt(rec, "exec_id"))))
 	art := filepath.Join(camp.ArtifactsDir, "impact-"+hint+".json")
 	if err := os.WriteFile(art, []byte(`{"extractable_usd": 1000000}`),
 		0o644); err != nil {
@@ -201,7 +201,7 @@ func mk(t *testing.T, camp *state.Campaign, hint, function,
 	if err != nil {
 		t.Fatal(err)
 	}
-	ver := objAt(vf, "verification")
+	ver := validation.ObjAt(vf, "verification")
 	if ver.Kind != validation.Obj {
 		ver = validation.VObj()
 	}
@@ -275,16 +275,16 @@ func TestClustersGroupByClassAndLocation(t *testing.T) {
 		t.Fatalf("clusters = %d, want 1", len(clusters))
 	}
 	cl := clusters[0]
-	if got := objStr(cl, "class"); got != "share-price-inflation" {
+	if got := validation.ObjStr(cl, "class"); got != "share-price-inflation" {
 		t.Errorf("class = %q", got)
 	}
 	members := map[string]bool{}
-	for _, m := range strList(objAt(cl, "members")) {
+	for _, m := range strList(validation.ObjAt(cl, "members")) {
 		members[m] = true
 	}
 	for _, f := range fs {
-		if !members[objStr(f, "finding_id")] {
-			t.Errorf("%s missing from members", objStr(f, "finding_id"))
+		if !members[validation.ObjStr(f, "finding_id")] {
+			t.Errorf("%s missing from members", validation.ObjStr(f, "finding_id"))
 		}
 	}
 	if len(members) != 4 {
@@ -296,7 +296,7 @@ func TestClustersGroupByClassAndLocation(t *testing.T) {
 	}
 	byLoc := map[string]validation.Value{}
 	for _, sc := range subs {
-		key := strings.Join(strList(objAt(sc, "locations")), "|")
+		key := strings.Join(strList(validation.ObjAt(sc, "locations")), "|")
 		byLoc[key] = sc
 	}
 	dep, ok := byLoc["src/ShareVault.sol::deposit"]
@@ -304,27 +304,27 @@ func TestClustersGroupByClassAndLocation(t *testing.T) {
 		t.Fatalf("no deposit subcluster: %v", byLoc)
 	}
 	depIDs := map[string]bool{}
-	for _, id := range strList(objAt(dep, "finding_ids")) {
+	for _, id := range strList(validation.ObjAt(dep, "finding_ids")) {
 		depIDs[id] = true
 	}
-	if len(depIDs) != 2 || !depIDs[objStr(fs[0], "finding_id")] ||
-		!depIDs[objStr(fs[1], "finding_id")] {
+	if len(depIDs) != 2 || !depIDs[validation.ObjStr(fs[0], "finding_id")] ||
+		!depIDs[validation.ObjStr(fs[1], "finding_id")] {
 		t.Errorf("deposit finding_ids = %v", depIDs)
 	}
 	don, ok := byLoc["src/ShareVault.sol::donate"]
 	if !ok {
 		t.Fatalf("no donate subcluster")
 	}
-	if got := strList(objAt(don, "finding_ids")); len(got) != 1 ||
-		got[0] != objStr(fs[2], "finding_id") {
+	if got := strList(validation.ObjAt(don, "finding_ids")); len(got) != 1 ||
+		got[0] != validation.ObjStr(fs[2], "finding_id") {
 		t.Errorf("donate finding_ids = %v", got)
 	}
 	fee, ok := byLoc["src/ShareVault.sol::transferWithFee"]
 	if !ok {
 		t.Fatalf("no transferWithFee subcluster")
 	}
-	if got := strList(objAt(fee, "finding_ids")); len(got) != 1 ||
-		got[0] != objStr(fs[3], "finding_id") {
+	if got := strList(validation.ObjAt(fee, "finding_ids")); len(got) != 1 ||
+		got[0] != validation.ObjStr(fs[3], "finding_id") {
 		t.Errorf("fee finding_ids = %v", got)
 	}
 }
@@ -333,7 +333,7 @@ func TestSingleMemberClassesAreNotClusters(t *testing.T) {
 	camp := clusterCamp(t)
 	mk(t, camp, "a", "deposit", "A finding alone")
 	f2 := mk(t, camp, "b", "withdraw", "B finding alone")
-	rc := objAt(f2, "root_cause")
+	rc := validation.ObjAt(f2, "root_cause")
 	rc.O = validation.SetOrAppend(rc.O, "class", validation.VStr("reentrancy"))
 	f2.O = validation.SetOrAppend(f2.O, "root_cause", rc)
 	if err := findings.SaveFinding(camp, &f2); err != nil {
@@ -354,9 +354,9 @@ func TestAttestedCausationEdgesAreSurfaced(t *testing.T) {
 	actor := "alice"
 	if _, err := relations.MintRelation(camp, "caused_by",
 		validation.VObj(kv("type", validation.VStr("finding")),
-			kv("id", objAt(fs[2], "finding_id"))),
+			kv("id", validation.ObjAt(fs[2], "finding_id"))),
 		validation.VObj(kv("type", validation.VStr("finding")),
-			kv("id", objAt(fs[0], "finding_id"))),
+			kv("id", validation.ObjAt(fs[0], "finding_id"))),
 		nil, &actor, nil); err != nil {
 		t.Fatal(err)
 	}
@@ -369,9 +369,9 @@ func TestAttestedCausationEdgesAreSurfaced(t *testing.T) {
 	if len(edges) != 1 {
 		t.Fatalf("attested_causation = %d, want 1", len(edges))
 	}
-	if objStr(edges[0], "src") != objStr(fs[2], "finding_id") ||
-		objStr(edges[0], "dst") != objStr(fs[0], "finding_id") ||
-		objStr(edges[0], "actor") != "alice" {
+	if validation.ObjStr(edges[0], "src") != validation.ObjStr(fs[2], "finding_id") ||
+		validation.ObjStr(edges[0], "dst") != validation.ObjStr(fs[0], "finding_id") ||
+		validation.ObjStr(edges[0], "actor") != "alice" {
 		t.Errorf("edge = %s", validation.DumpIndented(edges[0]))
 	}
 }
@@ -405,14 +405,14 @@ func TestReportRendersClusterSection(t *testing.T) {
 			feeLine = l
 		}
 	}
-	if !strings.Contains(depLine, objStr(fs[0], "finding_id")) ||
-		!strings.Contains(depLine, objStr(fs[1], "finding_id")) {
+	if !strings.Contains(depLine, validation.ObjStr(fs[0], "finding_id")) ||
+		!strings.Contains(depLine, validation.ObjStr(fs[1], "finding_id")) {
 		t.Errorf("deposit closure line = %q", depLine)
 	}
-	if !strings.Contains(donLine, objStr(fs[2], "finding_id")) {
+	if !strings.Contains(donLine, validation.ObjStr(fs[2], "finding_id")) {
 		t.Errorf("donate closure line = %q", donLine)
 	}
-	if !strings.Contains(feeLine, objStr(fs[3], "finding_id")) {
+	if !strings.Contains(feeLine, validation.ObjStr(fs[3], "finding_id")) {
 		t.Errorf("fee closure line = %q", feeLine)
 	}
 	if !strings.Contains(section, "does NOT close") &&
@@ -425,7 +425,7 @@ func TestReportWithoutClusteringHasNoSection(t *testing.T) {
 	camp := clusterCamp(t)
 	mk(t, camp, "a", "deposit", "A finding alone")
 	f2 := mk(t, camp, "b", "withdraw", "B finding alone")
-	rc := objAt(f2, "root_cause")
+	rc := validation.ObjAt(f2, "root_cause")
 	rc.O = validation.SetOrAppend(rc.O, "class", validation.VStr("reentrancy"))
 	f2.O = validation.SetOrAppend(f2.O, "root_cause", rc)
 	if err := findings.SaveFinding(camp, &f2); err != nil {
@@ -443,9 +443,9 @@ func TestReportSurfacesAttestedCausation(t *testing.T) {
 	actor := "alice"
 	if _, err := relations.MintRelation(camp, "caused_by",
 		validation.VObj(kv("type", validation.VStr("finding")),
-			kv("id", objAt(fs[2], "finding_id"))),
+			kv("id", validation.ObjAt(fs[2], "finding_id"))),
 		validation.VObj(kv("type", validation.VStr("finding")),
-			kv("id", objAt(fs[0], "finding_id"))),
+			kv("id", validation.ObjAt(fs[0], "finding_id"))),
 		nil, &actor, nil); err != nil {
 		t.Fatal(err)
 	}
@@ -455,8 +455,8 @@ func TestReportSurfacesAttestedCausation(t *testing.T) {
 	if !strings.Contains(section, "caused_by") {
 		t.Errorf("caused_by missing from the section")
 	}
-	if !strings.Contains(section, objStr(fs[2], "finding_id")) ||
-		!strings.Contains(section, objStr(fs[0], "finding_id")) {
+	if !strings.Contains(section, validation.ObjStr(fs[2], "finding_id")) ||
+		!strings.Contains(section, validation.ObjStr(fs[0], "finding_id")) {
 		t.Errorf("causation endpoints missing from the section")
 	}
 	if !strings.Contains(section, "alice") {
@@ -480,31 +480,31 @@ func patchVerified(fid string) validation.Value {
 func TestCreditScopeOnImmunizedSibling(t *testing.T) {
 	camp := clusterCamp(t)
 	fs := fourSurfaces(t, camp)
-	vf, err := findings.LoadFinding(camp, objStr(fs[2], "finding_id"))
+	vf, err := findings.LoadFinding(camp, validation.ObjStr(fs[2], "finding_id"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	ver := objAt(vf, "verification")
+	ver := validation.ObjAt(vf, "verification")
 	if ver.Kind != validation.Obj {
 		ver = validation.VObj()
 	}
 	ver.O = validation.SetOrAppend(ver.O, "patch_verified",
-		patchVerified(objStr(fs[2], "finding_id")))
+		patchVerified(validation.ObjStr(fs[2], "finding_id")))
 	vf.O = validation.SetOrAppend(vf.O, "verification", ver)
 	if err := findings.SaveFinding(camp, &vf); err != nil {
 		t.Fatal(err)
 	}
 	text := mustGenerate(t, camp)
-	sec := reportFindingSection(t, text, objStr(fs[2], "finding_id"))
+	sec := reportFindingSection(t, text, validation.ObjStr(fs[2], "finding_id"))
 	low := strings.ToLower(sec)
 	if !strings.Contains(low, "credit scope") &&
 		!strings.Contains(sec, "NOT immunized") {
 		t.Errorf("no credit-scope note: %q", sec)
 	}
 	for _, other := range []validation.Value{fs[0], fs[1], fs[3]} {
-		if !strings.Contains(sec, objStr(other, "finding_id")) {
+		if !strings.Contains(sec, validation.ObjStr(other, "finding_id")) {
 			t.Errorf("sibling %s missing from the credit-scope note",
-				objStr(other, "finding_id"))
+				validation.ObjStr(other, "finding_id"))
 		}
 	}
 }
@@ -514,7 +514,7 @@ func TestNoCreditScopeNoteWithoutSiblings(t *testing.T) {
 	fs := fourSurfaces(t, camp)
 	reclass := func(f validation.Value, class string) {
 		t.Helper()
-		rc := objAt(f, "root_cause")
+		rc := validation.ObjAt(f, "root_cause")
 		rc.O = validation.SetOrAppend(rc.O, "class", validation.VStr(class))
 		f.O = validation.SetOrAppend(f.O, "root_cause", rc)
 		if err := findings.SaveFinding(camp, &f); err != nil {
@@ -524,22 +524,22 @@ func TestNoCreditScopeNoteWithoutSiblings(t *testing.T) {
 	reclass(fs[0], "reentrancy")
 	reclass(fs[1], "reentrancy")
 	reclass(fs[3], "logic-error")
-	vf, err := findings.LoadFinding(camp, objStr(fs[2], "finding_id"))
+	vf, err := findings.LoadFinding(camp, validation.ObjStr(fs[2], "finding_id"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	ver := objAt(vf, "verification")
+	ver := validation.ObjAt(vf, "verification")
 	if ver.Kind != validation.Obj {
 		ver = validation.VObj()
 	}
 	ver.O = validation.SetOrAppend(ver.O, "patch_verified",
-		patchVerified(objStr(fs[2], "finding_id")))
+		patchVerified(validation.ObjStr(fs[2], "finding_id")))
 	vf.O = validation.SetOrAppend(vf.O, "verification", ver)
 	if err := findings.SaveFinding(camp, &vf); err != nil {
 		t.Fatal(err)
 	}
 	text := mustGenerate(t, camp)
-	sec := reportFindingSection(t, text, objStr(fs[2], "finding_id"))
+	sec := reportFindingSection(t, text, validation.ObjStr(fs[2], "finding_id"))
 	if strings.Contains(strings.ToLower(sec), "credit scope") {
 		t.Errorf("credit-scope note rendered without siblings: %q", sec)
 	}
@@ -706,7 +706,7 @@ func privConfirmed(t *testing.T, camp *state.Campaign, spec privSpec) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	if _, err := findings.Transition(camp, fid, "POSSIBLE", "triage passed",
 		"triage passed", "", false); err != nil {
 		t.Fatal(err)
@@ -725,7 +725,7 @@ func privConfirmed(t *testing.T, camp *state.Campaign, spec privSpec) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	execID := objStr(rec, "exec_id")
+	execID := validation.ObjStr(rec, "exec_id")
 	tier := "T1"
 	if _, err := reproduction.RecordAttempt(camp, fid, "reproduced",
 		reproduction.RecordOpts{Tier: &tier, ExecID: &execID}); err != nil {
@@ -749,7 +749,7 @@ func privConfirmed(t *testing.T, camp *state.Campaign, spec privSpec) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	priorID := objStr(prior, "memory_id")
+	priorID := validation.ObjStr(prior, "memory_id")
 	if _, err := learning.ApproveMemory(camp, priorID, "operator"); err != nil {
 		t.Fatal(err)
 	}
@@ -770,7 +770,7 @@ func privConfirmed(t *testing.T, camp *state.Campaign, spec privSpec) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ei := objAt(vf, "economic_impact")
+	ei := validation.ObjAt(vf, "economic_impact")
 	if ei.Kind != validation.Obj {
 		ei = validation.VObj()
 	}

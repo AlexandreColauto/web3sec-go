@@ -62,7 +62,7 @@ func TestRePinHealsStrippedPinnedEvent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ev := objAt(st, "events")
+	ev := validation.ObjAt(st, "events")
 	if ev.Kind == validation.Arr && len(ev.A) > 0 {
 		ev.A = ev.A[:len(ev.A)-1]
 		st.O = validation.SetOrAppend(st.O, "events", ev)
@@ -81,11 +81,11 @@ func TestRePinHealsStrippedPinnedEvent(t *testing.T) {
 	}
 	found, reconciled := false, false
 	for _, e := range evts {
-		if objStr(e, "type") == "snapshot.pinned" &&
-			objStr(e, "ref") == "src-content-0000000000ab" {
+		if validation.ObjStr(e, "type") == "snapshot.pinned" &&
+			validation.ObjStr(e, "ref") == "src-content-0000000000ab" {
 			found = true
-			if objAt(e, "data").Kind == validation.Obj {
-				for _, k := range objAt(e, "data").O {
+			if validation.ObjAt(e, "data").Kind == validation.Obj {
+				for _, k := range validation.ObjAt(e, "data").O {
 					if k.K == "reconciled" {
 						reconciled = true
 					}
@@ -104,7 +104,7 @@ func TestRePinHealsStrippedPinnedEvent(t *testing.T) {
 	evts, _ = c.Events()
 	n := 0
 	for _, e := range evts {
-		if objStr(e, "type") == "snapshot.pinned" {
+		if validation.ObjStr(e, "type") == "snapshot.pinned" {
 			n++
 		}
 	}
@@ -133,7 +133,7 @@ func TestGenesisLogRewindsStaleMirror(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if n := len(objAt(st, "events").A); n == 0 {
+	if n := len(validation.ObjAt(st, "events").A); n == 0 {
 		t.Fatal("mirror must hold the event before deletion")
 	}
 	if err := os.Remove(c.EventsPath); err != nil {
@@ -157,9 +157,9 @@ func TestGenesisLogRewindsStaleMirror(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	lr := objAt(objAt(evts[0], "data"), "ledger_rewound")
+	lr := validation.ObjAt(validation.ObjAt(evts[0], "data"), "ledger_rewound")
 	if lr.Kind != validation.Obj ||
-		objAt(lr, "dropped_tail").I != 2 { // campaign.created + note
+		validation.ObjAt(lr, "dropped_tail").I != 2 { // campaign.created + note
 		t.Fatalf("first genesis event must disclose the rewind: %s",
 			validation.DumpsOrdered(evts[0], false))
 	}

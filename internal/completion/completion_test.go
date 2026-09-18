@@ -164,7 +164,7 @@ func TestSavedButUnseededNotDone(t *testing.T) {
 		!anyContains(missingOf(t, res), "registry") {
 		t.Errorf("missing must name INV-1 and the registry: %v", missingOf(t, res))
 	}
-	if note := objStr(res, "note"); !strings.Contains(note, "unseeded") {
+	if note := validation.ObjStr(res, "note"); !strings.Contains(note, "unseeded") {
 		t.Errorf("note must say unseeded, got %q", note)
 	}
 }
@@ -191,7 +191,7 @@ func TestLoadedAndSeededIsDone(t *testing.T) {
 	if !isDone(t, res) {
 		t.Fatalf("loaded + seeded must be done, missing=%v", missingOf(t, res))
 	}
-	if note := objStr(res, "note"); !strings.Contains(note, "seeded") {
+	if note := validation.ObjStr(res, "note"); !strings.Contains(note, "seeded") {
 		t.Errorf("note must say seeded, got %q", note)
 	}
 }

@@ -166,17 +166,17 @@ func TestYieldReportPerConfirmedQuotients(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	totals := objAt(rep, "totals")
+	totals := validation.ObjAt(rep, "totals")
 	if got := floatField(totals, "total_cost_usd"); got != 110 {
 		t.Errorf("total_cost_usd = %v, want 110", got)
 	}
-	if got := objAt(totals,
+	if got := validation.ObjAt(totals,
 		"cost_per_critic_confirmed_usd"); got.Kind != validation.Flt ||
 		got.F != 55 {
 		t.Errorf("cost_per_critic_confirmed_usd = %s, want 55",
 			validation.DumpIndented(got))
 	}
-	if got := objAt(totals,
+	if got := validation.ObjAt(totals,
 		"cost_per_evidence_confirmed_usd"); got.Kind != validation.Flt ||
 		got.F != 110 {
 		t.Errorf("cost_per_evidence_confirmed_usd = %s, want 110",
@@ -197,10 +197,10 @@ func TestYieldReportPerConfirmedNullWhenDenominatorZero(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	totals := objAt(rep, "totals")
+	totals := validation.ObjAt(rep, "totals")
 	for _, k := range []string{"cost_per_critic_confirmed_usd",
 		"cost_per_evidence_confirmed_usd"} {
-		if v := objAt(totals, k); v.Kind != validation.Null {
+		if v := validation.ObjAt(totals, k); v.Kind != validation.Null {
 			t.Errorf("%s = %s, want null (never inf, never div-by-zero)",
 				k, validation.DumpIndented(v))
 		}
@@ -211,15 +211,15 @@ func TestYieldReportPerConfirmedNullWhenDenominatorZero(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	totals2 := objAt(rep2, "totals")
-	if v := objAt(totals2, "total_cost_usd"); v.Kind != validation.Int ||
+	totals2 := validation.ObjAt(rep2, "totals")
+	if v := validation.ObjAt(totals2, "total_cost_usd"); v.Kind != validation.Int ||
 		v.I != 0 {
 		t.Errorf("empty total_cost_usd = %s, want int 0",
 			validation.DumpIndented(v))
 	}
 	for _, k := range []string{"cost_per_critic_confirmed_usd",
 		"cost_per_evidence_confirmed_usd"} {
-		if v := objAt(totals2, k); v.Kind != validation.Null {
+		if v := validation.ObjAt(totals2, k); v.Kind != validation.Null {
 			t.Errorf("empty %s = %s, want null", k,
 				validation.DumpIndented(v))
 		}
@@ -233,7 +233,7 @@ func TestRecordCostLensRidesRowOnlyWhenKnown(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(e, "lens"); got != "L-01" {
+	if got := validation.ObjStr(e, "lens"); got != "L-01" {
 		t.Errorf("lens = %q, want L-01", got)
 	}
 	e2, err := RecordCost(c, RecordOpts{Kind: "model", AmountUSD: 5,
@@ -252,8 +252,8 @@ func TestRecordCostLensRidesRowOnlyWhenKnown(t *testing.T) {
 	if len(rows) != 2 {
 		t.Fatalf("rows = %d, want 2", len(rows))
 	}
-	if objStr(rows[0], "lens") != "L-01" {
-		t.Errorf("row[0].lens = %q, want L-01", objStr(rows[0], "lens"))
+	if validation.ObjStr(rows[0], "lens") != "L-01" {
+		t.Errorf("row[0].lens = %q, want L-01", validation.ObjStr(rows[0], "lens"))
 	}
 	if hasKey(rows[1], "lens") {
 		t.Errorf("row[1] carries a lens key after reload: %s",
@@ -301,7 +301,7 @@ func TestLensYieldArithmeticAndOrdering(t *testing.T) {
 	}
 	gotIDs := []string{}
 	for _, r := range ly {
-		gotIDs = append(gotIDs, objStr(r, "lens"))
+		gotIDs = append(gotIDs, validation.ObjStr(r, "lens"))
 	}
 	wantIDs := []string{"L-01", "L-02", "L-03", "unattributed"}
 	for i := range wantIDs {
@@ -312,7 +312,7 @@ func TestLensYieldArithmeticAndOrdering(t *testing.T) {
 	}
 	byID := map[string]validation.Value{}
 	for _, r := range ly {
-		byID[objStr(r, "lens")] = r
+		byID[validation.ObjStr(r, "lens")] = r
 	}
 	// L-01: Q-001 planned via r1, confirmed via its answered F-1 ref,
 	// $30 spend.
@@ -357,7 +357,7 @@ func TestLensYieldArithmeticAndOrdering(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if total := floatField(objAt(rep, "totals"),
+	if total := floatField(validation.ObjAt(rep, "totals"),
 		"total_cost_usd"); sum != total {
 		t.Errorf("lens cost sum %v != total %v", sum, total)
 	}
@@ -394,7 +394,7 @@ func TestLensYieldPresenceGate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(ly) != 1 || objStr(ly[0], "lens") != "L-01" {
+	if len(ly) != 1 || validation.ObjStr(ly[0], "lens") != "L-01" {
 		t.Fatalf("plan-only rows = %s, want [L-01]",
 			validation.DumpIndented(validation.VArr(ly...)))
 	}
@@ -428,7 +428,7 @@ func TestLensYieldUnattributedPlannedWithoutCostRows(t *testing.T) {
 	}
 	byID := map[string]validation.Value{}
 	for _, r := range ly {
-		byID[objStr(r, "lens")] = r
+		byID[validation.ObjStr(r, "lens")] = r
 	}
 	un, ok := byID["unattributed"]
 	if !ok {

@@ -117,13 +117,13 @@ func parseArchetype(raw []byte, path string) (validation.Value, error) {
 	if data.Kind != validation.Obj {
 		return validation.VNull(), fmt.Errorf("archetype %s: not a mapping", path)
 	}
-	rawChecks := objAt(data, "checks")
+	rawChecks := validation.ObjAt(data, "checks")
 	if rawChecks.Kind == validation.Arr {
 		for i, check := range rawChecks.A {
 			if check.Kind != validation.Obj {
 				continue
 			}
-			t := objStr(check, "type")
+			t := validation.ObjStr(check, "type")
 			if _, ok := checkKeys[t]; !ok {
 				return validation.VNull(), unknownTypeErr(archLabel(data, path), i, t)
 			}
@@ -135,14 +135,14 @@ func parseArchetype(raw []byte, path string) (validation.Value, error) {
 	if err := validation.Validate(data, "archetype", 1); err != nil {
 		return validation.VNull(), err
 	}
-	checks := objAt(data, "checks")
+	checks := validation.ObjAt(data, "checks")
 	if checks.Kind != validation.Arr {
 		return validation.VNull(), fmt.Errorf(
 			"archetype %s: 'checks' must be a list", archLabel(data, path))
 	}
-	id := objStr(data, "id")
+	id := validation.ObjStr(data, "id")
 	for i, check := range checks.A {
-		t := objStr(check, "type")
+		t := validation.ObjStr(check, "type")
 		if !containsStr(checkTypes, t) {
 			return validation.VNull(), unknownTypeErr(id, i, t)
 		}
@@ -155,7 +155,7 @@ func parseArchetype(raw []byte, path string) (validation.Value, error) {
 
 // archLabel is `data.get("id") or path` — the name an error message uses.
 func archLabel(data validation.Value, path string) string {
-	if id := objStr(data, "id"); id != "" {
+	if id := validation.ObjStr(data, "id"); id != "" {
 		return id
 	}
 	return path
@@ -170,7 +170,7 @@ func unknownTypeErr(arch string, i int, t string) error {
 // exactly the keys it consumes — at least one required discriminator, and no
 // key its type ignores.
 func validateCheckKeys(archID string, i int, check validation.Value) error {
-	t := objStr(check, "type")
+	t := validation.ObjStr(check, "type")
 	allowed := checkKeys[t]
 	keys := make([]string, 0, len(check.O))
 	for _, kv := range check.O {
@@ -187,7 +187,7 @@ func validateCheckKeys(archID string, i int, check validation.Value) error {
 				allowedText(allowed))
 		}
 	}
-	has := func(key string) bool { return pyTruthyBigNonEmpty(objAt(check, key)) }
+	has := func(key string) bool { return pyTruthyBigNonEmpty(validation.ObjAt(check, key)) }
 	switch t {
 	case "state_var_exists", "function_exists":
 		if !has("names") && !has("pattern") {
@@ -232,12 +232,12 @@ func validateCheckPatterns(archID string, checks []validation.Value) error {
 			continue
 		}
 		for _, key := range []string{"pattern", "var_pattern"} {
-			v := objAt(check, key)
+			v := validation.ObjAt(check, key)
 			if v.Kind != validation.Str {
 				continue
 			}
 			context := fmt.Sprintf("archetype %s check %d (type %s) key %s",
-				archID, i, validation.PyReprStr(objStr(check, "type")),
+				archID, i, validation.PyReprStr(validation.ObjStr(check, "type")),
 				validation.PyReprStr(key))
 			if _, err := compileRegex(v.S, context); err != nil {
 				return err
@@ -265,7 +265,7 @@ func AvailableArchetypes() ([]string, error) {
 		if aerr != nil {
 			return nil, aerr
 		}
-		id := objStr(a, "id")
+		id := validation.ObjStr(a, "id")
 		stem := strings.TrimSuffix(name, ".yaml")
 		if !idRe.MatchString(id) || id != stem {
 			return nil, fmt.Errorf("archetype id %s does not match filename %s",

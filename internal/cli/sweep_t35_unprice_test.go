@@ -19,7 +19,7 @@ func TestBriefGateAndReportSurviveAnUnpriceableDecision(t *testing.T) {
 	t15GlobalRow(t, "MEM-shared01", "logic-error")
 	f := t15Finding(t, c, "Attacker skews the oracle and borrows unbacked "+
 		"funds", "oracle-manipulation")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	rec, err := sandbox.RegisterExec(c, sandbox.RegisterOpts{
 		Profile: "docker-networkless", Command: "forge test --match-test test_x",
 		FindingID: &fid, ReportedBy: "test-harness",
@@ -37,8 +37,8 @@ func TestBriefGateAndReportSurviveAnUnpriceableDecision(t *testing.T) {
 			kvT("level", validation.VStr(lv)),
 			kvT("type", validation.VStr(etype)),
 			kvT("description", validation.VStr("gate fixture")),
-			kvT("sandbox_profile", objAt(rec, "profile")),
-			kvT("artifact_id", objAt(rec, "exec_id")))); err != nil {
+			kvT("sandbox_profile", validation.ObjAt(rec, "profile")),
+			kvT("artifact_id", validation.ObjAt(rec, "exec_id")))); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -56,7 +56,7 @@ func TestBriefGateAndReportSurviveAnUnpriceableDecision(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ver := objAt(f, "verification")
+	ver := validation.ObjAt(f, "verification")
 	if ver.Kind != validation.Obj {
 		ver = validation.VObj()
 	}

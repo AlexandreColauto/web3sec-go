@@ -24,7 +24,7 @@ func TestRefusedAmendLeavesTheClaimIntact(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	id := objStr(f, "finding_id")
+	id := validation.ObjStr(f, "finding_id")
 	before := mustLoadRaw(t, c, id)
 	if err := os.WriteFile(c.EventsPath, []byte("{\"garbage\n"), 0o644); err != nil {
 		t.Fatal(err)
@@ -62,7 +62,7 @@ func TestRefusedSupersedeStaysFinishable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	oldID := objStr(oldF, "finding_id")
+	oldID := validation.ObjStr(oldF, "finding_id")
 	newF, err := IngestHypothesis(c, hypoPayload(
 		kv("title", validation.VStr(
 			"User can withdraw more than deposited, refined analysis"))),
@@ -70,7 +70,7 @@ func TestRefusedSupersedeStaysFinishable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	newID := objStr(newF, "finding_id")
+	newID := validation.ObjStr(newF, "finding_id")
 	newBefore := mustLoadRaw(t, c, newID)
 	// Dead ledger.
 	if err := os.WriteFile(c.EventsPath, []byte("{\"garbage\n"), 0o644); err != nil {
@@ -91,9 +91,9 @@ func TestRefusedSupersedeStaysFinishable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(oldRow, "status") != "HYPOTHESIS" {
+	if validation.ObjStr(oldRow, "status") != "HYPOTHESIS" {
 		t.Fatalf("old finding went terminal with no event: %s",
-			objStr(oldRow, "status"))
+			validation.ObjStr(oldRow, "status"))
 	}
 }
 

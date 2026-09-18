@@ -32,7 +32,7 @@ func TestAliasTargetsPinnedToStandards(t *testing.T) {
 	}
 	// The refusal path: a synthetic doc whose alias points outside the
 	// standards list must be rejected.
-	standards := objAt(doc, "standards")
+	standards := validation.ObjAt(doc, "standards")
 	bad := validation.VObj(
 		kvOf("schema_version", validation.VStr("1")),
 		kvOf("standards", standards),
@@ -67,7 +67,7 @@ func TestAliasKeysAreCanonical(t *testing.T) {
 		t.Fatal(err)
 	}
 	known := taxonomy.CanonicalClasses()
-	for _, kv := range objAt(doc, "classes").O {
+	for _, kv := range validation.ObjAt(doc, "classes").O {
 		if kv.K == taxonomy.UNMAPPED {
 			continue
 		}
@@ -116,10 +116,10 @@ func TestAliasReaderTableDriven(t *testing.T) {
 			}
 			continue
 		}
-		if got := objAt(row, "owasp").S; got != tc.wantID {
+		if got := validation.ObjAt(row, "owasp").S; got != tc.wantID {
 			t.Errorf("Alias(%q).owasp = %q, want %q", tc.class, got, tc.wantID)
 		}
-		if got := objAt(row, "swc").S; got != tc.wantSWC {
+		if got := validation.ObjAt(row, "swc").S; got != tc.wantSWC {
 			t.Errorf("Alias(%q).swc = %q, want %q", tc.class, got, tc.wantSWC)
 		}
 		if got := ClassAliasSuffix(tc.class); got != tc.wantSfx {
@@ -139,8 +139,8 @@ func TestAliasSWCTargetsPinnedToStandards(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	standards := objAt(doc, "standards")
-	if row := objAt(standards, "swc"); row.Kind != validation.Arr || len(row.A) == 0 {
+	standards := validation.ObjAt(doc, "standards")
+	if row := validation.ObjAt(standards, "swc"); row.Kind != validation.Arr || len(row.A) == 0 {
 		t.Fatal("standards.swc is absent or empty — the fetched table is not embedded")
 	}
 	synth := func(swc string) validation.Value {
@@ -153,7 +153,7 @@ func TestAliasSWCTargetsPinnedToStandards(t *testing.T) {
 			kvOf("standards", standards),
 			kvOf("classes", validation.VObj(
 				kvOf("unchecked-external-call", row))),
-			kvOf("provenance", objAt(doc, "provenance")))
+			kvOf("provenance", validation.ObjAt(doc, "provenance")))
 	}
 	if err := checkAliases(synth("SWC-104")); err != nil {
 		t.Fatalf("a fetched swc id was refused: %v", err)
@@ -176,14 +176,14 @@ func TestAliasSWCAdditiveTolerance(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	owaspOnly := validation.VObj(kvOf("owasp", objAt(objAt(doc, "standards"), "owasp")))
+	owaspOnly := validation.VObj(kvOf("owasp", validation.ObjAt(validation.ObjAt(doc, "standards"), "owasp")))
 	synth := validation.VObj(
 		kvOf("schema_version", validation.VStr("1")),
 		kvOf("standards", owaspOnly),
 		kvOf("classes", validation.VObj(
 			kvOf("reentrancy", validation.VObj(
 				kvOf("owasp", validation.VStr("SC05")))))),
-		kvOf("provenance", objAt(doc, "provenance")))
+		kvOf("provenance", validation.ObjAt(doc, "provenance")))
 	if err := validation.Validate(synth, "taxonomy_aliases", 1); err != nil {
 		t.Fatalf("standards.required must stay [owasp]: %v", err)
 	}
@@ -222,8 +222,8 @@ func TestAliasSWCTableIsVerbatim(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := map[string]string{}
-	for _, e := range listAt(objAt(objAt(doc, "standards"), "swc")) {
-		got[objAt(e, "id").S] = objAt(e, "title").S
+	for _, e := range listAt(validation.ObjAt(validation.ObjAt(doc, "standards"), "swc")) {
+		got[validation.ObjAt(e, "id").S] = validation.ObjAt(e, "title").S
 	}
 	for id, title := range map[string]string{
 		"SWC-136": "Unencrypted Private Data On-Chain",
@@ -250,8 +250,8 @@ func TestAliasSWCProvenanceCarriesTheCaveat(t *testing.T) {
 		t.Fatal(err)
 	}
 	var prov validation.Value
-	for _, p := range listAt(objAt(doc, "provenance")) {
-		if strings.Contains(objAt(p, "source_url").S, "SWC-registry") {
+	for _, p := range listAt(validation.ObjAt(doc, "provenance")) {
+		if strings.Contains(validation.ObjAt(p, "source_url").S, "SWC-registry") {
 			prov = p
 			break
 		}
@@ -259,15 +259,15 @@ func TestAliasSWCProvenanceCarriesTheCaveat(t *testing.T) {
 	if prov.Kind != validation.Obj {
 		t.Fatal("no provenance entry for the SWC registry source")
 	}
-	if got := objAt(prov, "source_url").S; got !=
+	if got := validation.ObjAt(prov, "source_url").S; got !=
 		"https://raw.githubusercontent.com/SmartContractSecurity/"+
 			"SWC-registry/master/entries/index.md" {
 		t.Errorf("swc provenance source_url = %q", got)
 	}
-	if got := objAt(prov, "checked_date").S; !isISODate(got) {
+	if got := validation.ObjAt(prov, "checked_date").S; !isISODate(got) {
 		t.Errorf("swc provenance checked_date = %q, want YYYY-MM-DD", got)
 	}
-	note := objAt(prov, "note").S
+	note := validation.ObjAt(prov, "note").S
 	for _, want := range []string{
 		"not been thoroughly updated since 2020",
 		"incomplete",

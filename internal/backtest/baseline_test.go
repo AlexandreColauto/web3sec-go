@@ -314,10 +314,10 @@ func TestHeldOutMirrorsRunHeldSlice(t *testing.T) {
 	}
 	accepted := 0
 	for _, c := range held {
-		if objStr(c, "case_id") == "CASE-held-old" {
+		if validation.ObjStr(c, "case_id") == "CASE-held-old" {
 			t.Fatal("the temporally excluded row reached the scored slice")
 		}
-		if orStr(objAt(objAt(c, "gold"), "outcome")) == blAccepted {
+		if orStr(validation.ObjAt(validation.ObjAt(c, "gold"), "outcome")) == blAccepted {
 			accepted++
 		}
 	}

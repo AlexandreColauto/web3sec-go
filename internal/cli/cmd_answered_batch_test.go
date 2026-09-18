@@ -86,7 +86,7 @@ func TestAnsweredBatchClosesSeveral(t *testing.T) {
 		if !ok {
 			t.Fatalf("priority %s gone from the plan", pid)
 		}
-		if got := objStr(p, "closed_reason"); got !=
+		if got := validation.ObjStr(p, "closed_reason"); got !=
 			"batch review of the queue" {
 			t.Errorf("%s closed_reason = %q", pid, got)
 		}

@@ -187,7 +187,7 @@ func noopHypo(t *testing.T, c *state.Campaign, title, status string) string {
 	if err != nil {
 		t.Fatalf("ingest: %v", err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	if status != "" {
 		// Task 7c: a DUPLICATE must name the finding it duplicates (every
 		// other status ignores the field). The target must be a REAL finding
@@ -211,11 +211,11 @@ func noopHypo(t *testing.T, c *state.Campaign, title, status string) string {
 			if err != nil {
 				t.Fatalf("ingest merge target: %v", err)
 			}
-			if _, err := findings.Transition(c, objStr(tgt, "finding_id"),
+			if _, err := findings.Transition(c, validation.ObjStr(tgt, "finding_id"),
 				"OUT_OF_SCOPE", "test fixture target", "", "", false); err != nil {
 				t.Fatalf("junk the merge target: %v", err)
 			}
-			of = objStr(tgt, "finding_id")
+			of = validation.ObjStr(tgt, "finding_id")
 		}
 		if _, err := findings.TransitionWith(c, fid, status, "test fixture",
 			findings.TransitionOpts{Actor: "test", DuplicateOf: of}); err != nil {
@@ -281,8 +281,8 @@ func noopConfirm(t *testing.T, c *state.Campaign, fid string) {
 		kv("level", validation.VStr("E4")),
 		kv("type", validation.VStr("foundry-test")),
 		kv("description", validation.VStr("repro under sandbox")),
-		kv("sandbox_profile", objAt(rec, "profile")),
-		kv("artifact_id", objAt(rec, "exec_id")))
+		kv("sandbox_profile", validation.ObjAt(rec, "profile")),
+		kv("artifact_id", validation.ObjAt(rec, "exec_id")))
 	if _, err := findings.AddEvidence(c, fid, item); err != nil {
 		t.Fatalf("add evidence: %v", err)
 	}
@@ -300,7 +300,7 @@ func noopConfirm(t *testing.T, c *state.Campaign, fid string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ver := objAt(vf, "verification")
+	ver := validation.ObjAt(vf, "verification")
 	if ver.Kind != validation.Obj {
 		ver = validation.VObj()
 	}
@@ -414,7 +414,7 @@ func TestMemoryReapproveIsExplicitAndWritesNothing(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mid := objStr(mem, "memory_id")
+	mid := validation.ObjStr(mem, "memory_id")
 	code, out, errS := run(t, "--root", root, "memory", cid,
 		"--approve", mid, "--by", "operator")
 	if code != 0 {
@@ -447,8 +447,8 @@ func TestMemoryReapproveIsExplicitAndWritesNothing(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(after, "approved_at") != objStr(first, "approved_at") ||
-		objStr(after, "approved_by") != objStr(first, "approved_by") {
+	if validation.ObjStr(after, "approved_at") != validation.ObjStr(first, "approved_at") ||
+		validation.ObjStr(after, "approved_by") != validation.ObjStr(first, "approved_by") {
 		t.Fatalf("row was rewritten: %s", validation.CanonCompact(after))
 	}
 	eventsAfter, err := c.Events()
@@ -469,7 +469,7 @@ func TestMemoryReapproveOfHeldOutRowStillRefuses(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mid := objStr(mem, "memory_id")
+	mid := validation.ObjStr(mem, "memory_id")
 	rowPath := filepath.Join(c.MemoryDir, mid+".json")
 	row, err := validation.ReadJson(rowPath)
 	if err != nil {
@@ -499,7 +499,7 @@ func TestMemoryReapproveOfHeldOutRowStillRefuses(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(after, "approved_by") != "legacy-edit" {
+	if validation.ObjStr(after, "approved_by") != "legacy-edit" {
 		t.Fatalf("row was rewritten: %s", validation.CanonCompact(after))
 	}
 }
@@ -512,7 +512,7 @@ func TestMemoryPromotedRowSaysAlreadyPromoted(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mid := objStr(mem, "memory_id")
+	mid := validation.ObjStr(mem, "memory_id")
 	rowPath := filepath.Join(c.MemoryDir, mid+".json")
 	row, err := validation.ReadJson(rowPath)
 	if err != nil {
@@ -551,7 +551,7 @@ func TestMemoryListingUnchangedWithRows(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit %d: %s%s", code, out, errS)
 	}
-	want := objStr(mem, "memory_id") +
+	want := validation.ObjStr(mem, "memory_id") +
 		" [disproved/DISPROVED] promotion=pending"
 	if !strings.Contains(out, want) {
 		t.Fatalf("output = %s", out)
@@ -631,8 +631,8 @@ func confirmLocal(t *testing.T, c *state.Campaign, fid string) {
 		kv("level", validation.VStr("E4")),
 		kv("type", validation.VStr("foundry-test")),
 		kv("description", validation.VStr("repro under sandbox")),
-		kv("sandbox_profile", objAt(rec, "profile")),
-		kv("artifact_id", objAt(rec, "exec_id")))
+		kv("sandbox_profile", validation.ObjAt(rec, "profile")),
+		kv("artifact_id", validation.ObjAt(rec, "exec_id")))
 	if _, err := findings.AddEvidence(c, fid, item); err != nil {
 		t.Fatalf("add evidence: %v", err)
 	}
@@ -649,7 +649,7 @@ func confirmLocal(t *testing.T, c *state.Campaign, fid string) {
 	}
 	if _, err := findings.RecordMemoryCheck(c, fid, []validation.Value{
 		validation.VObj(
-			kv("memory_ids", validation.VArr(objAt(mem, "memory_id"))),
+			kv("memory_ids", validation.VArr(validation.ObjAt(mem, "memory_id"))),
 			kv("mode", validation.VStr("negative")))}); err != nil {
 		t.Fatalf("record memory check: %v", err)
 	}
@@ -657,7 +657,7 @@ func confirmLocal(t *testing.T, c *state.Campaign, fid string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ver := objAt(vf, "verification")
+	ver := validation.ObjAt(vf, "verification")
 	if ver.Kind != validation.Obj {
 		ver = validation.VObj()
 	}
@@ -779,30 +779,30 @@ func TestLadderDisproveQueuesMemoryThroughTheCLISeam(t *testing.T) {
 		t.Fatalf("memory rows = %d", len(rows))
 	}
 	row := rows[0]
-	if objStr(row, "kind") != "disproved" ||
-		objStr(row, "status") != "DISPROVED" ||
-		objStr(row, "promotion_status") != "pending" {
+	if validation.ObjStr(row, "kind") != "disproved" ||
+		validation.ObjStr(row, "status") != "DISPROVED" ||
+		validation.ObjStr(row, "promotion_status") != "pending" {
 		t.Fatalf("row = %s", validation.CanonCompact(row))
 	}
 	wantPattern := "maximal-exploitation dead end: dust — dust the pool with " +
 		"one wei"
-	if objStr(row, "pattern") != wantPattern {
-		t.Fatalf("pattern = %q", objStr(row, "pattern"))
+	if validation.ObjStr(row, "pattern") != wantPattern {
+		t.Fatalf("pattern = %q", validation.ObjStr(row, "pattern"))
 	}
-	if objStr(row, "evidence_summary") !=
+	if validation.ObjStr(row, "evidence_summary") !=
 		"the pool rejects 1 wei deposits (MIN_DEPOSIT)" {
-		t.Fatalf("evidence_summary = %q", objStr(row, "evidence_summary"))
+		t.Fatalf("evidence_summary = %q", validation.ObjStr(row, "evidence_summary"))
 	}
-	if objStr(objAt(row, "negative_mode"), "why_safe") !=
+	if validation.ObjStr(validation.ObjAt(row, "negative_mode"), "why_safe") !=
 		"the pool rejects 1 wei deposits (MIN_DEPOSIT)" {
 		t.Fatalf("negative_mode = %s",
-			validation.CanonCompact(objAt(row, "negative_mode")))
+			validation.CanonCompact(validation.ObjAt(row, "negative_mode")))
 	}
-	if objStr(row, "finding_id") != fid {
-		t.Fatalf("finding_id = %q", objStr(row, "finding_id"))
+	if validation.ObjStr(row, "finding_id") != fid {
+		t.Fatalf("finding_id = %q", validation.ObjStr(row, "finding_id"))
 	}
 	// the row is on disk under the campaign's memory dir, named MEM-*.json
-	path := filepath.Join(c.MemoryDir, objStr(row, "memory_id")+".json")
+	path := filepath.Join(c.MemoryDir, validation.ObjStr(row, "memory_id")+".json")
 	if _, err := os.Stat(path); err != nil {
 		t.Fatalf("stat %s: %v", path, err)
 	}
@@ -812,7 +812,7 @@ func TestLadderDisproveQueuesMemoryThroughTheCLISeam(t *testing.T) {
 	}
 	types := []string{}
 	for _, e := range events {
-		types = append(types, objStr(e, "type"))
+		types = append(types, validation.ObjStr(e, "type"))
 	}
 	joined := strings.Join(types, ",")
 	if !strings.Contains(joined, "memory.queued") ||

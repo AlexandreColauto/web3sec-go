@@ -101,7 +101,7 @@ func TestR42RefusedSignalStateIsReEmittedByTheRetry(t *testing.T) {
 	c := ingestCamp(t)
 	r42Store(t)
 	f := mintRelevanceFinding(t, c, "logic-error", "", nil, nil)
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 
 	// The honest call on a healthy ledger: entry + anchor + signal.
 	recordCheck(t, c, fid, []string{"MEM-defi0001"}, "negative", "")
@@ -115,7 +115,7 @@ func TestR42RefusedSignalStateIsReEmittedByTheRetry(t *testing.T) {
 	// The refused-signal state: the entry and its anchor stay, the signal
 	// does not, and the ledger is healthy again.
 	dropped := r42DropLastEvent(t, c)
-	if got := objStr(dropped, "type"); got != "corpus.gap" {
+	if got := validation.ObjStr(dropped, "type"); got != "corpus.gap" {
 		t.Fatalf("the cut event is %q, not the signal — the fixture is not "+
 			"the sharp case", got)
 	}
@@ -142,7 +142,7 @@ func TestR42RefusedSignalStateIsReEmittedByTheRetry(t *testing.T) {
 		t.Fatalf("re-emitted signal =\n %s\nwant the recorded verdict's own "+
 			"payload\n %s", got, want)
 	}
-	if got := objStr(gaps[0], "reason_code"); got != GAP_NO_SHARED_TAG {
+	if got := validation.ObjStr(gaps[0], "reason_code"); got != GAP_NO_SHARED_TAG {
 		t.Fatalf("re-emitted reason_code = %q, want %q", got,
 			GAP_NO_SHARED_TAG)
 	}
@@ -172,7 +172,7 @@ func TestR42LedgerDoorRefusalRetryLandsTheSignal(t *testing.T) {
 	c := ingestCamp(t)
 	r42Store(t)
 	f := mintRelevanceFinding(t, c, "logic-error", "", nil, nil)
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	path := FindingPath(c, fid)
 	raw := r40bCutLedger(t, c)
 	before := r40bSha(t, path)

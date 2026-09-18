@@ -99,7 +99,7 @@ func r36bNoteRunes(t *testing.T, root, cid, stage string) int {
 	if err != nil {
 		t.Fatal(err)
 	}
-	note := objAt(objAt(objAt(st, "stages"), stage), "note")
+	note := validation.ObjAt(validation.ObjAt(validation.ObjAt(st, "stages"), stage), "note")
 	if note.Kind != validation.Str {
 		t.Fatalf("stage %q note is not a string: %s", stage,
 			validation.DumpIndented(note))
@@ -361,11 +361,11 @@ func TestR36BDoctorArtifactNoteRepairAlsoConverges(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		arts := objAt(got, "artifacts")
+		arts := validation.ObjAt(got, "artifacts")
 		if len(arts.A) == 0 {
 			t.Fatal("fixture lost its artifact")
 		}
-		return utf8.RuneCountInString(objStr(arts.A[0], "note"))
+		return utf8.RuneCountInString(validation.ObjStr(arts.A[0], "note"))
 	}
 
 	code, out, errS := run(t, "--root", root, "doctor", cid, "--state-only")
@@ -406,7 +406,7 @@ func bloatNote(t *testing.T, root, cid, stage, note string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	stages := objAt(st, "stages")
+	stages := validation.ObjAt(st, "stages")
 	stages.O = validation.SetOrAppend(stages.O, stage, validation.VObj(
 		validation.KV{K: "status", V: validation.VStr("done")},
 		validation.KV{K: "note", V: validation.VStr(note)},

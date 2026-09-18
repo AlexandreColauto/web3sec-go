@@ -54,7 +54,7 @@ func TestTrackedSurfacesRendersComponentLines(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ts := objAt(b, "tracked_surfaces")
+	ts := validation.ObjAt(b, "tracked_surfaces")
 	if ts.Kind != validation.Arr || len(ts.A) != 1 ||
 		ts.A[0].Kind != validation.Str ||
 		ts.A[0].S != "- frontend app/: in_scope, paid" {

@@ -21,7 +21,7 @@ func TestPipelineRunsNormallyWithinCeiling(t *testing.T) {
 	}
 	p := New(e.c, e.o, map[string]Handler{"snapshot": e.snapHandler()})
 	summary := run(t, p, RunOpts{MaxStages: iptr(3)})
-	assertStr(t, "ran", pyListRepr(stringsOf(objAt(summary, "ran"))),
+	assertStr(t, "ran", pyListRepr(stringsOf(validation.ObjAt(summary, "ran"))),
 		"['scope', 'snapshot', 'structural-index']")
 	for _, et := range eventTypes(t, e.c) {
 		if et == "pipeline.budget_halt" {
@@ -57,7 +57,7 @@ func unreviewedDiscovery() Handler {
 
 // ranContains reports whether the summary's ran list holds the stage.
 func ranContains(summary validation.Value, sid string) bool {
-	for _, s := range objAt(summary, "ran").A {
+	for _, s := range validation.ObjAt(summary, "ran").A {
 		if s.S == sid {
 			return true
 		}
@@ -76,18 +76,18 @@ func TestBlockedModelStageDoesNotStarveIndependentBranch(t *testing.T) {
 	})
 	summary := run(t, p, RunOpts{})
 	if !ranContains(summary, "dedup") {
-		t.Fatalf("dedup must run: %v", objAt(summary, "ran"))
+		t.Fatalf("dedup must run: %v", validation.ObjAt(summary, "ran"))
 	}
-	got := pyListRepr(stringsOf(objAt(summary, "blocked_stages")))
+	got := pyListRepr(stringsOf(validation.ObjAt(summary, "blocked_stages")))
 	if got != "['hostile-review']" {
 		t.Fatalf("blocked_stages = %s", got)
 	}
 	if !ranContains(summary, "reproduction") {
 		t.Fatal("the independent reproduction branch must not starve")
 	}
-	assertStr(t, "status", objStr(summary, "status"), "needs-model")
+	assertStr(t, "status", validation.ObjStr(summary, "status"), "needs-model")
 	assertStr(t, "needs_model.stage",
-		objStr(objAt(summary, "needs_model"), "stage"), "hostile-review")
+		validation.ObjStr(validation.ObjAt(summary, "needs_model"), "stage"), "hostile-review")
 	if ranContains(summary, "chaining") {
 		t.Fatal("chaining joins BOTH branches and cannot start")
 	}
@@ -98,10 +98,10 @@ func TestBlockedModelStageDoesNotStarveIndependentBranch(t *testing.T) {
 	p.Handlers["hostile-review"] = constHandler("critic verdicts in")
 	second := run(t, p, RunOpts{})
 	if !ranContains(second, "chaining") {
-		t.Fatalf("resume must run chaining: %v", objAt(second, "ran"))
+		t.Fatalf("resume must run chaining: %v", validation.ObjAt(second, "ran"))
 	}
 	if !ranContains(second, "hostile-review") {
-		t.Fatalf("resume must run hostile-review: %v", objAt(second, "ran"))
+		t.Fatalf("resume must run hostile-review: %v", validation.ObjAt(second, "ran"))
 	}
 }
 
@@ -134,7 +134,7 @@ func TestJoinAnyIsHonoredByTheScheduler(t *testing.T) {
 		"learning":                 constHandler("lessons logged"),
 	})
 	summary := run(t, p, RunOpts{})
-	got := pyListRepr(stringsOf(objAt(summary, "blocked_stages")))
+	got := pyListRepr(stringsOf(validation.ObjAt(summary, "blocked_stages")))
 	if got != "['hostile-review']" {
 		t.Fatalf("blocked_stages = %s", got)
 	}
@@ -143,7 +143,7 @@ func TestJoinAnyIsHonoredByTheScheduler(t *testing.T) {
 	}
 	if !ranContains(summary, "chaining") {
 		t.Fatalf("an any-join is satisfied by one predecessor: %v",
-			objAt(summary, "ran"))
+			validation.ObjAt(summary, "ran"))
 	}
 	assertStr(t, "chaining status", e.stageStatus(t, "chaining"), "done")
 	for _, sid := range []string{"independent-verification",

@@ -33,10 +33,10 @@ func runPrioritize(root string, args []string, r *Runner) int {
 	}
 	for _, t := range rows.A {
 		fmt.Fprintf(r.Out, "[%s] prior=%s cost=%s  %s\n",
-			pyRight(objStr(t, "queue_slot"), 5),
-			pyScore2(objAt(objAt(t, "prior"), "score")),
-			pyRight(objStr(t, "validation_cost"), 9),
-			objStr(t, "finding_id"))
+			pyRight(validation.ObjStr(t, "queue_slot"), 5),
+			pyScore2(validation.ObjAt(validation.ObjAt(t, "prior"), "score")),
+			pyRight(validation.ObjStr(t, "validation_cost"), 9),
+			validation.ObjStr(t, "finding_id"))
 	}
 	return 0
 }

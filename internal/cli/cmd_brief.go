@@ -80,50 +80,50 @@ func parseBriefArgs(args []string) (string, bool, bool, bool, error) {
 }
 
 func printBrief(c *state.Campaign, b validation.Value, r *Runner) error {
-	camp := objAt(b, "campaign")
-	snapshot := objStr(camp, "active_snapshot")
+	camp := validation.ObjAt(b, "campaign")
+	snapshot := validation.ObjStr(camp, "active_snapshot")
 	if snapshot == "" {
 		snapshot = "(none)"
 	}
 	line := fmt.Sprintf("campaign %s (%s) — phase %s, pass %s, stages %s/%s, "+
-		"discovery slots left %s, snapshot %s", objStr(camp, "campaign_id"),
-		objStr(camp, "program"), objStr(camp, "phase"), pyReprVal(objAt(camp, "pass")),
-		pyReprVal(objAt(camp, "stages_done")), pyReprVal(objAt(camp, "stages_total")),
-		pyReprVal(objAt(camp, "discovery_slots_left")), snapshot)
-	if v := objAt(camp, "elapsed_hours"); v.Kind != validation.Null {
+		"discovery slots left %s, snapshot %s", validation.ObjStr(camp, "campaign_id"),
+		validation.ObjStr(camp, "program"), validation.ObjStr(camp, "phase"), pyReprVal(validation.ObjAt(camp, "pass")),
+		pyReprVal(validation.ObjAt(camp, "stages_done")), pyReprVal(validation.ObjAt(camp, "stages_total")),
+		pyReprVal(validation.ObjAt(camp, "discovery_slots_left")), snapshot)
+	if v := validation.ObjAt(camp, "elapsed_hours"); v.Kind != validation.Null {
 		line += fmt.Sprintf(", %sh elapsed", pyReprVal(v))
 	}
 	fmt.Fprintln(r.Out, line)
-	if t14Truthy(objAt(camp, "closed")) {
-		by := objStr(camp, "completed_by")
+	if t14Truthy(validation.ObjAt(camp, "closed")) {
+		by := validation.ObjStr(camp, "completed_by")
 		if by == "" {
 			by = "operator"
 		}
-		reason := objStr(camp, "completed_reason")
+		reason := validation.ObjStr(camp, "completed_reason")
 		if reason == "" {
 			reason = "no reason recorded"
 		}
 		fmt.Fprintf(r.Out, "COMPLETE — closed by %s: %s\n", by, reason)
 	}
-	fs := objAt(b, "findings")
-	byStatus := objAt(fs, "by_status")
+	fs := validation.ObjAt(b, "findings")
+	byStatus := validation.ObjAt(fs, "by_status")
 	byStatusTxt := "{ }"
 	if t14Truthy(byStatus) {
 		byStatusTxt = validation.PyRepr(byStatus)
 	}
-	fmt.Fprintf(r.Out, "findings: %s  %s\n", pyReprVal(objAt(fs, "total")), byStatusTxt)
-	if ps := objAt(b, "probe_surface"); t14Truthy(ps) {
+	fmt.Fprintf(r.Out, "findings: %s  %s\n", pyReprVal(validation.ObjAt(fs, "total")), byStatusTxt)
+	if ps := validation.ObjAt(b, "probe_surface"); t14Truthy(ps) {
 		pl := fmt.Sprintf("probe surface: %s rows (%s dispositioned, %s open)",
-			pyReprVal(objAt(ps, "rows")), pyReprVal(objAt(ps, "dispositioned")),
-			pyReprVal(objAt(ps, "open")))
-		if t14Truthy(objAt(ps, "stale")) {
+			pyReprVal(validation.ObjAt(ps, "rows")), pyReprVal(validation.ObjAt(ps, "dispositioned")),
+			pyReprVal(validation.ObjAt(ps, "open")))
+		if t14Truthy(validation.ObjAt(ps, "stale")) {
 			pl += " — stale?"
 		}
 		fmt.Fprintln(r.Out, pl)
 	}
 	// G9 opaque surfaces (Task 6): presence-gated — a brief whose model
 	// carries no components prints no bytes here.
-	if ts := objAt(b, "tracked_surfaces"); len(ts.A) > 0 {
+	if ts := validation.ObjAt(b, "tracked_surfaces"); len(ts.A) > 0 {
 		fmt.Fprintln(r.Out, "  tracked-but-opaque surfaces (findings only):")
 		for _, ln := range t31Strings(ts) {
 			fmt.Fprintf(r.Out, "    %s\n", ln)
@@ -131,85 +131,85 @@ func printBrief(c *state.Campaign, b validation.Value, r *Runner) error {
 	}
 	// G10 assumption table (Task 4): presence-gated — a brief whose model
 	// is chains-only (no declared assumptions, no gaps) prints no bytes.
-	if al := objAt(b, "chain_assumption_lines"); len(al.A) > 0 {
+	if al := validation.ObjAt(b, "chain_assumption_lines"); len(al.A) > 0 {
 		fmt.Fprintln(r.Out, "  chain assumptions (declared table + gaps):")
 		for _, ln := range t31Strings(al) {
 			fmt.Fprintf(r.Out, "    %s\n", ln)
 		}
 	}
-	if dr := objAt(b, "disposition_review"); len(dr.A) > 0 {
+	if dr := validation.ObjAt(b, "disposition_review"); len(dr.A) > 0 {
 		fmt.Fprintf(r.Out, "  disposition review: %d flagged high-risk "+
 			"dismissal(s) (B4)\n", len(dr.A))
 		for _, f := range dr.A {
-			phrases := strings.Join(t31Strings(objAt(f, "phrases")), ", ")
+			phrases := strings.Join(t31Strings(validation.ObjAt(f, "phrases")), ", ")
 			fmt.Fprintf(r.Out, "    %s (row %s, tier %s, gap %s): %s [%s]\n",
-				objStr(f, "priority"), objStr(f, "row_id"),
-				pyReprVal(objAt(f, "tier")), pyReprVal(objAt(f, "assertion_gap")),
-				scalarStr(objAt(f, "reason")), phrases)
+				validation.ObjStr(f, "priority"), validation.ObjStr(f, "row_id"),
+				pyReprVal(validation.ObjAt(f, "tier")), pyReprVal(validation.ObjAt(f, "assertion_gap")),
+				scalarStr(validation.ObjAt(f, "reason")), phrases)
 		}
 	}
 	for _, ch := range objListAt(fs, "materializable_chains") {
 		fmt.Fprintf(r.Out, "  materializable chain: %s\n",
-			strings.Join(t31Strings(objAt(ch, "members")), " -> "))
+			strings.Join(t31Strings(validation.ObjAt(ch, "members")), " -> "))
 	}
 	for _, d := range objListAt(fs, "gate_deficits") {
-		fmt.Fprintf(r.Out, "  %s [%s %s]: %s\n", objStr(d, "finding_id"),
-			objStr(d, "status"), objStr(d, "level"), objStr(d, "deficit"))
+		fmt.Fprintf(r.Out, "  %s [%s %s]: %s\n", validation.ObjStr(d, "finding_id"),
+			validation.ObjStr(d, "status"), validation.ObjStr(d, "level"), validation.ObjStr(d, "deficit"))
 	}
-	for _, fid := range t31Strings(objAt(fs, "memory_recall_pending")) {
+	for _, fid := range t31Strings(validation.ObjAt(fs, "memory_recall_pending")) {
 		fmt.Fprintf(r.Out, "  %s: memory recall pending — run `webv2 recall %s "+
 			"--finding %s`\n", fid, c.CampaignID, fid)
 	}
 	for _, u := range objListAt(fs, "structurally_unreachable") {
 		fmt.Fprintf(r.Out, "  %s stuck at %s (floor %s): %s\n",
-			objStr(u, "finding_id"), objStr(u, "level"), objStr(u, "floor"),
-			strings.Join(t31Strings(objAt(u, "missing")), "; "))
+			validation.ObjStr(u, "finding_id"), validation.ObjStr(u, "level"), validation.ObjStr(u, "floor"),
+			strings.Join(t31Strings(validation.ObjAt(u, "missing")), "; "))
 	}
 	for _, t := range objListAt(b, "terminals") {
 		fmt.Fprintf(r.Out, "  terminal -> %s: %s (capital $%s)\n",
-			objStr(t, "terminal_capability"),
-			strings.Join(t31Strings(objAt(t, "path")), " -> "),
-			t31Comma0(objAt(t, "capital_usd")))
+			validation.ObjStr(t, "terminal_capability"),
+			strings.Join(t31Strings(validation.ObjAt(t, "path")), " -> "),
+			t31Comma0(validation.ObjAt(t, "capital_usd")))
 	}
 	for _, q := range objListAt(b, "independent_verification_queue") {
 		tag := ""
-		if t14Truthy(objAt(q, "mandatory")) {
+		if t14Truthy(validation.ObjAt(q, "mandatory")) {
 			tag = " [MANDATORY]"
 		}
-		fmt.Fprintf(r.Out, "  E6 queue: %s (at %s)%s\n", objStr(q, "finding_id"),
-			objStr(q, "evidence_level"), tag)
+		fmt.Fprintf(r.Out, "  E6 queue: %s (at %s)%s\n", validation.ObjStr(q, "finding_id"),
+			validation.ObjStr(q, "evidence_level"), tag)
 	}
-	if t14Truthy(objAt(objAt(b, "bounty"), "policy")) {
-		for _, x := range objListAt(objAt(b, "bounty"), "evaluated") {
+	if t14Truthy(validation.ObjAt(validation.ObjAt(b, "bounty"), "policy")) {
+		for _, x := range objListAt(validation.ObjAt(b, "bounty"), "evaluated") {
 			var state string
 			switch {
-			case t14Truthy(objAt(x, "submission_ready")):
+			case t14Truthy(validation.ObjAt(x, "submission_ready")):
 				state = "submission ready"
-			case t14Truthy(objAt(x, "eligible")):
+			case t14Truthy(validation.ObjAt(x, "eligible")):
 				state = "eligible — " + strings.Join(
-					t31Strings(objAt(x, "blocking_reasons")), "; ")
+					t31Strings(validation.ObjAt(x, "blocking_reasons")), "; ")
 			default:
 				state = "not eligible"
 			}
-			fmt.Fprintf(r.Out, "  gate: %s: %s\n", objStr(x, "finding_id"), state)
+			fmt.Fprintf(r.Out, "  gate: %s: %s\n", validation.ObjStr(x, "finding_id"), state)
 		}
 	} else {
 		fmt.Fprintln(r.Out, "  gate: no policy loaded (run scope with a policy)")
 	}
-	ch := asObjOrEmpty(objAt(b, "critical_hunt"))
-	if ps := objAt(ch, "prescreen"); t14Truthy(ps) {
+	ch := asObjOrEmpty(validation.ObjAt(b, "critical_hunt"))
+	if ps := validation.ObjAt(ch, "prescreen"); t14Truthy(ps) {
 		// Python: ', '.join(ps['matched']) or 'none' — an empty match list
 		// renders the literal "none", not an empty tail.
-		matchedNames := strings.Join(t31Strings(objAt(ps, "matched")), ", ")
+		matchedNames := strings.Join(t31Strings(validation.ObjAt(ps, "matched")), ", ")
 		if matchedNames == "" {
 			matchedNames = "none"
 		}
 		pl := fmt.Sprintf("  prescreen: matched %s", matchedNames)
-		if forced := t31Strings(objAt(ps, "forced")); len(forced) > 0 {
+		if forced := t31Strings(validation.ObjAt(ps, "forced")); len(forced) > 0 {
 			pl += " (forced: " + strings.Join(forced, ", ") + ")"
 		}
 		fmt.Fprintln(r.Out, pl)
-		for _, pair := range objAt(ps, "near_matches").O {
+		for _, pair := range validation.ObjAt(ps, "near_matches").O {
 			names := t31Strings(pair.V)
 			if len(names) > 3 {
 				names = names[:3]
@@ -218,20 +218,20 @@ func printBrief(c *state.Campaign, b validation.Value, r *Runner) error {
 				strings.Join(names, ", "))
 		}
 	}
-	if fd := objAt(ch, "fork_diff"); t14Truthy(fd) {
-		fmt.Fprintf(r.Out, "  fork-diff: %s\n", objStr(fd, "summary"))
+	if fd := validation.ObjAt(ch, "fork_diff"); t14Truthy(fd) {
+		fmt.Fprintf(r.Out, "  fork-diff: %s\n", validation.ObjStr(fd, "summary"))
 	}
 	for _, rec := range objListAt(ch, "recency_top") {
 		d := "never"
-		if v := objAt(rec, "days_ago"); v.Kind != validation.Null {
+		if v := validation.ObjAt(rec, "days_ago"); v.Kind != validation.Null {
 			d = pyReprVal(v) + "d ago"
 		}
 		fmt.Fprintf(r.Out, "  recency: %s %s  %s\n",
-			pyFixed2(t31Float(objAt(rec, "score"))), pyRight(d, 10),
-			objStr(rec, "path"))
+			pyFixed2(t31Float(validation.ObjAt(rec, "score"))), pyRight(d, 10),
+			validation.ObjStr(rec, "path"))
 	}
-	amps := asObjOrEmpty(objAt(ch, "amplifiers"))
-	if detected := objAt(amps, "detected"); t14Truthy(detected) {
+	amps := asObjOrEmpty(validation.ObjAt(ch, "amplifiers"))
+	if detected := validation.ObjAt(amps, "detected"); t14Truthy(detected) {
 		parts := []string{}
 		keys := make([]string, 0, len(detected.O))
 		for _, pair := range detected.O {
@@ -240,35 +240,35 @@ func printBrief(c *state.Campaign, b validation.Value, r *Runner) error {
 		sort.Strings(keys)
 		for _, k := range keys {
 			parts = append(parts, fmt.Sprintf("%s(%s)", k,
-				pyReprVal(objAt(detected, k))))
+				pyReprVal(validation.ObjAt(detected, k))))
 		}
 		fmt.Fprintln(r.Out, "  amplifiers: "+strings.Join(parts, ", "))
 		for _, bc := range objListAt(amps, "boosted_classes") {
-			fmt.Fprintf(r.Out, "        boosted %s: %s\n", objStr(bc, "bug_class"),
-				strings.Join(t31Strings(objAt(bc, "amplifiers")), ", "))
+			fmt.Fprintf(r.Out, "        boosted %s: %s\n", validation.ObjStr(bc, "bug_class"),
+				strings.Join(t31Strings(validation.ObjAt(bc, "amplifiers")), ", "))
 		}
 	}
 	// G1 tool flags: present only when a finding carries detector
 	// provenance (briefing.ChToolFlags returns Null otherwise).
-	if tf := objAt(ch, "tool_flags"); t14Truthy(tf) {
+	if tf := validation.ObjAt(ch, "tool_flags"); t14Truthy(tf) {
 		fmt.Fprintln(r.Out, "TOOL FLAGS (SAST hypotheses)")
 		fmt.Fprintf(r.Out, "  flags: %s, corroborated: %d\n",
-			pyReprVal(objAt(tf, "total")),
-			len(t31Strings(objAt(tf, "corroborated"))))
+			pyReprVal(validation.ObjAt(tf, "total")),
+			len(t31Strings(validation.ObjAt(tf, "corroborated"))))
 		census := []string{}
-		for _, pair := range objAt(tf, "by_verdict").O {
+		for _, pair := range validation.ObjAt(tf, "by_verdict").O {
 			census = append(census, pair.K+" "+pyReprVal(pair.V))
 		}
 		fmt.Fprintf(r.Out, "  by verdict: %s\n", strings.Join(census, ", "))
 	}
-	iv := asObjOrEmpty(objAt(ch, "invariant_verification"))
-	if t14Truthy(objAt(iv, "total")) {
-		unv := strings.Join(t31Strings(objAt(iv, "unverified_model")), ", ")
+	iv := asObjOrEmpty(validation.ObjAt(ch, "invariant_verification"))
+	if t14Truthy(validation.ObjAt(iv, "total")) {
+		unv := strings.Join(t31Strings(validation.ObjAt(iv, "unverified_model")), ", ")
 		if unv == "" {
 			unv = "none"
 		}
 		fmt.Fprintf(r.Out, "  invariants: %s total — unverified model-derived: "+
-			"%s\n", pyReprVal(objAt(iv, "total")), unv)
+			"%s\n", pyReprVal(validation.ObjAt(iv, "total")), unv)
 	}
 	for _, s := range objListAt(ch, "stale_artifacts") {
 		// r9 (critic): the reason must tell the truth about the geometry.
@@ -280,7 +280,7 @@ func printBrief(c *state.Campaign, b validation.Value, r *Runner) error {
 		// critic's repro: `snap --exclude bulk`, then `index`, then
 		// `brief` claimed no pin ever existed while one did). Say what the
 		// field establishes: the workspace it hashed was not pinned.
-		from, active := objStr(s, "stale_snapshot"), snapshot
+		from, active := validation.ObjStr(s, "stale_snapshot"), snapshot
 		if active == "(none)" {
 			active = ""
 		}
@@ -300,15 +300,15 @@ func printBrief(c *state.Campaign, b validation.Value, r *Runner) error {
 			why = "computed on " + from + ", " + why
 		}
 		fmt.Fprintf(r.Out, "  STALE %s (%s) — re-run: %s\n",
-			objStr(s, "artifact"), why, objStr(s, "re_run"))
+			validation.ObjStr(s, "artifact"), why, validation.ObjStr(s, "re_run"))
 	}
 	for _, m := range objListAt(b, "pending_memory") {
 		fmt.Fprintf(r.Out, "  memory decision: %s (%s/%s)\n",
-			objStr(m, "memory_id"), objStr(m, "kind"), objStr(m, "status"))
+			validation.ObjStr(m, "memory_id"), validation.ObjStr(m, "kind"), validation.ObjStr(m, "status"))
 	}
-	rv := objAt(b, "relations")
+	rv := validation.ObjAt(b, "relations")
 	kinds := []string{}
-	for _, pair := range objAt(rv, "by_kind").O {
+	for _, pair := range validation.ObjAt(rv, "by_kind").O {
 		if t14Truthy(pair.V) {
 			kinds = append(kinds, pair.K+":"+pyReprVal(pair.V))
 		}
@@ -317,9 +317,9 @@ func printBrief(c *state.Campaign, b validation.Value, r *Runner) error {
 	if kindTxt == "" {
 		kindTxt = "none"
 	}
-	relLine := fmt.Sprintf("  relations: %s edges (%s)", pyReprVal(objAt(rv,
+	relLine := fmt.Sprintf("  relations: %s edges (%s)", pyReprVal(validation.ObjAt(rv,
 		"edge_count")), kindTxt)
-	if drift := objAt(rv, "drift_problems"); t14Truthy(drift) {
+	if drift := validation.ObjAt(rv, "drift_problems"); t14Truthy(drift) {
 		relLine += " — DRIFT: " + validation.PyRepr(drift)
 	}
 	fmt.Fprintln(r.Out, relLine)
@@ -329,30 +329,30 @@ func printBrief(c *state.Campaign, b validation.Value, r *Runner) error {
 			fmt.Fprintf(r.Out, "    %s\n", scalarStr(p))
 		}
 	}
-	ec := objAt(objAt(b, "economics"), "totals")
-	y := objAt(ec, "yield_usd_per_usd")
-	budget := objAt(objAt(b, "economics"), "budget")
+	ec := validation.ObjAt(validation.ObjAt(b, "economics"), "totals")
+	y := validation.ObjAt(ec, "yield_usd_per_usd")
+	budget := validation.ObjAt(validation.ObjAt(b, "economics"), "budget")
 	var budgetLine string
-	if objStr(budget, "status") == "no-limit" {
+	if validation.ObjStr(budget, "status") == "no-limit" {
 		budgetLine = "no cost ceiling set (unbounded)"
 	} else {
 		pos := "within limit"
-		if objStr(budget, "status") != "within" {
-			pos = "EXCEEDED by $" + t31Comma2(objAt(budget, "over_by_usd"))
+		if validation.ObjStr(budget, "status") != "within" {
+			pos = "EXCEEDED by $" + t31Comma2(validation.ObjAt(budget, "over_by_usd"))
 		}
-		budgetLine = "$" + t31Comma2(objAt(budget, "limit_usd")) + " ceiling — " + pos
+		budgetLine = "$" + t31Comma2(validation.ObjAt(budget, "limit_usd")) + " ceiling — " + pos
 	}
 	yieldTxt := "n/a (no cost recorded)"
 	if y.Kind != validation.Null {
 		yieldTxt = pyFixed2(t31Float(y)) + "x"
 	}
 	fmt.Fprintf(r.Out, "  economics: cost $%s, confirmed %s / $%s, yield %s  "+
-		"[%s]\n", t31Comma2(objAt(ec, "total_cost_usd")),
-		pyReprVal(objAt(ec, "confirmed_findings")),
-		t31Comma0(objAt(ec, "confirmed_value_usd")), yieldTxt, budgetLine)
-	integ := objAt(b, "integrity")
-	if ok := objAt(integ, "ok"); ok.Kind != validation.Null {
-		problems := objAt(integ, "problems")
+		"[%s]\n", t31Comma2(validation.ObjAt(ec, "total_cost_usd")),
+		pyReprVal(validation.ObjAt(ec, "confirmed_findings")),
+		t31Comma0(validation.ObjAt(ec, "confirmed_value_usd")), yieldTxt, budgetLine)
+	integ := validation.ObjAt(b, "integrity")
+	if ok := validation.ObjAt(integ, "ok"); ok.Kind != validation.Null {
+		problems := validation.ObjAt(integ, "problems")
 		n := 0
 		if problems.Kind == validation.Obj {
 			for _, pair := range problems.O {
@@ -367,19 +367,19 @@ func printBrief(c *state.Campaign, b validation.Value, r *Runner) error {
 		}
 		fmt.Fprintf(r.Out, "  integrity: %s — %d problem(s) (fast: event-log "+
 			"chain; --deep for full re-hashes)\n", verdict, n)
-		if shared := objAt(integ, "shared_store"); t14Truthy(shared) {
+		if shared := validation.ObjAt(integ, "shared_store"); t14Truthy(shared) {
 			sv := "FAIL"
-			if t14Truthy(objAt(shared, "ok")) {
+			if t14Truthy(validation.ObjAt(shared, "ok")) {
 				sv = "PASS"
 			}
 			fmt.Fprintf(r.Out, "  shared store: %s (%s signatures, %s "+
-				"memory rows)\n", sv, pyReprVal(objAt(shared, "signature_count")),
-				pyReprVal(objAt(shared, "memory_count")))
+				"memory rows)\n", sv, pyReprVal(validation.ObjAt(shared, "signature_count")),
+				pyReprVal(validation.ObjAt(shared, "memory_count")))
 		}
 	} else {
 		fmt.Fprintln(r.Out, "  integrity: not checked (use --deep)")
 	}
-	att := asObjOrEmpty(objAt(b, "attention"))
+	att := asObjOrEmpty(validation.ObjAt(b, "attention"))
 	if lines := objListAt(att, "lines"); len(lines) > 0 {
 		fmt.Fprintln(r.Out, "  attention:")
 		for _, l := range lines {

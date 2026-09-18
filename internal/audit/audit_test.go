@@ -28,7 +28,7 @@ func arrStr(v validation.Value, key string) []string {
 func sectionNames(t *testing.T, report validation.Value) []string {
 	t.Helper()
 	var out []string
-	sections := objAt(report, "sections")
+	sections := validation.ObjAt(report, "sections")
 	for _, s := range sections.O {
 		out = append(out, s.K)
 	}
@@ -36,14 +36,14 @@ func sectionNames(t *testing.T, report validation.Value) []string {
 }
 
 func reportOK(report validation.Value) bool {
-	return objAt(report, "ok").Kind == validation.Bool && objAt(report, "ok").B
+	return validation.ObjAt(report, "ok").Kind == validation.Bool && validation.ObjAt(report, "ok").B
 }
 
 func sectionOKFlags(report validation.Value) map[string]bool {
 	out := map[string]bool{}
-	sections := objAt(report, "sections")
+	sections := validation.ObjAt(report, "sections")
 	for _, s := range sections.O {
-		out[s.K] = objAt(s.V, "ok").Kind == validation.Bool && objAt(s.V, "ok").B
+		out[s.K] = validation.ObjAt(s.V, "ok").Kind == validation.Bool && validation.ObjAt(s.V, "ok").B
 	}
 	return out
 }
@@ -168,7 +168,7 @@ func TestAuditMissingArtifactIsCaught(t *testing.T) {
 
 // anyProblem reports whether the report has a problem containing `sub`.
 func anyProblem(report validation.Value, sub string) bool {
-	sections := objAt(report, "sections")
+	sections := validation.ObjAt(report, "sections")
 	for _, s := range sections.O {
 		for _, p := range arrStr(s.V, "problems") {
 			if strings.Contains(p, sub) {
@@ -181,7 +181,7 @@ func anyProblem(report validation.Value, sub string) bool {
 
 // problemsOf returns the problems of one section.
 func problemsOf(report validation.Value, section string) []string {
-	sections := objAt(report, "sections")
+	sections := validation.ObjAt(report, "sections")
 	for _, s := range sections.O {
 		if s.K == section {
 			return arrStr(s.V, "problems")
@@ -285,7 +285,7 @@ func TestAuditProjectionDriftIsCaught(t *testing.T) {
 		validation.KV{K: "path", V: validation.VStr("nowhere.txt")},
 		validation.KV{K: "registered_at", V: validation.VStr("2020-01-01T00:00:00.000000+00:00")},
 	)
-	arts := objAt(st, "artifacts")
+	arts := validation.ObjAt(st, "artifacts")
 	arts.A = append(arts.A, phantom)
 	for i := range st.O {
 		if st.O[i].K == "artifacts" {
@@ -416,7 +416,7 @@ func TestAuditSnapshotMutatedIsCaught(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sid := objStr(snap, "snapshot_id")
+	sid := validation.ObjStr(snap, "snapshot_id")
 	if sid == "" {
 		t.Fatalf("no snapshot_id from pin: %v", snap)
 	}

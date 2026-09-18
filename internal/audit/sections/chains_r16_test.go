@@ -36,7 +36,7 @@ func TestChainProjectionBurnsBothWays(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !objAt(sec, "ok").B {
+	if !validation.ObjAt(sec, "ok").B {
 		t.Fatalf("matched chain must be green: %s",
 			validation.DumpsOrdered(sec, false))
 	}
@@ -44,7 +44,7 @@ func TestChainProjectionBurnsBothWays(t *testing.T) {
 	os.Remove(doc)
 	sec, _ = Projection(c)
 	body := validation.DumpsOrdered(sec, false)
-	if objAt(sec, "ok").B || !strings.Contains(body, "CHAIN-abcdef12") {
+	if validation.ObjAt(sec, "ok").B || !strings.Contains(body, "CHAIN-abcdef12") {
 		t.Fatalf("vanished chain must burn: %s", body)
 	}
 	// Restore + plant a second doc with no event:
@@ -57,7 +57,7 @@ func TestChainProjectionBurnsBothWays(t *testing.T) {
 	}
 	sec, _ = Projection(c)
 	body = validation.DumpsOrdered(sec, false)
-	if objAt(sec, "ok").B || !strings.Contains(body, "webv2 chains") ||
+	if validation.ObjAt(sec, "ok").B || !strings.Contains(body, "webv2 chains") ||
 		!strings.Contains(body, "CHAIN-hand0001") {
 		t.Fatalf("planted chain must burn naming the sanctioned verb: %s",
 			body)

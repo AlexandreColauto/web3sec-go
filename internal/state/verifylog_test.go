@@ -252,7 +252,7 @@ func TestVerifyLogLegacyOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(nv, "prev_hash"); got != "legacy-seq-0" {
+	if got := validation.ObjStr(nv, "prev_hash"); got != "legacy-seq-0" {
 		t.Errorf("anchor: %q", got)
 	}
 	v, err = c.VerifyLog()

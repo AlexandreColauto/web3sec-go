@@ -6,6 +6,7 @@ package cli
 
 import (
 	"fmt"
+	"websec/internal/validation"
 
 	"websec/internal/orchestrator"
 	"websec/internal/state"
@@ -32,8 +33,8 @@ func runReproQueue(root string, args []string, r *Runner) int {
 	}
 	for _, q := range rows.A {
 		fmt.Fprintf(r.Out, "prior=%s next=%s attempts=%s  %s\n",
-			pyScore2(objAt(q, "prior")), objStr(q, "next_tier"),
-			pyIntText(objAt(q, "attempts")), objStr(q, "finding_id"))
+			pyScore2(validation.ObjAt(q, "prior")), validation.ObjStr(q, "next_tier"),
+			pyIntText(validation.ObjAt(q, "attempts")), validation.ObjStr(q, "finding_id"))
 	}
 	return 0
 }

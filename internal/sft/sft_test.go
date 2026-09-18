@@ -171,14 +171,14 @@ func setAt(v, val validation.Value, path ...string) validation.Value {
 	if len(path) == 1 {
 		return setKey(v, path[0], val)
 	}
-	return setKey(v, path[0], setAt(objAt(v, path[0]), val, path[1:]...))
+	return setKey(v, path[0], setAt(validation.ObjAt(v, path[0]), val, path[1:]...))
 }
 
 // atPath reads a nested key.
 func atPath(v validation.Value, path ...string) validation.Value {
 	cur := v
 	for _, p := range path {
-		cur = objAt(cur, p)
+		cur = validation.ObjAt(cur, p)
 	}
 	return cur
 }

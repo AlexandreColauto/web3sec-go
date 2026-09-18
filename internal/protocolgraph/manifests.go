@@ -614,16 +614,16 @@ func parseFoundryJSON(name string, raw []byte) ([]depEntry, error) {
 	out := []depEntry{}
 	for _, pair := range doc.O {
 		ver := ""
-		if tag := objAt(pair.V, "tag"); tag.Kind == validation.Obj {
-			ver = objAt(tag, "name").S
+		if tag := validation.ObjAt(pair.V, "tag"); tag.Kind == validation.Obj {
+			ver = validation.ObjAt(tag, "name").S
 		}
 		if ver == "" {
-			if br := objAt(pair.V, "branch"); br.Kind == validation.Obj {
-				ver = objAt(br, "name").S
+			if br := validation.ObjAt(pair.V, "branch"); br.Kind == validation.Obj {
+				ver = validation.ObjAt(br, "name").S
 			}
 		}
 		if ver == "" {
-			ver = objAt(pair.V, "rev").S
+			ver = validation.ObjAt(pair.V, "rev").S
 		}
 		line, ok := entryStartLine(lines, pair.K)
 		if !ok {

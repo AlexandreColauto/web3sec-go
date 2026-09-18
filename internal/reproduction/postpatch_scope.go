@@ -281,7 +281,7 @@ func PlantCheck(c *state.Campaign, newSnapshotDir string,
 	}
 	sort.Strings(ids)
 	byID, byName := scopeNodeMaps(idx)
-	edges := scopeArr(objAt(idx, "edges"))
+	edges := scopeArr(validation.ObjAt(idx, "edges"))
 	seen := map[string]bool{}
 	var rows []string
 	mark := func(s string) {
@@ -295,7 +295,7 @@ func PlantCheck(c *state.Campaign, newSnapshotDir string,
 		if err != nil {
 			return nil, err
 		}
-		checks := scopeArr(objAt(arch, "checks"))
+		checks := scopeArr(validation.ObjAt(arch, "checks"))
 		matched, locs := true, []validation.Value{}
 		for _, check := range checks {
 			res, detail, err := scopePlant.EvalCheck(check, idx)
@@ -313,7 +313,7 @@ func PlantCheck(c *state.Campaign, newSnapshotDir string,
 			continue
 		}
 		for _, n := range locs {
-			p := objStr(n, "path")
+			p := validation.ObjStr(n, "path")
 			if p == "" || !changed[p] {
 				continue
 			}
@@ -351,12 +351,12 @@ func scopeHitNodes(check validation.Value, detail string,
 		}
 		out = append(out, byName[tok]...)
 	}
-	if len(out) == 0 && objStr(check, "type") == "delegatecall_present" {
+	if len(out) == 0 && validation.ObjStr(check, "type") == "delegatecall_present" {
 		for _, e := range edges {
-			if objStr(e, "rel") != "delegatecalls" {
+			if validation.ObjStr(e, "rel") != "delegatecalls" {
 				continue
 			}
-			if n, ok := byID[objStr(e, "from")]; ok {
+			if n, ok := byID[validation.ObjStr(e, "from")]; ok {
 				out = append(out, n)
 			}
 		}
@@ -384,14 +384,14 @@ func scopeNodeMaps(idx validation.Value) (map[string]validation.Value,
 	map[string][]validation.Value) {
 	byID := map[string]validation.Value{}
 	byName := map[string][]validation.Value{}
-	for _, n := range scopeArr(objAt(idx, "nodes")) {
-		if k := objStr(n, "kind"); k != "function" && k != "state-variable" {
+	for _, n := range scopeArr(validation.ObjAt(idx, "nodes")) {
+		if k := validation.ObjStr(n, "kind"); k != "function" && k != "state-variable" {
 			continue
 		}
-		if id := objStr(n, "id"); id != "" {
+		if id := validation.ObjStr(n, "id"); id != "" {
 			byID[id] = n
 		}
-		if name := objStr(n, "name"); name != "" {
+		if name := validation.ObjStr(n, "name"); name != "" {
 			byName[name] = append(byName[name], n)
 		}
 	}
@@ -409,7 +409,7 @@ func scopeArr(v validation.Value) []validation.Value {
 // scopeLine reads a node's line (missing/null reads as 0 — same Int shape
 // PostPatchVerdict's execExit trusts: Kind Int with empty Big).
 func scopeLine(n validation.Value) int {
-	if v := objAt(n, "line"); v.Kind == validation.Int && v.Big == "" {
+	if v := validation.ObjAt(n, "line"); v.Kind == validation.Int && v.Big == "" {
 		return int(v.I)
 	}
 	return 0

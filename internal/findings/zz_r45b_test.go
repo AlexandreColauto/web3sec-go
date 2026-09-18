@@ -102,7 +102,7 @@ func r45bFinding(t *testing.T, c *state.Campaign) validation.Value {
 	if err != nil {
 		t.Fatal(err)
 	}
-	loaded, err := LoadFinding(c, objStr(f, "finding_id"))
+	loaded, err := LoadFinding(c, validation.ObjStr(f, "finding_id"))
 	if err != nil {
 		t.Fatal(err)
 	}

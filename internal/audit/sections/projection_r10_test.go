@@ -46,11 +46,11 @@ func TestProjectionStateRowsPolicedWithoutEvents(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objAt(sec, "ok").B {
+	if validation.ObjAt(sec, "ok").B {
 		t.Fatal("a state-only snapshot with no ledger event must NOT audit green")
 	}
 	var msgs []string
-	for _, p := range objAt(sec, "problems").A {
+	for _, p := range validation.ObjAt(sec, "problems").A {
 		msgs = append(msgs, p.S)
 	}
 	if !strings.Contains(strings.Join(msgs, "\n"),

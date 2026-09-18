@@ -70,7 +70,7 @@ func TestArtifactReconcileRefreshesAndReportsMissing(t *testing.T) {
 	}
 	if row, err := c.Artifact(changed); err != nil {
 		t.Fatal(err)
-	} else if v := objAt(row, "refresh_count"); v.Kind == validation.Int {
+	} else if v := validation.ObjAt(row, "refresh_count"); v.Kind == validation.Int {
 		t.Errorf("--dry refreshed the row (refresh_count=%d)", v.I)
 	}
 	// live: the changed row is refreshed and the summary counts it.
@@ -86,7 +86,7 @@ func TestArtifactReconcileRefreshesAndReportsMissing(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if v := objAt(row, "refresh_count"); v.Kind != validation.Int || v.I != 1 {
+	if v := validation.ObjAt(row, "refresh_count"); v.Kind != validation.Int || v.I != 1 {
 		t.Errorf("refresh_count after live run: %+v", v)
 	}
 	// idempotent: nothing left to refresh.

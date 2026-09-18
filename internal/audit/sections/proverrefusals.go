@@ -85,12 +85,12 @@ func newRefusalTally() *refusalTally {
 // never make a refusal vanish from the tally. The two histograms' totals
 // therefore describe the STORED records, not the rendered lines.
 func (t *refusalTally) add(e validation.Value) {
-	h := objAt(objAt(e, "verification"), "harness")
+	h := validation.ObjAt(validation.ObjAt(e, "verification"), "harness")
 	if h.Kind != validation.Obj {
 		return
 	}
-	if objStr(h, "kind") != string(harness.MiniCertora) ||
-		objStr(h, "rung") != harness.RungInconclusive {
+	if validation.ObjStr(h, "kind") != string(harness.MiniCertora) ||
+		validation.ObjStr(h, "rung") != harness.RungInconclusive {
 		return
 	}
 	class, reason := refusalBuckets(h)
@@ -102,11 +102,11 @@ func (t *refusalTally) add(e validation.Value) {
 // refusalBuckets is one eligible record's (class, reason) pair, both
 // non-empty by construction.
 func refusalBuckets(h validation.Value) (string, string) {
-	class, _, ok := harness.Disposition(objStr(h, "summary"))
+	class, _, ok := harness.Disposition(validation.ObjStr(h, "summary"))
 	if !ok {
 		class = refusalUnmapped
 	}
-	code := objStr(objAt(h, "proof"), "reason")
+	code := validation.ObjStr(validation.ObjAt(h, "proof"), "reason")
 	switch {
 	case code == "":
 		// No string code stored (absent sidecar, JSON null, or a

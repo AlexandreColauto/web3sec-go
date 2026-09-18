@@ -31,7 +31,7 @@ func upPair(t *testing.T, c *state.Campaign) (f1, f2 validation.Value) {
 }
 
 func upIDs(f1, f2 validation.Value) []string {
-	return []string{objStr(f1, "finding_id"), objStr(f2, "finding_id")}
+	return []string{validation.ObjStr(f1, "finding_id"), validation.ObjStr(f2, "finding_id")}
 }
 
 // setSourcePin rewrites a finding's source pin (the schema wants >= 8 chars).
@@ -41,7 +41,7 @@ func setSourcePin(t *testing.T, c *state.Campaign, fid, pin string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sp := asObj(objAt(f, "snapshot_ids"))
+	sp := asObj(validation.ObjAt(f, "snapshot_ids"))
 	sp.O = validation.SetOrAppend(sp.O, "source", validation.VStr(pin))
 	f.O = validation.SetOrAppend(f.O, "snapshot_ids", sp)
 	if err := findings.SaveFinding(c, &f); err != nil {
@@ -63,32 +63,32 @@ func TestUnprovenChainMaterializesWithoutSuperFinding(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unproven materialize: %v", err)
 	}
-	if got := objStr(ch, "provenance"); got != "unproven" {
+	if got := validation.ObjStr(ch, "provenance"); got != "unproven" {
 		t.Errorf("provenance = %q, want unproven", got)
 	}
-	if got := objStr(ch, "evidence_floor"); got != "E0" {
+	if got := validation.ObjStr(ch, "evidence_floor"); got != "E0" {
 		t.Errorf("evidence_floor = %q, want E0", got)
 	}
-	if got := objStr(ch, "status"); got != "proposed" {
+	if got := validation.ObjStr(ch, "status"); got != "proposed" {
 		t.Errorf("status = %q, want proposed", got)
 	}
 	links := listOf(ch, "capability_links").A
 	if len(links) != 1 {
 		t.Fatalf("links = %d, want 1", len(links))
 	}
-	if got := objStr(links[0], "link_evidence"); got != "E0" {
+	if got := validation.ObjStr(links[0], "link_evidence"); got != "E0" {
 		t.Errorf("link_evidence = %q, want E0", got)
 	}
-	if got := objStr(links[0], "granted"); got != "control_protocol_pause" {
+	if got := validation.ObjStr(links[0], "granted"); got != "control_protocol_pause" {
 		t.Errorf("link granted = %q", got)
 	}
 	// the terminal is DERIVED from the hypothesis-mode search (no caller
 	// annotation), and verified against the via_finding.
-	term := objAt(ch, "terminal")
-	if got := objStr(term, "capability"); got != "liveness_loss" {
+	term := validation.ObjAt(ch, "terminal")
+	if got := validation.ObjStr(term, "capability"); got != "liveness_loss" {
 		t.Fatalf("derived terminal = %q, want liveness_loss", got)
 	}
-	if got := objStr(term, "via_finding"); got != ids[1] {
+	if got := validation.ObjStr(term, "via_finding"); got != ids[1] {
 		t.Errorf("derived terminal via = %q, want %q", got, ids[1])
 	}
 	// no super-finding: both findings are still HYPOTHESIS, and no CHAIN
@@ -101,9 +101,9 @@ func TestUnprovenChainMaterializesWithoutSuperFinding(t *testing.T) {
 		t.Fatalf("findings = %d, want 2 (no super-finding)", len(all))
 	}
 	for _, f := range all {
-		if st := objStr(f, "status"); st != "HYPOTHESIS" {
+		if st := validation.ObjStr(f, "status"); st != "HYPOTHESIS" {
 			t.Errorf("%s status = %q, want HYPOTHESIS",
-				objStr(f, "finding_id"), st)
+				validation.ObjStr(f, "finding_id"), st)
 		}
 	}
 	// the event is distinct and carries the provenance, not a super-finding.
@@ -115,14 +115,14 @@ func TestUnprovenChainMaterializesWithoutSuperFinding(t *testing.T) {
 		t.Fatal("no events")
 	}
 	last := evts[len(evts)-1]
-	if got := objStr(last, "type"); got != "chain.materialized_unproven" {
+	if got := validation.ObjStr(last, "type"); got != "chain.materialized_unproven" {
 		t.Errorf("event type = %q, want chain.materialized_unproven", got)
 	}
-	if got := objStr(last, "ref"); got != objStr(ch, "chain_id") {
-		t.Errorf("event ref = %q, want %q", got, objStr(ch, "chain_id"))
+	if got := validation.ObjStr(last, "ref"); got != validation.ObjStr(ch, "chain_id") {
+		t.Errorf("event ref = %q, want %q", got, validation.ObjStr(ch, "chain_id"))
 	}
-	data := objAt(last, "data")
-	if got := objStr(data, "provenance"); got != "unproven" {
+	data := validation.ObjAt(last, "data")
+	if got := validation.ObjStr(data, "provenance"); got != "unproven" {
 		t.Errorf("event provenance = %q, want unproven", got)
 	}
 	if hasKey(data, "super_finding") {
@@ -155,7 +155,7 @@ func TestUnprovenChainSpansSnapshots(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unproven materialize: %v", err)
 	}
-	if got := objStr(ch, "provenance"); got != "unproven" {
+	if got := validation.ObjStr(ch, "provenance"); got != "unproven" {
 		t.Errorf("provenance = %q, want unproven", got)
 	}
 }
@@ -196,7 +196,7 @@ func TestProvenChainStillRefusesHypothesisMembers(t *testing.T) {
 	if hasKey(ch, "provenance") {
 		t.Error("proven chain doc carries provenance (B3 changed proven bytes)")
 	}
-	if got := objStr(listOf(ch, "capability_links").A[0], "link_evidence"); got != "" {
+	if got := validation.ObjStr(listOf(ch, "capability_links").A[0], "link_evidence"); got != "" {
 		t.Errorf("proven link carries link_evidence %q", got)
 	}
 	all, err := findings.LoadAllFindings(c)
@@ -205,7 +205,7 @@ func TestProvenChainStillRefusesHypothesisMembers(t *testing.T) {
 	}
 	supers := 0
 	for _, f := range all {
-		if objStr(f, "status") == "CHAIN" {
+		if validation.ObjStr(f, "status") == "CHAIN" {
 			supers++
 		}
 	}

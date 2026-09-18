@@ -63,7 +63,7 @@ func t20Setup(t *testing.T) *t20Fixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	reg := func(profile, command, stdout string, exit int,
 		findingID string) string {
 		t.Helper()
@@ -74,7 +74,7 @@ func t20Setup(t *testing.T) *t20Fixture {
 		if err != nil {
 			t.Fatalf("register exec: %v", err)
 		}
-		return objStr(rec, "exec_id")
+		return validation.ObjStr(rec, "exec_id")
 	}
 	return &t20Fixture{c: c, root: root, fid: fid,
 		pass: reg("docker-networkless", "forge test --match-test poc",
@@ -531,8 +531,8 @@ func TestExecRefusesDeadAndGhostFindings(t *testing.T) {
 	twin := ""
 	if all, err := findings.LoadAllFindings(c); err == nil {
 		for _, f := range all {
-			if objStr(f, "status") == "SUPERSEDED" {
-				twin = objStr(f, "finding_id")
+			if validation.ObjStr(f, "status") == "SUPERSEDED" {
+				twin = validation.ObjStr(f, "finding_id")
 			}
 		}
 	}

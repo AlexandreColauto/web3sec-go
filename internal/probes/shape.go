@@ -48,7 +48,7 @@ func RowShapeSha(row validation.Value) string {
 		stranded = append(stranded, pyStr(e))
 	}
 	sort.Strings(stranded)
-	slots = append(slots, strArr(stranded))
+	slots = append(slots, validation.StrArr(stranded))
 	canonical := validation.Canon(validation.VArr(slots...), true)
 	sum := sha256.Sum256([]byte(canonical))
 	return hex.EncodeToString(sum[:])[:16]
@@ -187,7 +187,7 @@ func reprAnchors(probeID string) string {
 	if !ok {
 		return "None"
 	}
-	return validation.PyRepr(strArr(spec.anchors))
+	return validation.PyRepr(validation.StrArr(spec.anchors))
 }
 
 // AnchorRef is anchor_ref: the falsifiable citation a disposition records for

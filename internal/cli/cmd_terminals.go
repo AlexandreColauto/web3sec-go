@@ -45,23 +45,23 @@ func printTerminals(r *Runner, rep validation.Value) {
 		if len(t14List(p, "path").A) == 1 {
 			kind = "direct"
 		}
-		capUSD := pyFloatOf(objAt(p, "total_capital_required_usd"))
+		capUSD := pyFloatOf(validation.ObjAt(p, "total_capital_required_usd"))
 		fmt.Fprintf(r.Out, "  [%s] -> %s: %s (capital $%s%s)\n", kind,
-			objStr(p, "terminal_capability"),
+			validation.ObjStr(p, "terminal_capability"),
 			strings.Join(t14Strings(t14List(p, "path")), " -> "),
 			t23Money0(capUSD), t23CapSuffix(p))
 	}
 	materialized := t14List(rep, "materialized_terminal_chains")
 	fmt.Fprintf(r.Out, "materialized terminal chains: %d\n", len(materialized.A))
 	for _, ch := range materialized.A {
-		t := objAt(ch, "terminal")
+		t := validation.ObjAt(ch, "terminal")
 		line := fmt.Sprintf("  %s [%s] -> %s via %s (floor %s)",
-			objStr(ch, "chain_id"), objStr(ch, "status"),
-			objStr(t, "capability"), scalarStr(objAt(t, "via_finding")),
-			objStr(ch, "evidence_floor"))
+			validation.ObjStr(ch, "chain_id"), validation.ObjStr(ch, "status"),
+			validation.ObjStr(t, "capability"), scalarStr(validation.ObjAt(t, "via_finding")),
+			validation.ObjStr(ch, "evidence_floor"))
 		// B3: an unproven chain's terminal is the lead's destination, not a
 		// result — say so. A proven chain renders exactly as before.
-		if objStr(ch, "provenance") == "unproven" {
+		if validation.ObjStr(ch, "provenance") == "unproven" {
 			line += " — UNPROVEN (hypothesis-level)"
 		}
 		fmt.Fprintln(r.Out, line)
@@ -71,8 +71,8 @@ func printTerminals(r *Runner, rep validation.Value) {
 // t23CapSuffix is cli.py _cap_suffix: the capital tail shared by terminals
 // and privileged ("; net at risk $N" only when net is recorded and below cap).
 func t23CapSuffix(p validation.Value) string {
-	capUSD := pyFloatOf(objAt(p, "total_capital_required_usd"))
-	net := objAt(objAt(p, "capital_breakdown"), "net_at_risk_usd")
+	capUSD := pyFloatOf(validation.ObjAt(p, "total_capital_required_usd"))
+	net := validation.ObjAt(validation.ObjAt(p, "capital_breakdown"), "net_at_risk_usd")
 	if net.Kind == validation.Null {
 		return ""
 	}

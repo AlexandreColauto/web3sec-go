@@ -40,7 +40,7 @@ func r34ArtifactRows(t *testing.T, c *state.Campaign) []validation.Value {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return objAt(st, "artifacts").A
+	return validation.ObjAt(st, "artifacts").A
 }
 
 // r34LastEvent is the campaign's newest event.
@@ -124,29 +124,29 @@ func TestR34ArtifactRegisterReRegisterKeepsOneRow(t *testing.T) {
 		t.Fatalf("A PATH HOLDS ONE REGISTRY ROW: rows at %s = %d (%s)",
 			path, len(rows), validation.CanonCompact(validation.VArr(rows...)))
 	}
-	if got := objStr(rows[0], "artifact_id"); got != id1 {
+	if got := validation.ObjStr(rows[0], "artifact_id"); got != id1 {
 		t.Fatalf("row id = %q, want the registered row %s", got, id1)
 	}
-	if got := objStr(rows[0], "kind"); got != "report" {
+	if got := validation.ObjStr(rows[0], "kind"); got != "report" {
 		t.Fatalf("migrated kind = %q, want report", got)
 	}
-	if got := objStr(rows[0], "sha256"); got != validation.Sha256Hex(
+	if got := validation.ObjStr(rows[0], "sha256"); got != validation.Sha256Hex(
 		[]byte("v2\n")) {
 		t.Fatalf("re-register must re-hash the file: sha = %q", got)
 	}
-	if got := objAt(rows[0], "refresh_count"); got.Kind != validation.Int ||
+	if got := validation.ObjAt(rows[0], "refresh_count"); got.Kind != validation.Int ||
 		got.I != 1 {
 		t.Fatalf("refresh_count = %s, want 1", validation.CanonCompact(got))
 	}
 	ev := r34LastEvent(t, c)
-	if got := objStr(ev, "type"); got != "artifact.refreshed" {
+	if got := validation.ObjStr(ev, "type"); got != "artifact.refreshed" {
 		t.Fatalf("last event = %q, want artifact.refreshed", got)
 	}
-	d := objAt(ev, "data")
-	if got := objStr(d, "kind_migrated"); got != "other→report" {
+	d := validation.ObjAt(ev, "data")
+	if got := validation.ObjStr(d, "kind_migrated"); got != "other→report" {
 		t.Fatalf("kind_migrated = %q, want other→report", got)
 	}
-	if got := objStr(d, "reason"); got != "re-registered (content may have "+
+	if got := validation.ObjStr(d, "reason"); got != "re-registered (content may have "+
 		"changed)" {
 		t.Fatalf("refresh reason = %q", got)
 	}
@@ -186,15 +186,15 @@ func TestR34ArtifactRegisterSameKindReRegisterRefreshes(t *testing.T) {
 	if len(rows) != 1 {
 		t.Fatalf("rows after same-kind re-register: %d", len(rows))
 	}
-	if got := objAt(rows[0], "refresh_count"); got.Kind != validation.Int ||
+	if got := validation.ObjAt(rows[0], "refresh_count"); got.Kind != validation.Int ||
 		got.I != 1 {
 		t.Fatalf("refresh_count = %s, want 1", validation.CanonCompact(got))
 	}
 	ev := r34LastEvent(t, c)
-	if got := objStr(ev, "type"); got != "artifact.refreshed" {
+	if got := validation.ObjStr(ev, "type"); got != "artifact.refreshed" {
 		t.Fatalf("last event = %q, want artifact.refreshed", got)
 	}
-	if got := objAt(objAt(ev, "data"), "kind_migrated"); got.Kind !=
+	if got := validation.ObjAt(validation.ObjAt(ev, "data"), "kind_migrated"); got.Kind !=
 		validation.Null {
 		t.Fatalf("same-kind refresh must not record kind_migrated: %s",
 			validation.CanonCompact(ev))
@@ -237,10 +237,10 @@ func TestR34ArtifactRegisterPrunesGhostsAtThePath(t *testing.T) {
 		t.Fatalf("ghost rows must be pruned: rows = %d (%s)", len(rows),
 			validation.CanonCompact(validation.VArr(rows...)))
 	}
-	if got := objStr(rows[0], "kind"); got != "report" {
+	if got := validation.ObjStr(rows[0], "kind"); got != "report" {
 		t.Fatalf("surviving kind = %q, want report", got)
 	}
-	if got := objStr(rows[0], "artifact_id"); got != ghostA && got != ghostB {
+	if got := validation.ObjStr(rows[0], "artifact_id"); got != ghostA && got != ghostB {
 		t.Fatalf("surviving row %q is neither registered ghost", got)
 	}
 	events, err := c.Events()
@@ -249,11 +249,11 @@ func TestR34ArtifactRegisterPrunesGhostsAtThePath(t *testing.T) {
 	}
 	pruned := map[string]bool{}
 	for _, ev := range events {
-		if objStr(ev, "type") == "artifact.pruned" {
+		if validation.ObjStr(ev, "type") == "artifact.pruned" {
 			// The retired row's id is the event's REF (PruneArtifact logs
 			// artifact.pruned with the id as the ref, the row's kind/path
 			// and the reason in data).
-			pruned[objStr(ev, "ref")] = true
+			pruned[validation.ObjStr(ev, "ref")] = true
 		}
 	}
 	if !pruned[ghostA] && !pruned[ghostB] {
@@ -338,7 +338,7 @@ func r34BlankTitleCampaign(t *testing.T, program string) (*state.Campaign,
 	if err != nil {
 		t.Fatal(err)
 	}
-	reg := objAt(links, "invariants")
+	reg := validation.ObjAt(links, "invariants")
 	for _, iid := range []string{"INV-1", "INV-2"} {
 		rung := validation.VStr(harness.RungProvedBounded)
 		summary := validation.VStr("autoproved bounded (k=4, 1 rules)")
@@ -351,7 +351,7 @@ func r34BlankTitleCampaign(t *testing.T, program string) (*state.Campaign,
 			kvT("summary", summary),
 			kvT("proof", validation.VNull()),
 		)
-		e := objAt(reg, iid)
+		e := validation.ObjAt(reg, iid)
 		if e.Kind != validation.Obj {
 			t.Fatalf("fixture: no %s in links", iid)
 		}
@@ -366,7 +366,7 @@ func r34BlankTitleCampaign(t *testing.T, program string) (*state.Campaign,
 			kvT("summary", summary),
 			kvT("bounded_k", validation.VInt(4)),
 			kvT("proof_sha256", validation.VStr(validation.Sha256Hex(
-				[]byte(validation.CanonCompact(objAt(h, "proof")))))),
+				[]byte(validation.CanonCompact(validation.ObjAt(h, "proof")))))),
 			kvT("report_sha256", validation.VStr(sha)),
 			kvT("property", validation.VStr("")),
 		)

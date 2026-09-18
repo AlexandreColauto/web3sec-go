@@ -66,7 +66,7 @@ func pReentrancy(index validation.Value) []validation.Value {
 		if reGuard.MatchString(strings.Join(strListAt(n, "guarded_by"), " ")) {
 			continue
 		}
-		hits = append(hits, hit(objStr(n, "id"), fmt.Sprintf(
+		hits = append(hits, hit(validation.ObjStr(n, "id"), fmt.Sprintf(
 			"external %s + writes %s", pyReprList(firstN(calls, 2)),
 			pyReprList(firstN(writes, 3)))))
 	}
@@ -78,7 +78,7 @@ func pReentrancy(index validation.Value) []validation.Value {
 func pSharePriceInflation(index validation.Value) []validation.Value {
 	byID := map[string]validation.Value{}
 	for _, n := range fns(index) {
-		byID[objStr(n, "id")] = n
+		byID[validation.ObjStr(n, "id")] = n
 	}
 	hits := []validation.Value{}
 	for _, n := range fns(index) {
@@ -96,13 +96,13 @@ func pSharePriceInflation(index validation.Value) []validation.Value {
 			}
 		}
 		if len(writesRate) > 0 {
-			hits = append(hits, hit(objStr(n, "id"),
+			hits = append(hits, hit(validation.ObjStr(n, "id"),
 				"inline accounting, rate write "+pyReprList(writesRate)))
 			continue
 		}
 		var entryCallers []string
-		for _, c := range structidx.CallersOf(index, objStr(n, "id")) {
-			if b := objAt(byID[c], "is_entry_point"); b.Kind == validation.Bool && b.B {
+		for _, c := range structidx.CallersOf(index, validation.ObjStr(n, "id")) {
+			if b := validation.ObjAt(byID[c], "is_entry_point"); b.Kind == validation.Bool && b.B {
 				entryCallers = append(entryCallers, c)
 			}
 		}
@@ -112,7 +112,7 @@ func pSharePriceInflation(index validation.Value) []validation.Value {
 				parts := strings.Split(c, ".")
 				names = append(names, parts[len(parts)-1])
 			}
-			hits = append(hits, hit(objStr(n, "id"),
+			hits = append(hits, hit(validation.ObjStr(n, "id"),
 				"delegated ratio site read by entry "+
 					pyReprList(firstN(names, 2))))
 		}
@@ -133,7 +133,7 @@ func pOracleManipulation(index validation.Value) []validation.Value {
 			}
 		}
 		if pricey {
-			hits = append(hits, hit(objStr(n, "id"),
+			hits = append(hits, hit(validation.ObjStr(n, "id"),
 				"pricey call "+pyReprList(firstN(calls, 2))))
 			continue
 		}
@@ -144,7 +144,7 @@ func pOracleManipulation(index validation.Value) []validation.Value {
 			}
 		}
 		if len(reads) > 0 {
-			hits = append(hits, hit(objStr(n, "id"),
+			hits = append(hits, hit(validation.ObjStr(n, "id"),
 				"reads price var "+pyReprList(reads)))
 		}
 	}
@@ -159,7 +159,7 @@ func pAccessControl(index validation.Value) []validation.Value {
 		if len(writes) == 0 {
 			continue
 		}
-		hits = append(hits, hit(objStr(n, "id"),
+		hits = append(hits, hit(validation.ObjStr(n, "id"),
 			"unguarded entry writes "+pyReprList(firstN(writes, 3))))
 	}
 	return hits
@@ -172,14 +172,14 @@ func pFlashLoan(index validation.Value) []validation.Value {
 	for _, n := range fns(index) {
 		calls := strings.Join(strListAt(n, "calls_external"), " ")
 		if reTransferIn.MatchString(calls) && reTransferOut.MatchString(calls) {
-			hits = append(hits, hit(objStr(n, "id"), "transfer-in + out"))
+			hits = append(hits, hit(validation.ObjStr(n, "id"), "transfer-in + out"))
 		}
 	}
 	nameRe := regexp.MustCompile(`(?i)flashloan|lendingpool|flashborrow`)
 	for _, kind := range []string{"contract", "interface"} {
 		for _, n := range structidx.Nodes(index, kind) {
-			if nameRe.MatchString(objStr(n, "name")) {
-				hits = append(hits, hit(objStr(n, "id"), kind+" name"))
+			if nameRe.MatchString(validation.ObjStr(n, "name")) {
+				hits = append(hits, hit(validation.ObjStr(n, "id"), kind+" name"))
 			}
 		}
 	}
@@ -191,7 +191,7 @@ func pTokenIntegration(index validation.Value) []validation.Value {
 	hits := []validation.Value{}
 	for _, n := range structidx.ExternalSurface(index) {
 		if reTokenIface.MatchString(strings.Join(strListAt(n, "calls_external"), " ")) {
-			hits = append(hits, hit(objStr(n, "id"), "token iface calls"))
+			hits = append(hits, hit(validation.ObjStr(n, "id"), "token iface calls"))
 		}
 	}
 	return hits
@@ -215,7 +215,7 @@ func pUncheckedExternalCall(index validation.Value) []validation.Value {
 		if len(shown) == 0 {
 			shown = deleg
 		}
-		hits = append(hits, hit(objStr(n, "id"), "raw calls "+pyReprList(shown)))
+		hits = append(hits, hit(validation.ObjStr(n, "id"), "raw calls "+pyReprList(shown)))
 	}
 	return hits
 }
@@ -233,7 +233,7 @@ func pLogicError(index validation.Value) []validation.Value {
 		if reValidationCall.MatchString(called) {
 			continue
 		}
-		hits = append(hits, hit(objStr(n, "id"),
+		hits = append(hits, hit(validation.ObjStr(n, "id"),
 			"writes "+pyReprList(firstN(writes, 3))+" without validation call"))
 	}
 	return hits
@@ -245,9 +245,9 @@ func pCentralizationRisk(index validation.Value) []validation.Value {
 	for _, n := range structidx.GuardedEntryPoints(index) {
 		calls := strings.Join(strListAt(n, "calls_external"), " ")
 		if anyMatch(reValueVar, strListAt(n, "writes_storage")) {
-			hits = append(hits, hit(objStr(n, "id"), "authz write of value var"))
+			hits = append(hits, hit(validation.ObjStr(n, "id"), "authz write of value var"))
 		} else if reValueMoveCall.MatchString(calls) {
-			hits = append(hits, hit(objStr(n, "id"), "authz value move"))
+			hits = append(hits, hit(validation.ObjStr(n, "id"), "authz value move"))
 		}
 	}
 	return hits
@@ -257,14 +257,14 @@ func pCentralizationRisk(index validation.Value) []validation.Value {
 func pBridgeMessage(index validation.Value) []validation.Value {
 	hits := []validation.Value{}
 	for _, n := range fns(index) {
-		name := objStr(n, "name")
+		name := validation.ObjStr(n, "name")
 		if reBridge.MatchString(name) {
-			hits = append(hits, hit(objStr(n, "id"), "fn "+name))
+			hits = append(hits, hit(validation.ObjStr(n, "id"), "fn "+name))
 			continue
 		}
 		for _, c := range strListAt(n, "calls_external") {
 			if reBridge.MatchString(c) {
-				hits = append(hits, hit(objStr(n, "id"), "call "+c))
+				hits = append(hits, hit(validation.ObjStr(n, "id"), "call "+c))
 				break
 			}
 		}
@@ -283,7 +283,7 @@ func pDosGriefing(index validation.Value) []validation.Value {
 			}
 		}
 		if len(shared) > 0 {
-			hits = append(hits, hit(objStr(n, "id"),
+			hits = append(hits, hit(validation.ObjStr(n, "id"),
 				"unguarded write of shared state "+pyReprList(shared)))
 		}
 	}
@@ -296,7 +296,7 @@ func pUpgradeInitializer(index validation.Value) []validation.Value {
 	guardRe := regexp.MustCompile(`(?i)initializer|initialized`)
 	hits := []validation.Value{}
 	for _, n := range fns(index) {
-		if !initRe.MatchString(objStr(n, "name")) {
+		if !initRe.MatchString(validation.ObjStr(n, "name")) {
 			continue
 		}
 		writes := strListAt(n, "writes_storage")
@@ -306,7 +306,7 @@ func pUpgradeInitializer(index validation.Value) []validation.Value {
 		if guardRe.MatchString(strings.Join(strListAt(n, "guarded_by"), " ")) {
 			continue
 		}
-		hits = append(hits, hit(objStr(n, "id"),
+		hits = append(hits, hit(validation.ObjStr(n, "id"),
 			"init writes "+pyReprList(firstN(writes, 3))+" unguarded"))
 	}
 	return hits
@@ -404,7 +404,7 @@ func ProbeClasses(index validation.Value) []validation.Value {
 	for _, alias := range aliases {
 		var src validation.Value
 		for _, x := range out {
-			if objStr(x, "bug_class") == Aliases[alias] {
+			if validation.ObjStr(x, "bug_class") == Aliases[alias] {
 				src = x
 				break
 			}
@@ -412,13 +412,13 @@ func ProbeClasses(index validation.Value) []validation.Value {
 		hits := append([]validation.Value{}, listAt(src, "hits")...)
 		out = append(out, validation.VObj(
 			validation.KV{K: "bug_class", V: validation.VStr(alias)},
-			validation.KV{K: "exposed", V: objAt(src, "exposed")},
+			validation.KV{K: "exposed", V: validation.ObjAt(src, "exposed")},
 			validation.KV{K: "hits", V: validation.VArr(hits...)},
-			validation.KV{K: "confidence", V: objAt(src, "confidence")},
+			validation.KV{K: "confidence", V: validation.ObjAt(src, "confidence")},
 		))
 	}
 	sort.SliceStable(out, func(i, j int) bool {
-		return objStr(out[i], "bug_class") < objStr(out[j], "bug_class")
+		return validation.ObjStr(out[i], "bug_class") < validation.ObjStr(out[j], "bug_class")
 	})
 	return out
 }

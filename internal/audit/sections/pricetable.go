@@ -27,7 +27,7 @@ func PriceTable(c *state.Campaign) (validation.Value, error) {
 	}
 	var priceEvents []validation.Value
 	for _, e := range events {
-		if objStr(e, "type") == "price.set" {
+		if validation.ObjStr(e, "type") == "price.set" {
 			priceEvents = append(priceEvents, e)
 		}
 	}
@@ -46,7 +46,7 @@ func PriceTable(c *state.Campaign) (validation.Value, error) {
 	last := map[string]logged{}
 	var order []string
 	for _, e := range priceEvents {
-		rv := objAt(e, "ref")
+		rv := validation.ObjAt(e, "ref")
 		id := ""
 		if rv.Kind == validation.Str {
 			id = rv.S
@@ -57,12 +57,12 @@ func PriceTable(c *state.Campaign) (validation.Value, error) {
 		if _, seen := last[id]; !seen {
 			order = append(order, id)
 		}
-		last[id] = logged{objAt(e, "data")}
+		last[id] = logged{validation.ObjAt(e, "data")}
 	}
 	var problems []validation.Value
 	have := map[string]bool{}
 	for _, row := range rows {
-		id := objStr(row, "price_id")
+		id := validation.ObjStr(row, "price_id")
 		have[id] = true
 		lg, ok := last[id]
 		if !ok {
@@ -72,8 +72,8 @@ func PriceTable(c *state.Campaign) (validation.Value, error) {
 			continue
 		}
 		for _, field := range []string{"asset", "usd", "source"} {
-			got := objAt(row, field)
-			want := objAt(lg.data, field)
+			got := validation.ObjAt(row, field)
+			want := validation.ObjAt(lg.data, field)
 			if !pyEqual(got, want) {
 				problems = append(problems, validation.VStr(fmt.Sprintf(
 					"PRICING: %s: %s is %s in prices.json but the last "+
@@ -85,7 +85,7 @@ func PriceTable(c *state.Campaign) (validation.Value, error) {
 		// set_by: the log keeps the RAW actor, the row the stripped one
 		// (pricing's own asymmetry) — stripped-vs-stripped, so ordinary
 		// whitespace never false-positives but "Mallory" does (r5).
-		rowBy, logBy := objStr(row, "set_by"), objStr(lg.data, "actor")
+		rowBy, logBy := validation.ObjStr(row, "set_by"), validation.ObjStr(lg.data, "actor")
 		if pyStripStr(rowBy) != pyStripStr(logBy) {
 			problems = append(problems, validation.VStr(fmt.Sprintf(
 				"PRICING: %s: set_by is %s in prices.json but the last "+
@@ -133,7 +133,7 @@ func readPriceRows(path string) ([]validation.Value, bool, error) {
 		return nil, false, fmt.Errorf("the price table %s cannot be read: %v",
 			path, err)
 	}
-	return listOf(objAt(doc, "prices")), true, nil
+	return listOf(validation.ObjAt(doc, "prices")), true, nil
 }
 
 // pyStripStr is Python str.strip() on a CLI-visible string.

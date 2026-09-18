@@ -95,7 +95,7 @@ func TestChainAssumptionsRendersRowsAndGap(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	al := objAt(b, "chain_assumption_lines")
+	al := validation.ObjAt(b, "chain_assumption_lines")
 	if al.Kind != validation.Arr || len(al.A) != len(want) {
 		t.Fatalf("chain_assumption_lines = %v, want %d lines", al, len(want))
 	}

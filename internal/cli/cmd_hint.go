@@ -66,8 +66,8 @@ func runHint(root string, args []string, r *Runner) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(r.Out, "%s: kind=%s — %s\n", objStr(row, "hint_id"),
-		objStr(row, "kind"), t14Truncate(objStr(row, "content"), 70))
+	fmt.Fprintf(r.Out, "%s: kind=%s — %s\n", validation.ObjStr(row, "hint_id"),
+		validation.ObjStr(row, "kind"), t14Truncate(validation.ObjStr(row, "content"), 70))
 	return nil
 }
 
@@ -159,8 +159,8 @@ func t14LoadPlannerHints(c *state.Campaign) ([]planner.PlannerHint, error) {
 	var out []planner.PlannerHint
 	for _, row := range rows {
 		out = append(out, planner.PlannerHint{
-			HintID:  objStr(row, "hint_id"),
-			Content: objStr(row, "content"),
+			HintID:  validation.ObjStr(row, "hint_id"),
+			Content: validation.ObjStr(row, "content"),
 		})
 	}
 	return out, nil

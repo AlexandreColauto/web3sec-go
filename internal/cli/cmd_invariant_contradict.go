@@ -64,7 +64,7 @@ func runInvariantContradict(root string, args []string, r *Runner) int {
 		return 2
 	}
 	fmt.Fprintf(r.Out, "%s: CONTRADICTED (%s)\n", invID,
-		objStr(entry, "contradiction"))
+		validation.ObjStr(entry, "contradiction"))
 	return 0
 }
 

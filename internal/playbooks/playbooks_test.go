@@ -79,10 +79,10 @@ func TestShippedPlaybooksLoadAndValidate(t *testing.T) {
 			if !found {
 				t.Fatalf("playbook_for_class(%q) = miss, want a playbook", cls)
 			}
-			if got := objAt(pb, "bug_class"); got.Kind != validation.Str || got.S != cls {
+			if got := validation.ObjAt(pb, "bug_class"); got.Kind != validation.Str || got.S != cls {
 				t.Fatalf("bug_class = %v, want %q", got, cls)
 			}
-			if objAt(pb, "title").Kind != validation.Str {
+			if validation.ObjAt(pb, "title").Kind != validation.Str {
 				t.Fatal("playbook carries no title string")
 			}
 		})
@@ -270,12 +270,12 @@ func TestSimulationModePlaybookLoads(t *testing.T) {
 	if err != nil || !found {
 		t.Fatalf("load: found=%v err=%v", found, err)
 	}
-	if got := objAt(pb, "investigation_mode"); got.Kind != validation.Str ||
+	if got := validation.ObjAt(pb, "investigation_mode"); got.Kind != validation.Str ||
 		got.S != "adversarial-simulation" {
 		t.Fatalf("investigation_mode = %v", got)
 	}
-	sim := objAt(pb, "simulation")
-	if got := objAt(sim, "expectation_violated"); got.S != "INV-SPI-PRORATA" {
+	sim := validation.ObjAt(pb, "simulation")
+	if got := validation.ObjAt(sim, "expectation_violated"); got.S != "INV-SPI-PRORATA" {
 		t.Fatalf("expectation_violated = %v", got)
 	}
 }
@@ -347,7 +347,7 @@ func TestCuratedInvariantIDsIsUnionOverPlaybooks(t *testing.T) {
 			t.Fatalf("playbook %s: found=%v err=%v", cls, found, perr)
 		}
 		for _, inv := range listAt(pb, "invariants") {
-			if id := objAt(inv, "id"); id.Kind == validation.Str {
+			if id := validation.ObjAt(inv, "id"); id.Kind == validation.Str {
 				expected[id.S] = true
 			}
 		}
@@ -382,24 +382,24 @@ func TestShippedSimulationPlaybooksCarryModeAndExpectation(t *testing.T) {
 			if err != nil || !found {
 				t.Fatalf("load: found=%v err=%v", found, err)
 			}
-			if got := objAt(pb, "investigation_mode"); got.S != "adversarial-simulation" {
+			if got := validation.ObjAt(pb, "investigation_mode"); got.S != "adversarial-simulation" {
 				t.Fatalf("investigation_mode = %v", got)
 			}
-			sim := objAt(pb, "simulation")
+			sim := validation.ObjAt(pb, "simulation")
 			classes := map[string]bool{}
 			for _, a := range listAt(sim, "actors") {
-				classes[objAt(a, "behavior_class").S] = true
+				classes[validation.ObjAt(a, "behavior_class").S] = true
 			}
 			if !classes["adversarial"] || !classes["benign-rational"] ||
 				len(classes) != 2 {
 				t.Fatalf("actor classes = %v", classes)
 			}
-			if got := objAt(sim, "expectation_violated").S; got != expectation {
+			if got := validation.ObjAt(sim, "expectation_violated").S; got != expectation {
 				t.Fatalf("expectation_violated = %q, want %q", got, expectation)
 			}
 			ids := map[string]bool{}
 			for _, inv := range listAt(pb, "invariants") {
-				ids[objAt(inv, "id").S] = true
+				ids[validation.ObjAt(inv, "id").S] = true
 			}
 			if !ids[expectation] {
 				t.Fatalf("expectation %q is not among the declared invariants %v",

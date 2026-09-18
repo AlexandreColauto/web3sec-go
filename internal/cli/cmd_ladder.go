@@ -107,7 +107,7 @@ func ladderStart(c *state.Campaign, a *ladderArgs, r *Runner) error {
 		return err
 	}
 	fmt.Fprintf(r.Out, "ladder %s started for %s (rung 0 = the finding's "+
-		"current claim)\n", objStr(lad, "ladder_id"), a.finding)
+		"current claim)\n", validation.ObjStr(lad, "ladder_id"), a.finding)
 	return nil
 }
 
@@ -158,7 +158,7 @@ func ladderAdd(c *state.Campaign, a *ladderArgs, r *Runner) error {
 		return err
 	}
 	fmt.Fprintf(r.Out, "rung %s recorded: %s (status %s)\n",
-		objStr(rung, "rung_id"), objStr(rung, "name"), objStr(rung, "status"))
+		validation.ObjStr(rung, "rung_id"), validation.ObjStr(rung, "name"), validation.ObjStr(rung, "status"))
 	return nil
 }
 
@@ -168,7 +168,7 @@ func ladderRepro(c *state.Campaign, a *ladderArgs, r *Runner) error {
 		return err
 	}
 	fmt.Fprintf(r.Out, "rung %s (%s) reproduced from %s — evidence minted "+
-		"onto %s\n", a.rung, objStr(rung, "name"), a.execID, a.finding)
+		"onto %s\n", a.rung, validation.ObjStr(rung, "name"), a.execID, a.finding)
 	return nil
 }
 
@@ -178,7 +178,7 @@ func ladderDisprove(c *state.Campaign, a *ladderArgs, r *Runner) error {
 		return err
 	}
 	fmt.Fprintf(r.Out, "rung %s (%s) disproved — negative memory queued "+
-		"(the next campaign starts smarter)\n", a.rung, objStr(rung, "name"))
+		"(the next campaign starts smarter)\n", a.rung, validation.ObjStr(rung, "name"))
 	return nil
 }
 
@@ -187,12 +187,12 @@ func ladderSetMaximal(c *state.Campaign, a *ladderArgs, r *Runner) error {
 	if err != nil {
 		return err
 	}
-	ei := objAt(f, "economic_impact")
-	attacker := objAt(f, "attacker")
+	ei := validation.ObjAt(f, "economic_impact")
+	attacker := validation.ObjAt(f, "attacker")
 	fmt.Fprintf(r.Out, "maximal rung pinned: %s — claim now follows the "+
 		"measurement (extraction %s, required capital $%s)\n", a.rung,
-		scalarStr(objAt(ei, "extraction_ratio")),
-		scalarStr(objAt(attacker, "required_capital_usd")))
+		scalarStr(validation.ObjAt(ei, "extraction_ratio")),
+		scalarStr(validation.ObjAt(attacker, "required_capital_usd")))
 	return nil
 }
 
@@ -206,7 +206,7 @@ func ladderComplete(c *state.Campaign, a *ladderArgs, r *Runner) error {
 		return err
 	}
 	fmt.Fprintf(r.Out, "ladder %s COMPLETE — maximal %s\n",
-		objStr(lad, "ladder_id"), scalarStr(objAt(lad, "maximal_rung_id")))
+		validation.ObjStr(lad, "ladder_id"), scalarStr(validation.ObjAt(lad, "maximal_rung_id")))
 	return nil
 }
 
@@ -235,7 +235,7 @@ func ladderReopen(c *state.Campaign, a *ladderArgs, r *Runner) error {
 		return err
 	}
 	fmt.Fprintf(r.Out, "ladder %s REOPENED (actor %s) — the closed ladder "+
-		"is open again\n", objStr(lad, "ladder_id"), actor)
+		"is open again\n", validation.ObjStr(lad, "ladder_id"), actor)
 	return nil
 }
 

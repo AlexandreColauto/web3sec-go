@@ -105,7 +105,7 @@ func task12CoverageGaps(t *testing.T, c *state.Campaign) map[string]validation.V
 	}
 	out := map[string]validation.Value{}
 	for _, g := range gaps {
-		path := objStr(g, "component")
+		path := validation.ObjStr(g, "component")
 		if path == "" {
 			continue
 		}
@@ -128,7 +128,7 @@ func TestCoverageSweptParityWithRefreshGaps(t *testing.T) {
 	}
 	byPath := map[string]validation.Value{}
 	for _, row := range listOf(ledger, "contracts") {
-		byPath[objStr(row, "path")] = row
+		byPath[validation.ObjStr(row, "path")] = row
 	}
 	gaps := task12CoverageGaps(t, c)
 	// the reader the pin protects: the queue signals read the ledger by path
@@ -147,14 +147,14 @@ func TestCoverageSweptParityWithRefreshGaps(t *testing.T) {
 				tc.path, tc.status, got, tc.swept, tc.note)
 		}
 		gap := gaps[tc.path]
-		if got := objStr(gap, "kind"); got != tc.gapKind {
+		if got := validation.ObjStr(gap, "kind"); got != tc.gapKind {
 			t.Errorf("%s (%s): coverage.RefreshGaps kind = %q, want %q "+
 				"— coverage's predicate moved; re-check planner's copy "+
 				"against it (%s)", tc.path, tc.status, got, tc.gapKind,
 				tc.note)
 		}
 		if tc.gapDesc != "" {
-			if desc := objStr(gap, "description"); !strings.Contains(desc,
+			if desc := validation.ObjStr(gap, "description"); !strings.Contains(desc,
 				tc.gapDesc) {
 				t.Errorf("%s: coverage gap description = %q, want it to "+
 					"contain %q — coverage's own words about the row are "+

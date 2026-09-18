@@ -278,16 +278,16 @@ func TestR38GenesisDisclosureBelowCapStaysExact(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	lr := objAt(objAt(evts[0], "data"), "ledger_rewound")
+	lr := validation.ObjAt(validation.ObjAt(evts[0], "data"), "ledger_rewound")
 	if lr.Kind != validation.Obj {
 		t.Fatalf("the rewind must be disclosed: %s",
 			validation.DumpsOrdered(evts[0], false))
 	}
-	if got := objAt(lr, "dropped_tail"); got.Kind != validation.Int || got.I != 3 {
+	if got := validation.ObjAt(lr, "dropped_tail"); got.Kind != validation.Int || got.I != 3 {
 		t.Fatalf("below the cap the count is exact: %s",
 			validation.DumpsOrdered(evts[0], false))
 	}
-	if got := objAt(lr, "mirror_capped"); got.Kind != validation.Null {
+	if got := validation.ObjAt(lr, "mirror_capped"); got.Kind != validation.Null {
 		t.Fatalf("a below-cap mirror was never truncated, so the capped "+
 			"marker must be ABSENT (the knowable shape is unchanged): %s",
 			validation.DumpsOrdered(evts[0], false))
@@ -321,21 +321,21 @@ func TestR38GenesisDisclosureAtCapSaysLossUnknown(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	lr := objAt(objAt(evts[0], "data"), "ledger_rewound")
+	lr := validation.ObjAt(validation.ObjAt(evts[0], "data"), "ledger_rewound")
 	if lr.Kind != validation.Obj {
 		t.Fatalf("the rewind must be disclosed: %s",
 			validation.DumpsOrdered(evts[0], false))
 	}
-	if got := objAt(lr, "dropped_tail"); got.Kind != validation.Int ||
+	if got := validation.ObjAt(lr, "dropped_tail"); got.Kind != validation.Int ||
 		got.I != mirrorCap {
 		t.Fatalf("the mirrored tail dropped must be %d: %s", mirrorCap,
 			validation.DumpsOrdered(evts[0], false))
 	}
-	if got := objAt(lr, "mirror_capped"); got.Kind != validation.Bool || !got.B {
+	if got := validation.ObjAt(lr, "mirror_capped"); got.Kind != validation.Bool || !got.B {
 		t.Fatalf("a capped mirror must say so (mirror_capped:true): %s",
 			validation.DumpsOrdered(evts[0], false))
 	}
-	meaning := objAt(lr, "dropped_tail_meaning")
+	meaning := validation.ObjAt(lr, "dropped_tail_meaning")
 	if meaning.Kind != validation.Str ||
 		!strings.Contains(meaning.S, "UNKNOWN") ||
 		!strings.Contains(meaning.S, "lower bound") {
@@ -359,7 +359,7 @@ func TestR38TailEventsCapIsOneNumber(t *testing.T) {
 	if len(got) != mirrorCap {
 		t.Fatalf("a full mirror must stay at %d, got %d", mirrorCap, len(got))
 	}
-	if s := objAt(got[0], "seq"); s.Kind != validation.Int || s.I != 1 {
+	if s := validation.ObjAt(got[0], "seq"); s.Kind != validation.Int || s.I != 1 {
 		t.Fatalf("the capped tail must start at seq 1 (the head dropped), "+
 			"got %s", validation.DumpsOrdered(got[0], false))
 	}
@@ -387,7 +387,7 @@ func TestR38HeadHoleMirrorRefusesAndVerifyDoesNotCertifyIt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	full := objAt(st, "events").A
+	full := validation.ObjAt(st, "events").A
 	if len(full) != mirrorCap {
 		t.Fatalf("fixture: mirror must hold %d, got %d", mirrorCap, len(full))
 	}
@@ -444,7 +444,7 @@ func TestR38HonestCapWindowStaysHealthy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("a tail-aligned capped mirror is health: %v", err)
 	}
-	if objAt(objAt(ev, "data"), "mirror_lag_healed").Kind != validation.Null {
+	if validation.ObjAt(validation.ObjAt(ev, "data"), "mirror_lag_healed").Kind != validation.Null {
 		t.Fatalf("a healthy write must disclose nothing: %s",
 			validation.DumpsOrdered(ev, false))
 	}
@@ -453,7 +453,7 @@ func TestR38HonestCapWindowStaysHealthy(t *testing.T) {
 		t.Fatalf("the capped mirror must stay at %d, got %d",
 			mirrorCap, len(mirror))
 	}
-	if s := objAt(mirror[len(mirror)-1], "seq"); s.Kind != validation.Int ||
+	if s := validation.ObjAt(mirror[len(mirror)-1], "seq"); s.Kind != validation.Int ||
 		s.I != 1006 {
 		t.Fatalf("the new event must sit at the mirror's tail: %s",
 			validation.DumpsOrdered(mirror[len(mirror)-1], false))

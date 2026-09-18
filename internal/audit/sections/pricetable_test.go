@@ -36,7 +36,7 @@ func TestPriceTableSection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("priced campaign renders: %v", err)
 	}
-	if !objAt(rep, "ok").B {
+	if !validation.ObjAt(rep, "ok").B {
 		t.Fatalf("honest table must pass: %s", validation.DumpsOrdered(rep, false))
 	}
 	// Hand-edit the file the way no command ever would: usd -> 1.0.
@@ -49,7 +49,7 @@ func TestPriceTableSection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rows := objAt(doc, "prices")
+	rows := validation.ObjAt(doc, "prices")
 	rows.A[0].O = validation.SetOrAppend(rows.A[0].O, "usd",
 		validation.VFloat(1.0))
 	doc.O = validation.SetOrAppend(doc.O, "prices", rows)
@@ -61,10 +61,10 @@ func TestPriceTableSection(t *testing.T) {
 		t.Fatal(err)
 	}
 	body := validation.DumpsOrdered(rep, false)
-	if objAt(rep, "ok").B || !strings.Contains(body, "edited outside the ledger") {
+	if validation.ObjAt(rep, "ok").B || !strings.Contains(body, "edited outside the ledger") {
 		t.Fatalf("usd drift must be named: %s", body)
 	}
-	if !strings.Contains(body, objStr(row, "price_id")) {
+	if !strings.Contains(body, validation.ObjStr(row, "price_id")) {
 		t.Fatalf("the offending price_id must appear: %s", body)
 	}
 	// Ghost row (file-only) and missing row (log-only) each name themselves.
@@ -75,7 +75,7 @@ func TestPriceTableSection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objAt(rep, "ok").B || !strings.Contains(validation.DumpsOrdered(rep, false),
+	if validation.ObjAt(rep, "ok").B || !strings.Contains(validation.DumpsOrdered(rep, false),
 		"prices.json is missing entirely") {
 		t.Fatalf("missing file with price events must fail: %s",
 			validation.DumpsOrdered(rep, false))
@@ -95,14 +95,14 @@ func TestPriceTableWatchesModule(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !objAt(rep, "ok").B {
+	if !validation.ObjAt(rep, "ok").B {
 		t.Fatalf("raw-vs-stripped actor is the DESIGN, not drift: %s",
 			validation.DumpsOrdered(rep, false))
 	}
 	p := filepath.Join(c.Dir, "prices.json")
 	raw, _ := os.ReadFile(p)
 	doc, _ := validation.ParseOrdered(raw)
-	rows := objAt(doc, "prices")
+	rows := validation.ObjAt(doc, "prices")
 	rows.A[0].O = validation.SetOrAppend(rows.A[0].O, "set_by",
 		validation.VStr("Mallory"))
 	doc.O = validation.SetOrAppend(doc.O, "prices", rows)
@@ -115,7 +115,7 @@ func TestPriceTableWatchesModule(t *testing.T) {
 		t.Fatal(err)
 	}
 	body := validation.DumpsOrdered(rep, false)
-	if objAt(rep, "ok").B || !strings.Contains(body, "set_by") ||
+	if validation.ObjAt(rep, "ok").B || !strings.Contains(body, "set_by") ||
 		!strings.Contains(body, "Mallory") {
 		t.Fatalf("attribution edit must drift: %s", body)
 	}

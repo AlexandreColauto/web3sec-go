@@ -17,7 +17,7 @@ func writerFixture(t *testing.T) validation.Value {
 func TestWritersOfReconcilesStatements(t *testing.T) {
 	idx := writerFixture(t)
 	n := nodeByShortID(t, idx, "StateRoots.commitBatch")
-	raw := strList(objAt(n, "writes_storage"))
+	raw := strList(validation.ObjAt(n, "writes_storage"))
 	if contains(raw, "prevStateRoot") {
 		t.Fatalf("fixture changed: writes_storage already lists prevStateRoot")
 	}
@@ -43,7 +43,7 @@ func TestWritersOfReconcilesStatements(t *testing.T) {
 func TestWritersOfPureListFunction(t *testing.T) {
 	idx := writerFixture(t)
 	n := nodeByShortID(t, idx, "StateRoots.getPrevStateHash")
-	if got := WritersOf(idx, n); len(got) != len(strList(objAt(n, "writes_storage"))) {
+	if got := WritersOf(idx, n); len(got) != len(strList(validation.ObjAt(n, "writes_storage"))) {
 		t.Errorf("WritersOf = %v for a function with no statement write", got)
 	}
 }
@@ -75,7 +75,7 @@ func TestEffectiveWritersIsTheUnion(t *testing.T) {
 func nodeByShortID(t *testing.T, index validation.Value, short string) validation.Value {
 	t.Helper()
 	for _, n := range nodesOf(index, "function") {
-		if hasSuffix(objStr(n, "id"), "#"+short) {
+		if hasSuffix(validation.ObjStr(n, "id"), "#"+short) {
 			return n
 		}
 	}

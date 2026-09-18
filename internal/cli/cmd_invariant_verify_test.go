@@ -144,7 +144,7 @@ func TestInvariantVerifyArtifactRelevanceGate(t *testing.T) {
 	if lerr != nil {
 		t.Fatal(lerr)
 	}
-	if got := objStr(objAt(objAt(links, "invariants"), "INV-1"),
+	if got := validation.ObjStr(validation.ObjAt(validation.ObjAt(links, "invariants"), "INV-1"),
 		"status"); got != "UNVERIFIED" {
 		t.Fatalf("status %q, want UNVERIFIED after the refusal", got)
 	}
@@ -254,7 +254,7 @@ func TestInvariantVerifyDisclosesOperatorAttestation(t *testing.T) {
 	if errS != verifyAttestationDisclosure {
 		t.Fatalf("stderr %q, want %q", errS, verifyAttestationDisclosure)
 	}
-	if got := objStr(invEntry(t, c, "INV-1"), "verification_method"); got != "operator-attestation" {
+	if got := validation.ObjStr(invEntry(t, c, "INV-1"), "verification_method"); got != "operator-attestation" {
 		t.Fatalf("registry method = %q, want operator-attestation", got)
 	}
 	// The refusal path is not an attestation and says nothing about one.

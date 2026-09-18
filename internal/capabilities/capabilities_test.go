@@ -14,8 +14,8 @@ import (
 // finding builds a minimal finding Value with the given capabilities.
 func finding(granted, required []string) validation.Value {
 	return validation.VObj(kv("capabilities", validation.VObj(
-		kv("granted", strArr(granted)),
-		kv("required", strArr(required)),
+		kv("granted", validation.StrArr(granted)),
+		kv("required", validation.StrArr(required)),
 	)))
 }
 
@@ -107,16 +107,16 @@ func TestCapabilityDeltaSeparatesGainedFromRequired(t *testing.T) {
 	f := finding([]string{"move spot price", "extract protocol liquidity"},
 		[]string{"Move-  Spot Price"})
 	d := CapabilityDelta(f)
-	if got := strSlice(objAt(d, "retained")); !equalStrings(got, []string{"move_spot_price"}) {
+	if got := strSlice(validation.ObjAt(d, "retained")); !equalStrings(got, []string{"move_spot_price"}) {
 		t.Errorf("retained = %v, want [move_spot_price]", got)
 	}
-	if got := strSlice(objAt(d, "gained")); !equalStrings(got, []string{"extract_protocol_liquidity"}) {
+	if got := strSlice(validation.ObjAt(d, "gained")); !equalStrings(got, []string{"extract_protocol_liquidity"}) {
 		t.Errorf("gained = %v, want [extract_protocol_liquidity]", got)
 	}
-	if got := strSlice(objAt(d, "required")); !equalStrings(got, []string{"move_spot_price"}) {
+	if got := strSlice(validation.ObjAt(d, "required")); !equalStrings(got, []string{"move_spot_price"}) {
 		t.Errorf("required = %v, want [move_spot_price]", got)
 	}
-	kinds := strSlice(objAt(d, "kinds"))
+	kinds := strSlice(validation.ObjAt(d, "kinds"))
 	if !contains(kinds, "market") || !contains(kinds, "asset") {
 		t.Errorf("kinds = %v, want market and asset", kinds)
 	}
@@ -126,7 +126,7 @@ func TestRequiredFallsBackToPreconditions(t *testing.T) {
 	// Older findings record prose preconditions, not capability lists. The
 	// fallback is best-effort and visible as such in `unclassified`.
 	f := validation.VObj(kv("preconditions",
-		strArr([]string{"attacker must hold pauser role"})))
+		validation.StrArr([]string{"attacker must hold pauser role"})))
 	if got := Required(f); !equalStrings(got, []string{"attacker_must_hold_pauser_role"}) {
 		t.Errorf("required = %v, want [attacker_must_hold_pauser_role]", got)
 	}
@@ -268,10 +268,10 @@ func TestCapabilityDeltaVectors(t *testing.T) {
 		if err != nil {
 			t.Fatalf("vector %d: %v", i, err)
 		}
-		if got := validation.CanonCompact(strArr(Granted(f))); got != v.GrantedJSON {
+		if got := validation.CanonCompact(validation.StrArr(Granted(f))); got != v.GrantedJSON {
 			t.Errorf("vector %d granted = %s, want %s", i, got, v.GrantedJSON)
 		}
-		if got := validation.CanonCompact(strArr(Required(f))); got != v.RequiredJSON {
+		if got := validation.CanonCompact(validation.StrArr(Required(f))); got != v.RequiredJSON {
 			t.Errorf("vector %d required = %s, want %s", i, got, v.RequiredJSON)
 		}
 		if got := validation.CanonCompact(CapabilityDelta(f)); got != v.DeltaJSON {

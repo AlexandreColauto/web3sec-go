@@ -136,9 +136,9 @@ func TestR40DRefusedQueueLeavesNoMemoryFile(t *testing.T) {
 	if got := r40dEventCount(t, c, "memory.queued"); got != 1 {
 		t.Fatalf("memory.queued events = %d, want 1", got)
 	}
-	if objStr(mem, "promotion_status") != "pending" {
+	if validation.ObjStr(mem, "promotion_status") != "pending" {
 		t.Fatalf("promotion_status = %q, want pending",
-			objStr(mem, "promotion_status"))
+			validation.ObjStr(mem, "promotion_status"))
 	}
 }
 
@@ -164,10 +164,10 @@ func TestR40DRefusedApproveAndRejectRestoreRowBytes(t *testing.T) {
 	}
 	var approveID, rejectID string
 	for _, r := range rows {
-		if objStr(r, "status") == "DISPROVED" {
-			approveID = objStr(r, "memory_id") // rejection_class default ok
+		if validation.ObjStr(r, "status") == "DISPROVED" {
+			approveID = validation.ObjStr(r, "memory_id") // rejection_class default ok
 		} else {
-			rejectID = objStr(r, "memory_id")
+			rejectID = validation.ObjStr(r, "memory_id")
 		}
 	}
 	raw := r40dCutLedger(t, c)
@@ -207,17 +207,17 @@ func TestR40DRefusedApproveAndRejectRestoreRowBytes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(approved, "promotion_status") != "human-approved" ||
-		objStr(approved, "approved_by") != "alex" {
+	if validation.ObjStr(approved, "promotion_status") != "human-approved" ||
+		validation.ObjStr(approved, "approved_by") != "alex" {
 		t.Fatalf("approved row = %v", approved)
 	}
 	rejected, err := validation.ReadJson(rowPath(rejectID))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(rejected, "promotion_status") != "rejected" {
+	if validation.ObjStr(rejected, "promotion_status") != "rejected" {
 		t.Fatalf("rejected row promotion_status = %q, want rejected",
-			objStr(rejected, "promotion_status"))
+			validation.ObjStr(rejected, "promotion_status"))
 	}
 	if got := r40dEventCount(t, c, "memory.approved"); got != 1 {
 		t.Fatalf("memory.approved events = %d, want 1", got)
@@ -259,7 +259,7 @@ func TestR40DRefusedStripRestoresRowBytes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("retry strip: %v", err)
 	}
-	if got := objAt(out, "total_stripped").I; got != 2 {
+	if got := validation.ObjAt(out, "total_stripped").I; got != 2 {
 		t.Fatalf("total_stripped = %d, want 2", got)
 	}
 	if got := r40dEventCount(t, a, "memory.field-stripped"); got != 1 {

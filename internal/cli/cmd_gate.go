@@ -100,15 +100,15 @@ func runGate(root string, args []string, r *Runner) int {
 	}
 	for _, row := range results.A {
 		fmt.Fprintf(r.Out, "%s: eligible=%s submission_ready=%s\n",
-			objStr(row, "finding_id"), pyBoolText(objAt(row, "eligible")),
-			pyBoolText(objAt(row, "submission_ready")))
-		for _, b := range objAt(row, "blocking_reasons").A {
+			validation.ObjStr(row, "finding_id"), pyBoolText(validation.ObjAt(row, "eligible")),
+			pyBoolText(validation.ObjAt(row, "submission_ready")))
+		for _, b := range validation.ObjAt(row, "blocking_reasons").A {
 			fmt.Fprintf(r.Out, "  blocker: %s\n", scalarStr(b))
 		}
 		// Advisories do not gate, but they are why a check said what it said
 		// (A2's in_code_ack, D8's boundary-mutation note). Printed only when
 		// present, so a clean gate row reads exactly as before.
-		adv := objAt(row, "advisories")
+		adv := validation.ObjAt(row, "advisories")
 		if adv.Kind == validation.Arr {
 			for _, a := range adv.A {
 				fmt.Fprintf(r.Out, "  advisory: %s\n", scalarStr(a))
@@ -129,9 +129,9 @@ func runGateExplain(checkID string, r *Runner) int {
 		fmt.Fprintf(r.Err, "gate explain failed: %s\n", err.Error())
 		return 2
 	}
-	fmt.Fprintf(r.Out, "check:      %s  (gate: %s)\n", objStr(info, "check"),
-		objStr(info, "gate"))
-	fmt.Fprintf(r.Out, "remediation: %s\n", objStr(info, "remediation"))
+	fmt.Fprintf(r.Out, "check:      %s  (gate: %s)\n", validation.ObjStr(info, "check"),
+		validation.ObjStr(info, "gate"))
+	fmt.Fprintf(r.Out, "remediation: %s\n", validation.ObjStr(info, "remediation"))
 	return 0
 }
 
@@ -154,7 +154,7 @@ func runGateDryrun(c *state.Campaign, findingID string, r *Runner) int {
 			failures++
 		}
 	}
-	status := objStr(f, "status")
+	status := validation.ObjStr(f, "status")
 	if failures > 0 {
 		fmt.Fprintf(r.Out, "%s (status %s): CONFIRMED gate — %d of %d "+
 			"check(s) failing:\n", findingID, status, failures, len(clauses))
@@ -234,21 +234,21 @@ func printEconomicDecision(c *state.Campaign, f validation.Value,
 	}
 	data := validation.VNull()
 	for _, e := range events {
-		if objStr(e, "type") == "finding.unpriceable" &&
-			objStr(e, "ref") == findingID {
-			data = asDictCLI(objAt(e, "data"))
+		if validation.ObjStr(e, "type") == "finding.unpriceable" &&
+			validation.ObjStr(e, "ref") == findingID {
+			data = asDictCLI(validation.ObjAt(e, "data"))
 		}
 	}
 	detail := ""
-	if actor := objAt(data, "actor"); pyTruthyCLI(actor) {
+	if actor := validation.ObjAt(data, "actor"); pyTruthyCLI(actor) {
 		detail = " (actor " + scalarStr(actor)
-		if reason := objAt(data, "reason"); pyTruthyCLI(reason) {
+		if reason := validation.ObjAt(data, "reason"); pyTruthyCLI(reason) {
 			detail += ", reason: " + pyHead(scalarStr(reason), 100)
 		}
 		detail += ")"
 	}
 	fmt.Fprintf(w, "  economic clause: satisfied by NAMED DECISION — "+
-		"UNPRICEABLE (ceiling: %s)%s\n", objStr(*decision, "ceiling"), detail)
+		"UNPRICEABLE (ceiling: %s)%s\n", validation.ObjStr(*decision, "ceiling"), detail)
 	return nil
 }
 
@@ -266,11 +266,11 @@ func lastGateAttempt(c *state.Campaign, findingID string) ([]string, error) {
 	}
 	for i := len(events) - 1; i >= 0; i-- {
 		e := events[i]
-		if objStr(e, "type") != "finding.gate_attempt" ||
-			objStr(e, "ref") != findingID {
+		if validation.ObjStr(e, "type") != "finding.gate_attempt" ||
+			validation.ObjStr(e, "ref") != findingID {
 			continue
 		}
-		ids := objAt(asDictCLI(objAt(e, "data")), "check_ids")
+		ids := validation.ObjAt(asDictCLI(validation.ObjAt(e, "data")), "check_ids")
 		if ids.Kind != validation.Arr {
 			return []string{}, nil
 		}

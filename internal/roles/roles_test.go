@@ -199,7 +199,7 @@ func fullyLoadedFinding(t *testing.T, c *state.Campaign) validation.Value {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	// the prior critic verdict is set the legitimate way (writes both
 	// verification.critic_verdict and dedup_meta.critic_reasoning)
 	if _, err := findings.SetCriticVerdict(c, fid, "possible",
@@ -310,7 +310,7 @@ func assertNoForbiddenKeys(t *testing.T, bundle validation.Value, role string) {
 func TestCriticBundleExcludesAllProposerReasoning(t *testing.T) {
 	c := newCamp(t)
 	f := fullyLoadedFinding(t, c)
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	bundle, err := BuildCriticContext(c, fid)
 	if err != nil {
 		t.Fatal(err)
@@ -333,33 +333,33 @@ func TestCriticBundleExcludesAllProposerReasoning(t *testing.T) {
 
 	// 3) the critic sees the claim skeleton — class and cwe, NOT the
 	//    proposer's description of the claim
-	rc := objAt(objAt(bundle, "claim"), "root_cause")
+	rc := validation.ObjAt(validation.ObjAt(bundle, "claim"), "root_cause")
 	if !objEq(rc, validation.VObj(
 		kv("class", validation.VStr("oracle-manipulation")),
 		kv("cwe", validation.VStr("CWE-20")))) {
 		t.Errorf("claim.root_cause = %s", validation.CanonCompact(rc))
 	}
 	ids := []string{}
-	for _, a := range objAt(objAt(bundle, "claim"), "assumptions").A {
-		ids = append(ids, objStr(a, "id"))
+	for _, a := range validation.ObjAt(validation.ObjAt(bundle, "claim"), "assumptions").A {
+		ids = append(ids, validation.ObjStr(a, "id"))
 	}
 	if !sameSet(ids, []string{"A1", "A2"}) {
 		t.Errorf("assumption ids = %v", ids)
 	}
-	if got := objStr(objAt(objAt(bundle, "claim"), "invariant"), "id"); got != "INV-1" {
+	if got := validation.ObjStr(validation.ObjAt(validation.ObjAt(bundle, "claim"), "invariant"), "id"); got != "INV-1" {
 		t.Errorf("claim.invariant.id = %s", got)
 	}
-	if ev := objAt(bundle, "evidence"); ev.Kind != validation.Arr || len(ev.A) != 0 {
+	if ev := validation.ObjAt(bundle, "evidence"); ev.Kind != validation.Arr || len(ev.A) != 0 {
 		t.Errorf("evidence = %s", validation.CanonCompact(ev))
 	}
-	if !objEq(objAt(bundle, "attacker_baseline"), objAt(f, "attacker")) {
+	if !objEq(validation.ObjAt(bundle, "attacker_baseline"), validation.ObjAt(f, "attacker")) {
 		t.Error("attacker_baseline mismatch")
 	}
-	perm := objAt(bundle, "permitted_checks")
+	perm := validation.ObjAt(bundle, "permitted_checks")
 	if !arrContains(perm, "callgraph") || !arrContains(perm, "balance-delta") {
 		t.Errorf("permitted_checks = %s", validation.CanonCompact(perm))
 	}
-	if got := objStr(objAt(bundle, "snapshot_ids"), "source"); got != snapID {
+	if got := validation.ObjStr(validation.ObjAt(bundle, "snapshot_ids"), "source"); got != snapID {
 		t.Errorf("snapshot_ids.source = %s", got)
 	}
 }
@@ -367,7 +367,7 @@ func TestCriticBundleExcludesAllProposerReasoning(t *testing.T) {
 func TestCriticBundleIncludesMinimalEvidenceOnly(t *testing.T) {
 	c := newCamp(t)
 	f := fullyLoadedFinding(t, c)
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	if _, err := findings.AddEvidence(c, fid, validation.VObj(
 		kv("evidence_id", validation.VStr("EV-1")),
 		kv("level", validation.VStr("E1")),
@@ -380,21 +380,21 @@ func TestCriticBundleIncludesMinimalEvidenceOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	evs := objAt(bundle, "evidence")
+	evs := validation.ObjAt(bundle, "evidence")
 	if evs.Kind != validation.Arr || len(evs.A) != 1 {
 		t.Fatalf("evidence = %s", validation.CanonCompact(evs))
 	}
 	ev := evs.A[0]
-	if got := objStr(ev, "evidence_id"); got != "EV-1" {
+	if got := validation.ObjStr(ev, "evidence_id"); got != "EV-1" {
 		t.Errorf("evidence_id = %s", got)
 	}
-	if got := objStr(ev, "level"); got != "E1" {
+	if got := validation.ObjStr(ev, "level"); got != "E1" {
 		t.Errorf("level = %s", got)
 	}
-	if got := objStr(ev, "type"); got != "static-analysis" {
+	if got := validation.ObjStr(ev, "type"); got != "static-analysis" {
 		t.Errorf("type = %s", got)
 	}
-	if got := objStr(ev, "description"); got !=
+	if got := validation.ObjStr(ev, "description"); got !=
 		"callgraph: redeem() has no access modifier" {
 		t.Errorf("description = %s", got)
 	}
@@ -421,18 +421,18 @@ func TestProposerBundleExcludesCriticReasoningAndBounty(t *testing.T) {
 	b := blob(bundle)
 	assertNoForbiddenKeys(t, bundle, "proposer")
 	// the existing-finding summary carries class + status, not reasoning
-	existing := objAt(bundle, "existing_findings")
+	existing := validation.ObjAt(bundle, "existing_findings")
 	if existing.Kind != validation.Arr || len(existing.A) == 0 {
 		t.Fatalf("existing_findings = %s", validation.CanonCompact(existing))
 	}
 	summary := existing.A[0]
-	if got := objStr(summary, "bug_class"); got != "oracle-manipulation" {
+	if got := validation.ObjStr(summary, "bug_class"); got != "oracle-manipulation" {
 		t.Errorf("bug_class = %s", got)
 	}
-	if got := objStr(summary, "status"); got != "POSSIBLE" {
+	if got := validation.ObjStr(summary, "status"); got != "POSSIBLE" {
 		t.Errorf("status = %s", got)
 	}
-	if objAt(summary, "description").Kind != validation.Null {
+	if validation.ObjAt(summary, "description").Kind != validation.Null {
 		t.Error("summary carries description")
 	}
 	// the finding's own mechanism narrative must not leak — but the class
@@ -443,13 +443,13 @@ func TestProposerBundleExcludesCriticReasoningAndBounty(t *testing.T) {
 	if strings.Contains(b, "believes the path is reachable") {
 		t.Error("proposer bundle leaks critic reasoning")
 	}
-	nm := objAt(bundle, "negative_memory")
-	if objAt(nm, "authoritative").Kind != validation.Bool ||
-		objAt(nm, "authoritative").B {
+	nm := validation.ObjAt(bundle, "negative_memory")
+	if validation.ObjAt(nm, "authoritative").Kind != validation.Bool ||
+		validation.ObjAt(nm, "authoritative").B {
 		t.Errorf("negative_memory.authoritative = %s",
-			validation.CanonCompact(objAt(nm, "authoritative")))
+			validation.CanonCompact(validation.ObjAt(nm, "authoritative")))
 	}
-	if objAt(nm, "override_rule").Kind == validation.Null {
+	if validation.ObjAt(nm, "override_rule").Kind == validation.Null {
 		t.Error("negative_memory has no override_rule")
 	}
 }
@@ -457,7 +457,7 @@ func TestProposerBundleExcludesCriticReasoningAndBounty(t *testing.T) {
 func TestReproducerBundleHasClaimButNoVerdictOrBounty(t *testing.T) {
 	c := newCamp(t)
 	f := fullyLoadedFinding(t, c)
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	bundle, err := BuildReproducerContext(c, fid)
 	if err != nil {
 		t.Fatal(err)
@@ -465,11 +465,11 @@ func TestReproducerBundleHasClaimButNoVerdictOrBounty(t *testing.T) {
 	b := blob(bundle)
 	assertNoForbiddenKeys(t, bundle, "reproducer")
 	// the reproducer legitimately sees the full claim
-	mech := objStr(objAt(objAt(bundle, "claim"), "root_cause"), "mechanism")
+	mech := validation.ObjStr(validation.ObjAt(validation.ObjAt(bundle, "claim"), "root_cause"), "mechanism")
 	if !strings.HasPrefix(mech, "flash-borrow") {
 		t.Errorf("claim.root_cause.mechanism = %s", mech)
 	}
-	seq := objAt(objAt(bundle, "claim"), "exploit_sequence")
+	seq := validation.ObjAt(validation.ObjAt(bundle, "claim"), "exploit_sequence")
 	if seq.Kind != validation.Arr || len(seq.A) == 0 {
 		t.Fatalf("exploit_sequence = %s", validation.CanonCompact(seq))
 	}
@@ -482,11 +482,11 @@ func TestReproducerBundleHasClaimButNoVerdictOrBounty(t *testing.T) {
 	if strings.Contains(b, "prior critic: reachable, profit unverified") {
 		t.Error("reproducer bundle leaks critic reasoning")
 	}
-	if rs := objAt(bundle, "reproduction_state"); rs.Kind != validation.Obj ||
+	if rs := validation.ObjAt(bundle, "reproduction_state"); rs.Kind != validation.Obj ||
 		len(rs.O) != 0 {
 		t.Errorf("reproduction_state = %s", validation.CanonCompact(rs))
 	}
-	if objAt(objAt(bundle, "success_criteria"), "min_evidence_level").Kind !=
+	if validation.ObjAt(validation.ObjAt(bundle, "success_criteria"), "min_evidence_level").Kind !=
 		validation.Str {
 		t.Error("success_criteria.min_evidence_level is not a string")
 	}
@@ -511,7 +511,7 @@ func TestReproducerContextRefusesHypotheticalStatus(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = BuildReproducerContext(c, objStr(f, "finding_id"))
+	_, err = BuildReproducerContext(c, validation.ObjStr(f, "finding_id"))
 	if err == nil {
 		t.Fatal("no error")
 	}
@@ -529,9 +529,9 @@ func TestAssertCleanCatchesInjectedField(t *testing.T) {
 	if err := AssertClean(bundle, "critic"); err != nil {
 		t.Fatalf("clean bundle rejected: %v", err)
 	}
-	rc := objAt(objAt(bundle, "claim"), "root_cause")
+	rc := validation.ObjAt(validation.ObjAt(bundle, "claim"), "root_cause")
 	rc.O = append(rc.O, kv("bounty", validation.VFloat(9.9)))
-	bundle = setKey(bundle, "claim", setKey(objAt(bundle, "claim"), "root_cause", rc))
+	bundle = setKey(bundle, "claim", setKey(validation.ObjAt(bundle, "claim"), "root_cause", rc))
 	err := AssertClean(bundle, "critic")
 	if err == nil || !strings.Contains(err.Error(), "bounty") {
 		t.Errorf("err = %v", err)
@@ -606,13 +606,13 @@ func TestProposerBundleCarriesFreshBlocks(t *testing.T) {
 	}
 	for _, key := range []string{"value_flow", "archetype_prescreen",
 		"fork_diff", "recency"} {
-		block := objAt(b, key)
+		block := validation.ObjAt(b, key)
 		if block.Kind != validation.Obj {
 			t.Errorf("proposer bundle missing %s: %s", key,
 				validation.CanonCompact(block))
 			continue
 		}
-		if got := objStr(block, "snapshot_id"); got != activeSnap(t, c) {
+		if got := validation.ObjStr(block, "snapshot_id"); got != activeSnap(t, c) {
 			t.Errorf("%s.snapshot_id = %s, want %s", key, got, activeSnap(t, c))
 		}
 	}
@@ -626,11 +626,11 @@ func TestStructuralStatsFollowStalenessRule(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	stats := objAt(fresh, "structural_index_stats")
+	stats := validation.ObjAt(fresh, "structural_index_stats")
 	if stats.Kind != validation.Obj {
 		t.Fatalf("structural_index_stats = %s", validation.CanonCompact(stats))
 	}
-	if objAt(stats, "contracts").Kind == validation.Null {
+	if validation.ObjAt(stats, "contracts").Kind == validation.Null {
 		t.Error("stats have no contracts key")
 	}
 	// re-pin on a changed tree: every block, stats included, goes stale
@@ -646,12 +646,12 @@ func TestStructuralStatsFollowStalenessRule(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objAt(stale, "structural_index_stats").Kind != validation.Null {
+	if validation.ObjAt(stale, "structural_index_stats").Kind != validation.Null {
 		t.Error("stale stats served")
 	}
 	for _, key := range []string{"value_flow", "archetype_prescreen",
 		"fork_diff", "recency"} {
-		if objAt(stale, key).Kind != validation.Null {
+		if validation.ObjAt(stale, key).Kind != validation.Null {
 			t.Errorf("stale block %s served", key)
 		}
 	}
@@ -680,7 +680,7 @@ func TestStaleBlocksAreOmittedAndFlagged(t *testing.T) {
 	}
 	for _, key := range []string{"value_flow", "archetype_prescreen",
 		"fork_diff", "recency"} {
-		if objAt(b, key).Kind != validation.Null {
+		if validation.ObjAt(b, key).Kind != validation.Null {
 			t.Errorf("stale block %s must not be served", key)
 		}
 	}
@@ -690,20 +690,20 @@ func TestStaleBlocksAreOmittedAndFlagged(t *testing.T) {
 	}
 	names := map[string]bool{}
 	for _, s := range stale {
-		names[objStr(s, "artifact")] = true
-		reRun := objStr(s, "re_run")
+		names[validation.ObjStr(s, "artifact")] = true
+		reRun := validation.ObjStr(s, "re_run")
 		if reRun == "" {
-			t.Errorf("no re_run for %s", objStr(s, "artifact"))
+			t.Errorf("no re_run for %s", validation.ObjStr(s, "artifact"))
 		}
 		// the brief tells the operator which command restores the artifact:
 		// it must name the campaign, not the <campaign> metavariable.
 		if strings.Contains(reRun, "<campaign>") {
 			t.Errorf("re_run for %s still carries the metavariable: %q",
-				objStr(s, "artifact"), reRun)
+				validation.ObjStr(s, "artifact"), reRun)
 		}
 		if !strings.Contains(reRun, c.CampaignID) {
 			t.Errorf("re_run for %s does not name the campaign: %q",
-				objStr(s, "artifact"), reRun)
+				validation.ObjStr(s, "artifact"), reRun)
 		}
 	}
 	for _, want := range []string{"value_flow.json",
@@ -739,7 +739,7 @@ func TestCriticBundleSeesInvariantVerification(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	f = setKey(f, "security_invariants", validation.VArr(validation.VObj(
 		kv("id", validation.VStr("INV-1")),
 		kv("statement", validation.VStr(
@@ -751,11 +751,11 @@ func TestCriticBundleSeesInvariantVerification(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	iv := objAt(b, "invariant_verification")
+	iv := validation.ObjAt(b, "invariant_verification")
 	if iv.Kind != validation.Arr || len(iv.A) == 0 {
 		t.Fatalf("invariant_verification = %s", validation.CanonCompact(iv))
 	}
-	if got := objStr(iv.A[0], "status"); got != "UNVERIFIED" {
+	if got := validation.ObjStr(iv.A[0], "status"); got != "UNVERIFIED" {
 		t.Errorf("status = %s", got)
 	}
 	p := filepath.Join(c.ArtifactsDir, "inv-check.md")
@@ -770,9 +770,9 @@ func TestCriticBundleSeesInvariantVerification(t *testing.T) {
 		t.Fatal(err)
 	}
 	artID := ""
-	for _, a := range objAt(st, "artifacts").A {
-		if strings.HasSuffix(objStr(a, "path"), "inv-check.md") {
-			artID = objStr(a, "artifact_id")
+	for _, a := range validation.ObjAt(st, "artifacts").A {
+		if strings.HasSuffix(validation.ObjStr(a, "path"), "inv-check.md") {
+			artID = validation.ObjStr(a, "artifact_id")
 		}
 	}
 	if artID == "" {
@@ -785,8 +785,8 @@ func TestCriticBundleSeesInvariantVerification(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	iv2 := objAt(b2, "invariant_verification")
-	if got := objStr(iv2.A[0], "status"); got != "CHECKED_AGAINST_CODE" {
+	iv2 := validation.ObjAt(b2, "invariant_verification")
+	if got := validation.ObjStr(iv2.A[0], "status"); got != "CHECKED_AGAINST_CODE" {
 		t.Errorf("status = %s", got)
 	}
 }
@@ -806,8 +806,8 @@ func TestCriticBundleStatementLessLegacyEntry(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	invs := objAt(links, "invariants")
-	entry := removeKey(objAt(invs, "INV-9"), "statement")
+	invs := validation.ObjAt(links, "invariants")
+	entry := removeKey(validation.ObjAt(invs, "INV-9"), "statement")
 	if err := validation.WriteJson(linksPath,
 		setKey(links, "invariants", setKey(invs, "INV-9", entry)), ""); err != nil {
 		t.Fatal(err)
@@ -827,7 +827,7 @@ func TestCriticBundleStatementLessLegacyEntry(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	f = setKey(f, "security_invariants", validation.VArr(validation.VObj(
 		kv("id", validation.VStr("INV-9")),
 		kv("statement", validation.VStr("finding-side copy")))))
@@ -838,15 +838,15 @@ func TestCriticBundleStatementLessLegacyEntry(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rows := objAt(b, "invariant_verification")
+	rows := validation.ObjAt(b, "invariant_verification")
 	if rows.Kind != validation.Arr || len(rows.A) != 1 {
 		t.Fatalf("invariant_verification = %s", validation.CanonCompact(rows))
 	}
 	row := rows.A[0]
-	if got := objStr(row, "id"); got != "INV-9" {
+	if got := validation.ObjStr(row, "id"); got != "INV-9" {
 		t.Errorf("id = %s", got)
 	}
-	statement := objStr(row, "statement")
+	statement := validation.ObjStr(row, "statement")
 	if statement == "" {
 		t.Fatal("degraded form must still carry a statement field")
 	}
@@ -854,7 +854,7 @@ func TestCriticBundleStatementLessLegacyEntry(t *testing.T) {
 		!strings.Contains(statement, "not recorded") {
 		t.Errorf("statement = %s", statement)
 	}
-	if got := objStr(row, "status"); got != "UNVERIFIED" {
+	if got := validation.ObjStr(row, "status"); got != "UNVERIFIED" {
 		t.Errorf("status = %s", got)
 	}
 }
@@ -920,28 +920,28 @@ func TestProposerBundleCarriesSimulationDirective(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	d := objAt(b, "simulation_directive")
+	d := validation.ObjAt(b, "simulation_directive")
 	if d.Kind != validation.Obj {
 		t.Fatalf("simulation_directive = %s", validation.CanonCompact(d))
 	}
-	if got := objStr(d, "mode"); got != "adversarial-simulation" {
+	if got := validation.ObjStr(d, "mode"); got != "adversarial-simulation" {
 		t.Errorf("mode = %s", got)
 	}
-	if got := objStr(d, "stage_prompt"); got !=
+	if got := validation.ObjStr(d, "stage_prompt"); got !=
 		"prompts/50_adversarial_simulation.md" {
 		t.Errorf("stage_prompt = %s", got)
 	}
-	if got := objStr(objAt(d, "simulation"), "expectation_violated"); got !=
+	if got := validation.ObjStr(validation.ObjAt(d, "simulation"), "expectation_violated"); got !=
 		"INV-SPI-PRORATA" {
 		t.Errorf("expectation_violated = %s", got)
 	}
 	// resolved expectation — the model never re-derives the statement
-	exp := objAt(d, "expectation")
-	if got := objStr(exp, "id"); got != "INV-SPI-PRORATA" {
+	exp := validation.ObjAt(d, "expectation")
+	if got := validation.ObjStr(exp, "id"); got != "INV-SPI-PRORATA" {
 		t.Errorf("expectation.id = %s", got)
 	}
-	if !strings.Contains(strings.ToLower(objStr(exp, "statement")), "pro-rata") {
-		t.Errorf("expectation.statement = %s", objStr(exp, "statement"))
+	if !strings.Contains(strings.ToLower(validation.ObjStr(exp, "statement")), "pro-rata") {
+		t.Errorf("expectation.statement = %s", validation.ObjStr(exp, "statement"))
 	}
 }
 
@@ -985,7 +985,7 @@ func TestCriticBundleBenignActorAuditFlagsEcho(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	// attach a multi-actor sequence with a value echo (the audit reads the
 	// finding's exploit_sequence directly)
 	f = setKey(f, "exploit_sequence", validation.VArr(
@@ -1019,7 +1019,7 @@ func TestCriticBundleBenignActorAuditFlagsEcho(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	flags := objAt(b, "benign_actor_audit")
+	flags := validation.ObjAt(b, "benign_actor_audit")
 	if flags.Kind != validation.Arr || len(flags.A) != 1 {
 		t.Fatalf("benign_actor_audit = %s", validation.CanonCompact(flags))
 	}
@@ -1049,13 +1049,13 @@ func TestCriticBundleNoAuditForCodeReadingClass(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, err := BuildCriticContext(c, objStr(f, "finding_id"))
+	b, err := BuildCriticContext(c, validation.ObjStr(f, "finding_id"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objAt(b, "benign_actor_audit").Kind != validation.Null {
+	if validation.ObjAt(b, "benign_actor_audit").Kind != validation.Null {
 		t.Errorf("benign_actor_audit = %s",
-			validation.CanonCompact(objAt(b, "benign_actor_audit")))
+			validation.CanonCompact(validation.ObjAt(b, "benign_actor_audit")))
 	}
 }
 
@@ -1069,7 +1069,7 @@ func staleArtifactNames(t *testing.T, c *state.Campaign) map[string]bool {
 	}
 	out := map[string]bool{}
 	for _, s := range stale {
-		out[objStr(s, "artifact")] = true
+		out[validation.ObjStr(s, "artifact")] = true
 	}
 	return out
 }
@@ -1123,7 +1123,7 @@ func kv(k string, v validation.Value) validation.KV {
 }
 
 func objInt(v validation.Value, key string) int64 {
-	if x := objAt(v, key); x.Kind == validation.Int {
+	if x := validation.ObjAt(v, key); x.Kind == validation.Int {
 		return x.I
 	}
 	return 0
@@ -1167,7 +1167,7 @@ func objEq(a, b validation.Value) bool {
 			return false
 		}
 		for _, pair := range a.O {
-			other := objAt(b, pair.K)
+			other := validation.ObjAt(b, pair.K)
 			if !objEq(pair.V, other) {
 				return false
 			}

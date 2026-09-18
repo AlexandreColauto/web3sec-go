@@ -278,7 +278,7 @@ func runIngestSast(root string, c *state.Campaign, a *ingestArgs, r *Runner) err
 			printIngestFailure(r, err)
 			return t14ExitErr(2, "")
 		}
-		created = append(created, objStr(f, "finding_id"))
+		created = append(created, validation.ObjStr(f, "finding_id"))
 	}
 	// The SAST lane prints the same summary under --lint as a real run (T4:
 	// lint prints exactly what ingest would print); the lane's own per-payload
@@ -322,10 +322,10 @@ func printIngestFailure(r *Runner, err error) {
 // with the gate about what the class costs, instance floor overrides included.
 func printIngestResult(r *Runner, campaign *state.Campaign, f validation.Value,
 	asJSON bool) {
-	cls := objStr(objAt(f, "root_cause"), "class")
+	cls := validation.ObjStr(validation.ObjAt(f, "root_cause"), "class")
 	advisory := taxonomy.ClassAdvisory(&cls, campaign)
 	warnings := findings.IntakeCheckpoint(f,
-		objStrDefault(f, "trajectory", "code"), objStr(f, "campaign_id"), campaign)
+		objStrDefault(f, "trajectory", "code"), validation.ObjStr(f, "campaign_id"), campaign)
 	if asJSON {
 		t14PrintJSON(r.Out, validation.VObj(
 			validation.KV{K: "finding", V: f},
@@ -342,7 +342,7 @@ func printIngestResult(r *Runner, campaign *state.Campaign, f validation.Value,
 		shown = "?"
 	}
 	fmt.Fprintf(r.Out, "ingested %s [%s] (class %s, CONFIRMED floor %s)\n",
-		objStr(f, "finding_id"), objStr(f, "status"), shown,
+		validation.ObjStr(f, "finding_id"), validation.ObjStr(f, "status"), shown,
 		findings.RequiredLevelForCampaign(campaign, "CONFIRMED", cls))
 	if advisory != "" {
 		fmt.Fprintf(r.Out, "  ADVISORY: %s\n", advisory)
@@ -503,9 +503,9 @@ func t14PrecheckAnswersPriority(c *state.Campaign, a *ingestArgs) error {
 	if outcome == "" {
 		outcome = "answered"
 	}
-	if objAt(target, "probe").Kind == validation.Obj &&
+	if validation.ObjAt(target, "probe").Kind == validation.Obj &&
 		t14InList(outcome, planner.ProbeRowDispositioned) {
-		rowID := objStr(objAt(target, "probe"), "row_id")
+		rowID := validation.ObjStr(validation.ObjAt(target, "probe"), "row_id")
 		return t14ExitErr(2, "ingest failed: priority %s is probe row %s — "+
 			"a probe disposition must name the field it claims is safe "+
 			"(--anchor), which `ingest` cannot supply: ingest the finding "+
@@ -597,7 +597,7 @@ func t14StrArr(items []string) validation.Value {
 
 // objStrDefault is `v.get(key, default)` for string fields.
 func objStrDefault(v validation.Value, key, def string) string {
-	got := objAt(v, key)
+	got := validation.ObjAt(v, key)
 	if got.Kind == validation.Str {
 		return got.S
 	}

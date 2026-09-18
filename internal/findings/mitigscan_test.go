@@ -253,7 +253,7 @@ func TestMitigScanES03Absent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := fieldAt(objAt(stored, "dedup_meta"),
+	if _, ok := fieldAt(validation.ObjAt(stored, "dedup_meta"),
 		"mitigation_present"); ok {
 		t.Error("a clean scan must leave mitigation_present absent")
 	}
@@ -278,11 +278,11 @@ func TestMitigScanES16Coexist(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	dm := objAt(stored, "dedup_meta")
-	if objStr(objAt(dm, "in_code_ack"), "phrase") != "todo" {
-		t.Errorf("in_code_ack must survive: %v", objAt(dm, "in_code_ack"))
+	dm := validation.ObjAt(stored, "dedup_meta")
+	if validation.ObjStr(validation.ObjAt(dm, "in_code_ack"), "phrase") != "todo" {
+		t.Errorf("in_code_ack must survive: %v", validation.ObjAt(dm, "in_code_ack"))
 	}
-	mp := objAt(dm, "mitigation_present")
+	mp := validation.ObjAt(dm, "mitigation_present")
 	pattern, _, line, _, ok := ParseMitigationPresent(mp.S)
 	if !ok || pattern != "cei-order" || line != "12" {
 		t.Errorf("mitigation_present = %q, want cei-order at 12", mp.S)
@@ -294,7 +294,7 @@ func TestMitigScanES16Coexist(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	before := validation.CanonSpaced(objAt(again, "dedup_meta"))
+	before := validation.CanonSpaced(validation.ObjAt(again, "dedup_meta"))
 	if _, err := RecordAckScan(c, fid); err != nil {
 		t.Fatal(err)
 	}
@@ -305,7 +305,7 @@ func TestMitigScanES16Coexist(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if validation.CanonSpaced(objAt(after, "dedup_meta")) != before {
+	if validation.CanonSpaced(validation.ObjAt(after, "dedup_meta")) != before {
 		t.Error("re-scans must leave the stored records byte-equal")
 	}
 }
@@ -469,7 +469,7 @@ func TestMitigScanNoPin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if dm := objAt(stored, "dedup_meta"); dm.Kind == validation.Obj {
+	if dm := validation.ObjAt(stored, "dedup_meta"); dm.Kind == validation.Obj {
 		t.Errorf("a skipped scan must not create dedup_meta: %v", dm)
 	}
 }
@@ -489,10 +489,10 @@ func TestMitigScanNonInterference(t *testing.T) {
 	if _, ok := fieldAt(stored, "bounty"); ok {
 		t.Error("mitigscan must never write bounty.*")
 	}
-	if _, ok := fieldAt(objAt(stored, "dedup_meta"), "in_code_ack"); ok {
+	if _, ok := fieldAt(validation.ObjAt(stored, "dedup_meta"), "in_code_ack"); ok {
 		t.Error("mitigscan must never touch in_code_ack")
 	}
-	if got := objStr(stored, "status"); got != "HYPOTHESIS" {
+	if got := validation.ObjStr(stored, "status"); got != "HYPOTHESIS" {
 		t.Errorf("status = %q, must be unchanged", got)
 	}
 }
@@ -513,11 +513,11 @@ func TestIngestHooksMitigScan(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	stored, err := LoadFinding(c, objStr(f, "finding_id"))
+	stored, err := LoadFinding(c, validation.ObjStr(f, "finding_id"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	mp := objAt(objAt(stored, "dedup_meta"), "mitigation_present")
+	mp := validation.ObjAt(validation.ObjAt(stored, "dedup_meta"), "mitigation_present")
 	pattern, file, line, _, ok := ParseMitigationPresent(mp.S)
 	if !ok || pattern != "cei-order" || file != "src/ES17CleanControl.sol" ||
 		line != "11" {
@@ -529,10 +529,10 @@ func TestIngestHooksMitigScan(t *testing.T) {
 	}
 	seenMit, seenIngest := false, false
 	for _, e := range events {
-		switch objStr(e, "type") {
+		switch validation.ObjStr(e, "type") {
 		case "finding.mitigation_scanned":
 			seenMit = true
-			if !objAt(objAt(e, "data"), "hit").B {
+			if !validation.ObjAt(validation.ObjAt(e, "data"), "hit").B {
 				t.Error("mitigation_scanned hit must be true")
 			}
 		case "finding.ingested":

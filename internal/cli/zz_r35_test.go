@@ -45,14 +45,14 @@ func r35ScaffoldRef(t *testing.T, c *state.Campaign) string {
 	}
 	ref := ""
 	for _, ev := range events {
-		if objStr(ev, "type") != "harness_scaffold" {
+		if validation.ObjStr(ev, "type") != "harness_scaffold" {
 			continue
 		}
-		if objStr(objAt(ev, "data"), "artifact_id") !=
+		if validation.ObjStr(validation.ObjAt(ev, "data"), "artifact_id") !=
 			"HARNESS-INV-1-minicertora" {
 			continue
 		}
-		ref = objStr(ev, "ref")
+		ref = validation.ObjStr(ev, "ref")
 	}
 	if ref == "" {
 		t.Fatal("the fixture has no harness_scaffold event naming the row")
@@ -69,10 +69,10 @@ func r35Backdate(t *testing.T, c *state.Campaign, id, stamp string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	arts := objAt(st, "artifacts")
+	arts := validation.ObjAt(st, "artifacts")
 	found := false
 	for i, a := range arts.A {
-		if objStr(a, "artifact_id") != id {
+		if validation.ObjStr(a, "artifact_id") != id {
 			continue
 		}
 		a.O = validation.SetOrAppend(a.O, "registered_at",
@@ -97,8 +97,8 @@ func r35RowIDs(t *testing.T, c *state.Campaign) []string {
 		t.Fatal(err)
 	}
 	var ids []string
-	for _, a := range objAt(st, "artifacts").A {
-		ids = append(ids, objStr(a, "artifact_id"))
+	for _, a := range validation.ObjAt(st, "artifacts").A {
+		ids = append(ids, validation.ObjStr(a, "artifact_id"))
 	}
 	return ids
 }
@@ -117,7 +117,7 @@ func TestR35ArtifactRegisterKeepsTheCitedScaffoldRow(t *testing.T) {
 		t.Fatalf("bind exit %d out=%q err=%q", code, out, errS)
 	}
 	code, sec := t27AuditSection(t, root, c.CampaignID)
-	if code != 0 || !objAt(sec, "ok").B {
+	if code != 0 || !validation.ObjAt(sec, "ok").B {
 		t.Fatalf("the fixture must start green: exit %d section %s", code,
 			validation.CanonCompact(sec))
 	}
@@ -169,11 +169,11 @@ func TestR35ArtifactRegisterKeepsTheCitedScaffoldRow(t *testing.T) {
 	// (4) The audit stays GREEN, and the rung prints unqualified: the kept
 	// row is exactly the evidence section 11 re-derives it from.
 	code, sec = t27AuditSection(t, root, c.CampaignID)
-	if code != 0 || !objAt(sec, "ok").B {
+	if code != 0 || !validation.ObjAt(sec, "ok").B {
 		t.Fatalf("the audit must stay green: exit %d section %s", code,
 			validation.CanonCompact(sec))
 	}
-	runs := objAt(sec, "harness_runs")
+	runs := validation.ObjAt(sec, "harness_runs")
 	if len(runs.A) != 1 {
 		t.Fatalf("harness_runs = %s", validation.CanonCompact(runs))
 	}

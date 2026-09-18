@@ -50,15 +50,15 @@ func cliAttempt(t *testing.T, c *state.Campaign, fid string) {
 func cliPassingLogicError(t *testing.T, c *state.Campaign) validation.Value {
 	t.Helper()
 	f := t15Finding(t, c, "a logic flow hypothesis", "logic-error")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	rec := t15ExecRecordFor(t, c, "EXEC-0000000001", fid)
 	item := validation.VObj(
 		kvT("evidence_id", validation.VStr("EV-1")),
 		kvT("level", validation.VStr("E4")),
 		kvT("type", validation.VStr("foundry-test")),
 		kvT("description", validation.VStr("PoC passes")),
-		kvT("sandbox_profile", objAt(rec, "profile")),
-		kvT("artifact_id", objAt(rec, "exec_id")),
+		kvT("sandbox_profile", validation.ObjAt(rec, "profile")),
+		kvT("artifact_id", validation.ObjAt(rec, "exec_id")),
 	)
 	if _, err := findings.AddEvidence(c, fid, item); err != nil {
 		t.Fatalf("add evidence: %v", err)
@@ -67,7 +67,7 @@ func cliPassingLogicError(t *testing.T, c *state.Campaign) validation.Value {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ver := asDictCLI(objAt(vf, "verification"))
+	ver := asDictCLI(validation.ObjAt(vf, "verification"))
 	ver = setObjFieldCLI(ver, "reproduction", validation.VObj(
 		kvT("tier_reached", validation.VStr("T2")),
 		kvT("status", validation.VStr("reproduced")),
@@ -97,15 +97,15 @@ func cliPassingLogicError(t *testing.T, c *state.Campaign) validation.Value {
 func cliAlmostPassing(t *testing.T, c *state.Campaign) validation.Value {
 	t.Helper()
 	f := t15Finding(t, c, "a logic flow hypothesis", "logic-error")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	rec := t15ExecRecordFor(t, c, "EXEC-0000000001", fid)
 	item := validation.VObj(
 		kvT("evidence_id", validation.VStr("EV-1")),
 		kvT("level", validation.VStr("E4")),
 		kvT("type", validation.VStr("foundry-test")),
 		kvT("description", validation.VStr("PoC passes")),
-		kvT("sandbox_profile", objAt(rec, "profile")),
-		kvT("artifact_id", objAt(rec, "exec_id")),
+		kvT("sandbox_profile", validation.ObjAt(rec, "profile")),
+		kvT("artifact_id", validation.ObjAt(rec, "exec_id")),
 	)
 	if _, err := findings.AddEvidence(c, fid, item); err != nil {
 		t.Fatalf("add evidence: %v", err)
@@ -114,7 +114,7 @@ func cliAlmostPassing(t *testing.T, c *state.Campaign) validation.Value {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ver := asDictCLI(objAt(vf, "verification"))
+	ver := asDictCLI(validation.ObjAt(vf, "verification"))
 	ver = setObjFieldCLI(ver, "reproduction", validation.VObj(
 		kvT("tier_reached", validation.VStr("T2")),
 		kvT("status", validation.VStr("reproduced")),
@@ -146,7 +146,7 @@ func TestChecklistPrintsEveryClauseWithVerdict(t *testing.T) {
 	c, root := t15Campaign(t, "checklist")
 	f := t15Finding(t, c, "an inflation hypothesis",
 		"first-depositor-inflation")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	clauses, err := findings.ConfirmationGateClauses(c, f)
 	if err != nil {
 		t.Fatal(err)
@@ -193,7 +193,7 @@ func TestChecklistFixLineFollowsTheFailingClause(t *testing.T) {
 	f := t15Finding(t, c, "an inflation hypothesis",
 		"first-depositor-inflation")
 	code, out, errS := run(t, "--root", root, "gate", c.CampaignID,
-		objStr(f, "finding_id"))
+		validation.ObjStr(f, "finding_id"))
 	if code != 1 {
 		t.Fatalf("exit %d, want 1: %q", code, errS)
 	}
@@ -218,7 +218,7 @@ func TestAllPassStillExitsZero(t *testing.T) {
 	c, root := t15Campaign(t, "allpass")
 	t15GlobalRow(t, "MEM-global01", "logic-error")
 	f := cliPassingLogicError(t, c)
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	code, out, errS := run(t, "--root", root, "gate", c.CampaignID, fid)
 	if code != 0 {
 		t.Fatalf("exit %d, want 0: %q\n%s", code, errS, out)
@@ -244,7 +244,7 @@ func TestDeltaNoneRecordedWithoutAnAttempt(t *testing.T) {
 	f := t15Finding(t, c, "an inflation hypothesis",
 		"first-depositor-inflation")
 	code, out, errS := run(t, "--root", root, "gate", c.CampaignID,
-		objStr(f, "finding_id"))
+		validation.ObjStr(f, "finding_id"))
 	if code != 1 {
 		t.Fatalf("exit %d, want 1: %q", code, errS)
 	}
@@ -258,7 +258,7 @@ func TestDeltaReportsFixedAndNewlyFailing(t *testing.T) {
 	c, root := t15Campaign(t, "delta")
 	t15GlobalRow(t, "MEM-global01", "logic-error")
 	f := cliAlmostPassing(t, c)
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	// only the critic verdict is open -> the refusal records exactly that id
 	cliAttempt(t, c, fid)
 	events, err := c.Events()
@@ -267,16 +267,16 @@ func TestDeltaReportsFixedAndNewlyFailing(t *testing.T) {
 	}
 	attempts := []validation.Value{}
 	for _, e := range events {
-		if objStr(e, "type") == "finding.gate_attempt" {
+		if validation.ObjStr(e, "type") == "finding.gate_attempt" {
 			attempts = append(attempts, e)
 		}
 	}
 	if len(attempts) != 1 {
 		t.Fatalf("gate_attempt events = %d, want 1", len(attempts))
 	}
-	data := asDictCLI(objAt(attempts[0], "data"))
-	if objStr(data, "finding") != fid ||
-		validation.CanonCompact(objAt(data, "check_ids")) != `["critic-verdict"]` {
+	data := asDictCLI(validation.ObjAt(attempts[0], "data"))
+	if validation.ObjStr(data, "finding") != fid ||
+		validation.CanonCompact(validation.ObjAt(data, "check_ids")) != `["critic-verdict"]` {
 		t.Fatalf("recorded attempt data = %s", validation.CanonCompact(data))
 	}
 	// no change yet -> an honest no-change line
@@ -355,7 +355,7 @@ func TestDeltaUsesTheLatestRecordedAttempt(t *testing.T) {
 	c, root := t15Campaign(t, "latest")
 	f := t15Finding(t, c, "an inflation hypothesis",
 		"first-depositor-inflation")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	clauses, err := findings.ConfirmationGateClauses(c, f)
 	if err != nil {
 		t.Fatal(err)
@@ -406,7 +406,7 @@ func TestGateDeltaLinesTolerateUnhashableRecordedIDs(t *testing.T) {
 	c, _ := t15Campaign(t, "unhashable")
 	f := t15Finding(t, c, "an inflation hypothesis",
 		"first-depositor-inflation")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	// a recorded member that is not a string is unreadable, not a clause
 	data := validation.VObj(
 		kvT("finding", validation.VStr(fid)),
@@ -466,7 +466,7 @@ func TestUnreadableCheckIDsAreReportedNotCrashed(t *testing.T) {
 			c, root := t15Campaign(t, "unreadable")
 			f := t15Finding(t, c, "an inflation hypothesis",
 				"first-depositor-inflation")
-			fid := objStr(f, "finding_id")
+			fid := validation.ObjStr(f, "finding_id")
 			data := validation.VObj(kvT("finding", validation.VStr(fid)))
 			if tc.set {
 				data.O = append(data.O, kvT("check_ids", tc.ids))
@@ -494,7 +494,7 @@ func TestDryRunWritesNothing(t *testing.T) {
 	c, root := t15Campaign(t, "readonly")
 	f := t15Finding(t, c, "an inflation hypothesis",
 		"first-depositor-inflation")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	cliAttempt(t, c, fid)
 	beforeEvents, err := c.Events()
 	if err != nil {
@@ -532,7 +532,7 @@ func TestGateAttemptEventOnlyOnRefusal(t *testing.T) {
 	c, _ := t15Campaign(t, "refusal")
 	t15GlobalRow(t, "MEM-global01", "logic-error")
 	f := cliPassingLogicError(t, c)
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	if _, err := findings.Transition(c, fid, "POSSIBLE", "advance",
 		"operator", "", false); err != nil {
 		t.Fatalf("move POSSIBLE: %v", err)
@@ -542,7 +542,7 @@ func TestGateAttemptEventOnlyOnRefusal(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, e := range events {
-		if objStr(e, "type") == "finding.gate_attempt" {
+		if validation.ObjStr(e, "type") == "finding.gate_attempt" {
 			t.Fatalf("legal transition logged a gate_attempt: %s",
 				validation.CanonCompact(e))
 		}
@@ -575,7 +575,7 @@ func cliInvariantFinding(t *testing.T, c *state.Campaign,
 	if err := findings.SaveFinding(c, &f); err != nil {
 		t.Fatal(err)
 	}
-	out, err := findings.LoadFinding(c, objStr(f, "finding_id"))
+	out, err := findings.LoadFinding(c, validation.ObjStr(f, "finding_id"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -599,9 +599,9 @@ func cliVerifyInvariant(t *testing.T, c *state.Campaign, invID, name string) {
 		t.Fatal(err)
 	}
 	artID := ""
-	for _, a := range objAt(st, "artifacts").A {
-		if strings.HasSuffix(objStr(a, "path"), name) {
-			artID = objStr(a, "artifact_id")
+	for _, a := range validation.ObjAt(st, "artifacts").A {
+		if strings.HasSuffix(validation.ObjStr(a, "path"), name) {
+			artID = validation.ObjStr(a, "artifact_id")
 		}
 	}
 	if artID == "" {
@@ -617,7 +617,7 @@ func cliVerifyInvariant(t *testing.T, c *state.Campaign, invID, name string) {
 func TestInvariantClausesAreQualifiedByTheirID(t *testing.T) {
 	c, root := t15Campaign(t, "inv-qual")
 	f := cliInvariantFinding(t, c, []string{"INV-1", "INV-2"})
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	cliVerifyInvariant(t, c, "INV-1", "inv1-check.md")
 	code, out, errS := run(t, "--root", root, "gate", c.CampaignID, fid)
 	if code != 1 {
@@ -644,7 +644,7 @@ func TestInvariantClausesAreQualifiedByTheirID(t *testing.T) {
 func TestInvariantDeltaDistinguishesFixedFromBroken(t *testing.T) {
 	c, root := t15Campaign(t, "inv-delta")
 	f := cliInvariantFinding(t, c, []string{"INV-1", "INV-2"})
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	data := validation.VObj(
 		kvT("finding", validation.VStr(fid)),
 		kvT("check_ids", validation.VArr(
@@ -672,7 +672,7 @@ func TestInvariantDeltaDistinguishesFixedFromBroken(t *testing.T) {
 func TestNamedDecisionLineNeedsAnEconomicClause(t *testing.T) {
 	c, root := t15Campaign(t, "noneconomic")
 	f := t15Finding(t, c, "a logic flow hypothesis", "logic-error")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	f = setObjFieldCLI(f, "economic_impact", validation.VObj(
 		kvT("priceable", validation.VBool(false)),
 		kvT("ceiling", validation.VStr(cliCeiling))))
@@ -702,7 +702,7 @@ func TestNamedDecisionLineNeedsAnEconomicClause(t *testing.T) {
 func TestNamedDecisionLinePrintsForEconomicClass(t *testing.T) {
 	c, root := t15Campaign(t, "economic")
 	f := cliGateReadyEconomic(t, c)
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	if _, err := risk.RecordUnpriceable(c, fid, cliCeiling,
 		"the sink is a test fixture, so any USD figure would be invented "+
 			"precision, not a measurement", "operator"); err != nil {
@@ -744,7 +744,7 @@ func cliGateReadyEconomic(t *testing.T, c *state.Campaign) validation.Value {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	rec := t15ExecRecordFor(t, c, "EXEC-0000000001", fid)
 	for i, pair := range [][2]string{{"E4", "foundry-test"},
 		{"E5", "fork-test"}} {
@@ -753,8 +753,8 @@ func cliGateReadyEconomic(t *testing.T, c *state.Campaign) validation.Value {
 			kvT("level", validation.VStr(pair[0])),
 			kvT("type", validation.VStr(pair[1])),
 			kvT("description", validation.VStr("gate fixture")),
-			kvT("sandbox_profile", objAt(rec, "profile")),
-			kvT("artifact_id", objAt(rec, "exec_id")),
+			kvT("sandbox_profile", validation.ObjAt(rec, "profile")),
+			kvT("artifact_id", validation.ObjAt(rec, "exec_id")),
 		)
 		if _, err := findings.AddEvidence(c, fid, item); err != nil {
 			t.Fatal(err)
@@ -774,7 +774,7 @@ func cliGateReadyEconomic(t *testing.T, c *state.Campaign) validation.Value {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ver := asDictCLI(objAt(loaded, "verification"))
+	ver := asDictCLI(validation.ObjAt(loaded, "verification"))
 	ver = setObjFieldCLI(ver, "reproduction", validation.VObj(
 		kvT("tier_reached", validation.VStr("T3")),
 		kvT("status", validation.VStr("reproduced")),
@@ -799,7 +799,7 @@ func cliGateReadyEconomic(t *testing.T, c *state.Campaign) validation.Value {
 func TestNamedDecisionUntrustedWhenChainContradictsIt(t *testing.T) {
 	c, root := t15Campaign(t, "economic")
 	f := cliGateReadyEconomic(t, c)
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	if _, err := risk.RecordUnpriceable(c, fid, cliCeiling,
 		"the sink is a test fixture, so any USD figure would be invented "+
 			"precision, not a measurement", "operator"); err != nil {

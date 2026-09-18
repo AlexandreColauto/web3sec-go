@@ -220,14 +220,3 @@ func commandIsForgeLike(rec validation.Value) bool {
 	}
 	return false
 }
-
-// objStr is the sandbox-local dict lookup: the string value, or "" when the
-// key is absent or not a string (Python's rec.get(key, "") / `or ""`).
-func objStr(rec validation.Value, key string) string {
-	for _, kv := range rec.O {
-		if kv.K == key {
-			return kv.V.S
-		}
-	}
-	return ""
-}

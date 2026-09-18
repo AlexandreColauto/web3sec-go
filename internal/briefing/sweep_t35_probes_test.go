@@ -121,7 +121,7 @@ func TestBriefFeedsOpenProbeRowsAheadOfGenericItems(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ps := objAt(b, "probe_surface")
+	ps := validation.ObjAt(b, "probe_surface")
 	if objInt(ps, "rows") != 10 || objInt(ps, "open") != 10 ||
 		objBool(ps, "stale") {
 		t.Fatalf("probe_surface = %v, want 10/10 not stale", ps)
@@ -141,12 +141,12 @@ func TestBriefFeedsOpenProbeRowsAheadOfGenericItems(t *testing.T) {
 		t.Fatalf("open_rows = %d, want %d", len(openRows), len(sorted))
 	}
 	for i := range sorted {
-		if objStr(openRows[i], "row_id") != objStr(sorted[i], "row_id") {
+		if validation.ObjStr(openRows[i], "row_id") != validation.ObjStr(sorted[i], "row_id") {
 			t.Fatalf("open_rows[%d] = %q, want %q", i,
-				objStr(openRows[i], "row_id"), objStr(sorted[i], "row_id"))
+				validation.ObjStr(openRows[i], "row_id"), validation.ObjStr(sorted[i], "row_id"))
 		}
 	}
-	actions := strListOf(objAt(b, "next_actions"))
+	actions := strListOf(validation.ObjAt(b, "next_actions"))
 	// Task 7 fix round 1 (I-2): the probe-row lines are command-first
 	// (`webv2 answered|probes …  # work|emit probe row …`), so the marker
 	// rides the reason suffix.
@@ -169,12 +169,12 @@ func TestBriefFeedsOpenProbeRowsAheadOfGenericItems(t *testing.T) {
 	for i, r := range sorted {
 		found := -1
 		for j, a := range probeActions {
-			if strings.Contains(a, objStr(r, "row_id")) {
+			if strings.Contains(a, validation.ObjStr(r, "row_id")) {
 				found = j
 			}
 		}
 		if found != i {
-			t.Fatalf("row %s ranks at %d, want %d", objStr(r, "row_id"),
+			t.Fatalf("row %s ranks at %d, want %d", validation.ObjStr(r, "row_id"),
 				found, i)
 		}
 	}
@@ -289,18 +289,18 @@ func TestAGrandfatheredBriefDoesNotGainPhaseGuidance(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if v := objAt(b, "probe_surface"); v.Kind != validation.Null {
+	if v := validation.ObjAt(b, "probe_surface"); v.Kind != validation.Null {
 		t.Fatalf("grandfather: probe_surface = %v, want null", v)
 	}
-	actions := strListOf(objAt(b, "next_actions"))
-	ranked := listAt(objAt(b, "attention"), "ranked")
+	actions := strListOf(validation.ObjAt(b, "next_actions"))
+	ranked := listAt(validation.ObjAt(b, "attention"), "ranked")
 	if len(ranked) == 0 {
 		t.Fatal("no attention lead")
 	}
 	// I-2 re-pin: next_actions mint the ledger's command field
-	if actions[0] != objStr(ranked[0], "command") {
+	if actions[0] != validation.ObjStr(ranked[0], "command") {
 		t.Fatalf("actions[0] = %q, want the attention lead %q", actions[0],
-			objStr(ranked[0], "command"))
+			validation.ObjStr(ranked[0], "command"))
 	}
 	if len(actions) != 4 {
 		t.Fatalf("len(actions) = %d, want 4: %v", len(actions), actions)
@@ -344,7 +344,7 @@ func TestAGrandfatheredBriefDoesNotGainPhaseGuidance(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	got := strListOf(objAt(eb, "next_actions"))
+	got := strListOf(validation.ObjAt(eb, "next_actions"))
 	if strings.Join(got, "\x00") != strings.Join(strListOf(want), "\x00") {
 		t.Fatalf("empty brief actions = %v, want orchestrator.NextActions = %v",
 			got, strListOf(want))
@@ -357,16 +357,16 @@ func TestAttentionDebtDoesNotSuppressThePhaseGuidanceFallback(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objAt(b, "probe_surface").Kind == validation.Null {
+	if validation.ObjAt(b, "probe_surface").Kind == validation.Null {
 		t.Fatal("probe_surface must be present")
 	}
-	actions := strListOf(objAt(b, "next_actions"))
-	ranked := listAt(objAt(b, "attention"), "ranked")
+	actions := strListOf(validation.ObjAt(b, "next_actions"))
+	ranked := listAt(validation.ObjAt(b, "attention"), "ranked")
 	if len(ranked) == 0 {
 		t.Fatal("no attention lead")
 	}
 	// I-2 re-pin: the command field, not the action prose
-	lead := objStr(ranked[0], "command")
+	lead := validation.ObjStr(ranked[0], "command")
 	count := 0
 	for _, a := range actions {
 		if a == lead {

@@ -106,9 +106,9 @@ func rpProbePriority(t *testing.T, c *state.Campaign,
 		t.Fatal(err)
 	}
 	for _, p := range listAt(plan, "priorities") {
-		prov := objAt(p, "probe")
-		if prov.Kind == validation.Obj && objStr(prov, "row_id") != "" &&
-			(rowID == "" || objStr(prov, "row_id") == rowID) {
+		prov := validation.ObjAt(p, "probe")
+		if prov.Kind == validation.Obj && validation.ObjStr(prov, "row_id") != "" &&
+			(rowID == "" || validation.ObjStr(prov, "row_id") == rowID) {
 			return p
 		}
 	}
@@ -123,7 +123,7 @@ func TestReportRendersTheMechanicalCandidateSurface(t *testing.T) {
 		t.Fatal("surface has no rows")
 	}
 	row := rows[0]
-	pid := objStr(rpProbePriority(t, c, objStr(row, "row_id")), "id")
+	pid := validation.ObjStr(rpProbePriority(t, c, validation.ObjStr(row, "row_id")), "id")
 	plan, err := planner.LoadPlanReadonly(c)
 	if err != nil {
 		t.Fatal(err)
@@ -145,7 +145,7 @@ func TestReportRendersTheMechanicalCandidateSurface(t *testing.T) {
 	}
 	text := rpText(t, c)
 	for _, want := range []string{"## Mechanical candidate surface",
-		objStr(row, "row_id"), "assertion-strength", "enforcement-timing",
+		validation.ObjStr(row, "row_id"), "assertion-strength", "enforcement-timing",
 		"L-03", "Rollup.sol#L45", "Rollup.sol#L66", "not-applicable",
 		"the asserter is not authoritative"} {
 		if !strings.Contains(text, want) {

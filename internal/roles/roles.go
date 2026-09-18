@@ -144,16 +144,16 @@ func snapshotBlock(campaign *state.Campaign) (validation.Value, error) {
 	if err != nil {
 		return validation.VNull(), err
 	}
-	source := objAt(snap, "source")
+	source := validation.ObjAt(snap, "source")
 	if source.Kind != validation.Obj {
 		source = validation.VObj()
 	}
 	return validation.VObj(
 		validation.KV{K: "snapshot_id", V: nullableStr(sid)},
 		validation.KV{K: "source", V: source},
-		validation.KV{K: "deployment", V: objAt(snap, "deployment")},
-		validation.KV{K: "chain", V: objAt(snap, "chain")},
-		validation.KV{K: "pinned_at", V: objAt(snap, "pinned_at")},
+		validation.KV{K: "deployment", V: validation.ObjAt(snap, "deployment")},
+		validation.KV{K: "chain", V: validation.ObjAt(snap, "chain")},
+		validation.KV{K: "pinned_at", V: validation.ObjAt(snap, "pinned_at")},
 	), nil
 }
 
@@ -169,7 +169,7 @@ func campaignPolicy(campaign *state.Campaign) (validation.Value, error) {
 	}
 	out := validation.VObj()
 	for _, k := range PolicyKeys {
-		if v := objAt(policy, k); v.Kind != validation.Null {
+		if v := validation.ObjAt(policy, k); v.Kind != validation.Null {
 			out.O = append(out.O, validation.KV{K: k, V: v})
 		}
 	}
@@ -206,7 +206,7 @@ func freshArtifact(campaign *state.Campaign, name string,
 	if err != nil {
 		return validation.VNull(), err
 	}
-	if !nullableStrEqual(objAt(data, "snapshot_id"), active) {
+	if !nullableStrEqual(validation.ObjAt(data, "snapshot_id"), active) {
 		return validation.VNull(), nil
 	}
 	raw, err := os.ReadFile(p)
@@ -229,7 +229,7 @@ func freshIndexStats(campaign *state.Campaign,
 	if data.Kind != validation.Obj {
 		return validation.VNull(), nil
 	}
-	return objAt(data, "stats"), nil
+	return validation.ObjAt(data, "stats"), nil
 }
 
 // StaleArtifacts is _stale_artifacts: analysis artifacts that exist but
@@ -251,10 +251,10 @@ func StaleArtifacts(campaign *state.Campaign) ([]validation.Value, error) {
 			continue
 		}
 		if data.Kind == validation.Obj &&
-			!nullableStrEqual(objAt(data, "snapshot_id"), active) {
+			!nullableStrEqual(validation.ObjAt(data, "snapshot_id"), active) {
 			out = append(out, validation.VObj(
 				validation.KV{K: "artifact", V: validation.VStr(pair[0])},
-				validation.KV{K: "stale_snapshot", V: objAt(data, "snapshot_id")},
+				validation.KV{K: "stale_snapshot", V: validation.ObjAt(data, "snapshot_id")},
 				validation.KV{K: "re_run", V: validation.VStr(
 					findings.NameCampaign(pair[1], campaign.CampaignID))}))
 		}
@@ -264,18 +264,6 @@ func StaleArtifacts(campaign *state.Campaign) ([]validation.Value, error) {
 
 // ArtifactRerun exposes the re-run table (briefing shares it).
 func ArtifactRerun() [][2]string { return artifactRerun }
-
-func objAt(v validation.Value, key string) validation.Value {
-	if v.Kind != validation.Obj {
-		return validation.VNull()
-	}
-	for _, kv := range v.O {
-		if kv.K == key {
-			return kv.V
-		}
-	}
-	return validation.VNull()
-}
 
 func nullableStr(s *string) validation.Value {
 	if s == nil {
@@ -297,12 +285,4 @@ func pyListRepr(xs []string) string {
 		parts[i] = validation.PyReprStr(x)
 	}
 	return "[" + strings.Join(parts, ", ") + "]"
-}
-
-func objStr(v validation.Value, key string) string {
-	x := objAt(v, key)
-	if x.Kind == validation.Str {
-		return x.S
-	}
-	return ""
 }

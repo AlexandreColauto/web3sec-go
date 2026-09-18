@@ -62,12 +62,12 @@ func addCapital(a, b capital) capital {
 // capitalNode is _capital_node: one finding's reported capital, falling back
 // to the legacy flat attacker.required_capital_usd.
 func capitalNode(f validation.Value) capital {
-	att := asObj(objAt(f, "attacker"))
-	prof := asObj(objAt(att, "capital_profile"))
+	att := asObj(validation.ObjAt(f, "attacker"))
+	prof := asObj(validation.ObjAt(att, "capital_profile"))
 	get := func(key string) float64 {
-		v := objAt(prof, key)
+		v := validation.ObjAt(prof, key)
 		if v.Kind == validation.Null && key == "required_usd" {
-			v = objAt(att, "required_capital_usd")
+			v = validation.ObjAt(att, "required_capital_usd")
 		}
 		if v.Kind == validation.Null {
 			return 0.0
@@ -96,12 +96,12 @@ type findingNode struct {
 }
 
 func newFindingNode(f validation.Value) findingNode {
-	caps := asObj(objAt(f, "capabilities"))
+	caps := asObj(validation.ObjAt(f, "capabilities"))
 	return findingNode{
-		fid:      objStr(f, "finding_id"),
-		title:    objStr(f, "title"),
-		granted:  setOf(norm(capInput(objAt(caps, "granted")))),
-		required: setOf(norm(capInput(objAt(caps, "required")))),
+		fid:      validation.ObjStr(f, "finding_id"),
+		title:    validation.ObjStr(f, "title"),
+		granted:  setOf(norm(capInput(validation.ObjAt(caps, "granted")))),
+		required: setOf(norm(capInput(validation.ObjAt(caps, "required")))),
 		cap:      capitalNode(f),
 	}
 }
@@ -131,7 +131,7 @@ func terminalNodesMode(c *state.Campaign, includeHypothesis bool) ([]findingNode
 	}
 	out := []findingNode{}
 	for _, f := range all {
-		st := objStr(f, "status")
+		st := validation.ObjStr(f, "status")
 		_, absorbed := findings.TERMINAL[st]
 		if st == "CONFIRMED" || st == "CHAIN" ||
 			(includeHypothesis && !absorbed) {
@@ -249,9 +249,9 @@ func terminalPathDoc(frame terminalFrame, node findingNode,
 	}
 	seen[key] = struct{}{}
 	return validation.VObj(
-		kvOf("path", strArr(frame.path)),
+		kvOf("path", validation.StrArr(frame.path)),
 		kvOf("terminal_capability", validation.VStr(terminals[0])),
-		kvOf("terminal_capabilities", strArr(terminals)),
+		kvOf("terminal_capabilities", validation.StrArr(terminals)),
 		kvOf("terminal_finding", validation.VStr(frame.cur)),
 		kvOf("total_capital_required_usd",
 			validation.VFloat(frame.capital.required)),
@@ -261,7 +261,7 @@ func terminalPathDoc(frame terminalFrame, node findingNode,
 
 // pyFloatAt reads a float field (0 when absent).
 func pyFloatAt(v validation.Value, key string) float64 {
-	f, _ := pyFloat(objAt(v, key))
+	f, _ := pyFloat(validation.ObjAt(v, key))
 	return f
 }
 
@@ -296,7 +296,7 @@ func TerminalReport(c *state.Campaign, baseline *[]string) (validation.Value, er
 	bestOrder := []string{}
 	best := map[string]validation.Value{}
 	for _, p := range paths {
-		k := objStr(p, "terminal_capability")
+		k := validation.ObjStr(p, "terminal_capability")
 		cur, ok := best[k]
 		if !ok || len(listOf(p, "path").A) < len(listOf(cur, "path").A) {
 			if !ok {
@@ -320,14 +320,14 @@ func TerminalReport(c *state.Campaign, baseline *[]string) (validation.Value, er
 	note := "terminal paths search CONFIRMED findings only; terminal = " +
 		"asset-kind capability granted by the last finding"
 	for _, p := range paths {
-		if capabilities.IsLivenessTerminal(objStr(p, "terminal_capability")) {
+		if capabilities.IsLivenessTerminal(validation.ObjStr(p, "terminal_capability")) {
 			note += "; liveness terminal (B1) = liveness_loss granted by the " +
 				"last finding — non-economic: the freeze itself is the impact"
 			break
 		}
 	}
 	return validation.VObj(
-		kvOf("baseline", strArr(base)),
+		kvOf("baseline", validation.StrArr(base)),
 		kvOf("note", validation.VStr(note)),
 		kvOf("direct", valueArr(direct)),
 		kvOf("terminal_chains", valueArr(chains)),

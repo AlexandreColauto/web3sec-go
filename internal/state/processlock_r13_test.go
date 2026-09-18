@@ -176,23 +176,23 @@ func TestConcurrentLoadModifyWritesLoseNothing(t *testing.T) {
 	// that class — a lost update shows as a missing class or a mismatch.
 	byClassLedger := map[string]validation.Value{}
 	for _, e := range evts {
-		if objStr(e, "type") != "floor_policy.set" {
+		if validation.ObjStr(e, "type") != "floor_policy.set" {
 			continue
 		}
-		byClassLedger[objStr(e, "ref")] = objAt(e, "data")
+		byClassLedger[validation.ObjStr(e, "ref")] = validation.ObjAt(e, "data")
 	}
 	if len(byClassLedger) != 6 {
 		t.Fatalf("ledger lost a class: %d of 6", len(byClassLedger))
 	}
-	rows := objAt(st, "floor_policy")
+	rows := validation.ObjAt(st, "floor_policy")
 	if len(rows.A) != 6 {
 		t.Fatalf("state lost an update: %d rows, want 6", len(rows.A))
 	}
 	for _, r := range rows.A {
-		d := byClassLedger[objStr(r, "class")]
-		if objStr(d, "reason") != objStr(r, "reason") {
+		d := byClassLedger[validation.ObjStr(r, "class")]
+		if validation.ObjStr(d, "reason") != validation.ObjStr(r, "reason") {
 			t.Fatalf("state and ledger disagree for %s: %q vs %q",
-				objStr(r, "class"), objStr(r, "reason"), objStr(d, "reason"))
+				validation.ObjStr(r, "class"), validation.ObjStr(r, "reason"), validation.ObjStr(d, "reason"))
 		}
 	}
 }
@@ -215,10 +215,10 @@ func lmwWorker() {
 		os.Exit(1)
 	}
 	cls := "class-" + i
-	policy := objAt(st, "floor_policy")
+	policy := validation.ObjAt(st, "floor_policy")
 	var kept []validation.Value
 	for _, e := range policy.A {
-		if objStr(e, "class") == cls {
+		if validation.ObjStr(e, "class") == cls {
 			continue
 		}
 		kept = append(kept, e)
@@ -289,21 +289,21 @@ func TestConcurrentMethodRacesLoseNothing(t *testing.T) {
 	evts, _ := c.Events()
 	byRef := map[string]validation.Value{}
 	for _, e := range evts {
-		if objStr(e, "type") == "floor_policy.set" {
-			byRef[objStr(e, "ref")] = objAt(e, "data")
+		if validation.ObjStr(e, "type") == "floor_policy.set" {
+			byRef[validation.ObjStr(e, "ref")] = validation.ObjAt(e, "data")
 		}
 	}
 	if len(byRef) != 4 {
 		t.Fatalf("floor events lost: %d/4", len(byRef))
 	}
-	rows := objAt(st, "floor_policy")
+	rows := validation.ObjAt(st, "floor_policy")
 	if len(rows.A) != 4 {
 		t.Fatalf("floor state rows lost: %d/4", len(rows.A))
 	}
 	for _, r := range rows.A {
-		d := byRef[objStr(r, "class")]
-		if objStr(d, "reason") != objStr(r, "reason") {
-			t.Fatalf("state/ledger disagree for %s", objStr(r, "class"))
+		d := byRef[validation.ObjStr(r, "class")]
+		if validation.ObjStr(d, "reason") != validation.ObjStr(r, "reason") {
+			t.Fatalf("state/ledger disagree for %s", validation.ObjStr(r, "class"))
 		}
 	}
 	// Ceilings: each of 4 workers set a distinct value; the LAST writer
@@ -335,10 +335,10 @@ func mwWorker() {
 		if err != nil {
 			os.Exit(1)
 		}
-		pol := objAt(st, "floor_policy")
+		pol := validation.ObjAt(st, "floor_policy")
 		var kept []validation.Value
 		for _, e := range pol.A {
-			if objStr(e, "class") != cls {
+			if validation.ObjStr(e, "class") != cls {
 				kept = append(kept, e)
 			}
 		}

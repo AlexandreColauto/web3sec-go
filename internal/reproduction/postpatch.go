@@ -62,8 +62,8 @@ func (e *UnknownIDError) Error() string {
 // evidence item whose artifact_id names an EXEC record. False when the
 // finding carries no minted repro evidence.
 func BaselineReproExec(f validation.Value) (string, bool) {
-	for _, e := range objAt(f, "evidence").A {
-		if aid := objStr(e, "artifact_id"); strings.HasPrefix(aid,
+	for _, e := range validation.ObjAt(f, "evidence").A {
+		if aid := validation.ObjStr(e, "artifact_id"); strings.HasPrefix(aid,
 			"EXEC-") {
 			return aid, true
 		}
@@ -168,7 +168,7 @@ func PatchRegressionRecord(verdict, exec, baseExec, detail,
 
 // execExit is the record's exit status, or false when absent/non-integer.
 func execExit(rec validation.Value) (int, bool) {
-	if v := objAt(rec, "exit_status"); v.Kind == validation.Int &&
+	if v := validation.ObjAt(rec, "exit_status"); v.Kind == validation.Int &&
 		v.Big == "" {
 		return int(v.I), true
 	}
@@ -180,7 +180,7 @@ func execExit(rec validation.Value) (int, bool) {
 // uses). A missing file is an indeterminate detail, not an error.
 func postPatchStdout(c *state.Campaign, execID string,
 	rec validation.Value) ([]byte, error) {
-	p := objStr(rec, "stdout_path")
+	p := validation.ObjStr(rec, "stdout_path")
 	if p == "" {
 		return nil, fmt.Errorf("missing stdout file for %s", execID)
 	}

@@ -32,7 +32,7 @@ func AddExample(example validation.Value, status string) (validation.Value, erro
 		return validation.VNull(), err
 	}
 	ex := cloneValue(example)
-	idVal := objAt(ex, "id")
+	idVal := validation.ObjAt(ex, "id")
 	if truthy(idVal) {
 		if findExample(store, pyStrValue(idVal)).Kind != validation.Null {
 			return validation.VNull(), fmt.Errorf("example id %s already "+
@@ -48,7 +48,7 @@ func AddExample(example validation.Value, status string) (validation.Value, erro
 	ex.O = validation.SetDefault(ex.O, "partition", validation.VNull())
 	ex.O = validation.SetDefault(ex.O, "created_at", validation.VStr(state.NowIso()))
 	ex.O = validation.SetDefault(ex.O, "curated_by", validation.VNull())
-	if status == "rejected" && len(objAt(ex, "rejection_reasons").A) == 0 {
+	if status == "rejected" && len(validation.ObjAt(ex, "rejection_reasons").A) == 0 {
 		return validation.VNull(), fmt.Errorf("status=rejected requires " +
 			"non-empty rejection_reasons")
 	}
@@ -56,13 +56,13 @@ func AddExample(example validation.Value, status string) (validation.Value, erro
 		return validation.VNull(), fmt.Errorf("sft_example schema violation: %s",
 			schemaMsg(err))
 	}
-	existing := curatedExcept(store, objStr(ex, "id"))
+	existing := curatedExcept(store, validation.ObjStr(ex, "id"))
 	hard := hardReasons(LintExample(ex, existing, status))
 	if len(hard) > 0 {
 		return validation.VNull(), fmt.Errorf("sft lint failed: %s",
 			strings.Join(hard, "; "))
 	}
-	examples := append([]validation.Value(nil), objAt(store, "examples").A...)
+	examples := append([]validation.Value(nil), validation.ObjAt(store, "examples").A...)
 	store = setKey(store, "examples",
 		validation.VArr(append(examples, ex)...))
 	if err := SaveStore(store); err != nil {
@@ -80,14 +80,14 @@ func ListExamples(status, partition, taxonomy *string) ([]validation.Value,
 		return nil, err
 	}
 	out := []validation.Value{}
-	for _, e := range objAt(store, "examples").A {
-		if status != nil && objStr(e, "status") != *status {
+	for _, e := range validation.ObjAt(store, "examples").A {
+		if status != nil && validation.ObjStr(e, "status") != *status {
 			continue
 		}
-		if partition != nil && objStr(e, "partition") != *partition {
+		if partition != nil && validation.ObjStr(e, "partition") != *partition {
 			continue
 		}
-		if taxonomy != nil && objStr(e, "taxonomy") != *taxonomy {
+		if taxonomy != nil && validation.ObjStr(e, "taxonomy") != *taxonomy {
 			continue
 		}
 		out = append(out, e)
@@ -117,10 +117,10 @@ func UpdateExample(exampleID string, status, curatedBy *string,
 	if err != nil {
 		return validation.VNull(), err
 	}
-	examples := objAt(store, "examples").A
+	examples := validation.ObjAt(store, "examples").A
 	idx := -1
 	for i, e := range examples {
-		if objStr(e, "id") == exampleID {
+		if validation.ObjStr(e, "id") == exampleID {
 			idx = i
 			break
 		}
@@ -129,7 +129,7 @@ func UpdateExample(exampleID string, status, curatedBy *string,
 		return validation.VNull(), fmt.Errorf("%s", validation.PyReprStr(exampleID))
 	}
 	ex := cloneValue(examples[idx])
-	old := objStr(ex, "status")
+	old := validation.ObjStr(ex, "status")
 	if status != nil {
 		if !inList(Statuses, *status) {
 			return validation.VNull(), fmt.Errorf("unknown status %s",
@@ -145,14 +145,14 @@ func UpdateExample(exampleID string, status, curatedBy *string,
 		ex = setKey(ex, "curated_by", validation.VStr(*curatedBy))
 	}
 	if rejectionReasons != nil {
-		ex = setKey(ex, "rejection_reasons", strArr(rejectionReasons))
+		ex = setKey(ex, "rejection_reasons", validation.StrArr(rejectionReasons))
 	}
-	if objStr(ex, "status") == "rejected" &&
-		len(objAt(ex, "rejection_reasons").A) == 0 {
+	if validation.ObjStr(ex, "status") == "rejected" &&
+		len(validation.ObjAt(ex, "rejection_reasons").A) == 0 {
 		return validation.VNull(), fmt.Errorf("status=rejected requires " +
 			"non-empty rejection_reasons")
 	}
-	if objStr(ex, "status") == "curated" {
+	if validation.ObjStr(ex, "status") == "curated" {
 		existing := curatedExcept(store, exampleID)
 		hard := hardReasons(LintExample(ex, existing, "curated"))
 		if len(hard) > 0 {
@@ -160,7 +160,7 @@ func UpdateExample(exampleID string, status, curatedBy *string,
 				"sft lint failed on curation: %s", strings.Join(hard, "; "))
 		}
 		ex = setKey(ex, "version", validation.VInt(int64(intOf(
-			objAt(ex, "version"))+1)))
+			validation.ObjAt(ex, "version"))+1)))
 	}
 	if err := validation.Validate(ex, "sft_example", 1); err != nil {
 		return validation.VNull(), fmt.Errorf("sft_example schema violation: %s",
@@ -183,15 +183,15 @@ func ExportJSONL(partition *string) (string, error) {
 		return "", err
 	}
 	lines := []string{}
-	for _, e := range objAt(store, "examples").A {
-		if objStr(e, "status") != "curated" {
+	for _, e := range validation.ObjAt(store, "examples").A {
+		if validation.ObjStr(e, "status") != "curated" {
 			continue
 		}
-		if partition != nil && objStr(e, "partition") != *partition {
+		if partition != nil && validation.ObjStr(e, "partition") != *partition {
 			continue
 		}
 		lines = append(lines, validation.DumpsOrdered(validation.VObj(
-			validation.KV{K: "messages", V: objAt(e, "messages")}), false))
+			validation.KV{K: "messages", V: validation.ObjAt(e, "messages")}), false))
 	}
 	if len(lines) == 0 {
 		return "", nil
@@ -202,8 +202,8 @@ func ExportJSONL(partition *string) (string, error) {
 // ---- helpers -------------------------------------------------------------
 
 func findExample(store validation.Value, id string) validation.Value {
-	for _, e := range objAt(store, "examples").A {
-		if objStr(e, "id") == id {
+	for _, e := range validation.ObjAt(store, "examples").A {
+		if validation.ObjStr(e, "id") == id {
 			return e
 		}
 	}
@@ -212,8 +212,8 @@ func findExample(store validation.Value, id string) validation.Value {
 
 func curatedExcept(store validation.Value, id string) []validation.Value {
 	out := []validation.Value{}
-	for _, e := range objAt(store, "examples").A {
-		if objStr(e, "status") == "curated" && objStr(e, "id") != id {
+	for _, e := range validation.ObjAt(store, "examples").A {
+		if validation.ObjStr(e, "status") == "curated" && validation.ObjStr(e, "id") != id {
 			out = append(out, e)
 		}
 	}

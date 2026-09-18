@@ -41,7 +41,7 @@ func IngestModelHypothesis(campaign *state.Campaign, raw validation.Value,
 	if err != nil {
 		return validation.VNull(), err
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	one := int64(1)
 	if _, err := findings.SetAssumptions(campaign, fid, rawAssumptions(raw),
 		&one, "proposer"); err != nil {
@@ -74,27 +74,27 @@ func logHypothesisRequest(campaign *state.Campaign,
 // claim -> title and root_cause.description, target -> affected[0], attacker
 // defaulted, exploit_sequence carried through only when non-empty.
 func hypothesisPayload(raw validation.Value) validation.Value {
-	target := asObj(objAt(raw, "target"))
-	attacker := objAt(raw, "attacker")
+	target := asObj(validation.ObjAt(raw, "target"))
+	attacker := validation.ObjAt(raw, "attacker")
 	if attacker.Kind != validation.Obj {
 		attacker = validation.VObj(
 			validation.KV{K: "profile", V: validation.VStr("arbitrary EOA")})
 	}
-	if objAt(attacker, "capabilities").Kind == validation.Null {
+	if validation.ObjAt(attacker, "capabilities").Kind == validation.Null {
 		attacker.O = append(attacker.O, validation.KV{K: "capabilities",
 			V: validation.VArr()})
 	}
 	payload := validation.VObj(
 		validation.KV{K: "title", V: validation.VStr(pyTrunc(
-			objStr(raw, "claim"), 300))},
+			validation.ObjStr(raw, "claim"), 300))},
 		validation.KV{K: "root_cause", V: validation.VObj(
-			validation.KV{K: "class", V: objAt(raw, "bug_class")},
-			validation.KV{K: "description", V: objAt(raw, "claim")})},
+			validation.KV{K: "class", V: validation.ObjAt(raw, "bug_class")},
+			validation.KV{K: "description", V: validation.ObjAt(raw, "claim")})},
 		validation.KV{K: "affected", V: validation.VArr(validation.VObj(
-			validation.KV{K: "path", V: objAt(target, "path")},
-			validation.KV{K: "function", V: objAt(target, "function")}))},
+			validation.KV{K: "path", V: validation.ObjAt(target, "path")},
+			validation.KV{K: "function", V: validation.ObjAt(target, "function")}))},
 		validation.KV{K: "attacker", V: attacker})
-	if seq := objAt(raw, "exploit_sequence"); seq.Kind == validation.Arr &&
+	if seq := validation.ObjAt(raw, "exploit_sequence"); seq.Kind == validation.Arr &&
 		len(seq.A) > 0 {
 		payload.O = append(payload.O, validation.KV{K: "exploit_sequence", V: seq})
 	}
@@ -105,7 +105,7 @@ func hypothesisPayload(raw validation.Value) validation.Value {
 // them already; SetAssumptions owns the state transition).
 func rawAssumptions(raw validation.Value) []validation.Value {
 	out := []validation.Value{}
-	as := objAt(raw, "assumptions")
+	as := validation.ObjAt(raw, "assumptions")
 	if as.Kind != validation.Arr {
 		return out
 	}
@@ -119,14 +119,14 @@ func rawAssumptions(raw validation.Value) []validation.Value {
 // sorted distinct tool ids of the initial plan (only when it has steps).
 func logPlanReceived(campaign *state.Campaign, fid string,
 	raw validation.Value) error {
-	plan := objAt(raw, "initial_plan")
+	plan := validation.ObjAt(raw, "initial_plan")
 	if plan.Kind != validation.Arr || len(plan.A) == 0 {
 		return nil
 	}
 	tools := map[string]bool{}
 	for _, s := range plan.A {
 		if s.Kind == validation.Obj {
-			tools[objStr(s, "tool_id")] = true
+			tools[validation.ObjStr(s, "tool_id")] = true
 		}
 	}
 	names := make([]string, 0, len(tools))
@@ -136,7 +136,7 @@ func logPlanReceived(campaign *state.Campaign, fid string,
 	sort.Strings(names)
 	data := validation.VObj(
 		validation.KV{K: "steps", V: validation.VInt(int64(len(plan.A)))},
-		validation.KV{K: "tools", V: strArr(names)})
+		validation.KV{K: "tools", V: validation.StrArr(names)})
 	_, err := campaign.Log("model.plan_received", &fid, &data)
 	return err
 }
@@ -170,7 +170,7 @@ func ApplyCriticVerdict(campaign *state.Campaign, findingID string,
 	}
 	reasoning := composeReasoning(raw)
 	if _, err := findings.SetCriticVerdict(campaign, findingID,
-		objStr(raw, "verdict"), reasoning); err != nil {
+		validation.ObjStr(raw, "verdict"), reasoning); err != nil {
 		return validation.VNull(), err
 	}
 	return findings.LoadFinding(campaign, findingID)
@@ -185,14 +185,14 @@ func applyAssumptionMoves(campaign *state.Campaign, findingID string,
 		return err
 	}
 	curByID := map[string]string{}
-	if as := objAt(finding, "assumptions"); as.Kind == validation.Arr {
+	if as := validation.ObjAt(finding, "assumptions"); as.Kind == validation.Arr {
 		for _, a := range as.A {
 			if a.Kind == validation.Obj {
-				curByID[objStr(a, "id")] = objStr(a, "status")
+				curByID[validation.ObjStr(a, "id")] = validation.ObjStr(a, "status")
 			}
 		}
 	}
-	per := objAt(raw, "per_assumption")
+	per := validation.ObjAt(raw, "per_assumption")
 	if per.Kind != validation.Arr {
 		return nil
 	}
@@ -200,8 +200,8 @@ func applyAssumptionMoves(campaign *state.Campaign, findingID string,
 		if entry.Kind != validation.Obj {
 			continue
 		}
-		aid := objStr(entry, "assumption_id")
-		status := objStr(entry, "status")
+		aid := validation.ObjStr(entry, "assumption_id")
+		status := validation.ObjStr(entry, "status")
 		if status == "UNKNOWN" {
 			continue
 		}
@@ -209,7 +209,7 @@ func applyAssumptionMoves(campaign *state.Campaign, findingID string,
 			continue
 		}
 		cited := []string{}
-		if c := objAt(entry, "evidence_cited"); c.Kind == validation.Arr {
+		if c := validation.ObjAt(entry, "evidence_cited"); c.Kind == validation.Arr {
 			for _, ref := range c.A {
 				if ref.Kind == validation.Str {
 					cited = append(cited, ref.S)
@@ -228,18 +228,18 @@ func applyAssumptionMoves(campaign *state.Campaign, findingID string,
 // composeReasoning is the "; "-joined reasoning string (capped at 2000).
 func composeReasoning(raw validation.Value) string {
 	parts := []string{}
-	if per := objAt(raw, "per_assumption"); per.Kind == validation.Arr {
+	if per := validation.ObjAt(raw, "per_assumption"); per.Kind == validation.Arr {
 		for _, e := range per.A {
 			if e.Kind != validation.Obj {
 				continue
 			}
 			parts = append(parts, fmt.Sprintf("%s:%s (%s)",
-				objStr(e, "assumption_id"), objStr(e, "status"),
-				objStr(e, "note")))
+				validation.ObjStr(e, "assumption_id"), validation.ObjStr(e, "status"),
+				validation.ObjStr(e, "note")))
 		}
 	}
 	reasoning := strings.Join(parts, "; ")
-	if mp := objAt(raw, "missing_proof"); mp.Kind == validation.Arr &&
+	if mp := validation.ObjAt(raw, "missing_proof"); mp.Kind == validation.Arr &&
 		len(mp.A) > 0 {
 		items := []string{}
 		for i, m := range mp.A {
@@ -268,12 +268,12 @@ func SubmitReproducerRequest(campaign *state.Campaign,
 		}
 		return validation.VNull(), err
 	}
-	fid := objStr(raw, "finding_id")
+	fid := validation.ObjStr(raw, "finding_id")
 	data := validation.VObj(
-		validation.KV{K: "snapshot_id", V: objAt(raw, "snapshot_id")},
-		validation.KV{K: "execution_profile", V: objAt(raw, "execution_profile")},
+		validation.KV{K: "snapshot_id", V: validation.ObjAt(raw, "snapshot_id")},
+		validation.KV{K: "execution_profile", V: validation.ObjAt(raw, "execution_profile")},
 		validation.KV{K: "min_evidence_level",
-			V: objAt(asObj(objAt(raw, "success_criteria")), "min_evidence_level")},
+			V: validation.ObjAt(asObj(validation.ObjAt(raw, "success_criteria")), "min_evidence_level")},
 		validation.KV{K: "request_sha256", V: validation.VStr(ContextHash(raw))})
 	if _, err := campaign.Log("model.reproducer_request", &fid, &data); err != nil {
 		return validation.VNull(), err

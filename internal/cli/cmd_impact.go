@@ -75,16 +75,16 @@ func impactBody(c *state.Campaign, a *impactArgs, r *Runner) error {
 	if err != nil {
 		return err
 	}
-	band := objAt(objAt(objAt(f, "risk"), "validated"), "band")
+	band := validation.ObjAt(validation.ObjAt(validation.ObjAt(f, "risk"), "validated"), "band")
 	if hasUSD {
-		imp := objAt(f, "economic_impact")
+		imp := validation.ObjAt(f, "economic_impact")
 		fmt.Fprintf(r.Out, "%s: impact recorded — extractable $%s, max loss "+
-			"$%s (risk band %s)\n", a.finding, scalarStr(objAt(imp,
-			"extractable_usd")), scalarStr(objAt(imp, "max_loss_usd")),
+			"$%s (risk band %s)\n", a.finding, scalarStr(validation.ObjAt(imp,
+			"extractable_usd")), scalarStr(validation.ObjAt(imp, "max_loss_usd")),
 			scalarStr(band))
 	}
 	if a.reversibility != "" {
-		rv := objStr(objAt(f, "risk"), "reversibility")
+		rv := validation.ObjStr(validation.ObjAt(f, "risk"), "reversibility")
 		if a.reversibility == "none" {
 			fmt.Fprintf(r.Out, "%s: reversibility cleared (risk band %s)\n",
 				a.finding, scalarStr(band))
@@ -157,10 +157,10 @@ func impactUnpriceable(c *state.Campaign, a *impactArgs, r *Runner) error {
 	if err != nil {
 		return err
 	}
-	imp := objAt(f, "economic_impact")
+	imp := validation.ObjAt(f, "economic_impact")
 	fmt.Fprintf(r.Out, "%s: impact recorded — UNPRICEABLE (ceiling: %s) — "+
 		"named decision logged (finding.unpriceable, actor %s)\n", a.finding,
-		scalarStr(objAt(imp, "ceiling")), a.actor)
+		scalarStr(validation.ObjAt(imp, "ceiling")), a.actor)
 	return nil
 }
 

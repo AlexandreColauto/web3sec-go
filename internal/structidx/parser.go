@@ -213,14 +213,14 @@ func (n *idxNode) toValue() validation.Value {
 		kvs = append(kvs,
 			validation.KV{K: "visibility", V: validation.VStr(n.visibility)},
 			validation.KV{K: "is_entry_point", V: validation.VBool(n.isEntry)},
-			validation.KV{K: "modifiers", V: strArr(n.mods)},
-			validation.KV{K: "guarded_by", V: strArr(n.mods)},
+			validation.KV{K: "modifiers", V: validation.StrArr(n.mods)},
+			validation.KV{K: "guarded_by", V: validation.StrArr(n.mods)},
 			validation.KV{K: "selector", V: selValue(n.selector)},
-			validation.KV{K: "reads_storage", V: strArr(n.reads)},
-			validation.KV{K: "writes_storage", V: strArr(n.writes)},
-			validation.KV{K: "calls_internal", V: strArr(n.callsInt)},
-			validation.KV{K: "calls_external", V: strArr(n.callsExt)},
-			validation.KV{K: "delegatecalls", V: strArr(n.deleg)},
+			validation.KV{K: "reads_storage", V: validation.StrArr(n.reads)},
+			validation.KV{K: "writes_storage", V: validation.StrArr(n.writes)},
+			validation.KV{K: "calls_internal", V: validation.StrArr(n.callsInt)},
+			validation.KV{K: "calls_external", V: validation.StrArr(n.callsExt)},
+			validation.KV{K: "delegatecalls", V: validation.StrArr(n.deleg)},
 			validation.KV{K: "guards", V: guardsValue(n.guards)},
 			validation.KV{K: "uses", V: usesValue(n.uses)},
 		)
@@ -254,20 +254,12 @@ func selValue(sel *string) validation.Value {
 	return validation.VStr(*sel)
 }
 
-func strArr(xs []string) validation.Value {
-	out := make([]validation.Value, 0, len(xs))
-	for _, x := range xs {
-		out = append(out, validation.VStr(x))
-	}
-	return validation.VArr(out...)
-}
-
 func guardsValue(gs []guardRec) validation.Value {
 	out := make([]validation.Value, 0, len(gs))
 	for _, g := range gs {
 		out = append(out, validation.VObj(
 			validation.KV{K: "line", V: validation.VInt(g.line)},
-			validation.KV{K: "concept_keys", V: strArr(g.keys)},
+			validation.KV{K: "concept_keys", V: validation.StrArr(g.keys)},
 			validation.KV{K: "class", V: validation.VInt(g.class)},
 			validation.KV{K: "text", V: validation.VStr(g.text)},
 		))
@@ -280,7 +272,7 @@ func usesValue(us []useRec) validation.Value {
 	for _, u := range us {
 		out = append(out, validation.VObj(
 			validation.KV{K: "line", V: validation.VInt(u.line)},
-			validation.KV{K: "concept_keys", V: strArr(u.keys)},
+			validation.KV{K: "concept_keys", V: validation.StrArr(u.keys)},
 			validation.KV{K: "kind", V: validation.VStr(u.kind)},
 		))
 	}

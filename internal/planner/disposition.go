@@ -62,7 +62,7 @@ func HighRiskRow(row validation.Value) bool {
 
 // rowInt reads an integer row field (0 when absent — see HighRiskRow).
 func rowInt(row validation.Value, key string) int64 {
-	v := objAt(row, key)
+	v := validation.ObjAt(row, key)
 	switch v.Kind {
 	case validation.Int:
 		return v.I
@@ -97,10 +97,10 @@ func DispositionReview(campaign *state.Campaign, plan validation.Value) ([]Dismi
 	for _, p := range listOf(plan, "priorities") {
 		prov, hasProv := probeProvenance(p)
 		if !hasProv ||
-			!inList(objStr(p, "status"), ProbeRowDispositioned) {
+			!inList(validation.ObjStr(p, "status"), ProbeRowDispositioned) {
 			continue
 		}
-		reason := objStr(p, "closed_reason")
+		reason := validation.ObjStr(p, "closed_reason")
 		if reason == "" {
 			continue
 		}
@@ -111,13 +111,13 @@ func DispositionReview(campaign *state.Campaign, plan validation.Value) ([]Dismi
 		if surface == nil {
 			continue
 		}
-		row, ok := findRow(*surface, objStr(prov, "row_id"))
+		row, ok := findRow(*surface, validation.ObjStr(prov, "row_id"))
 		if !ok || !HighRiskRow(row) {
 			continue
 		}
 		flags = append(flags, DismissalFlag{
-			Priority: objStr(p, "id"),
-			RowID:    objStr(prov, "row_id"),
+			Priority: validation.ObjStr(p, "id"),
+			RowID:    validation.ObjStr(prov, "row_id"),
 			Tier:     rowInt(row, "tier"),
 			Gap:      rowInt(row, "assertion_gap"),
 			Reason:   reason,
@@ -253,7 +253,7 @@ func checkDismissalGateInner(campaign *state.Campaign, priorityID,
 	if surface == nil {
 		return nil // anchor resolution (when needed) reports the missing surface
 	}
-	rowID := objStr(prov, "row_id")
+	rowID := validation.ObjStr(prov, "row_id")
 	row, ok := findRow(*surface, rowID)
 	if !ok {
 		// FIX-3: the skip is a fact worth one line, not a silent pass — the
@@ -293,7 +293,7 @@ func checkDismissalGateInner(campaign *state.Campaign, priorityID,
 					"--override-reason — the justification is logged with " +
 					"the override (probe.dismissal_overridden)")
 			}
-			sentinelAhead := objStr(row, "own_form") == "sentinel" &&
+			sentinelAhead := validation.ObjStr(row, "own_form") == "sentinel" &&
 				inList(outcome, []string{"answered", "not-applicable"})
 			if sentinelAhead {
 				// the sentinel rule's override arm runs EARLIER in
@@ -320,7 +320,7 @@ func checkDismissalGateInner(campaign *state.Campaign, priorityID,
 				"--override-reason — the justification is logged with the " +
 				"override (probe.dismissal_overridden)")
 		}
-		if objStr(row, "own_form") == "sentinel" && opts.Reason == nil &&
+		if validation.ObjStr(row, "own_form") == "sentinel" && opts.Reason == nil &&
 			inList(outcome, []string{"answered", "not-applicable"}) {
 			// the sentinel rule's override arm (which runs first) recorded
 			// this reason-less override itself — see overrideSentinelPasses.
@@ -349,7 +349,7 @@ func checkDismissalGateInner(campaign *state.Campaign, priorityID,
 			"--override-dismissal --override-reason R")
 	}
 	return errValue(head + ": the closure reason uses dismissal vocabulary " +
-		validation.PyRepr(strArr(phrases)) + " on a high-risk row (tier 0 " +
+		validation.PyRepr(validation.StrArr(phrases)) + " on a high-risk row (tier 0 " +
 		"or assertion_gap >= 3). A dismissal this close to the money needs a " +
 		"refutation that runs — --ref EXEC-<id> (an existing exec record) or " +
 		"--ref INV-<n> (a registered invariant) — or an explicit, logged " +
@@ -409,7 +409,7 @@ func RowSymbols(row validation.Value) []string {
 		out = append(out, v)
 	}
 	for _, key := range rowSymbolKeys {
-		v := objAt(row, key)
+		v := validation.ObjAt(row, key)
 		switch v.Kind {
 		case validation.Str:
 			add(v.S)
@@ -419,8 +419,8 @@ func RowSymbols(row validation.Value) []string {
 				case validation.Str:
 					add(e.S)
 				case validation.Obj:
-					add(objStr(e, "contract"))
-					add(objStr(e, "name"))
+					add(validation.ObjStr(e, "contract"))
+					add(validation.ObjStr(e, "name"))
 				}
 			}
 		}
@@ -517,7 +517,7 @@ func invariantRegistered(campaign *state.Campaign, id string) bool {
 	if err != nil {
 		return false
 	}
-	reg := objAt(links, "invariants")
+	reg := validation.ObjAt(links, "invariants")
 	return reg.Kind == validation.Obj && hasKey(reg, id)
 }
 
@@ -551,7 +551,7 @@ func checkPassesValue(campaign *state.Campaign, priorityID string,
 	if hasProv {
 		if surface, err := PB().CampaignSurface(campaign); err == nil &&
 			surface != nil {
-			row, _ = findRow(*surface, objStr(prov, "row_id"))
+			row, _ = findRow(*surface, validation.ObjStr(prov, "row_id"))
 		}
 	}
 	if passesPlausible(row, v) {
@@ -595,7 +595,7 @@ func checkSentinelPasses(row validation.Value, outcome string,
 	if outcome != "answered" && outcome != "not-applicable" {
 		return nil
 	}
-	if objStr(row, "own_form") != "sentinel" {
+	if validation.ObjStr(row, "own_form") != "sentinel" {
 		return nil
 	}
 	given := opts.PassesValue != nil
@@ -603,7 +603,7 @@ func checkSentinelPasses(row validation.Value, outcome string,
 		return nil
 	}
 	if !given || len(strings.TrimSpace(*opts.PassesValue)) < 3 {
-		return errValue("sentinel-guarded probe row " + objStr(row, "row_id") +
+		return errValue("sentinel-guarded probe row " + validation.ObjStr(row, "row_id") +
 			": a closing disposition must name the value that passes its check " +
 			"(--passes VALUE) — or override explicitly (--override-dismissal " +
 			"--override-reason R)")
@@ -618,7 +618,7 @@ func checkSentinelPasses(row validation.Value, outcome string,
 		shape += " — this row names no symbols, so a citation shape is not " +
 			"available here"
 	}
-	return errValue("sentinel-guarded probe row " + objStr(row, "row_id") +
+	return errValue("sentinel-guarded probe row " + validation.ObjStr(row, "row_id") +
 		": --passes " + validation.PyReprStr(*opts.PassesValue) + " is not a " +
 		"plausible value for the check — " + shape + ", or give a concrete " +
 		"literal the closure record can re-check (a decimal integer, a hex " +
@@ -701,13 +701,13 @@ func checkSentinelPassesRow(campaign *state.Campaign, priorityID,
 	if surface == nil {
 		return nil
 	}
-	row, ok := findRow(*surface, objStr(prov, "row_id"))
+	row, ok := findRow(*surface, validation.ObjStr(prov, "row_id"))
 	if !ok {
 		// FIX-3: the skip is announced, not silent (see
 		// checkDismissalGateInner).
 		if opts.SkipNotice != nil {
 			*opts.SkipNotice = gateSkipNotice(priorityID,
-				objStr(prov, "row_id"), "sentinel-guard")
+				validation.ObjStr(prov, "row_id"), "sentinel-guard")
 		}
 		return nil
 	}
@@ -716,7 +716,7 @@ func checkSentinelPassesRow(campaign *state.Campaign, priorityID,
 		return err
 	}
 	return overrideSentinelPasses(campaign, priorityID, row,
-		objStr(prov, "row_id"), opts, dry)
+		validation.ObjStr(prov, "row_id"), opts, dry)
 }
 
 // overrideSentinelPasses is the sentinel rule's override arm: the same
@@ -857,11 +857,11 @@ func checkDeferredConsequence(campaign *state.Campaign, head string,
 	// names the trigger it is answering (FIX-1): the asserter anchor's own
 	// concession, or the reason's failure-consequence vocabulary.
 	if anchorTriggered {
-		where := objStr(row, "asserter")
+		where := validation.ObjStr(row, "asserter")
 		if where == "" {
 			where = "a later lifecycle stage"
 		}
-		consumer := objStr(row, "consumer")
+		consumer := validation.ObjStr(row, "consumer")
 		consumerPhrase := ""
 		if consumer != "" {
 			consumerPhrase = ", not enforced by the row's own consumer (" +
@@ -886,7 +886,7 @@ func checkDeferredConsequence(campaign *state.Campaign, head string,
 			"surface entry (" + strings.Join(syms, ", ") + ")"
 	}
 	return errValue(head + ": the closure reason uses the " +
-		"failure-consequence vocabulary " + validation.PyRepr(strArr(tokens)) +
+		"failure-consequence vocabulary " + validation.PyRepr(validation.StrArr(tokens)) +
 		" on a high-risk row (tier 0 or assertion_gap >= 3) — it describes " +
 		"what happens if the row's deferred check never runs, which is " +
 		"exactly the interim window this closure leaves open. Price the " +
@@ -933,7 +933,7 @@ func checkConsequenceFlags(campaign *state.Campaign, priorityID string,
 				"on a real filed finding, never on a citation that was " +
 				"invented or mistyped. File it first, or drop the flag")
 		}
-		if status := objStr(f, "status"); status != "" {
+		if status := validation.ObjStr(f, "status"); status != "" {
 			if _, terminal := findings.TERMINAL[status]; terminal {
 				return errValue("priority " + priorityID + ": --finding " +
 					ref + " names a " + status + " finding — a terminal " +
@@ -975,7 +975,7 @@ func checkDeferredConsequenceRow(campaign *state.Campaign, priorityID,
 	if surface == nil {
 		return nil
 	}
-	rowID := objStr(prov, "row_id")
+	rowID := validation.ObjStr(prov, "row_id")
 	row, ok := findRow(*surface, rowID)
 	if !ok {
 		// FIX-3: the skip is announced, not silent (see
@@ -1125,10 +1125,10 @@ func DeferredConsequenceReview(campaign *state.Campaign,
 	for _, p := range listOf(plan, "priorities") {
 		prov, hasProv := probeProvenance(p)
 		if !hasProv ||
-			!inList(objStr(p, "status"), ProbeRowDispositioned) {
+			!inList(validation.ObjStr(p, "status"), ProbeRowDispositioned) {
 			continue
 		}
-		reason := objStr(p, "closed_reason")
+		reason := validation.ObjStr(p, "closed_reason")
 		if reason == "" {
 			continue
 		}
@@ -1141,13 +1141,13 @@ func DeferredConsequenceReview(campaign *state.Campaign,
 		if len(tokens) == 0 {
 			continue
 		}
-		skippedEntry := objStr(p, "id") + " (probe row " +
-			objStr(prov, "row_id") + ")"
+		skippedEntry := validation.ObjStr(p, "id") + " (probe row " +
+			validation.ObjStr(prov, "row_id") + ")"
 		if surface == nil {
 			skipped = append(skipped, skippedEntry)
 			continue
 		}
-		row, ok := findRow(*surface, objStr(prov, "row_id"))
+		row, ok := findRow(*surface, validation.ObjStr(prov, "row_id"))
 		if !ok {
 			skipped = append(skipped, skippedEntry)
 			continue
@@ -1156,8 +1156,8 @@ func DeferredConsequenceReview(campaign *state.Campaign,
 			continue
 		}
 		flags = append(flags, DeferredFlag{
-			Priority: objStr(p, "id"),
-			RowID:    objStr(prov, "row_id"),
+			Priority: validation.ObjStr(p, "id"),
+			RowID:    validation.ObjStr(prov, "row_id"),
 			Tier:     rowInt(row, "tier"),
 			Gap:      rowInt(row, "assertion_gap"),
 			Reason:   reason,

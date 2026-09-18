@@ -163,7 +163,7 @@ func (f fakeCompletion) ProofStatus(_ *state.Campaign, stage string) (validation
 		note = "proof holds"
 	}
 	return validation.VObj(kv("done", validation.VBool(done)),
-		kv("missing", strArr(missing)), kv("note", vstr(note))), nil
+		kv("missing", validation.StrArr(missing)), kv("note", vstr(note))), nil
 }
 
 type fakeCosts struct{ bstat validation.Value }
@@ -236,7 +236,7 @@ func (e *env) stageStatus(t *testing.T, sid string) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return objStr(objAt(objAt(st, "stages"), sid), "status")
+	return validation.ObjStr(validation.ObjAt(validation.ObjAt(st, "stages"), sid), "status")
 }
 
 func (e *env) stageNote(t *testing.T, sid string) string {
@@ -245,7 +245,7 @@ func (e *env) stageNote(t *testing.T, sid string) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return objStr(objAt(objAt(st, "stages"), sid), "note")
+	return validation.ObjStr(validation.ObjAt(validation.ObjAt(st, "stages"), sid), "note")
 }
 
 // ---- seams ----------------------------------------------------------------
@@ -420,7 +420,7 @@ func eventTypes(t *testing.T, c *state.Campaign) []string {
 	}
 	out := []string{}
 	for _, e := range events {
-		out = append(out, objStr(e, "type"))
+		out = append(out, validation.ObjStr(e, "type"))
 	}
 	return out
 }
@@ -433,24 +433,24 @@ func TestHaltsAtFirstModelStageWithAContextBundle(t *testing.T) {
 	useWiredSeams(t, false)
 	p := New(e.c, e.o, map[string]Handler{"snapshot": e.snapHandler()})
 	summary := run(t, p, RunOpts{})
-	assertStr(t, "status", objStr(summary, "status"), "needs-model")
-	assertStr(t, "ran", pyListRepr(stringsOf(objAt(summary, "ran"))),
+	assertStr(t, "status", validation.ObjStr(summary, "status"), "needs-model")
+	assertStr(t, "ran", pyListRepr(stringsOf(validation.ObjAt(summary, "ran"))),
 		"['scope', 'snapshot', 'structural-index']")
-	nm := objAt(summary, "needs_model")
-	assertStr(t, "needs_model.stage", objStr(nm, "stage"), "protocol-model")
-	if !strings.HasSuffix(objStr(nm, "prompt_path"), "02_protocol_model.md") {
+	nm := validation.ObjAt(summary, "needs_model")
+	assertStr(t, "needs_model.stage", validation.ObjStr(nm, "stage"), "protocol-model")
+	if !strings.HasSuffix(validation.ObjStr(nm, "prompt_path"), "02_protocol_model.md") {
 		t.Errorf("prompt_path %q does not end with 02_protocol_model.md",
-			objStr(nm, "prompt_path"))
+			validation.ObjStr(nm, "prompt_path"))
 	}
-	assertStr(t, "budget_class", objStr(nm, "budget_class"), "standard")
-	if !hasKey(objAt(nm, "how_to_feed_back"), "hypotheses") {
+	assertStr(t, "budget_class", validation.ObjStr(nm, "budget_class"), "standard")
+	if !hasKey(validation.ObjAt(nm, "how_to_feed_back"), "hypotheses") {
 		t.Errorf("how_to_feed_back lacks hypotheses: %s", validation.DumpIndented(nm))
 	}
 	st, err := e.c.State()
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertStr(t, "phase", objStr(st, "phase"), "PROTOCOL_INTELLIGENCE")
+	assertStr(t, "phase", validation.ObjStr(st, "phase"), "PROTOCOL_INTELLIGENCE")
 	assertStr(t, "stage status", e.stageStatus(t, "protocol-model"), "needs-model")
 }
 
@@ -473,13 +473,13 @@ func TestResumeSkipsCompletedStagesAndAdvances(t *testing.T) {
 	}
 	second := run(t, p, RunOpts{})
 	assertSummary(t, second, sc.str(t, "summary"), "resume")
-	assertStr(t, "status", objStr(second, "status"), "needs-model")
-	assertStr(t, "ran", pyListRepr(stringsOf(objAt(second, "ran"))),
+	assertStr(t, "status", validation.ObjStr(second, "status"), "needs-model")
+	assertStr(t, "ran", pyListRepr(stringsOf(validation.ObjAt(second, "ran"))),
 		"['protocol-model', 'campaign-planning']")
-	assertStr(t, "needs_model.stage", objStr(objAt(second, "needs_model"), "stage"), "discovery")
+	assertStr(t, "needs_model.stage", validation.ObjStr(validation.ObjAt(second, "needs_model"), "stage"), "discovery")
 	assertStr(t, "protocol-model calls", strconv.Itoa(calls["protocol-model"]), "1")
 	assertStr(t, "campaign-planning calls", strconv.Itoa(calls["campaign-planning"]), "1")
-	assertStr(t, "skipped_completed", pyListRepr(stringsOf(objAt(second, "skipped_completed"))),
+	assertStr(t, "skipped_completed", pyListRepr(stringsOf(validation.ObjAt(second, "skipped_completed"))),
 		"['scope', 'snapshot', 'structural-index']")
 	assertState(t, e, sc.str(t, "state"), "resume")
 	assertEvents(t, e, sc.strs(t, "events"), "resume")
@@ -529,7 +529,7 @@ func TestExistingPlanStageIsReadOnlyAndSaysSoInTheNote(t *testing.T) {
 		}})
 	summary := run(t, p, RunOpts{Until: &until})
 	ranCampaignPlanning := false
-	for _, sid := range stringsOf(objAt(summary, "ran")) {
+	for _, sid := range stringsOf(validation.ObjAt(summary, "ran")) {
 		if sid == "campaign-planning" {
 			ranCampaignPlanning = true
 		}
@@ -584,9 +584,9 @@ func TestFailingStageHaltsTheRunAndIsRetryable(t *testing.T) {
 	}
 	first := run(t, p, RunOpts{})
 	assertSummary(t, first, sc.str(t, "first"), "failing-first")
-	assertStr(t, "first status", objStr(first, "status"), "halted")
-	if !strings.Contains(objStr(first, "halt"), "model returned garbage") {
-		t.Errorf("halt %q lacks the exception text", objStr(first, "halt"))
+	assertStr(t, "first status", validation.ObjStr(first, "status"), "halted")
+	if !strings.Contains(validation.ObjStr(first, "halt"), "model returned garbage") {
+		t.Errorf("halt %q lacks the exception text", validation.ObjStr(first, "halt"))
 	}
 	completed, err := p.Completed()
 	if err != nil {
@@ -599,10 +599,10 @@ func TestFailingStageHaltsTheRunAndIsRetryable(t *testing.T) {
 	boom = false
 	second := run(t, p, RunOpts{})
 	assertSummary(t, second, sc.str(t, "second"), "failing-second")
-	if !containsStr(stringsOf(objAt(second, "ran")), "protocol-model") {
+	if !containsStr(stringsOf(validation.ObjAt(second, "ran")), "protocol-model") {
 		t.Errorf("protocol-model was not retried: %s", validation.DumpIndented(second))
 	}
-	assertStr(t, "second status", objStr(second, "status"), "needs-model")
+	assertStr(t, "second status", validation.ObjStr(second, "status"), "needs-model")
 }
 
 // tests/test_pipeline.py::test_builtin_without_orchestrator_or_target_fails_loudly
@@ -613,11 +613,11 @@ func TestBuiltinWithoutOrchestratorOrTargetFailsLoudly(t *testing.T) {
 	p := New(e.c, e.o, nil)
 	summary := run(t, p, RunOpts{MaxStages: iptr(5)})
 	assertSummary(t, summary, sc.str(t, "summary"), "no_target")
-	assertStr(t, "status", objStr(summary, "status"), "halted")
-	if !strings.Contains(objStr(summary, "halt"), "snapshot needs a target path") {
-		t.Errorf("halt %q lacks the builtin error", objStr(summary, "halt"))
+	assertStr(t, "status", validation.ObjStr(summary, "status"), "halted")
+	if !strings.Contains(validation.ObjStr(summary, "halt"), "snapshot needs a target path") {
+		t.Errorf("halt %q lacks the builtin error", validation.ObjStr(summary, "halt"))
 	}
-	assertStr(t, "ran", pyListRepr(stringsOf(objAt(summary, "ran"))), "['scope']")
+	assertStr(t, "ran", pyListRepr(stringsOf(validation.ObjAt(summary, "ran"))), "['scope']")
 }
 
 // tests/test_pipeline.py::test_until_stops_after_the_named_stage
@@ -629,9 +629,9 @@ func TestUntilStopsAfterTheNamedStage(t *testing.T) {
 	until := "structural-index"
 	summary := run(t, p, RunOpts{Until: &until})
 	assertSummary(t, summary, sc.str(t, "summary"), "until")
-	assertStr(t, "ran", pyListRepr(stringsOf(objAt(summary, "ran"))),
+	assertStr(t, "ran", pyListRepr(stringsOf(validation.ObjAt(summary, "ran"))),
 		"['scope', 'snapshot', 'structural-index']")
-	assertStr(t, "status", objStr(summary, "status"), "until-reached")
+	assertStr(t, "status", validation.ObjStr(summary, "status"), "until-reached")
 	bad := "not-a-stage"
 	if _, err := p.Run(RunOpts{Until: &bad}); err == nil {
 		t.Fatal("unknown until must raise")
@@ -652,10 +652,10 @@ func TestBlockedNoteMatchesPython(t *testing.T) {
 	second := run(t, p, RunOpts{})
 	assertSummary(t, second, sc.str(t, "summary"), "blocked_note")
 	assertStr(t, "note", e.stageNote(t, "protocol-model"), sc.str(t, "note"))
-	assertStr(t, "status", objStr(second, "status"), "needs-model")
-	assertStr(t, "ran", pyListRepr(stringsOf(objAt(second, "ran"))), "[]")
+	assertStr(t, "status", validation.ObjStr(second, "status"), "needs-model")
+	assertStr(t, "ran", pyListRepr(stringsOf(validation.ObjAt(second, "ran"))), "[]")
 	assertStr(t, "skipped_completed",
-		pyListRepr(stringsOf(objAt(second, "skipped_completed"))),
+		pyListRepr(stringsOf(validation.ObjAt(second, "skipped_completed"))),
 		"['scope', 'snapshot', 'structural-index']")
 	assertState(t, e, sc.str(t, "state"), "blocked_note")
 }
@@ -889,7 +889,7 @@ func dumpPhaseHistory(t *testing.T, e *env) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return validation.DumpIndented(objAt(st, "phase_history"))
+	return validation.DumpIndented(validation.ObjAt(st, "phase_history"))
 }
 
 // TestDefaultSeamBundleMatchesPython pins the feature-absent seams: no
@@ -901,15 +901,15 @@ func TestDefaultSeamBundleMatchesPython(t *testing.T) {
 	p := New(e.c, e.o, map[string]Handler{"snapshot": e.snapHandler()})
 	summary := run(t, p, RunOpts{})
 	assertSummary(t, summary, sc.str(t, "summary"), "halt_at_model")
-	assertStr(t, "needs_model", validation.DumpIndented(objAt(summary, "needs_model")),
+	assertStr(t, "needs_model", validation.DumpIndented(validation.ObjAt(summary, "needs_model")),
 		sc.str(t, "needs_model"))
 	assertStr(t, "note", e.stageNote(t, "protocol-model"), sc.str(t, "note"))
 	assertStr(t, "phase_history", dumpPhaseHistory(t, e), sc.str(t, "phase_history"))
 	assertState(t, e, sc.str(t, "state"), "halt_at_model")
 	assertEvents(t, e, sc.strs(t, "events"), "halt_at_model")
-	nm := objAt(summary, "needs_model")
-	assertStr(t, "prompt_path", objStr(nm, "prompt_path"), "unmapped")
-	assertStr(t, "adapter error", objStr(nm, "error"),
+	nm := validation.ObjAt(summary, "needs_model")
+	assertStr(t, "prompt_path", validation.ObjStr(nm, "prompt_path"), "unmapped")
+	assertStr(t, "adapter error", validation.ObjStr(nm, "error"),
 		"adapter not wired: no context builder for stage 'protocol-model'")
 }
 
@@ -920,7 +920,7 @@ func TestWiredBlockedMatchesPython(t *testing.T) {
 	p := New(e.c, e.o, map[string]Handler{"snapshot": e.snapHandler()})
 	summary := run(t, p, RunOpts{})
 	assertSummary(t, summary, sc.str(t, "summary"), "wired_blocked")
-	assertStr(t, "needs_model", validation.DumpIndented(objAt(summary, "needs_model")),
+	assertStr(t, "needs_model", validation.DumpIndented(validation.ObjAt(summary, "needs_model")),
 		sc.str(t, "needs_model"))
 	assertStr(t, "note", e.stageNote(t, "protocol-model"), sc.str(t, "note"))
 	assertState(t, e, sc.str(t, "state"), "wired_blocked")
@@ -935,7 +935,7 @@ func TestAutoCompletedProofMatchesPython(t *testing.T) {
 	p := New(e.c, e.o, map[string]Handler{"snapshot": e.snapHandler()})
 	summary := run(t, p, RunOpts{Until: &until})
 	assertSummary(t, summary, sc.str(t, "summary"), "auto_completed")
-	assertStr(t, "executor", objStr(objAt(objAt(mustState(t, e), "stages"), "protocol-model"),
+	assertStr(t, "executor", validation.ObjStr(validation.ObjAt(validation.ObjAt(mustState(t, e), "stages"), "protocol-model"),
 		"executor"), "derived")
 	assertStr(t, "note", e.stageNote(t, "protocol-model"),
 		"auto-completed: completion proof holds")
@@ -966,7 +966,7 @@ func TestErrorTextBecomesData(t *testing.T) {
 	summary := run(t, p, RunOpts{})
 	assertSummary(t, summary, sc.str(t, "summary"), "error_text")
 	assertStr(t, "note", e.stageNote(t, "protocol-model"), sc.str(t, "note"))
-	assertStr(t, "halt", objStr(summary, "halt"),
+	assertStr(t, "halt", validation.ObjStr(summary, "halt"),
 		"stage 'protocol-model' failed: "+weird)
 	assertStr(t, "stage status", e.stageStatus(t, "protocol-model"), "failed")
 	assertState(t, e, sc.str(t, "state"), "error_text")
@@ -986,17 +986,17 @@ func TestCostCeilingHaltMatchesPython(t *testing.T) {
 	p := New(e.c, e.o, map[string]Handler{"snapshot": e.snapHandler()})
 	summary := run(t, p, RunOpts{})
 	assertSummary(t, summary, sc.str(t, "summary"), "cost_halt")
-	assertStr(t, "status", objStr(summary, "status"), "halted")
-	assertStr(t, "ran", pyListRepr(stringsOf(objAt(summary, "ran"))), "[]")
+	assertStr(t, "status", validation.ObjStr(summary, "status"), "halted")
+	assertStr(t, "ran", pyListRepr(stringsOf(validation.ObjAt(summary, "ran"))), "[]")
 	events, err := e.c.Events()
 	if err != nil {
 		t.Fatal(err)
 	}
 	last := events[len(events)-1]
-	assertStr(t, "event type", objStr(last, "type"), "pipeline.budget_halt")
-	data := objAt(last, "data")
-	assertStr(t, "spent_usd", validation.CanonCompact(objAt(data, "spent_usd")), "1234.567")
-	assertStr(t, "limit_usd", validation.CanonCompact(objAt(data, "limit_usd")), "1000.0")
+	assertStr(t, "event type", validation.ObjStr(last, "type"), "pipeline.budget_halt")
+	data := validation.ObjAt(last, "data")
+	assertStr(t, "spent_usd", validation.CanonCompact(validation.ObjAt(data, "spent_usd")), "1234.567")
+	assertStr(t, "limit_usd", validation.CanonCompact(validation.ObjAt(data, "limit_usd")), "1000.0")
 }
 
 func TestMaxStagesHalts(t *testing.T) {
@@ -1006,8 +1006,8 @@ func TestMaxStagesHalts(t *testing.T) {
 	p := New(e.c, e.o, map[string]Handler{"snapshot": e.snapHandler()})
 	summary := run(t, p, RunOpts{MaxStages: iptr(2)})
 	assertSummary(t, summary, sc.str(t, "summary"), "max_stages")
-	assertStr(t, "halt", objStr(summary, "halt"), "max_stages=2")
-	assertStr(t, "ran", pyListRepr(stringsOf(objAt(summary, "ran"))), "['scope', 'snapshot']")
+	assertStr(t, "halt", validation.ObjStr(summary, "halt"), "max_stages=2")
+	assertStr(t, "ran", pyListRepr(stringsOf(validation.ObjAt(summary, "ran"))), "['scope', 'snapshot']")
 	assertState(t, e, sc.str(t, "state"), "max_stages")
 }
 
@@ -1018,7 +1018,7 @@ func TestNoOrchestratorWiredMatchesPython(t *testing.T) {
 	p := New(e.c, nil, nil)
 	summary := run(t, p, RunOpts{})
 	assertSummary(t, summary, sc.str(t, "summary"), "no_orchestrator")
-	assertStr(t, "halt", objStr(summary, "halt"),
+	assertStr(t, "halt", validation.ObjStr(summary, "halt"),
 		"stage 'scope' failed: no orchestrator wired; cannot run stage 'scope'")
 	assertState(t, e, sc.str(t, "state"), "no_orchestrator")
 }
@@ -1040,8 +1040,8 @@ func TestStatusMatchesPython(t *testing.T) {
 		t.Fatal(err)
 	}
 	assertStr(t, "status mid", validation.DumpIndented(mid), sc.str(t, "mid"))
-	assertStr(t, "next", objStr(mid, "next"), "protocol-model")
-	assertStr(t, "completed", pyListRepr(stringsOf(objAt(mid, "completed"))),
+	assertStr(t, "next", validation.ObjStr(mid, "next"), "protocol-model")
+	assertStr(t, "completed", pyListRepr(stringsOf(validation.ObjAt(mid, "completed"))),
 		"['scope', 'snapshot', 'structural-index']")
 }
 
@@ -1126,10 +1126,10 @@ func TestAdapterSeamFailuresMatchPython(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertStr(t, "missing key error", objStr(bundle, "error"), "'prompt_path'")
-	assertStr(t, "prompt_path", objStr(bundle, "prompt_path"), "unmapped")
+	assertStr(t, "missing key error", validation.ObjStr(bundle, "error"), "'prompt_path'")
+	assertStr(t, "prompt_path", validation.ObjStr(bundle, "prompt_path"), "unmapped")
 	assertStr(t, "completion_missing",
-		validation.CanonCompact(objAt(bundle, "completion_missing")), "[]")
+		validation.CanonCompact(validation.ObjAt(bundle, "completion_missing")), "[]")
 
 	useSeams(t, errAdapter{}, nil, nil)
 	if _, err := p.modelBundle("protocol-model"); err == nil {

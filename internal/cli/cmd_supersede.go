@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"websec/internal/validation"
 
 	"websec/internal/findings"
 )
@@ -145,8 +146,8 @@ func supersedeCmd(root string, args []string, r *Runner) error {
 		return err
 	}
 	reparented := 0
-	for _, it := range objAt(newFinding, "evidence").A {
-		if objStr(it, "re_parented_from") == oldID {
+	for _, it := range validation.ObjAt(newFinding, "evidence").A {
+		if validation.ObjStr(it, "re_parented_from") == oldID {
 			reparented++
 		}
 	}

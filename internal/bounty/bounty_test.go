@@ -165,7 +165,7 @@ func exploitabilityObj() validation.Value {
 
 // withNested replaces f[outer][inner] (an absent outer object is created).
 func withNested(f validation.Value, outer, inner string, v validation.Value) validation.Value {
-	o := objAt(f, outer)
+	o := validation.ObjAt(f, outer)
 	if o.Kind != validation.Obj {
 		o = validation.VObj()
 	}
@@ -224,7 +224,7 @@ func installSeams(t *testing.T, s seamStub) {
 	SetWaivers(func(_ *state.Campaign, stage string) ([]validation.Value, error) {
 		var out []validation.Value
 		for _, w := range s.waivers {
-			if objStr(w, "stage") == stage {
+			if validation.ObjStr(w, "stage") == stage {
 				out = append(out, w)
 			}
 		}
@@ -336,8 +336,8 @@ func evidenceItem(rec validation.Value, level, typ, desc, eid string) validation
 		kv("level", validation.VStr(level)),
 		kv("type", validation.VStr(typ)),
 		kv("description", validation.VStr(desc)),
-		kv("sandbox_profile", objAt(rec, "profile")),
-		kv("artifact_id", objAt(rec, "exec_id")),
+		kv("sandbox_profile", validation.ObjAt(rec, "profile")),
+		kv("artifact_id", validation.ObjAt(rec, "exec_id")),
 	)
 }
 
@@ -394,7 +394,7 @@ func fixtureConfirmed(t *testing.T, c *state.Campaign) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	local := execRecord(t, c, "docker-networkless", fid,
 		"forge test --match-test test_exploit")
 	fork := execRecord(t, c, "fork-runner", fid,
@@ -424,7 +424,7 @@ func fixtureConfirmed(t *testing.T, c *state.Campaign) string {
 		kv("tier_reached", validation.VStr("T3")),
 		kv("status", validation.VStr("reproduced")),
 		kv("attempts", validation.VArr())))
-	ei := objAt(f, "economic_impact")
+	ei := validation.ObjAt(f, "economic_impact")
 	ei.O = validation.SetOrAppend(ei.O, "price_basis", validation.VStr("PRC-abc123"))
 	f = withField(f, "economic_impact", ei)
 	if err := findings.SaveFinding(c, &f); err != nil {
@@ -477,16 +477,16 @@ func TestFullSubmissionReady(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objAt(result, "submission_ready"); got.Kind != validation.Bool || !got.B {
+	if got := validation.ObjAt(result, "submission_ready"); got.Kind != validation.Bool || !got.B {
 		t.Errorf("submission_ready = %s, want True", validation.PyRepr(got))
 	}
-	if got := objAt(result, "eligible"); got.Kind != validation.Bool || !got.B {
+	if got := validation.ObjAt(result, "eligible"); got.Kind != validation.Bool || !got.B {
 		t.Errorf("eligible = %s, want True", validation.PyRepr(got))
 	}
-	if br := objAt(result, "blocking_reasons"); br.Kind != validation.Arr || len(br.A) != 0 {
+	if br := validation.ObjAt(result, "blocking_reasons"); br.Kind != validation.Arr || len(br.A) != 0 {
 		t.Errorf("blocking_reasons = %s, want []", validation.CanonCompact(br))
 	}
-	if checks := objAt(result, "policy_checks"); len(checks.A) != 16 {
+	if checks := validation.ObjAt(result, "policy_checks"); len(checks.A) != 16 {
 		t.Errorf("policy_checks = %d rows, want 16", len(checks.A))
 	}
 }
@@ -513,25 +513,25 @@ func TestImmunizationWaiverUnblocks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objAt(result, "submission_ready"); got.Kind != validation.Bool || !got.B {
+	if got := validation.ObjAt(result, "submission_ready"); got.Kind != validation.Bool || !got.B {
 		t.Errorf("submission_ready = %s, want True (waiver unblocks immunization)",
 			validation.PyRepr(got))
 	}
-	if anyContains(objAt(result, "blocking_reasons"), "not immunized") {
+	if anyContains(validation.ObjAt(result, "blocking_reasons"), "not immunized") {
 		t.Errorf("unexpected immunization blocker in %s",
-			validation.CanonCompact(objAt(result, "blocking_reasons")))
+			validation.CanonCompact(validation.ObjAt(result, "blocking_reasons")))
 	}
 	found := false
-	for _, ck := range objAt(result, "policy_checks").A {
-		if objStr(ck, "check") == "immunization" {
+	for _, ck := range validation.ObjAt(result, "policy_checks").A {
+		if validation.ObjStr(ck, "check") == "immunization" {
 			found = true
-			if objStr(ck, "result") != "pass" {
+			if validation.ObjStr(ck, "result") != "pass" {
 				t.Errorf("immunization result = %s, want pass",
-					objStr(ck, "result"))
+					validation.ObjStr(ck, "result"))
 			}
-			if !strings.Contains(objStr(ck, "detail"), "waived by alice") {
+			if !strings.Contains(validation.ObjStr(ck, "detail"), "waived by alice") {
 				t.Errorf("immunization detail = %q, want 'waived by alice'",
-					objStr(ck, "detail"))
+					validation.ObjStr(ck, "detail"))
 			}
 		}
 	}
@@ -550,13 +550,13 @@ func TestImmunizationWaiverUnblocks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objAt(result2, "submission_ready"); got.Kind != validation.Bool || got.B {
+	if got := validation.ObjAt(result2, "submission_ready"); got.Kind != validation.Bool || got.B {
 		t.Errorf("submission_ready = %s, want False (no waiver)",
 			validation.PyRepr(got))
 	}
-	if !anyContains(objAt(result2, "blocking_reasons"), "not immunized") {
+	if !anyContains(validation.ObjAt(result2, "blocking_reasons"), "not immunized") {
 		t.Errorf("expected 'not immunized' blocker in %s",
-			validation.CanonCompact(objAt(result2, "blocking_reasons")))
+			validation.CanonCompact(validation.ObjAt(result2, "blocking_reasons")))
 	}
 }
 
@@ -566,7 +566,7 @@ func TestOutOfScopeTargetBlocks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	aff := objAt(f, "affected")
+	aff := validation.ObjAt(f, "affected")
 	aff.A[0].O = validation.SetOrAppend(aff.A[0].O, "contract", validation.VStr("RandomToken"))
 	f = withField(f, "affected", aff)
 	if err := findings.SaveFinding(c, &f); err != nil {
@@ -576,12 +576,12 @@ func TestOutOfScopeTargetBlocks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objAt(result, "submission_ready"); got.Kind != validation.Bool || got.B {
+	if got := validation.ObjAt(result, "submission_ready"); got.Kind != validation.Bool || got.B {
 		t.Errorf("submission_ready = %s, want False", validation.PyRepr(got))
 	}
-	if !anyContains(objAt(result, "blocking_reasons"), "scope") {
+	if !anyContains(validation.ObjAt(result, "blocking_reasons"), "scope") {
 		t.Errorf("no scope blocker in %s",
-			validation.CanonCompact(objAt(result, "blocking_reasons")))
+			validation.CanonCompact(validation.ObjAt(result, "blocking_reasons")))
 	}
 }
 
@@ -609,7 +609,7 @@ func TestScopeResolvesContractNameToPath(t *testing.T) {
 		if err := g.check3(); err != nil {
 			t.Fatal(err)
 		}
-		return objStr(g.checks[0], "result")
+		return validation.ObjStr(g.checks[0], "result")
 	}
 
 	t.Run("name_only_without_resolver_is_out_of_scope", func(t *testing.T) {
@@ -632,9 +632,9 @@ func TestKnownIssueBlocks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rc := objAt(f, "root_cause")
+	rc := validation.ObjAt(f, "root_cause")
 	rc.O = validation.SetOrAppend(rc.O, "description", validation.VStr(
-		objStr(rc, "description")+" — effectively rounding dust accounting"))
+		validation.ObjStr(rc, "description")+" — effectively rounding dust accounting"))
 	f = withField(f, "root_cause", rc)
 	if err := findings.SaveFinding(c, &f); err != nil {
 		t.Fatal(err)
@@ -643,12 +643,12 @@ func TestKnownIssueBlocks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objAt(result, "submission_ready"); got.Kind != validation.Bool || got.B {
+	if got := validation.ObjAt(result, "submission_ready"); got.Kind != validation.Bool || got.B {
 		t.Errorf("submission_ready = %s, want False", validation.PyRepr(got))
 	}
-	if !anyContains(objAt(result, "blocking_reasons"), "excluded") {
+	if !anyContains(validation.ObjAt(result, "blocking_reasons"), "excluded") {
 		t.Errorf("no exclusion blocker in %s",
-			validation.CanonCompact(objAt(result, "blocking_reasons")))
+			validation.CanonCompact(validation.ObjAt(result, "blocking_reasons")))
 	}
 }
 
@@ -659,8 +659,8 @@ func TestEvidenceFloorBlocks(t *testing.T) {
 		t.Fatal(err)
 	}
 	var kept []validation.Value
-	for _, e := range objAt(f, "evidence").A {
-		lvl := objStr(e, "level")
+	for _, e := range validation.ObjAt(f, "evidence").A {
+		lvl := validation.ObjStr(e, "level")
 		if lvl < "E5" || lvl == "E1" {
 			kept = append(kept, e)
 		}
@@ -673,12 +673,12 @@ func TestEvidenceFloorBlocks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objAt(result, "submission_ready"); got.Kind != validation.Bool || got.B {
+	if got := validation.ObjAt(result, "submission_ready"); got.Kind != validation.Bool || got.B {
 		t.Errorf("submission_ready = %s, want False", validation.PyRepr(got))
 	}
-	if !anyContains(objAt(result, "blocking_reasons"), "evidence") {
+	if !anyContains(validation.ObjAt(result, "blocking_reasons"), "evidence") {
 		t.Errorf("no evidence blocker in %s",
-			validation.CanonCompact(objAt(result, "blocking_reasons")))
+			validation.CanonCompact(validation.ObjAt(result, "blocking_reasons")))
 	}
 }
 
@@ -688,8 +688,8 @@ func TestMissingForkReproBlocks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ver := objAt(f, "verification")
-	repro := objAt(ver, "reproduction")
+	ver := validation.ObjAt(f, "verification")
+	repro := validation.ObjAt(ver, "reproduction")
 	repro.O = validation.SetOrAppend(repro.O, "tier_reached", validation.VStr("T1"))
 	ver.O = validation.SetOrAppend(ver.O, "reproduction", repro)
 	f = withField(f, "verification", ver)
@@ -700,12 +700,12 @@ func TestMissingForkReproBlocks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objAt(result, "submission_ready"); got.Kind != validation.Bool || got.B {
+	if got := validation.ObjAt(result, "submission_ready"); got.Kind != validation.Bool || got.B {
 		t.Errorf("submission_ready = %s, want False", validation.PyRepr(got))
 	}
-	if !anyContains(objAt(result, "blocking_reasons"), "fork") {
+	if !anyContains(validation.ObjAt(result, "blocking_reasons"), "fork") {
 		t.Errorf("no fork blocker in %s",
-			validation.CanonCompact(objAt(result, "blocking_reasons")))
+			validation.CanonCompact(validation.ObjAt(result, "blocking_reasons")))
 	}
 }
 
@@ -723,10 +723,10 @@ func TestUnconfirmedNeverReady(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objAt(result, "eligible"); got.Kind != validation.Bool || got.B {
+	if got := validation.ObjAt(result, "eligible"); got.Kind != validation.Bool || got.B {
 		t.Errorf("eligible = %s, want False", validation.PyRepr(got))
 	}
-	if got := objAt(result, "submission_ready"); got.Kind != validation.Bool || got.B {
+	if got := validation.ObjAt(result, "submission_ready"); got.Kind != validation.Bool || got.B {
 		t.Errorf("submission_ready = %s, want False", validation.PyRepr(got))
 	}
 }
@@ -807,7 +807,7 @@ func vectorCamp(t *testing.T, active string) *state.Campaign {
 // the schema-validating writer).
 func writeFinding(t *testing.T, c *state.Campaign, f validation.Value) {
 	t.Helper()
-	path := filepath.Join(c.FindingsDir, objStr(f, "finding_id")+".json")
+	path := filepath.Join(c.FindingsDir, validation.ObjStr(f, "finding_id")+".json")
 	if err := validation.WriteJson(path, f, ""); err != nil {
 		t.Fatal(err)
 	}
@@ -906,7 +906,7 @@ func vectorExploitabilityCases(cases map[string]vectorCase) {
 // matches — the matrix isolates check15, and the class/capability
 // triggers are covered by TestIsLivenessFinding in internal/findings.
 func livenessFinding() validation.Value {
-	ei := objAt(baseFinding(), "economic_impact")
+	ei := validation.ObjAt(baseFinding(), "economic_impact")
 	ei.O = validation.SetOrAppend(ei.O, "kind", validation.VStr("liveness"))
 	return withField(baseFinding(), "economic_impact", ei)
 }
@@ -947,9 +947,9 @@ func vectorAdversarialCases(cases map[string]vectorCase) {
 		policy: testPolicy(),
 		finding: withField(livenessFinding(), "adversarial_game",
 			validation.VObj(
-				kv("who_profits", objAt(adversarialClause(), "who_profits")),
+				kv("who_profits", validation.ObjAt(adversarialClause(), "who_profits")),
 				kv("profit_mechanism", validation.VStr("short")),
-				kv("challenge_interplay", objAt(adversarialClause(),
+				kv("challenge_interplay", validation.ObjAt(adversarialClause(),
 					"challenge_interplay")))),
 		active: "SNAP-11111111", seams: submissionReadySeams(),
 	}
@@ -1117,8 +1117,8 @@ func vectorFlagCases(cases map[string]vectorCase) {
 	}
 	// evidence_floor: the E5 fork evidence is gone, so the finding sits at E4.
 	var kept []validation.Value
-	for _, e := range objAt(baseFinding(), "evidence").A {
-		if objStr(e, "level") < "E5" || objStr(e, "level") == "E1" {
+	for _, e := range validation.ObjAt(baseFinding(), "evidence").A {
+		if validation.ObjStr(e, "level") < "E5" || validation.ObjStr(e, "level") == "E1" {
 			kept = append(kept, e)
 		}
 	}
@@ -1139,7 +1139,7 @@ func vectorFlagCases(cases map[string]vectorCase) {
 	}
 	// out_of_scope: the affected component is not in the program scope.
 	oos := baseFinding()
-	aff := objAt(oos, "affected")
+	aff := validation.ObjAt(oos, "affected")
 	aff.A[0].O = validation.SetOrAppend(aff.A[0].O, "contract", validation.VStr("RandomToken"))
 	cases["out_of_scope"] = vectorCase{
 		policy: testPolicy(), finding: withField(oos, "affected", aff),
@@ -1147,9 +1147,9 @@ func vectorFlagCases(cases map[string]vectorCase) {
 	}
 	// known_issue: the description trips the "rounding dust" exclusion.
 	ki := baseFinding()
-	rc := objAt(ki, "root_cause")
+	rc := validation.ObjAt(ki, "root_cause")
 	rc.O = validation.SetOrAppend(rc.O, "description", validation.VStr(
-		objStr(rc, "description")+" — effectively rounding dust accounting"))
+		validation.ObjStr(rc, "description")+" — effectively rounding dust accounting"))
 	cases["known_issue"] = vectorCase{
 		policy: testPolicy(), finding: withField(ki, "root_cause", rc),
 		active: "SNAP-11111111", seams: submissionReadySeams(),
@@ -1186,7 +1186,7 @@ func TestGateVectorsByteExact(t *testing.T) {
 			c := vectorCamp(t, tc.active)
 			writeFinding(t, c, tc.finding)
 			installSeams(t, tc.seams)
-			got, err := EvaluateBountyGate(c, objStr(tc.finding, "finding_id"),
+			got, err := EvaluateBountyGate(c, validation.ObjStr(tc.finding, "finding_id"),
 				tc.policy, false)
 			if err != nil {
 				t.Fatal(err)
@@ -1207,7 +1207,7 @@ func TestGateVectorsByteExact(t *testing.T) {
 			if gotJSON != gateGolden[name] {
 				t.Errorf("bounty dict\n got %s\nwant %s", gotJSON, gateGolden[name])
 			}
-			if checks := objAt(got, "policy_checks"); len(checks.A) < 12 {
+			if checks := validation.ObjAt(got, "policy_checks"); len(checks.A) < 12 {
 				t.Errorf("policy_checks = %d rows, want >= 12", len(checks.A))
 			}
 		})
@@ -1235,26 +1235,26 @@ func TestWaivedCheckClearsSubmissionReady(t *testing.T) {
 			c := vectorCamp(t, tc.active)
 			writeFinding(t, c, tc.finding)
 			installSeams(t, tc.seams)
-			got, err := EvaluateBountyGate(c, objStr(tc.finding, "finding_id"),
+			got, err := EvaluateBountyGate(c, validation.ObjStr(tc.finding, "finding_id"),
 				tc.policy, false)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if ready := objAt(got, "submission_ready"); !pyTruthyBigNonEmpty(ready) {
+			if ready := validation.ObjAt(got, "submission_ready"); !pyTruthyBigNonEmpty(ready) {
 				t.Errorf("submission_ready = %s, want True (the waiver "+
 					"answered the blocking check)", validation.PyRepr(ready))
 			}
-			if br := objAt(got, "blocking_reasons"); len(br.A) != 0 {
+			if br := validation.ObjAt(got, "blocking_reasons"); len(br.A) != 0 {
 				t.Errorf("blocking_reasons = %s, want []",
 					validation.PyRepr(br))
 			}
 			// The waived check keeps both rows: the fail it answered and
 			// the pass that supersedes it.
-			rows := objAt(got, "policy_checks")
+			rows := validation.ObjAt(got, "policy_checks")
 			byCheck := map[string][]string{}
 			for _, row := range rows.A {
-				byCheck[objStr(row, "check")] = append(
-					byCheck[objStr(row, "check")], objStr(row, "result"))
+				byCheck[validation.ObjStr(row, "check")] = append(
+					byCheck[validation.ObjStr(row, "check")], validation.ObjStr(row, "result"))
 			}
 			waived := ""
 			for chk, res := range byCheck {
@@ -1281,7 +1281,7 @@ func TestEffectiveChecksLastRowWins(t *testing.T) {
 	unique := []validation.Value{
 		row("a", "pass"), row("b", "fail"), row("c", "unknown")}
 	if got := effectiveChecks(unique); len(got) != 3 ||
-		objStr(got[0], "check") != "a" || objStr(got[2], "check") != "c" {
+		validation.ObjStr(got[0], "check") != "a" || validation.ObjStr(got[2], "check") != "c" {
 		t.Errorf("unique list must survive verbatim: %v", got)
 	}
 	dup := []validation.Value{
@@ -1290,19 +1290,19 @@ func TestEffectiveChecksLastRowWins(t *testing.T) {
 	if len(got) != 3 {
 		t.Fatalf("effectiveChecks = %d rows, want 3", len(got))
 	}
-	if objStr(got[0], "check") != "a" || objStr(got[1], "check") != "b" ||
-		objStr(got[2], "check") != "c" {
-		t.Errorf("order = %s,%s,%s want a,b,c", objStr(got[0], "check"),
-			objStr(got[1], "check"), objStr(got[2], "check"))
+	if validation.ObjStr(got[0], "check") != "a" || validation.ObjStr(got[1], "check") != "b" ||
+		validation.ObjStr(got[2], "check") != "c" {
+		t.Errorf("order = %s,%s,%s want a,b,c", validation.ObjStr(got[0], "check"),
+			validation.ObjStr(got[1], "check"), validation.ObjStr(got[2], "check"))
 	}
-	if objStr(got[1], "result") != "pass" {
+	if validation.ObjStr(got[1], "result") != "pass" {
 		t.Errorf("b = %q, want the later pass row to win",
-			objStr(got[1], "result"))
+			validation.ObjStr(got[1], "result"))
 	}
 	// A fail that nobody superseded stays a fail.
 	if got := effectiveChecks([]validation.Value{
-		row("a", "fail"), row("b", "pass")}); objStr(got[0], "result") != "fail" {
-		t.Errorf("unsuperseded fail = %q, want fail", objStr(got[0], "result"))
+		row("a", "fail"), row("b", "pass")}); validation.ObjStr(got[0], "result") != "fail" {
+		t.Errorf("unsuperseded fail = %q, want fail", validation.ObjStr(got[0], "result"))
 	}
 }
 
@@ -1376,22 +1376,22 @@ func TestGateStoresAcceptanceScore(t *testing.T) {
 	if want != 6.0 {
 		t.Fatalf("fixture precondition: score = %v, want 6.0", want)
 	}
-	got, err := EvaluateBountyGate(c, objStr(f, "finding_id"), testPolicy(), true)
+	got, err := EvaluateBountyGate(c, validation.ObjStr(f, "finding_id"), testPolicy(), true)
 	if err != nil {
 		t.Fatal(err)
 	}
 	// the gate result is the bounty object — acceptance_score must not leak in
-	if objAt(got, "acceptance_score").Kind != validation.Null {
+	if validation.ObjAt(got, "acceptance_score").Kind != validation.Null {
 		t.Error("acceptance_score must not leak into the bounty result")
 	}
 	// read the file directly: the vector fixture is a raw row (the vector
 	// tests never round-trip it through the schema-validating loader)
-	storedPath := filepath.Join(c.FindingsDir, objStr(f, "finding_id")+".json")
+	storedPath := filepath.Join(c.FindingsDir, validation.ObjStr(f, "finding_id")+".json")
 	stored, err := validation.ReadJson(storedPath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	gotScore := objAt(objAt(stored, "risk"), "acceptance_score")
+	gotScore := validation.ObjAt(validation.ObjAt(stored, "risk"), "acceptance_score")
 	if gotScore.Kind != validation.Flt && gotScore.Kind != validation.Int {
 		t.Fatalf("stored score kind = %v: %v", gotScore.Kind,
 			validation.CanonSpaced(gotScore))
@@ -1616,18 +1616,18 @@ func TestEvaluateSavesFindingAndLogs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objAt(result, "submission_ready"); got.Kind != validation.Bool || !got.B {
+	if got := validation.ObjAt(result, "submission_ready"); got.Kind != validation.Bool || !got.B {
 		t.Errorf("submission_ready = %s, want True", validation.PyRepr(got))
 	}
 	stored, err := findings.LoadFinding(c, fid)
 	if err != nil {
 		t.Fatal(err)
 	}
-	sb := objAt(stored, "bounty")
+	sb := validation.ObjAt(stored, "bounty")
 	if got := keyOrder(sb); got != "eligible,submission_ready,blocking_reasons,policy_checks" {
 		t.Errorf("bounty key order = %q", got)
 	}
-	if checks := objAt(sb, "policy_checks"); len(checks.A) != 16 {
+	if checks := validation.ObjAt(sb, "policy_checks"); len(checks.A) != 16 {
 		t.Errorf("stored policy_checks = %d rows, want 16", len(checks.A))
 	}
 	events, err := c.Events()
@@ -1635,17 +1635,17 @@ func TestEvaluateSavesFindingAndLogs(t *testing.T) {
 		t.Fatal(err)
 	}
 	last := events[len(events)-1]
-	if got := objStr(last, "type"); got != "bounty.gate" {
+	if got := validation.ObjStr(last, "type"); got != "bounty.gate" {
 		t.Errorf("event type = %q, want bounty.gate", got)
 	}
-	if got := objStr(last, "ref"); got != fid {
+	if got := validation.ObjStr(last, "ref"); got != fid {
 		t.Errorf("event ref = %q, want %q", got, fid)
 	}
 	wantData := validation.VObj(
 		kv("eligible", validation.VBool(true)),
 		kv("submission_ready", validation.VBool(true)),
 		kv("blockers", validation.VArr()))
-	if got := validation.CanonSpaced(objAt(last, "data")); got != validation.CanonSpaced(wantData) {
+	if got := validation.CanonSpaced(validation.ObjAt(last, "data")); got != validation.CanonSpaced(wantData) {
 		t.Errorf("event data\n got %s\nwant %s", got, validation.CanonSpaced(wantData))
 	}
 }
@@ -1811,11 +1811,11 @@ func TestExistingBountyKeepsKeyOrder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sb := objAt(stored, "bounty")
+	sb := validation.ObjAt(stored, "bounty")
 	if got := keyOrder(sb); got != "policy_checks,blocking_reasons,submission_ready,eligible" {
 		t.Errorf("bounty key order = %q, want the pre-existing order", got)
 	}
-	if got := objAt(sb, "submission_ready"); got.Kind != validation.Bool || !got.B {
+	if got := validation.ObjAt(sb, "submission_ready"); got.Kind != validation.Bool || !got.B {
 		t.Errorf("stored submission_ready = %s, want True", validation.PyRepr(got))
 	}
 }
@@ -1831,7 +1831,7 @@ func TestDefaultPriceSeamReadsPriceTable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	priceID := objStr(row, "price_id")
+	priceID := validation.ObjStr(row, "price_id")
 	if priceID == "" {
 		t.Fatal("pricing.SetPrice returned a row without a price_id")
 	}
@@ -1839,7 +1839,7 @@ func TestDefaultPriceSeamReadsPriceTable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ei := objAt(f, "economic_impact")
+	ei := validation.ObjAt(f, "economic_impact")
 	ei.O = validation.SetOrAppend(ei.O, "price_basis", validation.VStr(priceID))
 	f = withField(f, "economic_impact", ei)
 	if err := findings.SaveFinding(c, &f); err != nil {
@@ -1851,10 +1851,10 @@ func TestDefaultPriceSeamReadsPriceTable(t *testing.T) {
 	}
 	var detail string
 	found := false
-	for _, c := range objAt(result, "policy_checks").A {
-		if objStr(c, "check") == "e7-price-basis" {
+	for _, c := range validation.ObjAt(result, "policy_checks").A {
+		if validation.ObjStr(c, "check") == "e7-price-basis" {
 			found = true
-			detail = objStr(c, "result") + " " + objStr(c, "detail")
+			detail = validation.ObjStr(c, "result") + " " + validation.ObjStr(c, "detail")
 		}
 	}
 	if !found {

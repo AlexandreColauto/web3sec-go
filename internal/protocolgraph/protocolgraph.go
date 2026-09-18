@@ -43,20 +43,6 @@ func kv(k string, v validation.Value) validation.KV {
 	return validation.KV{K: k, V: v}
 }
 
-// objAt is dict.get(key): the value for key, or Null when absent (or the
-// receiver is not an object).
-func objAt(v validation.Value, key string) validation.Value {
-	if v.Kind != validation.Obj {
-		return validation.VNull()
-	}
-	for _, pair := range v.O {
-		if pair.K == key {
-			return pair.V
-		}
-	}
-	return validation.VNull()
-}
-
 // lookup is the `key in dict` + indexing pair: found reports whether the key
 // is PRESENT (a present null is not the same as an absent key).
 func lookup(v validation.Value, key string) (validation.Value, bool) {
@@ -178,7 +164,7 @@ func containsValue(items []validation.Value, v validation.Value) bool {
 // listField is model.get(key, []) normalised to a non-nil slice (an absent
 // collection must render as [], never null).
 func listField(model validation.Value, key string) []validation.Value {
-	v := objAt(model, key)
+	v := validation.ObjAt(model, key)
 	if v.Kind != validation.Arr || len(v.A) == 0 {
 		return []validation.Value{}
 	}
@@ -196,16 +182,16 @@ func LoadModel(campaign *state.Campaign, path string) (validation.Value, error) 
 	if err := validation.Validate(model, "protocol_model", 25); err != nil {
 		return validation.VNull(), err
 	}
-	note := "protocol model for " + pyStr(objAt(model, "name"))
+	note := "protocol model for " + pyStr(validation.ObjAt(model, "name"))
 	_, err = campaign.RegisterOrRefresh("protocol-model", path, note, nil,
 		"protocol model (re)loaded")
 	if err != nil {
 		return validation.VNull(), err
 	}
-	ref := objAt(model, "protocol_id").S
+	ref := validation.ObjAt(model, "protocol_id").S
 	data := validation.VObj(
-		kv("contracts", validation.VInt(int64(len(objAt(model, "contracts").A)))),
-		kv("invariants", validation.VInt(int64(len(objAt(model, "invariants").A)))),
+		kv("contracts", validation.VInt(int64(len(validation.ObjAt(model, "contracts").A)))),
+		kv("invariants", validation.VInt(int64(len(validation.ObjAt(model, "invariants").A)))),
 	)
 	if _, err := campaign.Log("protocol_model.loaded", &ref, &data); err != nil {
 		return validation.VNull(), err
@@ -228,7 +214,7 @@ func SaveModel(campaign *state.Campaign, model validation.Value, path string) (s
 	}
 	// the model is a living document: re-saving must refresh the existing
 	// registration, not mint a ghost row
-	note := "protocol model for " + pyStr(objAt(model, "name"))
+	note := "protocol model for " + pyStr(validation.ObjAt(model, "name"))
 	_, err := campaign.RegisterOrRefresh("protocol-model", path, note, nil,
 		"protocol model saved (LLM refinement or operator edit)")
 	if err != nil {
@@ -269,10 +255,10 @@ func WhoCan(model validation.Value, capability string) []validation.Value {
 		// Python's p.get("capability", "").lower(); a non-string capability
 		// would raise AttributeError there (unreachable: the schema requires
 		// a string).
-		if !strings.Contains(pyLower.String(objAt(p, "capability").S), needle) {
+		if !strings.Contains(pyLower.String(validation.ObjAt(p, "capability").S), needle) {
 			continue
 		}
-		role := objAt(p, "role").S
+		role := validation.ObjAt(p, "role").S
 		a, ok := ActorByID(model, role)
 		if !ok {
 			a = validation.VObj(
@@ -294,7 +280,7 @@ func WhoCan(model validation.Value, capability string) []validation.Value {
 func TrustBoundaryGaps(model validation.Value) []validation.Value {
 	out := []validation.Value{}
 	for _, b := range listField(model, "trust_boundaries") {
-		if !validation.PyTruthy(objAt(b, "validated")) {
+		if !validation.PyTruthy(validation.ObjAt(b, "validated")) {
 			out = append(out, b)
 		}
 	}
@@ -307,13 +293,13 @@ func AccountingVars(model validation.Value) []validation.Value {
 	out := []validation.Value{}
 	for _, c := range listField(model, "contracts") {
 		for _, v := range listField(c, "state_variables") {
-			if !validation.PyTruthy(objAt(v, "accounting")) {
+			if !validation.PyTruthy(validation.ObjAt(v, "accounting")) {
 				continue
 			}
 			out = append(out, validation.VObj(
-				kv("contract", objAt(c, "name")),
-				kv("var", objAt(v, "name")),
-				kv("kind", objAt(v, "kind")),
+				kv("contract", validation.ObjAt(c, "name")),
+				kv("var", validation.ObjAt(v, "name")),
+				kv("kind", validation.ObjAt(v, "kind")),
 			))
 		}
 	}
@@ -329,29 +315,29 @@ func ExternalAssets(model validation.Value) []validation.Value {
 	out := []validation.Value{}
 	for _, a := range listField(model, "assets") {
 		flags := []validation.Value{}
-		if validation.PyTruthy(objAt(a, "fee_on_transfer")) {
+		if validation.PyTruthy(validation.ObjAt(a, "fee_on_transfer")) {
 			flags = append(flags, validation.VStr("fee-on-transfer"))
 		}
-		if validation.PyTruthy(objAt(a, "rebasing")) {
+		if validation.PyTruthy(validation.ObjAt(a, "rebasing")) {
 			flags = append(flags, validation.VStr("rebasing"))
 		}
-		erc := objAt(a, "erc")
+		erc := validation.ObjAt(a, "erc")
 		if erc.Kind == validation.Str && erc.S == "777" {
 			flags = append(flags, validation.VStr("erc777-callbacks"))
 		}
 		if erc.Kind == validation.Str && erc.S == "4626" {
 			flags = append(flags, validation.VStr("erc4626-vault"))
 		}
-		decimals := objAt(a, "decimals")
+		decimals := validation.ObjAt(a, "decimals")
 		if decimals.Kind != validation.Null && !standardDecimals(decimals) {
 			flags = append(flags, validation.VStr("odd-decimals-"+pyStr(decimals)))
 		}
-		if nb := objAt(a, "nonstandard_behaviors"); validation.PyTruthy(nb) {
+		if nb := validation.ObjAt(a, "nonstandard_behaviors"); validation.PyTruthy(nb) {
 			flags = append(flags, extendFlags(nb)...)
 		}
 		if len(flags) > 0 {
 			out = append(out, validation.VObj(
-				kv("asset", objAt(a, "id")),
+				kv("asset", validation.ObjAt(a, "id")),
 				kv("flags", validation.VArr(flags...)),
 			))
 		}
@@ -397,7 +383,7 @@ func standardDecimals(decimals validation.Value) bool {
 func CriticalEdges(model validation.Value) []validation.Value {
 	out := []validation.Value{}
 	for _, r := range listField(model, "relations") {
-		if _, ok := MUTATING_RELS[objAt(r, "rel").S]; ok {
+		if _, ok := MUTATING_RELS[validation.ObjAt(r, "rel").S]; ok {
 			out = append(out, r)
 		}
 	}

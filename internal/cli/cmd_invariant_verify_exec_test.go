@@ -90,7 +90,7 @@ func invEntry(t *testing.T, c *state.Campaign, invID string) validation.Value {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return objAt(objAt(links, "invariants"), invID)
+	return validation.ObjAt(validation.ObjAt(links, "invariants"), invID)
 }
 
 // resolvedPath is Path(...).resolve() for the paths the tests compare.
@@ -110,7 +110,7 @@ func artifactPathOf(t *testing.T, c *state.Campaign, aid string) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p := objStr(art, "path")
+	p := validation.ObjStr(art, "path")
 	if !filepath.IsAbs(p) {
 		p = filepath.Join(c.Root, p)
 	}
@@ -121,7 +121,7 @@ func artifactPathOf(t *testing.T, c *state.Campaign, aid string) string {
 func TestInvariantVerifyExecHappyPath(t *testing.T) {
 	c, root, rec := execCamp(t, "EXEC-0000000001", "Staking")
 	code, out, errS := run(t, "--root", root, "invariant-verify", c.CampaignID,
-		"INV-008", "--exec", objStr(rec, "exec_id"))
+		"INV-008", "--exec", validation.ObjStr(rec, "exec_id"))
 	if code != 0 {
 		t.Fatalf("exit %d: %q", code, errS)
 	}
@@ -129,11 +129,11 @@ func TestInvariantVerifyExecHappyPath(t *testing.T) {
 		t.Fatalf("output %q", out)
 	}
 	entry := invEntry(t, c, "INV-008")
-	if objStr(entry, "status") != "CHECKED_AGAINST_CODE" {
-		t.Fatalf("status %q", objStr(entry, "status"))
+	if validation.ObjStr(entry, "status") != "CHECKED_AGAINST_CODE" {
+		t.Fatalf("status %q", validation.ObjStr(entry, "status"))
 	}
-	if got, want := artifactPathOf(t, c, objStr(entry, "verified_by")),
-		resolvedPath(t, objStr(rec, "stdout_path")); got != want {
+	if got, want := artifactPathOf(t, c, validation.ObjStr(entry, "verified_by")),
+		resolvedPath(t, validation.ObjStr(rec, "stdout_path")); got != want {
 		t.Fatalf("artifact path %q, want %q", got, want)
 	}
 	// the log-anchored verdict (status + registered artifact + event) holds
@@ -149,28 +149,28 @@ func TestInvariantVerifyExecHappyPath(t *testing.T) {
 // Port of test_invariant_verify_exec_rerun_refreshes_the_same_artifact.
 func TestInvariantVerifyExecRerunRefreshesTheSameArtifact(t *testing.T) {
 	c, root, rec := execCamp(t, "EXEC-0000000001", "Staking")
-	execID := objStr(rec, "exec_id")
+	execID := validation.ObjStr(rec, "exec_id")
 	code, _, errS := run(t, "--root", root, "invariant-verify", c.CampaignID,
 		"INV-008", "--exec", execID)
 	if code != 0 {
 		t.Fatalf("exit %d: %q", code, errS)
 	}
-	first := objStr(invEntry(t, c, "INV-008"), "verified_by")
+	first := validation.ObjStr(invEntry(t, c, "INV-008"), "verified_by")
 	code, _, errS = run(t, "--root", root, "invariant-verify", c.CampaignID,
 		"INV-008", "--exec", execID)
 	if code != 0 {
 		t.Fatalf("second exit %d: %q", code, errS)
 	}
 	entry := invEntry(t, c, "INV-008")
-	if objStr(entry, "verified_by") != first {
+	if validation.ObjStr(entry, "verified_by") != first {
 		t.Fatalf("verified_by moved: %q -> %q", first,
-			objStr(entry, "verified_by"))
+			validation.ObjStr(entry, "verified_by"))
 	}
 	art, err := c.Artifact(first)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if rc := objAt(art, "refresh_count"); rc.Kind != validation.Int || rc.I != 1 {
+	if rc := validation.ObjAt(art, "refresh_count"); rc.Kind != validation.Int || rc.I != 1 {
 		t.Fatalf("refresh_count = %s, want 1", validation.CanonCompact(rc))
 	}
 	st, err := c.State()
@@ -178,12 +178,12 @@ func TestInvariantVerifyExecRerunRefreshesTheSameArtifact(t *testing.T) {
 		t.Fatal(err)
 	}
 	atPath := 0
-	for _, a := range objAt(st, "artifacts").A {
-		p := objStr(a, "path")
+	for _, a := range validation.ObjAt(st, "artifacts").A {
+		p := validation.ObjStr(a, "path")
 		if !filepath.IsAbs(p) {
 			p = filepath.Join(c.Root, p)
 		}
-		if resolvedPath(t, p) == resolvedPath(t, objStr(rec, "stdout_path")) {
+		if resolvedPath(t, p) == resolvedPath(t, validation.ObjStr(rec, "stdout_path")) {
 			atPath++
 		}
 	}
@@ -195,22 +195,22 @@ func TestInvariantVerifyExecRerunRefreshesTheSameArtifact(t *testing.T) {
 // Port of test_invariant_verify_exec_falls_back_to_the_stderr_log.
 func TestInvariantVerifyExecFallsBackToTheStderrLog(t *testing.T) {
 	c, root, rec := execCamp(t, "EXEC-0000000001", "Staking")
-	if err := os.Remove(objStr(rec, "stdout_path")); err != nil {
+	if err := os.Remove(validation.ObjStr(rec, "stdout_path")); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(objStr(rec, "stderr_path"),
+	if err := os.WriteFile(validation.ObjStr(rec, "stderr_path"),
 		[]byte("INV-008: the fee accumulator holds\nFAIL: test_liveness\n"),
 		0o644); err != nil {
 		t.Fatal(err)
 	}
 	code, _, errS := run(t, "--root", root, "invariant-verify", c.CampaignID,
-		"INV-008", "--exec", objStr(rec, "exec_id"))
+		"INV-008", "--exec", validation.ObjStr(rec, "exec_id"))
 	if code != 0 {
 		t.Fatalf("exit %d: %q", code, errS)
 	}
 	entry := invEntry(t, c, "INV-008")
-	if got, want := artifactPathOf(t, c, objStr(entry, "verified_by")),
-		resolvedPath(t, objStr(rec, "stderr_path")); got != want {
+	if got, want := artifactPathOf(t, c, validation.ObjStr(entry, "verified_by")),
+		resolvedPath(t, validation.ObjStr(rec, "stderr_path")); got != want {
 		t.Fatalf("artifact path %q, want %q", got, want)
 	}
 }
@@ -218,18 +218,18 @@ func TestInvariantVerifyExecFallsBackToTheStderrLog(t *testing.T) {
 // Port of test_invariant_verify_exec_without_captured_output_exits_2.
 func TestInvariantVerifyExecWithoutCapturedOutputExits2(t *testing.T) {
 	c, root, rec := execCamp(t, "EXEC-0000000001")
-	if err := os.Remove(objStr(rec, "stdout_path")); err != nil {
+	if err := os.Remove(validation.ObjStr(rec, "stdout_path")); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Remove(objStr(rec, "stderr_path")); err != nil {
+	if err := os.Remove(validation.ObjStr(rec, "stderr_path")); err != nil {
 		t.Fatal(err)
 	}
 	code, _, errS := run(t, "--root", root, "invariant-verify", c.CampaignID,
-		"INV-008", "--exec", objStr(rec, "exec_id"))
+		"INV-008", "--exec", validation.ObjStr(rec, "exec_id"))
 	if code != 2 {
 		t.Fatalf("exit %d, want 2", code)
 	}
-	if !strings.Contains(errS, objStr(rec, "exec_id")) {
+	if !strings.Contains(errS, validation.ObjStr(rec, "exec_id")) {
 		t.Fatalf("stderr must name the exec: %q", errS)
 	}
 	if !strings.Contains(errS, "no captured output") {
@@ -238,7 +238,7 @@ func TestInvariantVerifyExecWithoutCapturedOutputExits2(t *testing.T) {
 	if strings.Contains(errS, "Traceback") {
 		t.Fatalf("stderr carries a traceback: %q", errS)
 	}
-	if got := objStr(invEntry(t, c, "INV-008"), "status"); got != "UNVERIFIED" {
+	if got := validation.ObjStr(invEntry(t, c, "INV-008"), "status"); got != "UNVERIFIED" {
 		t.Fatalf("status %q, want UNVERIFIED", got)
 	}
 }
@@ -257,7 +257,7 @@ func TestInvariantVerifyExecUnknownExecExits2(t *testing.T) {
 	if strings.Contains(errS, "Traceback") {
 		t.Fatalf("stderr carries a traceback: %q", errS)
 	}
-	if got := objStr(invEntry(t, c, "INV-008"), "status"); got != "UNVERIFIED" {
+	if got := validation.ObjStr(invEntry(t, c, "INV-008"), "status"); got != "UNVERIFIED" {
 		t.Fatalf("status %q, want UNVERIFIED", got)
 	}
 }
@@ -265,7 +265,7 @@ func TestInvariantVerifyExecUnknownExecExits2(t *testing.T) {
 // Port of test_invariant_verify_exec_incomplete_exec_exits_2.
 func TestInvariantVerifyExecIncompleteExecExits2(t *testing.T) {
 	c, root, rec := execCamp(t, "EXEC-0000000001")
-	p := filepath.Join(c.ExecsDir, objStr(rec, "exec_id"), "exec_record.json")
+	p := filepath.Join(c.ExecsDir, validation.ObjStr(rec, "exec_id"), "exec_record.json")
 	broken, err := validation.ReadJson(p)
 	if err != nil {
 		t.Fatal(err)
@@ -275,11 +275,11 @@ func TestInvariantVerifyExecIncompleteExecExits2(t *testing.T) {
 		t.Fatal(err)
 	}
 	code, _, errS := run(t, "--root", root, "invariant-verify", c.CampaignID,
-		"INV-008", "--exec", objStr(rec, "exec_id"))
+		"INV-008", "--exec", validation.ObjStr(rec, "exec_id"))
 	if code != 2 {
 		t.Fatalf("exit %d, want 2", code)
 	}
-	if !strings.Contains(errS, objStr(rec, "exec_id")) {
+	if !strings.Contains(errS, validation.ObjStr(rec, "exec_id")) {
 		t.Fatalf("stderr must name the exec: %q", errS)
 	}
 	if !strings.Contains(strings.ToLower(errS), "incomplete") {
@@ -291,7 +291,7 @@ func TestInvariantVerifyExecIncompleteExecExits2(t *testing.T) {
 func TestInvariantVerifyRejectsBothOptions(t *testing.T) {
 	c, root, rec := execCamp(t, "EXEC-0000000001")
 	code, _, errS := run(t, "--root", root, "invariant-verify", c.CampaignID,
-		"INV-008", "--exec", objStr(rec, "exec_id"), "--artifact", "ART-1")
+		"INV-008", "--exec", validation.ObjStr(rec, "exec_id"), "--artifact", "ART-1")
 	if code != 2 {
 		t.Fatalf("exit %d, want 2", code)
 	}
@@ -317,7 +317,7 @@ func TestInvariantVerifyRequiresOneOption(t *testing.T) {
 func TestInvariantVerifyExecUnknownInvariantExits2(t *testing.T) {
 	c, root, rec := execCamp(t, "EXEC-0000000001")
 	code, _, errS := run(t, "--root", root, "invariant-verify", c.CampaignID,
-		"INV-NOPE", "--exec", objStr(rec, "exec_id"))
+		"INV-NOPE", "--exec", validation.ObjStr(rec, "exec_id"))
 	if code != 2 {
 		t.Fatalf("exit %d, want 2", code)
 	}
@@ -336,11 +336,11 @@ func TestInvariantVerifyExecUnknownInvariantExits2(t *testing.T) {
 // never evidence. (c) the honest rerun lands.
 func TestInvariantVerifyExecRelevanceGate(t *testing.T) {
 	c, root, rec := execCamp(t, "EXEC-0000000001", "Staking")
-	execID := objStr(rec, "exec_id")
+	execID := validation.ObjStr(rec, "exec_id")
 	// (a) an untargeted whole-suite exec whose log names the invariant.
 	suite := invExecRecord(t, c, "EXEC-0000000002", "forge test")
 	code, _, errS := run(t, "--root", root, "invariant-verify", c.CampaignID,
-		"INV-008", "--exec", objStr(suite, "exec_id"))
+		"INV-008", "--exec", validation.ObjStr(suite, "exec_id"))
 	if code != 2 {
 		t.Fatalf("untargeted exec: exit %d, want 2 (%q)", code, errS)
 	}
@@ -348,11 +348,11 @@ func TestInvariantVerifyExecRelevanceGate(t *testing.T) {
 		"does not target any applies_to contract of INV-008 (no-target-match)") {
 		t.Fatalf("untargeted exec stderr %q", errS)
 	}
-	if got := objStr(invEntry(t, c, "INV-008"), "status"); got != "UNVERIFIED" {
+	if got := validation.ObjStr(invEntry(t, c, "INV-008"), "status"); got != "UNVERIFIED" {
 		t.Fatalf("untargeted exec status %q, want UNVERIFIED", got)
 	}
 	// (b) a targeted exec with a generic output log.
-	if err := os.WriteFile(objStr(rec, "stdout_path"),
+	if err := os.WriteFile(validation.ObjStr(rec, "stdout_path"),
 		[]byte("PASS: test_liveness\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -364,11 +364,11 @@ func TestInvariantVerifyExecRelevanceGate(t *testing.T) {
 	if !strings.Contains(errS, "does not reference INV-008") {
 		t.Fatalf("generic output stderr %q", errS)
 	}
-	if got := objStr(invEntry(t, c, "INV-008"), "status"); got != "UNVERIFIED" {
+	if got := validation.ObjStr(invEntry(t, c, "INV-008"), "status"); got != "UNVERIFIED" {
 		t.Fatalf("generic output status %q, want UNVERIFIED", got)
 	}
 	// (c) the honest rerun: the captured output names the invariant.
-	if err := os.WriteFile(objStr(rec, "stdout_path"),
+	if err := os.WriteFile(validation.ObjStr(rec, "stdout_path"),
 		[]byte("INV-008: the fee accumulator holds — PASS: test_liveness\n"),
 		0o644); err != nil {
 		t.Fatal(err)
@@ -382,11 +382,11 @@ func TestInvariantVerifyExecRelevanceGate(t *testing.T) {
 		t.Fatalf("output %q", out)
 	}
 	entry := invEntry(t, c, "INV-008")
-	if got := objStr(entry, "status"); got != "CHECKED_AGAINST_CODE" {
+	if got := validation.ObjStr(entry, "status"); got != "CHECKED_AGAINST_CODE" {
 		t.Fatalf("status %q", got)
 	}
-	if got, want := artifactPathOf(t, c, objStr(entry, "verified_by")),
-		resolvedPath(t, objStr(rec, "stdout_path")); got != want {
+	if got, want := artifactPathOf(t, c, validation.ObjStr(entry, "verified_by")),
+		resolvedPath(t, validation.ObjStr(rec, "stdout_path")); got != want {
 		t.Fatalf("artifact path %q, want %q (the exec's stdout)", got, want)
 	}
 }

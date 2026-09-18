@@ -99,14 +99,14 @@ func TestR38WiredCopyMatchesSandboxDefault(t *testing.T) {
 				"  wired:   %s\n  default: %s", tc.name,
 				validation.CanonCompact(wired), validation.CanonCompact(def))
 		}
-		if got := objStr(wired, "class"); got != tc.class {
+		if got := validation.ObjStr(wired, "class"); got != tc.class {
 			t.Errorf("%s: class = %q, want %q", tc.name, got, tc.class)
 		}
-		if got := objStr(wired, "note"); !strings.Contains(got, tc.noteContains) {
+		if got := validation.ObjStr(wired, "note"); !strings.Contains(got, tc.noteContains) {
 			t.Errorf("%s: note %q lacks %q", tc.name, got, tc.noteContains)
 		}
 		if tc.noteWithout != "" {
-			if got := objStr(wired, "note"); strings.Contains(got, tc.noteWithout) {
+			if got := validation.ObjStr(wired, "note"); strings.Contains(got, tc.noteWithout) {
 				t.Errorf("%s: note %q must not contain %q", tc.name, got,
 					tc.noteWithout)
 			}
@@ -120,7 +120,7 @@ func TestR38WiredCopyMatchesSandboxDefault(t *testing.T) {
 // pins the same bytes there), so a drift on either side fails one package.
 func TestR38WiredClassifierIsHonest(t *testing.T) {
 	host := ClassifyFailure(r38Record(t, "r38h1", "host-readonly", "", "", 127))
-	note := objStr(host, "note")
+	note := validation.ObjStr(host, "note")
 	if strings.Contains(note, "docker itself failed") {
 		t.Errorf("host 127 note claims docker ran the command: %q", note)
 	}
@@ -129,20 +129,20 @@ func TestR38WiredClassifierIsHonest(t *testing.T) {
 		t.Errorf("host 127 note must name the missing command and no docker: %q",
 			note)
 	}
-	if sig := validation.CanonCompact(objAt(host, "signals")); !strings.Contains(
+	if sig := validation.CanonCompact(validation.ObjAt(host, "signals")); !strings.Contains(
 		sig, "no docker involved") {
 		t.Errorf("host 127 signals must say no docker is involved: %s", sig)
 	}
 
 	host126 := ClassifyFailure(r38Record(t, "r38h2", "host-readonly", "", "", 126))
-	if note := objStr(host126, "note"); !strings.Contains(note,
+	if note := validation.ObjStr(host126, "note"); !strings.Contains(note,
 		"not executable") || strings.Contains(note, "docker itself failed") {
 		t.Errorf("host 126 note = %q", note)
 	}
 
 	ran := ClassifyFailure(r38Record(t, "r38c1", "docker-networkless",
 		"sh: 1: nonexistent-cmd-xyz: not found\n", "", 127))
-	if note := objStr(ran, "note"); !strings.Contains(note,
+	if note := validation.ObjStr(ran, "note"); !strings.Contains(note,
 		"RAN inside the container") {
 		t.Errorf("container 127 with in-container 'not found' evidence must "+
 			"say the command ran: %q", note)
@@ -150,7 +150,7 @@ func TestR38WiredClassifierIsHonest(t *testing.T) {
 
 	inconclusive := ClassifyFailure(r38Record(t, "r38c2",
 		"docker-networkless", "", "", 127))
-	if note := objStr(inconclusive, "note"); !strings.Contains(note,
+	if note := validation.ObjStr(inconclusive, "note"); !strings.Contains(note,
 		"inconclusive") {
 		t.Errorf("container 127 with no output must be inconclusive: %q", note)
 	}

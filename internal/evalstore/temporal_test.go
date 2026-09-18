@@ -102,7 +102,7 @@ func excludedIDs(h Health) []string {
 	}
 	out := make([]string, 0, len(h.Excluded))
 	for _, e := range h.Excluded {
-		out = append(out, objStr(e.Case, "case_id"))
+		out = append(out, validation.ObjStr(e.Case, "case_id"))
 	}
 	return out
 }
@@ -560,7 +560,7 @@ func TestPartitionHealthLockedWrapper(t *testing.T) {
 		"2026-01-01T00:00:00+00:00", "oracle-manipulation",
 		"the borrow limit is priced off spot reserves", "src/Lender.sol", "acme/lender")
 	excluded, problems := PartitionHealth([]validation.Value{dev, held})
-	if len(excluded) != 1 || objStr(excluded[0], "case_id") != "CASE-0000000000h1" {
+	if len(excluded) != 1 || validation.ObjStr(excluded[0], "case_id") != "CASE-0000000000h1" {
 		t.Fatalf("excluded = %v, want the older held-out row", excluded)
 	}
 	if len(problems) != 0 {

@@ -117,7 +117,7 @@ func ParseReconcile(spec *string) ([]validation.Value, error) {
 func divergenceRows(surface validation.Value) []validation.Value {
 	out := []validation.Value{}
 	for _, row := range listOf(surface, "rows") {
-		switch objStr(row, "divergence") {
+		switch validation.ObjStr(row, "divergence") {
 		case symFundingMismatch, symMemberDisagreement:
 			out = append(out, row)
 		}
@@ -164,11 +164,11 @@ func checkLensReconciliation(campaign *state.Campaign, lensEntry validation.Valu
 	rows := divergenceRows(*surface)
 	rowByID := map[string]validation.Value{}
 	for _, row := range rows {
-		rowByID[objStr(row, "row_id")] = row
+		rowByID[validation.ObjStr(row, "row_id")] = row
 	}
 	// a fresh record must name a divergence row in THIS surface
 	for _, rec := range fresh {
-		rid := objStr(rec, "row_id")
+		rid := validation.ObjStr(rec, "row_id")
 		if _, ok := rowByID[rid]; !ok {
 			return nil, errValue("--reconcile names " +
 				validation.PyReprStr(rid) + ", which is not a funding-mismatch " +
@@ -180,9 +180,9 @@ func checkLensReconciliation(campaign *state.Campaign, lensEntry validation.Valu
 	}
 	if len(fresh) > 0 {
 		for _, rec := range fresh {
-			row := rowByID[objStr(rec, "row_id")]
+			row := rowByID[validation.ObjStr(rec, "row_id")]
 			if reason := validateReconcileRecord(campaign, row, rec); reason != "" {
-				lid := objStr(lensEntry, "id")
+				lid := validation.ObjStr(lensEntry, "id")
 				return nil, errValue("lens " + lid + " attests " +
 					"primitive-symmetry over 1 unreconciled divergence " +
 					"row(s) — " + reconcileWhat(row, reason) +
@@ -200,14 +200,14 @@ func checkLensReconciliation(campaign *state.Campaign, lensEntry validation.Valu
 	// on a reconciliation an earlier attestation of this lens recorded
 	byID := map[string]validation.Value{}
 	for _, rec := range listOf(lensEntry, "reconciliation") {
-		byID[objStr(rec, "row_id")] = rec
+		byID[validation.ObjStr(rec, "row_id")] = rec
 	}
 	for _, rec := range fresh {
-		byID[objStr(rec, "row_id")] = rec
+		byID[validation.ObjStr(rec, "row_id")] = rec
 	}
 	var bad []string
 	for _, row := range rows {
-		rid := objStr(row, "row_id")
+		rid := validation.ObjStr(row, "row_id")
 		if _, ok := byID[rid]; !ok {
 			bad = append(bad, reconcileWhat(row,
 				"no reconciliation on record — the row's own surface names: "+
@@ -220,7 +220,7 @@ func checkLensReconciliation(campaign *state.Campaign, lensEntry validation.Valu
 		}
 		return nil, nil
 	}
-	lid := objStr(lensEntry, "id")
+	lid := validation.ObjStr(lensEntry, "id")
 	return nil, errValue("lens " + lid + " attests primitive-symmetry over " +
 		itoa(len(bad)) + " unreconciled divergence row(s) — " +
 		strings.Join(bad, "; ") + ". Every funding-mismatch / " +
@@ -234,13 +234,13 @@ func checkLensReconciliation(campaign *state.Campaign, lensEntry validation.Valu
 // rowToken is the identity of one divergence row in a refusal message:
 // row_id (kind, family direction:asset).
 func rowToken(row validation.Value) string {
-	rid := objStr(row, "row_id")
+	rid := validation.ObjStr(row, "row_id")
 	if rid == "" {
 		rid = "<no row_id>"
 	}
-	return rid + " (" + objStr(row, "divergence") + ", " +
-		objStr(row, "family") + " " + objStr(row, "direction") + ":" +
-		objStr(row, "asset") + ")"
+	return rid + " (" + validation.ObjStr(row, "divergence") + ", " +
+		validation.ObjStr(row, "family") + " " + validation.ObjStr(row, "direction") + ":" +
+		validation.ObjStr(row, "asset") + ")"
 }
 
 // joinRowTokens renders the surface's divergence rows as identity tokens for
@@ -275,7 +275,7 @@ func reconcileWhat(row validation.Value, reason string) string {
 // otherwise it returns the reason the record does not reconcile the row.
 func validateReconcileRecord(campaign *state.Campaign, row,
 	rec validation.Value) string {
-	if finding := objStr(rec, "finding"); finding != "" {
+	if finding := validation.ObjStr(rec, "finding"); finding != "" {
 		if !findingRefPattern.MatchString(finding) {
 			return "--reconcile " + validation.PyReprStr(finding) +
 				" is not a finding id (F-<12 hex digits>)"
@@ -297,7 +297,7 @@ func validateReconcileRecord(campaign *state.Campaign, row,
 				err.Error() + ") — a divergence may be attached to a real " +
 				"filed finding only"
 		}
-		if status := objStr(f, "status"); status != "" {
+		if status := validation.ObjStr(f, "status"); status != "" {
 			if _, terminal := findings.TERMINAL[status]; terminal {
 				return "--reconcile " + finding + " names a " + status +
 					" finding — a terminal finding records nothing about a " +

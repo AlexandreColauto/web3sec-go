@@ -28,8 +28,8 @@ func lvPair(t *testing.T, c *state.Campaign) (f1, f2 validation.Value) {
 		[]string{"liveness_loss"},
 		[]string{"control_protocol_pause"},
 		"pause with no timelock freezes all withdrawals")
-	confirm(t, c, objStr(f1, "finding_id"), "E5", "T3")
-	confirm(t, c, objStr(f2, "finding_id"), "E5", "T3")
+	confirm(t, c, validation.ObjStr(f1, "finding_id"), "E5", "T3")
+	confirm(t, c, validation.ObjStr(f2, "finding_id"), "E5", "T3")
 	return f1, f2
 }
 
@@ -38,20 +38,20 @@ func lvPair(t *testing.T, c *state.Campaign) (f1, f2 validation.Value) {
 func TestLivenessChainMaterializes(t *testing.T) {
 	c := newCampaign(t, "Liveness Program")
 	f1, f2 := lvPair(t, c)
-	ids := []string{objStr(f1, "finding_id"), objStr(f2, "finding_id")}
+	ids := []string{validation.ObjStr(f1, "finding_id"), validation.ObjStr(f2, "finding_id")}
 	term := validation.VObj(
 		kv("capability", validation.VStr("liveness_loss")),
-		kv("via_finding", validation.VStr(objStr(f2, "finding_id"))))
+		kv("via_finding", validation.VStr(validation.ObjStr(f2, "finding_id"))))
 	ch, err := MaterializeChain(c, ids, "Chain freeze with no recovery path",
 		"EOA pauses; nobody can unpause; every withdrawal stops", nil, &term)
 	if err != nil {
 		t.Fatalf("materialize: %v", err)
 	}
 	// the terminal annotation
-	if got := objStr(objAt(ch, "terminal"), "capability"); got != "liveness_loss" {
+	if got := validation.ObjStr(validation.ObjAt(ch, "terminal"), "capability"); got != "liveness_loss" {
 		t.Fatalf("terminal.capability = %q, want liveness_loss", got)
 	}
-	if got := objStr(objAt(ch, "terminal"), "via_finding"); got != objStr(f2, "finding_id") {
+	if got := validation.ObjStr(validation.ObjAt(ch, "terminal"), "via_finding"); got != validation.ObjStr(f2, "finding_id") {
 		t.Fatalf("terminal.via_finding = %q", got)
 	}
 	// the B1 pricing on the CHAIN super-finding
@@ -61,24 +61,24 @@ func TestLivenessChainMaterializes(t *testing.T) {
 	}
 	var chainFinding validation.Value
 	for _, f := range all {
-		if objStr(f, "status") == "CHAIN" {
+		if validation.ObjStr(f, "status") == "CHAIN" {
 			chainFinding = f
 		}
 	}
 	if chainFinding.Kind == validation.Null {
 		t.Fatal("no CHAIN super-finding")
 	}
-	impact := objAt(chainFinding, "economic_impact")
-	if got := objStr(impact, "blast_radius"); got != "protocol-solvency" {
+	impact := validation.ObjAt(chainFinding, "economic_impact")
+	if got := validation.ObjStr(impact, "blast_radius"); got != "protocol-solvency" {
 		t.Errorf("blast_radius = %q, want protocol-solvency", got)
 	}
-	if got := objStr(impact, "kind"); got != "liveness" {
+	if got := validation.ObjStr(impact, "kind"); got != "liveness" {
 		t.Errorf("kind = %q, want liveness", got)
 	}
-	if pb := objAt(impact, "priceable"); pb.Kind != validation.Bool || pb.B {
+	if pb := validation.ObjAt(impact, "priceable"); pb.Kind != validation.Bool || pb.B {
 		t.Errorf("priceable = %v, want false", pb)
 	}
-	if got := objStr(impact, "ceiling"); got == "" ||
+	if got := validation.ObjStr(impact, "ceiling"); got == "" ||
 		got != "liveness terminal: no USD figure is defensible — a frozen "+
 			"chain freezes every user's funds; the blast radius is the price" {
 		t.Errorf("ceiling = %q", got)
@@ -93,11 +93,11 @@ func TestLivenessChainMaterializes(t *testing.T) {
 func TestLivenessChainKeepsBridgeCanonical(t *testing.T) {
 	c := newCampaign(t, "Bridge Liveness")
 	f1, f2 := lvPair(t, c)
-	f2r, err := findings.LoadFinding(c, objStr(f2, "finding_id"))
+	f2r, err := findings.LoadFinding(c, validation.ObjStr(f2, "finding_id"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	ei := objAt(f2r, "economic_impact")
+	ei := validation.ObjAt(f2r, "economic_impact")
 	if ei.Kind != validation.Obj {
 		ei = validation.VObj()
 	}
@@ -109,9 +109,9 @@ func TestLivenessChainKeepsBridgeCanonical(t *testing.T) {
 	}
 	term := validation.VObj(
 		kv("capability", validation.VStr("liveness_loss")),
-		kv("via_finding", validation.VStr(objStr(f2, "finding_id"))))
+		kv("via_finding", validation.VStr(validation.ObjStr(f2, "finding_id"))))
 	_, err = MaterializeChain(c,
-		[]string{objStr(f1, "finding_id"), objStr(f2, "finding_id")},
+		[]string{validation.ObjStr(f1, "finding_id"), validation.ObjStr(f2, "finding_id")},
 		"Bridged capital frozen by the chain", "", nil, &term)
 	if err != nil {
 		t.Fatalf("materialize: %v", err)
@@ -121,14 +121,14 @@ func TestLivenessChainKeepsBridgeCanonical(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, f := range all {
-		if objStr(f, "status") != "CHAIN" {
+		if validation.ObjStr(f, "status") != "CHAIN" {
 			continue
 		}
-		impact := objAt(f, "economic_impact")
-		if got := objStr(impact, "blast_radius"); got != "bridge-canonical" {
+		impact := validation.ObjAt(f, "economic_impact")
+		if got := validation.ObjStr(impact, "blast_radius"); got != "bridge-canonical" {
 			t.Fatalf("blast_radius = %q, want bridge-canonical", got)
 		}
-		if got := objStr(impact, "kind"); got != "liveness" {
+		if got := validation.ObjStr(impact, "kind"); got != "liveness" {
 			t.Fatalf("kind = %q, want liveness", got)
 		}
 	}
@@ -142,7 +142,7 @@ func TestLivenessTerminalWithoutAnnotationIsUnpriced(t *testing.T) {
 	c := newCampaign(t, "Liveness Unannotated")
 	f1, f2 := lvPair(t, c)
 	ch, err := MaterializeChain(c,
-		[]string{objStr(f1, "finding_id"), objStr(f2, "finding_id")},
+		[]string{validation.ObjStr(f1, "finding_id"), validation.ObjStr(f2, "finding_id")},
 		"Unannotated pair over the same members", "", nil, nil)
 	if err != nil {
 		t.Fatalf("materialize: %v", err)
@@ -152,14 +152,14 @@ func TestLivenessTerminalWithoutAnnotationIsUnpriced(t *testing.T) {
 	}
 	all, _ := findings.LoadAllFindings(c)
 	for _, f := range all {
-		if objStr(f, "status") != "CHAIN" {
+		if validation.ObjStr(f, "status") != "CHAIN" {
 			continue
 		}
-		impact := objAt(f, "economic_impact")
-		if got := objStr(impact, "kind"); got != "" {
+		impact := validation.ObjAt(f, "economic_impact")
+		if got := validation.ObjStr(impact, "kind"); got != "" {
 			t.Fatalf("kind = %q, want absent", got)
 		}
-		if got := objStr(impact, "blast_radius"); got != "" {
+		if got := validation.ObjStr(impact, "blast_radius"); got != "" {
 			t.Fatalf("blast_radius = %q, want absent", got)
 		}
 	}
@@ -176,9 +176,9 @@ func TestFindTerminalChainsFindsLivenessTerminal(t *testing.T) {
 	}
 	found := 0
 	for _, p := range paths {
-		if objStr(p, "terminal_capability") == "liveness_loss" {
+		if validation.ObjStr(p, "terminal_capability") == "liveness_loss" {
 			found++
-			if got := objStr(p, "terminal_finding"); got != objStr(f2, "finding_id") {
+			if got := validation.ObjStr(p, "terminal_finding"); got != validation.ObjStr(f2, "finding_id") {
 				t.Errorf("terminal_finding = %q", got)
 			}
 		}
@@ -197,7 +197,7 @@ func TestFindTerminalChainsModeIncludesHypothesis(t *testing.T) {
 	// that grants the liveness terminal.
 	f1 := hypo(t, c, "access-control", []string{"control_protocol_pause"}, nil,
 		"pause gate reachable by arbitrary EOA")
-	confirm(t, c, objStr(f1, "finding_id"), "E5", "T3")
+	confirm(t, c, validation.ObjStr(f1, "finding_id"), "E5", "T3")
 	hypo(t, c, "chain-freeze", []string{"liveness_loss"},
 		[]string{"control_protocol_pause"},
 		"pause with no timelock freezes all withdrawals")
@@ -207,7 +207,7 @@ func TestFindTerminalChainsModeIncludesHypothesis(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, p := range defaultPaths {
-		if objStr(p, "terminal_capability") == "liveness_loss" {
+		if validation.ObjStr(p, "terminal_capability") == "liveness_loss" {
 			t.Fatalf("default mode must not surface a hypothesis terminal: %v",
 				p)
 		}
@@ -218,7 +218,7 @@ func TestFindTerminalChainsModeIncludesHypothesis(t *testing.T) {
 	}
 	found := 0
 	for _, p := range modePaths {
-		if objStr(p, "terminal_capability") == "liveness_loss" {
+		if validation.ObjStr(p, "terminal_capability") == "liveness_loss" {
 			found++
 		}
 	}
@@ -239,12 +239,12 @@ func TestTerminalReportNotePresenceGated(t *testing.T) {
 	f1 := hypo(t, c1, "oracle-manipulation",
 		[]string{"drain_treasury"}, nil,
 		"price manipulation drains the treasury")
-	confirm(t, c1, objStr(f1, "finding_id"), "E5", "T3")
+	confirm(t, c1, validation.ObjStr(f1, "finding_id"), "E5", "T3")
 	rep, err := TerminalReport(c1, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(rep, "note"); got != baseNote {
+	if got := validation.ObjStr(rep, "note"); got != baseNote {
 		t.Fatalf("note = %q, want the pre-B1 bytes\n%s", got, baseNote)
 	}
 
@@ -255,7 +255,7 @@ func TestTerminalReportNotePresenceGated(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	note2 := objStr(rep2, "note")
+	note2 := validation.ObjStr(rep2, "note")
 	if note2 != baseNote+"; liveness terminal (B1) = liveness_loss granted "+
 		"by the last finding — non-economic: the freeze itself is the impact" {
 		t.Fatalf("note = %q", note2)
@@ -292,9 +292,9 @@ func TestLivenessChainRiskCalibration(t *testing.T) {
 	f1, f2 := lvPair(t, c)
 	term := validation.VObj(
 		kv("capability", validation.VStr("liveness_loss")),
-		kv("via_finding", validation.VStr(objStr(f2, "finding_id"))))
+		kv("via_finding", validation.VStr(validation.ObjStr(f2, "finding_id"))))
 	if _, err := MaterializeChain(c,
-		[]string{objStr(f1, "finding_id"), objStr(f2, "finding_id")},
+		[]string{validation.ObjStr(f1, "finding_id"), validation.ObjStr(f2, "finding_id")},
 		"Chain freeze, priced", "", nil, &term); err != nil {
 		t.Fatalf("materialize: %v", err)
 	}
@@ -304,7 +304,7 @@ func TestLivenessChainRiskCalibration(t *testing.T) {
 	}
 	var chainFinding validation.Value
 	for _, f := range all {
-		if objStr(f, "status") == "CHAIN" {
+		if validation.ObjStr(f, "status") == "CHAIN" {
 			chainFinding = f
 		}
 	}
@@ -315,7 +315,7 @@ func TestLivenessChainRiskCalibration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rationale := objStr(r, "rationale")
+	rationale := validation.ObjStr(r, "rationale")
 	if !strings.Contains(rationale, "blast_radius(protocol-solvency)=") {
 		t.Fatalf("rationale = %q, want the protocol-solvency weight",
 			rationale)

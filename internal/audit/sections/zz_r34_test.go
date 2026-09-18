@@ -5,7 +5,7 @@ package sections
 //
 // reportProofCollisionBurn opened with
 //
-//	prop := objStr(last, "property")
+//	prop := validation.ObjStr(last, "property")
 //	if prop == "" {
 //	    return ""
 //	}
@@ -51,7 +51,7 @@ import (
 // line unqualified.
 func r34WantGreen(t *testing.T, v validation.Value, iid string) {
 	t.Helper()
-	if !objAt(v, "ok").B {
+	if !validation.ObjAt(v, "ok").B {
 		t.Fatalf("section 11 must stay green: %s", validation.CanonCompact(v))
 	}
 	line := r33LineFor(v, iid)
@@ -189,8 +189,8 @@ func r34SetSlot(t *testing.T, c *state.Campaign, iid string,
 	if err != nil {
 		t.Fatal(err)
 	}
-	reg := objAt(links, "invariants")
-	e := objAt(reg, iid)
+	reg := validation.ObjAt(links, "invariants")
+	e := validation.ObjAt(reg, iid)
 	if e.Kind != validation.Obj {
 		t.Fatalf("fixture: no %s in links", iid)
 	}
@@ -240,7 +240,7 @@ func TestR34BoundUnstatedForgedKBurns(t *testing.T) {
 	honest := r34UnstatedSlot(sha)
 	r34SetSlot(t, c, "INV-3", honest)
 	zzR32bEvent(t, c, "INV-3", honest, sha, "p1")
-	if v := r33Audit(t, c); !objAt(v, "ok").B {
+	if v := r33Audit(t, c); !validation.ObjAt(v, "ok").B {
 		t.Fatalf("control: the honest bound-UNSTATED rung must be green: %s",
 			validation.CanonCompact(v))
 	}
@@ -265,7 +265,7 @@ func TestR34BoundUnstatedForgedKBurns(t *testing.T) {
 	zzR32bEvent(t, c, "INV-3", forged, sha, "p1")
 
 	v := r33Audit(t, c)
-	if objAt(v, "ok").B {
+	if validation.ObjAt(v, "ok").B {
 		t.Fatalf("the audit blesses a bound the pinned report never "+
 			"stated: %s", validation.CanonCompact(v))
 	}

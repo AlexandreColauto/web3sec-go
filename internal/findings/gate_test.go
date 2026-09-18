@@ -29,7 +29,7 @@ func TestConfirmationGateDetailExactVector(t *testing.T) {
 			"no verified graph-memory recall recorded — none recorded, or " +
 				"every recorded check is stale (a referenced row changed or " +
 				"left the store) — run `webv2 recall " + c.CampaignID +
-				" --finding " + objStr(got, "finding_id") + "`",
+				" --finding " + validation.ObjStr(got, "finding_id") + "`",
 			"webv2 recall " + c.CampaignID + " --finding <fid>   (records a " +
 				"graph-memory consultation)"},
 		{"reproduction-reproduced",
@@ -73,8 +73,8 @@ func TestConfirmationGateDetailExactVector(t *testing.T) {
 	}
 	// Value() renders the Python dict in key order
 	v := detail[0].Value()
-	if got := strings.Join([]string{objStr(v, "check_id"), objStr(v, "message"),
-		objStr(v, "remediation")}, "|"); got != want[0].CheckID+"|"+
+	if got := strings.Join([]string{validation.ObjStr(v, "check_id"), validation.ObjStr(v, "message"),
+		validation.ObjStr(v, "remediation")}, "|"); got != want[0].CheckID+"|"+
 		want[0].Message+"|"+want[0].Remediation {
 		t.Fatalf("GateFailure.Value = %q", got)
 	}
@@ -144,7 +144,7 @@ func strPtr(s string) *string { return &s }
 func TestGateReproductionTierVector(t *testing.T) {
 	c := ingestCamp(t)
 	got := pos(t, c)
-	fid := objStr(got, "finding_id")
+	fid := validation.ObjStr(got, "finding_id")
 	rec := testExec(t, c, "docker-networkless", fid, 0, "PASS: test_exploit\n")
 	if _, err := AddEvidence(c, fid, execEvidenceItem(rec, "E5", "fork-test",
 		"fork repro extracts value", "EV-2")); err != nil {
@@ -154,7 +154,7 @@ func TestGateReproductionTierVector(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ver := asDict(objAt(vf, "verification"))
+	ver := asDict(validation.ObjAt(vf, "verification"))
 	ver.O = validation.SetOrAppend(ver.O, "reproduction", validation.VObj(
 		kv("tier_reached", validation.VStr("T2")),
 		kv("status", validation.VStr("reproduced")),
@@ -190,7 +190,7 @@ func TestGateReproductionTierVector(t *testing.T) {
 func TestGateSequenceCoverageFailsClosed(t *testing.T) {
 	c := ingestCamp(t)
 	got := pos(t, c)
-	fid := objStr(got, "finding_id")
+	fid := validation.ObjStr(got, "finding_id")
 	prevReq, prevVer := onchainSequenceRequiredFunc, verifySequenceCoverageFunc
 	onchainSequenceRequiredFunc = func(*state.Campaign, validation.Value) bool {
 		return true
@@ -227,11 +227,11 @@ func TestGateSequenceCoverageFailsClosed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ver := asDict(objAt(vf, "verification"))
+	ver := asDict(validation.ObjAt(vf, "verification"))
 	ver.O = validation.SetOrAppend(ver.O, "reproduction", validation.VObj(
 		kv("status", validation.VStr("reproduced")),
 		kv("attempts", validation.VArr(validation.VObj(
-			kv("artifact_id", objAt(rec, "exec_id"))))),
+			kv("artifact_id", validation.ObjAt(rec, "exec_id"))))),
 	))
 	vf.O = validation.SetOrAppend(vf.O, "verification", ver)
 	verifySequenceCoverageFunc = func(*state.Campaign, validation.Value,
@@ -291,11 +291,11 @@ func TestGateShieldAdjudicationVector(t *testing.T) {
 		t.Fatalf("shield-adjudication failure missing: %v", detail)
 	}
 	// recording the adjudication clears it
-	if _, err := SetShieldAdjudication(c, objStr(f, "finding_id"), true,
+	if _, err := SetShieldAdjudication(c, validation.ObjStr(f, "finding_id"), true,
 		"the effect is extraction despite the documented intent", "operator"); err != nil {
 		t.Fatal(err)
 	}
-	reloaded, err := LoadFinding(c, objStr(f, "finding_id"))
+	reloaded, err := LoadFinding(c, validation.ObjStr(f, "finding_id"))
 	if err != nil {
 		t.Fatal(err)
 	}

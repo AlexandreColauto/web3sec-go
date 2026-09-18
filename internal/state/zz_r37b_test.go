@@ -39,10 +39,10 @@ func r37bDropMirrorEvent(t *testing.T, c *Campaign, seq int64) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ev := objAt(st, "events")
+	ev := validation.ObjAt(st, "events")
 	kept := ev.A[:0]
 	for _, e := range ev.A {
-		if s := objAt(e, "seq"); s.Kind == validation.Int && s.I == seq {
+		if s := validation.ObjAt(e, "seq"); s.Kind == validation.Int && s.I == seq {
 			continue
 		}
 		kept = append(kept, e)
@@ -117,7 +117,7 @@ func TestR37bLaggingPrefixHealsFromLogAndDiscloses(t *testing.T) {
 	}
 	seqs := map[int64]bool{}
 	for _, e := range r34Mirror(t, c) {
-		if s := objAt(e, "seq"); s.Kind == validation.Int {
+		if s := validation.ObjAt(e, "seq"); s.Kind == validation.Int {
 			seqs[s.I] = true
 		}
 	}
@@ -126,12 +126,12 @@ func TestR37bLaggingPrefixHealsFromLogAndDiscloses(t *testing.T) {
 			t.Fatalf("healed mirror is missing seq %d — the hole was baked", want)
 		}
 	}
-	lh := objAt(objAt(ev, "data"), "mirror_lag_healed")
+	lh := validation.ObjAt(validation.ObjAt(ev, "data"), "mirror_lag_healed")
 	if lh.Kind != validation.Obj {
 		t.Fatalf("the lag heal must be disclosed in the new event: %s",
 			validation.DumpsOrdered(ev, false))
 	}
-	if got := objAt(lh, "adopted_from_log"); got.Kind != validation.Int || got.I != 1 {
+	if got := validation.ObjAt(lh, "adopted_from_log"); got.Kind != validation.Int || got.I != 1 {
 		t.Fatalf("adopted_from_log must be 1, got %s",
 			validation.DumpsOrdered(ev, false))
 	}
@@ -167,9 +167,9 @@ func TestR37bEmptyMirrorOverLiveLedgerHeals(t *testing.T) {
 	if n := len(r34Mirror(t, c)); n != 4 {
 		t.Fatalf("the healed mirror must hold all 4 events, got %d", n)
 	}
-	lh := objAt(objAt(ev, "data"), "mirror_lag_healed")
+	lh := validation.ObjAt(validation.ObjAt(ev, "data"), "mirror_lag_healed")
 	if lh.Kind != validation.Obj ||
-		objAt(lh, "adopted_from_log").I != 3 {
+		validation.ObjAt(lh, "adopted_from_log").I != 3 {
 		t.Fatalf("the heal must disclose adopting 3 ledger events: %s",
 			validation.DumpsOrdered(ev, false))
 	}
@@ -208,7 +208,7 @@ func TestR37bHealthyCappedMirrorStillWrites(t *testing.T) {
 		t.Fatalf("a tail-aligned capped mirror is health, not a crash "+
 			"shape: %v", err)
 	}
-	if objAt(objAt(ev, "data"), "mirror_lag_healed").Kind != validation.Null {
+	if validation.ObjAt(validation.ObjAt(ev, "data"), "mirror_lag_healed").Kind != validation.Null {
 		t.Fatalf("a healthy write must disclose nothing: %s",
 			validation.DumpsOrdered(ev, false))
 	}
@@ -219,8 +219,8 @@ func TestR37bHealthyCappedMirrorStillWrites(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mirror := objAt(st, "events").A
-	if s := objAt(mirror[len(mirror)-1], "seq"); s.Kind != validation.Int ||
+	mirror := validation.ObjAt(st, "events").A
+	if s := validation.ObjAt(mirror[len(mirror)-1], "seq"); s.Kind != validation.Int ||
 		s.I != int64(logN) {
 		t.Fatalf("the new event must sit at the mirror's tail, got %s",
 			validation.DumpsOrdered(mirror[len(mirror)-1], false))

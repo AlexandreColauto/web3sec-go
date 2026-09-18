@@ -170,11 +170,11 @@ func TestR40DRefusedStatusFlipsRestoreRegistry(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	entry := objAt(regOf(links), "INV-1")
-	if got := objStr(entry, "test_status"); got != "violated" {
+	entry := validation.ObjAt(regOf(links), "INV-1")
+	if got := validation.ObjStr(entry, "test_status"); got != "violated" {
 		t.Fatalf("test_status = %q, want violated", got)
 	}
-	if got := objStr(entry, "status"); got != "CONTRADICTED" {
+	if got := validation.ObjStr(entry, "status"); got != "CONTRADICTED" {
 		t.Fatalf("status = %q, want CONTRADICTED", got)
 	}
 	if got := r40dEventCount(t, c.EventsPath, "invariant.linked_finding"); got != eventsBaseline["invariant.linked_finding"]+1 {
@@ -239,8 +239,8 @@ func TestR40DRefusedSeedAndMigrateRestoreRegistryFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("repaired migrate: %v", err)
 	}
-	entry := objAt(regOf(links), "INV-9")
-	if got := objStr(entry, "test_status"); got != "held" {
+	entry := validation.ObjAt(regOf(links), "INV-9")
+	if got := validation.ObjStr(entry, "test_status"); got != "held" {
 		t.Fatalf("migrated test_status = %q, want held", got)
 	}
 	if got := r40dEventCount(t, c.EventsPath, "invariant.migrated"); got != 1 {

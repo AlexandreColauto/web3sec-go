@@ -245,13 +245,13 @@ func TestPlanTextQueueShowsPriorityIDs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	prios := objAt(plan, "priorities")
+	prios := validation.ObjAt(plan, "priorities")
 	if prios.Kind != validation.Arr || len(prios.A) == 0 {
 		t.Fatalf("the fixture plan must queue priorities: %+v", prios)
 	}
 	for _, p := range prios.A {
-		if !strings.Contains(out, "["+objStr(p, "id")+"]") {
-			t.Fatalf("stdout is missing [%s]: %q", objStr(p, "id"), out)
+		if !strings.Contains(out, "["+validation.ObjStr(p, "id")+"]") {
+			t.Fatalf("stdout is missing [%s]: %q", validation.ObjStr(p, "id"), out)
 		}
 	}
 	if strings.Contains(out, "[?]") {

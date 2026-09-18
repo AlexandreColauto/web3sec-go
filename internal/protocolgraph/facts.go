@@ -70,7 +70,7 @@ func ApplyFactsCounted(model, facts validation.Value) (validation.Value,
 		return validation.VNull(), counts,
 			fmt.Errorf("operator facts: document is not an object")
 	}
-	factList := objAt(facts, "facts")
+	factList := validation.ObjAt(facts, "facts")
 	if factList.Kind != validation.Arr {
 		return validation.VNull(), counts,
 			fmt.Errorf("operator facts: document carries no facts list")
@@ -82,18 +82,18 @@ func ApplyFactsCounted(model, facts validation.Value) (validation.Value,
 		hasDNS, hasDep bool
 	}
 	slots := map[int]*slot{}
-	comps := objAt(model, "components")
+	comps := validation.ObjAt(model, "components")
 	for _, f := range factList.A {
 		if f.Kind != validation.Obj {
 			return validation.VNull(), counts,
 				fmt.Errorf("operator facts: fact is not an object")
 		}
-		target := objAt(f, "target")
-		kind := objAt(target, "kind").S
+		target := validation.ObjAt(f, "target")
+		kind := validation.ObjAt(target, "kind").S
 		field, identity := "", ""
-		if url := objAt(target, "url"); url.Kind == validation.Str && url.S != "" {
+		if url := validation.ObjAt(target, "url"); url.Kind == validation.Str && url.S != "" {
 			field, identity = "url", url.S
-		} else if path := objAt(target, "path"); path.Kind == validation.Str &&
+		} else if path := validation.ObjAt(target, "path"); path.Kind == validation.Str &&
 			path.S != "" {
 			field, identity = "path", path.S
 		} else {
@@ -104,10 +104,10 @@ func ApplyFactsCounted(model, facts validation.Value) (validation.Value,
 		matched, n := -1, 0
 		if comps.Kind == validation.Arr {
 			for i, c := range comps.A {
-				if c.Kind != validation.Obj || objAt(c, "kind").S != kind {
+				if c.Kind != validation.Obj || validation.ObjAt(c, "kind").S != kind {
 					continue
 				}
-				if v := objAt(c, field); v.Kind != validation.Str ||
+				if v := validation.ObjAt(c, field); v.Kind != validation.Str ||
 					v.S != identity {
 					continue
 				}

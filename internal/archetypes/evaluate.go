@@ -49,7 +49,7 @@ var checkKeys = map[string]map[string]bool{
 // never a bare panic — so one bad predicate cannot abort the whole prescreen
 // with an unactionable traceback.
 func EvaluatePrecondition(check, index validation.Value) (string, string, error) {
-	t := objStr(check, "type")
+	t := validation.ObjStr(check, "type")
 	switch t {
 	case "state_var_exists", "function_exists":
 		return evalNamePresence(t, check, index)
@@ -100,7 +100,7 @@ func evalNamePresence(t string, check, index validation.Value) (string, string, 
 	}
 	var hits []string
 	for _, n := range structidx.Nodes(index, kind) {
-		name := objStr(n, "name")
+		name := validation.ObjStr(n, "name")
 		if names[name] || (pat != nil && pat.MatchString(name)) {
 			hits = append(hits, name)
 		}
@@ -121,7 +121,7 @@ func evalUnguardedFunction(check, index validation.Value) (string, string, error
 	}
 	var hits []string
 	for _, n := range structidx.Nodes(index, "function") {
-		name := objStr(n, "name")
+		name := validation.ObjStr(n, "name")
 		if names[name] && unguarded(n) {
 			hits = append(hits, name)
 		}
@@ -137,7 +137,7 @@ func evalUnguardedFunction(check, index validation.Value) (string, string, error
 func evalDelegatecallPresent(index validation.Value) (string, string) {
 	count := 0
 	for _, e := range listAt(index, "edges") {
-		if objStr(e, "rel") == "delegatecalls" {
+		if validation.ObjStr(e, "rel") == "delegatecalls" {
 			count++
 		}
 	}
@@ -166,7 +166,7 @@ func evalUnguardedEntryWrites(check, index validation.Value) (string, string, er
 		// C0: the reconciled writer list — the parser's writes_storage omits
 		// statement-level writes, so the raw list misses real writer functions.
 		if anyMatchStr(pat, structidx.WritersOf(index, n)) {
-			eps = append(eps, objStr(n, "name"))
+			eps = append(eps, validation.ObjStr(n, "name"))
 		}
 	}
 	if len(eps) > 0 {
@@ -191,7 +191,7 @@ func evalExternalCallPattern(check, index validation.Value) (string, string, err
 	for _, n := range structidx.Nodes(index, "function") {
 		calls := append(listAt(n, "calls_external"), listAt(n, "delegatecalls")...)
 		if anyMatch(pat, calls) {
-			hits = append(hits, objStr(n, "id"))
+			hits = append(hits, validation.ObjStr(n, "id"))
 		}
 	}
 	sort.Strings(hits)
@@ -248,7 +248,7 @@ func normSepKey(s string) string {
 // evidence.
 func usesSeparatorParam(n validation.Value) bool {
 	for _, u := range listAt(n, "uses") {
-		if objStr(u, "kind") != "param" {
+		if validation.ObjStr(u, "kind") != "param" {
 			continue
 		}
 		for _, k := range listAt(u, "concept_keys") {
@@ -275,11 +275,11 @@ func evalSigVerifyNoSeparator(check, index validation.Value) (string, string, er
 	}
 	var hits []string
 	for _, n := range structidx.Nodes(index, "function") {
-		name := objStr(n, "name")
+		name := validation.ObjStr(n, "name")
 		if !names[name] {
 			continue
 		}
-		if containsLower(objStr(n, "selector"), separatorMarkers) {
+		if containsLower(validation.ObjStr(n, "selector"), separatorMarkers) {
 			continue
 		}
 		if usesSeparatorParam(n) {
@@ -315,10 +315,10 @@ func evalMerkleVerifyWithoutDepthGate(check, index validation.Value) (string, st
 	}
 	var hits []string
 	for _, n := range structidx.Nodes(index, "function") {
-		if !containsSubstr(objStr(n, "name"), names) {
+		if !containsSubstr(validation.ObjStr(n, "name"), names) {
 			continue
 		}
-		if containsLower(objStr(n, "selector"), depthMarkers) {
+		if containsLower(validation.ObjStr(n, "selector"), depthMarkers) {
 			continue
 		}
 		gated := false
@@ -331,7 +331,7 @@ func evalMerkleVerifyWithoutDepthGate(check, index validation.Value) (string, st
 		if gated {
 			continue
 		}
-		hits = append(hits, objStr(n, "name"))
+		hits = append(hits, validation.ObjStr(n, "name"))
 	}
 	sort.Strings(hits)
 	if len(hits) > 0 {
@@ -364,7 +364,7 @@ func evalMerkleVerifyWithoutDepthGate(check, index validation.Value) (string, st
 // "<contract id>.<member name>" (parser.go:1060 state vars, :1127 functions)
 // and a contract id is "<path>#<ContractName>", which never contains a dot.
 func contractOf(n validation.Value) string {
-	id := objStr(n, "id")
+	id := validation.ObjStr(n, "id")
 	if i := strings.LastIndexByte(id, '.'); i >= 0 {
 		return id[:i]
 	}
@@ -421,7 +421,7 @@ func evalThresholdWithoutEnforcement(check, index validation.Value) (string, str
 	hits := []string{}
 	seen := map[string]bool{}
 	for _, v := range structidx.Nodes(index, "state-variable") {
-		name := objStr(v, "name")
+		name := validation.ObjStr(v, "name")
 		if !containsLower(name, markers) {
 			continue
 		}
@@ -431,7 +431,7 @@ func evalThresholdWithoutEnforcement(check, index validation.Value) (string, str
 				continue
 			}
 			for _, g := range listAt(f, "guards") {
-				guards = append(guards, objStr(g, "text"))
+				guards = append(guards, validation.ObjStr(g, "text"))
 			}
 		}
 		if anyContainsLower(guards, name) {
@@ -527,7 +527,7 @@ func evalRelayerSingleKey(check, index validation.Value) (string, string, error)
 		if coSigner || guardNamesCoSigner(n, index) {
 			continue
 		}
-		hits = append(hits, objStr(n, "name"))
+		hits = append(hits, validation.ObjStr(n, "name"))
 	}
 	sort.Strings(hits)
 	if len(hits) > 0 {
@@ -546,7 +546,7 @@ func guardNamesCoSigner(n validation.Value, index validation.Value) bool {
 		if contractOf(v) != contractOf(n) {
 			continue
 		}
-		if name := objStr(v, "name"); containsLower(name, coSignerMarkers) {
+		if name := validation.ObjStr(v, "name"); containsLower(name, coSignerMarkers) {
 			cosigners = append(cosigners, name)
 		}
 	}
@@ -554,7 +554,7 @@ func guardNamesCoSigner(n validation.Value, index validation.Value) bool {
 		return false
 	}
 	for _, g := range listAt(n, "guards") {
-		if text := objStr(g, "text"); text != "" && containsLower(text, cosigners) {
+		if text := validation.ObjStr(g, "text"); text != "" && containsLower(text, cosigners) {
 			return true
 		}
 	}
@@ -625,16 +625,16 @@ func evalMerkleProofNoLengthCheck(check, index validation.Value) (string, string
 	}
 	hits := []string{}
 	for _, n := range structidx.Nodes(index, "function") {
-		if !containsLower(objStr(n, "name"), markers) {
+		if !containsLower(validation.ObjStr(n, "name"), markers) {
 			continue
 		}
-		if !containsLower(objStr(n, "selector"), pathSelectorMarkers) {
+		if !containsLower(validation.ObjStr(n, "selector"), pathSelectorMarkers) {
 			continue
 		}
 		if guardsMentionLength(n) {
 			continue
 		}
-		hits = append(hits, objStr(n, "name"))
+		hits = append(hits, validation.ObjStr(n, "name"))
 	}
 	sort.Strings(hits)
 	if len(hits) > 0 {
@@ -648,7 +648,7 @@ func evalMerkleProofNoLengthCheck(check, index validation.Value) (string, string
 // somewhere on this path" evidence.
 func guardsMentionLength(n validation.Value) bool {
 	for _, g := range listAt(n, "guards") {
-		if containsLower(objStr(g, "text"), lengthMarker) {
+		if containsLower(validation.ObjStr(g, "text"), lengthMarker) {
 			return true
 		}
 	}
@@ -686,7 +686,7 @@ func evalVerifierDefaultOn(check, index validation.Value) (string, string, error
 	hits := []string{}
 	seen := map[string]bool{}
 	for _, f := range structidx.Nodes(index, "function") {
-		if !containsLower(objStr(f, "name"), initShapedMarkers) {
+		if !containsLower(validation.ObjStr(f, "name"), initShapedMarkers) {
 			continue
 		}
 		if !unguarded(f) {
@@ -733,20 +733,20 @@ func containsSubstr(name string, needles []string) bool {
 // false-miss visibility. Candidate pool per check type; score is the max
 // bigram-Jaccard over the check's literal tokens.
 func NearMatches(check, index validation.Value, k int) []string {
-	t := objStr(check, "type")
+	t := validation.ObjStr(check, "type")
 	var cands []string
 	switch t {
 	case "state_var_exists", "unguarded_entry_writes",
 		"threshold_without_enforcement", "relayer_single_key",
 		"verifier_default_on":
 		for _, n := range structidx.Nodes(index, "state-variable") {
-			cands = append(cands, objStr(n, "name"))
+			cands = append(cands, validation.ObjStr(n, "name"))
 		}
 	case "function_exists", "unguarded_function_exists",
 		"sig_verify_no_separator", "merkle_verify_without_depth_gate",
 		"merkle_proof_no_length_check":
 		for _, n := range structidx.Nodes(index, "function") {
-			cands = append(cands, objStr(n, "name"))
+			cands = append(cands, validation.ObjStr(n, "name"))
 		}
 	case "external_call_pattern":
 		for _, n := range structidx.Nodes(index, "function") {
@@ -817,7 +817,7 @@ func checkLiterals(check validation.Value) []string {
 		}
 	}
 	for _, key := range []string{"pattern", "var_pattern"} {
-		if v := objAt(check, key); v.Kind == validation.Str {
+		if v := validation.ObjAt(check, key); v.Kind == validation.Str {
 			for _, t := range wordRe.FindAllString(v.S, -1) {
 				if len(t) > 3 {
 					lits = append(lits, t)
@@ -845,7 +845,7 @@ func compileRegex(pattern, context string) (*regexp.Regexp, error) {
 
 // optionalPattern compiles check[key] when present (nil when absent).
 func optionalPattern(check validation.Value, key, context string) (*regexp.Regexp, error) {
-	v := objAt(check, key)
+	v := validation.ObjAt(check, key)
 	if v.Kind != validation.Str {
 		return nil, nil
 	}
@@ -922,28 +922,8 @@ func pyListRepr(xs []string) string {
 	return "[" + strings.Join(parts, ", ") + "]"
 }
 
-func objAt(v validation.Value, key string) validation.Value {
-	if v.Kind != validation.Obj {
-		return validation.VNull()
-	}
-	for _, kv := range v.O {
-		if kv.K == key {
-			return kv.V
-		}
-	}
-	return validation.VNull()
-}
-
-func objStr(v validation.Value, key string) string {
-	x := objAt(v, key)
-	if x.Kind == validation.Str {
-		return x.S
-	}
-	return ""
-}
-
 func listAt(v validation.Value, key string) []validation.Value {
-	x := objAt(v, key)
+	x := validation.ObjAt(v, key)
 	if x.Kind != validation.Arr {
 		return nil
 	}

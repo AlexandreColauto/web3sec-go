@@ -25,7 +25,7 @@ func ppExec(t *testing.T, c *state.Campaign, stdout string,
 	rec := registerExec(t, c, "docker-networkless",
 		"forge test --match-test test_exploit", stdout, "pytest-harness",
 		exit, "")
-	return objStr(rec, "exec_id")
+	return validation.ObjStr(rec, "exec_id")
 }
 
 // ppFinding ingests a hypothesis and returns its id.
@@ -43,7 +43,7 @@ func ppCite(t *testing.T, c *state.Campaign, fid, execID string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ev := objAt(f, "evidence")
+	ev := validation.ObjAt(f, "evidence")
 	if ev.Kind != validation.Arr {
 		ev = validation.VArr()
 	}
@@ -243,8 +243,8 @@ func TestPostPatchStatusUntouched(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(before, "status") != objStr(after, "status") {
-		t.Fatalf("status moved %q -> %q", objStr(before, "status"),
-			objStr(after, "status"))
+	if validation.ObjStr(before, "status") != validation.ObjStr(after, "status") {
+		t.Fatalf("status moved %q -> %q", validation.ObjStr(before, "status"),
+			validation.ObjStr(after, "status"))
 	}
 }

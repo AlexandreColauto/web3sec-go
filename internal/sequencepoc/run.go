@@ -50,7 +50,7 @@ func RunSequence(c *state.Campaign, specPath string,
 	// Pass-2 M1: the staged spec.json permanently claims
 	// spec['finding_id'] while the attempt lands on `finding_id` — a
 	// mismatch silently attributes A's PoC to B. Fail loud.
-	claimed := objStr(spec, "finding_id")
+	claimed := validation.ObjStr(spec, "finding_id")
 	if opts.FindingID != nil && claimed != "" && claimed != *opts.FindingID {
 		return validation.VNull(), specErrf(
 			"sequence spec claims finding %s but was run for finding %s — "+
@@ -72,19 +72,19 @@ func RunSequence(c *state.Campaign, specPath string,
 	if err != nil {
 		return validation.VNull(), err
 	}
-	execID := objStr(rec, "exec_id")
+	execID := validation.ObjStr(rec, "exec_id")
 	ref := execID
 	data := validation.VObj(
-		validation.KV{K: "spec_id", V: validation.VStr(objStr(spec, "spec_id"))},
+		validation.KV{K: "spec_id", V: validation.VStr(validation.ObjStr(spec, "spec_id"))},
 		validation.KV{K: "steps", V: validation.VInt(
-			int64(len(listOf(objAt(spec, "steps")))))},
-		validation.KV{K: "exit_status", V: objAt(rec, "exit_status")},
+			int64(len(listOf(validation.ObjAt(spec, "steps")))))},
+		validation.KV{K: "exit_status", V: validation.ObjAt(rec, "exit_status")},
 	)
 	if _, err := c.Log("sequence.run", &ref, &data); err != nil {
 		return validation.VNull(), err
 	}
 	if err := stageSequenceArtifacts(wd,
-		filepath.Dir(objStr(rec, "stdout_path"))); err != nil {
+		filepath.Dir(validation.ObjStr(rec, "stdout_path"))); err != nil {
 		return validation.VNull(), err
 	}
 	if opts.FindingID != nil {
@@ -104,7 +104,7 @@ func sequenceWorkdir(c *state.Campaign, spec validation.Value,
 	if explicit {
 		wd = *opts.Workdir
 	} else {
-		wd = filepath.Join(c.ExecsDir, "seqwork-"+objStr(spec, "spec_id"))
+		wd = filepath.Join(c.ExecsDir, "seqwork-"+validation.ObjStr(spec, "spec_id"))
 	}
 	// r5 (critic issue 7): a workdir the OPERATOR named is a promise about
 	// an existing place — MkdirAll'ing a typo invents a directory, hides
@@ -167,23 +167,23 @@ func stageSequenceArtifacts(wd, outDir string) error {
 // fork-test evidence, anything else records a failed logic attempt.
 func recordTier4(c *state.Campaign, spec, rec validation.Value,
 	findingID string) error {
-	specID := objStr(spec, "spec_id")
-	nSteps := len(listOf(objAt(spec, "steps")))
+	specID := validation.ObjStr(spec, "spec_id")
+	nSteps := len(listOf(validation.ObjAt(spec, "steps")))
 	tier, etype := "T4", "fork-test"
-	if exitIsZero(objAt(rec, "exit_status")) {
+	if exitIsZero(validation.ObjAt(rec, "exit_status")) {
 		_, err := reproduction.AttemptAndMint(c, findingID,
-			objStr(rec, "exec_id"), fmt.Sprintf(
+			validation.ObjStr(rec, "exec_id"), fmt.Sprintf(
 				"sequence PoC %s (%d steps) on the pinned fork", specID,
 				nSteps), &tier, &etype)
 		return err
 	}
 	failure, t4 := "logic", "T4"
-	execID := objStr(rec, "exec_id")
+	execID := validation.ObjStr(rec, "exec_id")
 	_, err := reproduction.RecordAttempt(c, findingID, "failed",
 		reproduction.RecordOpts{FailureClass: &failure, Tier: &t4,
 			ExecID: &execID, Notes: fmt.Sprintf(
 				"sequence PoC %s exited %s", specID,
-				pyStr(objAt(rec, "exit_status")))})
+				pyStr(validation.ObjAt(rec, "exit_status")))})
 	return err
 }
 
@@ -212,7 +212,7 @@ func resultForExec(campaign *state.Campaign,
 	if execRec.Kind != validation.Obj {
 		return validation.VNull(), "exec record is not an object"
 	}
-	sp := objAt(execRec, "stdout_path")
+	sp := validation.ObjAt(execRec, "stdout_path")
 	if sp.Kind != validation.Str || sp.S == "" {
 		return validation.VNull(), "exec record has no stdout_path — cannot " +
 			"locate the exec output dir"
@@ -285,7 +285,7 @@ func VerifySequenceCoverage(campaign *state.Campaign, finding,
 	if finding.Kind != validation.Obj {
 		return false, []string{"finding is not an object"}
 	}
-	if seq := objAt(finding, "exploit_sequence"); seq.Kind != validation.Null &&
+	if seq := validation.ObjAt(finding, "exploit_sequence"); seq.Kind != validation.Null &&
 		seq.Kind != validation.Arr {
 		return false, []string{"declared exploit_sequence is not a list"}
 	}
@@ -296,7 +296,7 @@ func VerifySequenceCoverage(campaign *state.Campaign, finding,
 	if errText != "" {
 		return false, []string{errText}
 	}
-	outDir := filepath.Dir(objStr(execRec, "stdout_path"))
+	outDir := filepath.Dir(validation.ObjStr(execRec, "stdout_path"))
 	spec, readErr := validation.ReadJson(filepath.Join(outDir, "spec.json"))
 	if readErr != nil {
 		spec = validation.VNull()
@@ -315,14 +315,14 @@ func coverageReasons(campaign *state.Campaign, finding, result,
 	spec validation.Value) []string {
 	var reasons []string
 	actualHash := SpecHash(spec)
-	if got := objAt(result, "spec_hash"); got.Kind != validation.Str ||
+	if got := validation.ObjAt(result, "spec_hash"); got.Kind != validation.Str ||
 		got.S != actualHash {
 		reasons = append(reasons, fmt.Sprintf(
 			"result does not bind to the executed spec (hash %s != %s)",
-			pyStr(objAt(result, "spec_hash")), actualHash))
+			pyStr(validation.ObjAt(result, "spec_hash")), actualHash))
 	}
-	declared := listOf(objAt(finding, "exploit_sequence"))
-	rawSteps := objAt(result, "steps")
+	declared := listOf(validation.ObjAt(finding, "exploit_sequence"))
+	rawSteps := validation.ObjAt(result, "steps")
 	executed := listOf(rawSteps)
 	if validation.PyTruthy(rawSteps) && rawSteps.Kind != validation.Arr {
 		return []string{"executed steps in sequence_result.json is not a list"}
@@ -344,14 +344,14 @@ func coverageReasons(campaign *state.Campaign, finding, result,
 		}
 		reasons = append(reasons, reason)
 	}
-	rawSpecSteps := objAt(spec, "steps")
+	rawSpecSteps := validation.ObjAt(spec, "steps")
 	specSteps := listOf(rawSpecSteps)
 	if validation.PyTruthy(rawSpecSteps) && rawSpecSteps.Kind != validation.Arr {
 		return []string{"staged spec.json steps is not a list"}
 	}
 	reasons = append(reasons, stepReasons(executed, specSteps)...)
 	reasons = append(reasons, assertionReasons(result)...)
-	if objStr(result, "overall") != "pass" {
+	if validation.ObjStr(result, "overall") != "pass" {
 		reasons = append(reasons, "result overall is not 'pass'")
 	}
 	return reasons
@@ -370,15 +370,15 @@ func stepReasons(executed, specSteps []validation.Value) []string {
 				"step %d record is malformed", i+1))
 			continue
 		}
-		wantRevert := validation.PyTruthy(objAt(specSteps[i], "expect_revert"))
-		status := objAt(s, "status")
+		wantRevert := validation.PyTruthy(validation.ObjAt(specSteps[i], "expect_revert"))
+		status := validation.ObjAt(s, "status")
 		reverted := status.Kind == validation.Str && status.S == "revert"
 		switch {
 		case wantRevert && !reverted:
 			reasons = append(reasons, fmt.Sprintf(
 				"step %d was expected to revert but the result records "+
 					"status %s", i+1, validation.PyRepr(status)))
-		case wantRevert && !validation.PyTruthy(objAt(s, "revert_reason")):
+		case wantRevert && !validation.PyTruthy(validation.ObjAt(s, "revert_reason")):
 			reasons = append(reasons, fmt.Sprintf(
 				"step %d reverted but records no revert reason", i+1))
 		case !wantRevert && !(status.Kind == validation.Str &&
@@ -394,15 +394,15 @@ func stepReasons(executed, specSteps []validation.Value) []string {
 // assertionReasons reports every final assertion that did not pass.
 func assertionReasons(result validation.Value) []string {
 	var reasons []string
-	for _, a := range listOf(objAt(result, "final_assertions")) {
-		if a.Kind == validation.Obj && objAt(a, "passed").Kind == validation.Bool &&
-			objAt(a, "passed").B {
+	for _, a := range listOf(validation.ObjAt(result, "final_assertions")) {
+		if a.Kind == validation.Obj && validation.ObjAt(a, "passed").Kind == validation.Bool &&
+			validation.ObjAt(a, "passed").B {
 			continue
 		}
 		reasons = append(reasons, fmt.Sprintf(
 			"final assertion %s did not pass (observed %s, expected %s)",
-			pyStr(objAt(a, "id")), validation.PyRepr(objAt(a, "observed")),
-			validation.PyRepr(objAt(a, "expected"))))
+			pyStr(validation.ObjAt(a, "id")), validation.PyRepr(validation.ObjAt(a, "observed")),
+			validation.PyRepr(validation.ObjAt(a, "expected"))))
 	}
 	return reasons
 }
@@ -415,7 +415,7 @@ func actorSet(steps []validation.Value) map[string]struct{} {
 		if s.Kind != validation.Obj {
 			continue
 		}
-		if actor := objAt(s, "actor"); validation.PyTruthy(actor) {
+		if actor := validation.ObjAt(s, "actor"); validation.PyTruthy(actor) {
 			out[valueKey(actor)] = struct{}{}
 		}
 	}
@@ -433,7 +433,7 @@ func missingActors(declared []validation.Value,
 		if s.Kind != validation.Obj {
 			continue
 		}
-		actor := objAt(s, "actor")
+		actor := validation.ObjAt(s, "actor")
 		if !validation.PyTruthy(actor) {
 			continue
 		}
@@ -468,12 +468,12 @@ func BenignActorAudit(exploitSequence validation.Value,
 		if s.Kind != validation.Obj {
 			continue
 		}
-		actor := objAt(s, "actor")
+		actor := validation.ObjAt(s, "actor")
 		cls := ""
 		if actor.Kind == validation.Str {
 			cls = cast[actor.S]
 		}
-		raw := objAt(s, "args")
+		raw := validation.ObjAt(s, "args")
 		values := raw.A
 		if raw.Kind != validation.Arr {
 			values = []validation.Value{raw}

@@ -47,7 +47,7 @@ func verifyPostPatch(c *state.Campaign, a *verifyArgs, r *Runner) error {
 		return err
 	}
 	base, _ := reproduction.BaselineReproExec(f)
-	ver := objAt(f, "verification")
+	ver := validation.ObjAt(f, "verification")
 	if ver.Kind != validation.Obj {
 		ver = validation.VObj()
 	}

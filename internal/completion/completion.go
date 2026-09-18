@@ -87,7 +87,7 @@ func Waivers(c *state.Campaign, stage string) ([]validation.Value, error) {
 			// eye — name the file and the physical line.
 			return nil, fmt.Errorf("waivers.jsonl line %d: %v", i+1, err)
 		}
-		if stage != "" && objStr(row, "stage") != stage {
+		if stage != "" && validation.ObjStr(row, "stage") != stage {
 			continue
 		}
 		rows = append(rows, row)
@@ -115,7 +115,7 @@ func Waive(c *state.Campaign, stage, subject, reason, actor string) (validation.
 		kv("subject", validation.VStr(subj)),
 		kv("reason", validation.VStr(trimmed)),
 		kv("actor", validation.VStr(actor)),
-		kv("at", validation.VStr(nowIso())),
+		kv("at", validation.VStr(state.NowIso())),
 	)
 	// r13: the waiver row and its completion.waived event are ONE unit
 	// (VerifyLog cross-checks them both directions). Another process
@@ -156,7 +156,7 @@ func waiverMap(c *state.Campaign, stage string) (map[string]validation.Value, er
 	}
 	out := map[string]validation.Value{}
 	for _, w := range rows {
-		out[objStr(w, "subject")] = w
+		out[validation.ObjStr(w, "subject")] = w
 	}
 	return out, nil
 }
@@ -178,7 +178,7 @@ func findingsWith(c *state.Campaign, statuses []string) ([]validation.Value, err
 	}
 	out := []validation.Value{}
 	for _, f := range live {
-		st := objStr(f, "status")
+		st := validation.ObjStr(f, "status")
 		for _, want := range statuses {
 			if st == want {
 				out = append(out, f)
@@ -216,7 +216,7 @@ func unwaived(items []proofItem, waived map[string]validation.Value,
 func proofResult(done bool, missing []string, note string) validation.Value {
 	return validation.VObj(
 		kv("done", validation.VBool(done)),
-		kv("missing", strArr(missing)),
+		kv("missing", validation.StrArr(missing)),
 		kv("note", validation.VStr(note)),
 	)
 }
@@ -312,21 +312,21 @@ func AuditStageLedger(c *state.Campaign) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	stages := orEmpty(objAt(st, "stages"))
+	stages := orEmpty(validation.ObjAt(st, "stages"))
 	for _, sid := range proofOrder {
 		if stageKind(sid) != "model" {
 			continue
 		}
-		entry := orEmpty(objAt(stages, sid))
-		if objStr(entry, "status") != "done" {
+		entry := orEmpty(validation.ObjAt(stages, sid))
+		if validation.ObjStr(entry, "status") != "done" {
 			continue
 		}
 		pr, err := ProofStatus(c, sid)
 		if err != nil {
 			return nil, err
 		}
-		if pr.Kind == validation.Obj && !pyTruthyBigNonEmpty(objAt(pr, "done")) {
-			missing := strList(objAt(pr, "missing"))
+		if pr.Kind == validation.Obj && !pyTruthyBigNonEmpty(validation.ObjAt(pr, "done")) {
+			missing := strList(validation.ObjAt(pr, "missing"))
 			head := missing
 			if len(head) > 5 {
 				head = head[:5]

@@ -102,15 +102,15 @@ func traceAssumptions(content string) map[string]string {
 // ExampleSignature is example_signature: taxonomy + bug_class +
 // assumption-status sequence + claim technique tokens.
 func ExampleSignature(example validation.Value) string {
-	st := objAt(example, "structured")
-	assumptions := objAt(st, "assumptions")
+	st := validation.ObjAt(example, "structured")
+	assumptions := validation.ObjAt(st, "assumptions")
 	statuses := []string{}
 	if assumptions.Kind == validation.Arr {
 		for _, a := range assumptions.A {
-			statuses = append(statuses, objStr(a, "status"))
+			statuses = append(statuses, validation.ObjStr(a, "status"))
 		}
 	}
-	words := wordRe.FindAllString(strings.ToLower(objStr(st, "claim")), -1)
+	words := wordRe.FindAllString(strings.ToLower(validation.ObjStr(st, "claim")), -1)
 	tech := []string{}
 	for _, w := range words {
 		if _, stop := techStopwords[w]; !stop {
@@ -137,18 +137,18 @@ func todoPlaceholders(st validation.Value) []string {
 		return strings.Contains(strings.ToLower(pyStrValue(v)), "todo")
 	}
 	hits := []string{}
-	assumptions := objAt(st, "assumptions")
+	assumptions := validation.ObjAt(st, "assumptions")
 	if assumptions.Kind == validation.Arr {
 		for _, a := range assumptions.A {
-			if hasTodo(objAt(a, "reason")) {
-				hits = append(hits, "assumption "+pyStrValue(objAt(a, "id"))+
+			if hasTodo(validation.ObjAt(a, "reason")) {
+				hits = append(hits, "assumption "+pyStrValue(validation.ObjAt(a, "id"))+
 					".reason")
 			}
 		}
 	}
 	for _, field := range []string{"bug_class", "claim", "expected_impact",
 		"next_test"} {
-		if hasTodo(objAt(st, field)) {
+		if hasTodo(validation.ObjAt(st, field)) {
 			hits = append(hits, field)
 		}
 	}
@@ -184,10 +184,10 @@ func LintExample(example validation.Value, existing []validation.Value,
 		return []string{"schema: " + schemaMsg(err)}
 	}
 	reasons := []string{}
-	msgs := objAt(example, "messages")
+	msgs := validation.ObjAt(example, "messages")
 	content := ""
 	if msgs.Kind == validation.Arr && len(msgs.A) == 3 && allObjects(msgs.A) {
-		content = objStr(msgs.A[2], "content")
+		content = validation.ObjStr(msgs.A[2], "content")
 	}
 	expected, err := proposerPromptText()
 	if err != nil {
@@ -196,7 +196,7 @@ func LintExample(example validation.Value, existing []validation.Value,
 	}
 	if msgs.Kind == validation.Arr && len(msgs.A) > 0 &&
 		msgs.A[0].Kind == validation.Obj &&
-		objStr(msgs.A[0], "content") != expected {
+		validation.ObjStr(msgs.A[0], "content") != expected {
 		reasons = append(reasons,
 			"system-prompt drift: messages[0] is not byte-identical to "+
 				"prompts/47_proposer_system.md — the corpus must train on "+
@@ -204,8 +204,8 @@ func LintExample(example validation.Value, existing []validation.Value,
 	}
 	sections := arcSections(content)
 	trace := traceAssumptions(content)
-	st := objAt(example, "structured")
-	tax := objStr(example, "taxonomy")
+	st := validation.ObjAt(example, "structured")
+	tax := validation.ObjStr(example, "taxonomy")
 	reasons = append(reasons, lintArcPresence(sections, trace)...)
 	reasons = append(reasons, lintTaxonomy(tax, sections, st, trace, content)...)
 	reasons = append(reasons, lintArcOrder(content, trace)...)
@@ -242,9 +242,9 @@ func lintTaxonomy(tax string, sections map[string]string, st validation.Value,
 	trace map[string]string, content string) []string {
 	out := []string{}
 	invStatuses := []string{}
-	if inv := objAt(st, "invariants"); inv.Kind == validation.Arr {
+	if inv := validation.ObjAt(st, "invariants"); inv.Kind == validation.Arr {
 		for _, i := range inv.A {
-			invStatuses = append(invStatuses, objStr(i, "status"))
+			invStatuses = append(invStatuses, validation.ObjStr(i, "status"))
 		}
 	}
 	confirmed := func() {
@@ -254,7 +254,7 @@ func lintTaxonomy(tax string, sections map[string]string, st validation.Value,
 		if sections["IMPACT"] == "" {
 			out = append(out, "arc: IMPACT section required")
 		}
-		if !anyStatus(objAt(st, "assumptions"), "CONFIRMED") {
+		if !anyStatus(validation.ObjAt(st, "assumptions"), "CONFIRMED") {
 			out = append(out,
 				"taxonomy: at least one CONFIRMED assumption required")
 		}
@@ -262,7 +262,7 @@ func lintTaxonomy(tax string, sections map[string]string, st validation.Value,
 			out = append(out,
 				"taxonomy: an invariant with status VIOLATED required")
 		}
-		if trimSpace(objAt(st, "next_test")) == "" {
+		if trimSpace(validation.ObjAt(st, "next_test")) == "" {
 			out = append(out, "taxonomy: next_test must be non-empty")
 		}
 	}
@@ -300,7 +300,7 @@ func lintTaxonomy(tax string, sections map[string]string, st validation.Value,
 		confirmed()
 		impact := sections["IMPACT"]
 		if impact == "" {
-			impact = objStr(st, "expected_impact")
+			impact = validation.ObjStr(st, "expected_impact")
 		}
 		if !belowThresholdRe.MatchString(impact) {
 			out = append(out, "taxonomy: the IMPACT must state why the "+
@@ -315,7 +315,7 @@ func anyStatus(assumptions validation.Value, status string) bool {
 		return false
 	}
 	for _, a := range assumptions.A {
-		if objStr(a, "status") == status {
+		if validation.ObjStr(a, "status") == status {
 			return true
 		}
 	}
@@ -372,18 +372,18 @@ func lintArcOrder(content string, trace map[string]string) []string {
 // lintReasonCompleteness requires a stated reason for CONFIRMED/REFUTED.
 func lintReasonCompleteness(st validation.Value) []string {
 	out := []string{}
-	assumptions := objAt(st, "assumptions")
+	assumptions := validation.ObjAt(st, "assumptions")
 	if assumptions.Kind != validation.Arr {
 		return out
 	}
 	for _, a := range assumptions.A {
-		status := objStr(a, "status")
+		status := validation.ObjStr(a, "status")
 		if status != "CONFIRMED" && status != "REFUTED" {
 			continue
 		}
-		if len(strings.TrimSpace(objStr(a, "reason"))) < 20 {
-			out = append(out, "reason: assumption "+pyStrValue(objAt(a, "id"))+
-				" is "+pyStrValue(objAt(a, "status"))+" without a stated "+
+		if len(strings.TrimSpace(validation.ObjStr(a, "reason"))) < 20 {
+			out = append(out, "reason: assumption "+pyStrValue(validation.ObjAt(a, "id"))+
+				" is "+pyStrValue(validation.ObjAt(a, "status"))+" without a stated "+
 				"reason (>= 20 chars required)")
 		}
 	}
@@ -393,7 +393,7 @@ func lintReasonCompleteness(st validation.Value) []string {
 // lintPivot is the pivot accounting check.
 func lintPivot(content string, st validation.Value) []string {
 	pivots := len(pivotCountRe.FindAllString(content, -1))
-	declared := intOf(objAt(st, "pivot_count"))
+	declared := intOf(validation.ObjAt(st, "pivot_count"))
 	if pivots == declared {
 		return nil
 	}
@@ -410,7 +410,7 @@ func lintImpact(tax string, sections map[string]string,
 	}
 	impact := sections["IMPACT"]
 	if impact == "" {
-		impact = objStr(st, "expected_impact")
+		impact = validation.ObjStr(st, "expected_impact")
 	}
 	low := strings.ToLower(impact)
 	vague := []string{}
@@ -446,7 +446,7 @@ func lintDedup(example validation.Value, existing []validation.Value,
 	}
 	sig := ExampleSignature(example)
 	for _, e := range existing {
-		if objStr(e, "status") != "curated" || ExampleSignature(e) != sig {
+		if validation.ObjStr(e, "status") != "curated" || ExampleSignature(e) != sig {
 			continue
 		}
 		prefix := "warn:dedup:"
@@ -454,7 +454,7 @@ func lintDedup(example validation.Value, existing []validation.Value,
 			prefix = "dedup:"
 		}
 		return []string{prefix + " signature collision with curated " +
-			pyStrValue(objAt(e, "id")) + " — near-duplicates teach surface " +
+			pyStrValue(validation.ObjAt(e, "id")) + " — near-duplicates teach surface " +
 			"memorization, not reasoning"}
 	}
 	return nil

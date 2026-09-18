@@ -143,7 +143,7 @@ func RecordCost(c *state.Campaign, opts RecordOpts) (validation.Value, error) {
 	// unwind-on-refusal dance (one implementation, used by learning and
 	// the waiver pair too): snapshot -> append -> log -> restore the
 	// exact pre-write bytes on refusal.
-	ref := objStr(entry, "cost_id")
+	ref := validation.ObjStr(entry, "cost_id")
 	data := validation.VObj(
 		validation.KV{K: "kind", V: validation.VStr(opts.Kind)},
 		validation.KV{K: "amount_usd", V: validation.VFloat(opts.AmountUSD)},
@@ -210,12 +210,12 @@ func YieldReport(c *state.Campaign) (validation.Value, error) {
 		return validation.VNull(), err
 	}
 	for _, e := range costs {
-		traj := objStr(e, "trajectory")
+		traj := validation.ObjStr(e, "trajectory")
 		if traj == "" {
 			traj = "unattributed"
 		}
 		d := row(traj)
-		kind := objStr(e, "kind")
+		kind := validation.ObjStr(e, "kind")
 		cur := floatField(*d, kind)
 		setKey(d, kind, validation.VFloat(cur+floatField(e, "amount_usd")))
 	}
@@ -238,11 +238,11 @@ func YieldReport(c *state.Campaign) (validation.Value, error) {
 	criticConfirmed := int64(0)
 	evidenceConfirmed := int64(0)
 	for _, f := range all {
-		if s := objStr(f, "status"); s == "DUPLICATE" ||
+		if s := validation.ObjStr(f, "status"); s == "DUPLICATE" ||
 			s == "OUT_OF_SCOPE" || s == "SUPERSEDED" {
 			continue
 		}
-		if objStr(objAt(f, "verification"), "critic_verdict") ==
+		if validation.ObjStr(validation.ObjAt(f, "verification"), "critic_verdict") ==
 			"confirmed" {
 			criticConfirmed++
 		}
@@ -251,13 +251,13 @@ func YieldReport(c *state.Campaign) (validation.Value, error) {
 		}
 	}
 	for _, f := range all {
-		if objStr(f, "status") != "CONFIRMED" {
+		if validation.ObjStr(f, "status") != "CONFIRMED" {
 			continue
 		}
 		confirmedCount++
-		value := floatField(objAt(f, "economic_impact"), "extractable_usd")
+		value := floatField(validation.ObjAt(f, "economic_impact"), "extractable_usd")
 		confirmedValue += value
-		traj := objStr(f, "trajectory")
+		traj := validation.ObjStr(f, "trajectory")
 		if traj == "" {
 			traj = "unattributed"
 		}
@@ -368,7 +368,7 @@ func LensYield(c *state.Campaign) ([]validation.Value, error) {
 	unattributedRows := 0
 	hasLensCosts := false
 	for _, e := range costRows {
-		lens := objStr(e, "lens")
+		lens := validation.ObjStr(e, "lens")
 		if lens == "" {
 			unattributedCost += floatField(e, "amount_usd")
 			unattributedRows++
@@ -408,15 +408,15 @@ func LensYield(c *state.Campaign) ([]validation.Value, error) {
 			return nil, err
 		}
 		for _, f := range all {
-			byFinding[objStr(f, "finding_id")] = f
+			byFinding[validation.ObjStr(f, "finding_id")] = f
 		}
 		for _, p := range listOf(plan, "priorities") {
 			bucket := PrioLensBucket(p, rowLens, known)
 			planned[bucket]++
-			if objStr(p, "status") != "answered" {
+			if validation.ObjStr(p, "status") != "answered" {
 				continue
 			}
-			ref := strings.TrimSpace(objStr(p, "closed_ref"))
+			ref := strings.TrimSpace(validation.ObjStr(p, "closed_ref"))
 			if !strings.HasPrefix(ref, "F-") {
 				continue
 			}
@@ -493,7 +493,7 @@ func loadPlanLenient(c *state.Campaign) (validation.Value, bool) {
 // listOf is plan.get(key, []) for the array shapes the plan and the probe
 // surface hold.
 func listOf(v validation.Value, key string) []validation.Value {
-	l := objAt(v, key)
+	l := validation.ObjAt(v, key)
 	if l.Kind == validation.Arr {
 		return l.A
 	}
@@ -519,13 +519,13 @@ func BudgetStatus(c *state.Campaign) (validation.Value, error) {
 	if err != nil {
 		return validation.VNull(), err
 	}
-	limit := objAt(budget, "max_total_cost_usd")
+	limit := validation.ObjAt(budget, "max_total_cost_usd")
 	rep, err := YieldReport(c)
 	if err != nil {
 		return validation.VNull(), err
 	}
 	// spent keeps yield_report's exact value (int 0 when no rows exist).
-	spent := objAt(objAt(rep, "totals"), "total_cost_usd")
+	spent := validation.ObjAt(validation.ObjAt(rep, "totals"), "total_cost_usd")
 	if limit.Kind == validation.Null {
 		return validation.VObj(
 			validation.KV{K: "limit_usd", V: validation.VNull()},
@@ -539,7 +539,7 @@ func BudgetStatus(c *state.Campaign) (validation.Value, error) {
 		), nil
 	}
 	lim := floatField(budget, "max_total_cost_usd")
-	remaining := lim - floatField(objAt(rep, "totals"), "total_cost_usd")
+	remaining := lim - floatField(validation.ObjAt(rep, "totals"), "total_cost_usd")
 	status := "within"
 	if remaining < 0 {
 		status = "exceeded"
@@ -564,9 +564,9 @@ func AllocationAdvice(c *state.Campaign) ([]validation.Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	rows := append([]validation.Value{}, objAt(rep, "trajectories").A...)
+	rows := append([]validation.Value{}, validation.ObjAt(rep, "trajectories").A...)
 	sort.SliceStable(rows, func(i, j int) bool {
-		yi, yj := objAt(rows[i], "yield_usd_per_usd"), objAt(rows[j], "yield_usd_per_usd")
+		yi, yj := validation.ObjAt(rows[i], "yield_usd_per_usd"), validation.ObjAt(rows[j], "yield_usd_per_usd")
 		ni, nj := yi.Kind == validation.Null, yj.Kind == validation.Null
 		if ni != nj {
 			return !ni
@@ -576,7 +576,7 @@ func AllocationAdvice(c *state.Campaign) ([]validation.Value, error) {
 	})
 	advice := []validation.Value{}
 	for i, r := range rows {
-		y := objAt(r, "yield_usd_per_usd")
+		y := validation.ObjAt(r, "yield_usd_per_usd")
 		ys := "no cost recorded"
 		var yv validation.Value = validation.VNull()
 		if y.Kind != validation.Null {
@@ -603,7 +603,7 @@ func AllocationAdvice(c *state.Campaign) ([]validation.Value, error) {
 		}
 		advice = append(advice, validation.VObj(
 			validation.KV{K: "rank", V: validation.VInt(int64(i + 1))},
-			validation.KV{K: "trajectory", V: objAt(r, "trajectory")},
+			validation.KV{K: "trajectory", V: validation.ObjAt(r, "trajectory")},
 			validation.KV{K: "yield_usd_per_usd", V: yv},
 			validation.KV{K: "yield", V: validation.VStr(ys)},
 			validation.KV{K: "advice", V: validation.VStr(verdict)},
@@ -654,27 +654,10 @@ func optStr(s *string) validation.Value {
 	return validation.VStr(*s)
 }
 
-func objAt(v validation.Value, key string) validation.Value {
-	for _, kv := range v.O {
-		if kv.K == key {
-			return kv.V
-		}
-	}
-	return validation.VNull()
-}
-
-func objStr(v validation.Value, key string) string {
-	f := objAt(v, key)
-	if f.Kind == validation.Str {
-		return f.S
-	}
-	return ""
-}
-
 // floatField is float(v.get(key, 0)) for the number shapes costs.jsonl and
 // findings hold (Python's `or 0` treats null/absent as 0).
 func floatField(v validation.Value, key string) float64 {
-	f := objAt(v, key)
+	f := validation.ObjAt(v, key)
 	switch f.Kind {
 	case validation.Flt:
 		return f.F
@@ -689,7 +672,7 @@ func floatField(v validation.Value, key string) float64 {
 }
 
 func intField(v validation.Value, key string) int64 {
-	f := objAt(v, key)
+	f := validation.ObjAt(v, key)
 	if f.Kind == validation.Int {
 		return f.I
 	}
@@ -729,9 +712,9 @@ func CostMirrorProblems(c *state.Campaign) []string {
 	var costEvts []validation.Value
 	refs := map[string]bool{}
 	for _, e := range evts {
-		if objStr(e, "type") == "cost.recorded" {
+		if validation.ObjStr(e, "type") == "cost.recorded" {
 			costEvts = append(costEvts, e)
-			refs[objStr(e, "ref")] = true
+			refs[validation.ObjStr(e, "ref")] = true
 		}
 	}
 	rows, rerr := LoadCosts(c)
@@ -758,7 +741,7 @@ func CostMirrorProblems(c *state.Campaign) []string {
 	}
 	byID := map[string]ledger{}
 	for _, e := range costEvts {
-		id := objStr(e, "ref")
+		id := validation.ObjStr(e, "ref")
 		if id == "" {
 			out = append(out, "a cost.recorded event carries no ref — "+
 				"spend the ledger cannot attribute")
@@ -766,7 +749,7 @@ func CostMirrorProblems(c *state.Campaign) []string {
 		}
 		l := byID[id]
 		l.n++
-		if a := objAt(objAt(e, "data"), "amount_usd"); a.Kind == validation.Flt ||
+		if a := validation.ObjAt(validation.ObjAt(e, "data"), "amount_usd"); a.Kind == validation.Flt ||
 			a.Kind == validation.Int {
 			f, _ := numberValue(a)
 			l.sum += f
@@ -774,7 +757,7 @@ func CostMirrorProblems(c *state.Campaign) []string {
 		if l.kinds == nil {
 			l.kinds = map[string]bool{}
 		}
-		if k := objStr(objAt(e, "data"), "kind"); k != "" {
+		if k := validation.ObjStr(validation.ObjAt(e, "data"), "kind"); k != "" {
 			l.kinds[k] = true
 		}
 		byID[id] = l
@@ -783,14 +766,14 @@ func CostMirrorProblems(c *state.Campaign) []string {
 	sum := map[string]float64{}
 	kinds := map[string]map[string]bool{}
 	for _, r := range rows {
-		id := objStr(r, "cost_id")
+		id := validation.ObjStr(r, "cost_id")
 		if id == "" {
 			out = append(out, "costs.jsonl has a row with no cost_id — "+
 				"spend that cannot be attributed cannot be audited")
 			continue
 		}
 		count[id]++
-		if a := objAt(r, "amount_usd"); a.Kind == validation.Flt ||
+		if a := validation.ObjAt(r, "amount_usd"); a.Kind == validation.Flt ||
 			a.Kind == validation.Int {
 			f, _ := numberValue(a)
 			sum[id] += f
@@ -798,7 +781,7 @@ func CostMirrorProblems(c *state.Campaign) []string {
 		if kinds[id] == nil {
 			kinds[id] = map[string]bool{}
 		}
-		if k := objStr(r, "kind"); k != "" {
+		if k := validation.ObjStr(r, "kind"); k != "" {
 			kinds[id][k] = true
 		}
 	}

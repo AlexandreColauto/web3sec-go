@@ -69,7 +69,7 @@ func VisibleMemoryRows(campaign *state.Campaign) (map[string]validation.Value, e
 				row = inner
 			}
 		}
-		if id := objStr(row, "memory_id"); id != "" {
+		if id := validation.ObjStr(row, "memory_id"); id != "" {
 			out[id] = row
 		}
 	}
@@ -78,7 +78,7 @@ func VisibleMemoryRows(campaign *state.Campaign) (map[string]validation.Value, e
 		return nil, err
 	}
 	for _, row := range learned {
-		if id := objStr(row, "memory_id"); id != "" {
+		if id := validation.ObjStr(row, "memory_id"); id != "" {
 			if _, exists := out[id]; !exists {
 				out[id] = row
 			}
@@ -171,11 +171,11 @@ func RecordMemoryCheck(campaign *state.Campaign, findingID string,
 	if err != nil {
 		return validation.VNull(), err
 	}
-	prov := objAt(finding, "provenance")
+	prov := validation.ObjAt(finding, "provenance")
 	if prov.Kind != validation.Obj {
 		prov = validation.VObj()
 	}
-	existing := objAt(prov, "memory_checks")
+	existing := validation.ObjAt(prov, "memory_checks")
 	if existing.Kind != validation.Arr {
 		existing = validation.VArr()
 	}
@@ -184,8 +184,8 @@ func RecordMemoryCheck(campaign *state.Campaign, findingID string,
 		if r.Kind != validation.Obj {
 			continue
 		}
-		seen[memoryCheckKey(valueStrings(objAt(r, "memory_ids")),
-			objAt(r, "mode"))] = struct{}{}
+		seen[memoryCheckKey(valueStrings(validation.ObjAt(r, "memory_ids")),
+			validation.ObjAt(r, "mode"))] = struct{}{}
 	}
 	rowsByID, err := VisibleMemoryRows(campaign)
 	if err != nil {
@@ -214,7 +214,7 @@ func RecordMemoryCheck(campaign *state.Campaign, findingID string,
 	data := validation.VObj(
 		validation.KV{K: "added", V: validation.VInt(int64(added))},
 		validation.KV{K: "irrelevant", V: validation.VInt(int64(irrelevant))},
-		validation.KV{K: "modes", V: strArr(checkModes(checks))},
+		validation.KV{K: "modes", V: validation.StrArr(checkModes(checks))},
 	)
 	// r41 P1: the persisted entry IS the gate's evidence — MemoryCheckFails
 	// (below) reads provenance.memory_checks off the FILE, not the ledger —
@@ -311,14 +311,14 @@ func corpusGapOwed(entry validation.Value) bool {
 	if entry.Kind != validation.Obj {
 		return false
 	}
-	if v := objAt(entry, "recalled_irrelevant"); v.Kind != validation.Bool || !v.B {
+	if v := validation.ObjAt(entry, "recalled_irrelevant"); v.Kind != validation.Bool || !v.B {
 		return false
 	}
-	rel := objAt(entry, "relevance")
+	rel := validation.ObjAt(entry, "relevance")
 	if rel.Kind != validation.Obj {
 		return false
 	}
-	overlapping := objAt(rel, "overlapping")
+	overlapping := validation.ObjAt(rel, "overlapping")
 	return overlapping.Kind == validation.Arr && len(overlapping.A) == 0
 }
 
@@ -327,9 +327,9 @@ func corpusGapOwed(entry validation.Value) bool {
 // memoryCheckKey dedupes on, in a canonical encoding (no separator can be
 // forged inside an id).
 func corpusGapKey(findingID string, entry validation.Value) string {
-	return findingID + "\x01" + validation.PyRepr(objAt(entry, "mode")) +
-		"\x01" + validation.CanonCompact(strArr(
-		valueStrings(objAt(entry, "memory_ids"))))
+	return findingID + "\x01" + validation.PyRepr(validation.ObjAt(entry, "mode")) +
+		"\x01" + validation.CanonCompact(validation.StrArr(
+		valueStrings(validation.ObjAt(entry, "memory_ids"))))
 }
 
 // corpusGapPayload builds one corpus.gap event payload from a RECORDED check
@@ -340,14 +340,14 @@ func corpusGapKey(findingID string, entry validation.Value) string {
 // record holds. lineage names the finding's tags as they stand when the
 // signal is finally emitted.
 func corpusGapPayload(finding, entry validation.Value) validation.Value {
-	ids := valueStrings(objAt(entry, "memory_ids"))
-	reasonCode, reason := IrrelevantReason(objAt(entry, "relevance"), ids)
+	ids := valueStrings(validation.ObjAt(entry, "memory_ids"))
+	reasonCode, reason := IrrelevantReason(validation.ObjAt(entry, "relevance"), ids)
 	return validation.VObj(
-		validation.KV{K: "finding", V: validation.VStr(objStr(finding,
+		validation.KV{K: "finding", V: validation.VStr(validation.ObjStr(finding,
 			"finding_id"))},
-		validation.KV{K: "memory_ids", V: strArr(ids)},
-		validation.KV{K: "mode", V: objAt(entry, "mode")},
-		validation.KV{K: "lineage", V: strArr(LineageTags(finding))},
+		validation.KV{K: "memory_ids", V: validation.StrArr(ids)},
+		validation.KV{K: "mode", V: validation.ObjAt(entry, "mode")},
+		validation.KV{K: "lineage", V: validation.StrArr(LineageTags(finding))},
 		validation.KV{K: "reason_code", V: validation.VStr(reasonCode)},
 		validation.KV{K: "reason", V: validation.VStr(reason)},
 	)
@@ -367,15 +367,15 @@ func loggedCorpusGaps(c *state.Campaign, findingID string) (map[string]struct{},
 	}
 	out := map[string]struct{}{}
 	for _, ev := range events {
-		if objStr(ev, "type") != "corpus.gap" {
+		if validation.ObjStr(ev, "type") != "corpus.gap" {
 			continue
 		}
-		data := objAt(ev, "data")
+		data := validation.ObjAt(ev, "data")
 		// Either spelling of the finding identifies the event: the write
 		// path sets both, and matching both directions can only avoid a
 		// duplicate signal, never manufacture one.
-		if objStr(ev, "ref") != findingID &&
-			objStr(data, "finding") != findingID {
+		if validation.ObjStr(ev, "ref") != findingID &&
+			validation.ObjStr(data, "finding") != findingID {
 			continue
 		}
 		out[corpusGapKey(findingID, data)] = struct{}{}
@@ -392,8 +392,8 @@ func loggedCorpusGaps(c *state.Campaign, findingID string) (map[string]struct{},
 func memoryCheckEntry(c validation.Value,
 	rowsByID map[string]validation.Value, finding validation.Value) (
 	string, validation.Value, bool, error) {
-	ids := valueStrings(objAt(c, "memory_ids"))
-	mode := objAt(c, "mode")
+	ids := valueStrings(validation.ObjAt(c, "memory_ids"))
+	mode := validation.ObjAt(c, "mode")
 	if mode.Kind != validation.Str ||
 		(mode.S != "negative" && mode.S != "comparative") {
 		return "", validation.VNull(), false, fmtUnknownMode(mode)
@@ -410,19 +410,19 @@ func memoryCheckEntry(c validation.Value,
 	}
 	sortedIDs := sortedStrings(ids)
 	entry := validation.VObj(
-		validation.KV{K: "memory_ids", V: strArr(sortedIDs)},
+		validation.KV{K: "memory_ids", V: validation.StrArr(sortedIDs)},
 		validation.KV{K: "mode", V: mode},
-		validation.KV{K: "consulted_at", V: validation.VStr(nowIso())},
+		validation.KV{K: "consulted_at", V: validation.VStr(state.NowIso())},
 		validation.KV{K: "row_digest",
 			V: validation.VStr(ComputeRowDigest(ids, rowsByID))},
 	)
 	relevance := MemoryCheckRelevance(finding, ids, rowsByID)
 	entry.O = append(entry.O, validation.KV{K: "relevance", V: relevance})
-	if overlapping := objAt(relevance, "overlapping"); len(overlapping.A) == 0 {
+	if overlapping := validation.ObjAt(relevance, "overlapping"); len(overlapping.A) == 0 {
 		entry.O = append(entry.O,
 			validation.KV{K: "recalled_irrelevant", V: validation.VBool(true)})
 	}
-	if note := objAt(c, "note"); validation.PyTruthy(note) {
+	if note := validation.ObjAt(c, "note"); validation.PyTruthy(note) {
 		entry.O = append(entry.O, validation.KV{K: "note", V: note})
 	}
 	return memoryCheckKey(ids, mode), entry, corpusGapOwed(entry), nil
@@ -454,7 +454,7 @@ func fmtUnknownMemoryIDs(unknown []string) error {
 func checkModes(checks []validation.Value) []string {
 	seen := map[string]struct{}{}
 	for _, c := range checks {
-		m := objAt(c, "mode")
+		m := validation.ObjAt(c, "mode")
 		if m.Kind == validation.Str && m.S != "" {
 			seen[m.S] = struct{}{}
 			continue
@@ -481,7 +481,7 @@ func MemoryCheckFails(campaign *state.Campaign,
 	if err != nil {
 		return nil, err
 	}
-	checks := objAt(asDict(objAt(finding, "provenance")), "memory_checks")
+	checks := validation.ObjAt(asDict(validation.ObjAt(finding, "provenance")), "memory_checks")
 	if checks.Kind != validation.Arr {
 		checks = validation.VArr()
 	}
@@ -493,12 +493,12 @@ func MemoryCheckFails(campaign *state.Campaign,
 		if c.Kind != validation.Obj {
 			continue
 		}
-		mode := objAt(c, "mode")
+		mode := validation.ObjAt(c, "mode")
 		if mode.Kind != validation.Str ||
 			(mode.S != "negative" && mode.S != "comparative") {
 			continue
 		}
-		ids := valueStrings(objAt(c, "memory_ids"))
+		ids := valueStrings(validation.ObjAt(c, "memory_ids"))
 		stale := false
 		for _, mid := range ids {
 			if _, ok := rowsByID[mid]; !ok {
@@ -509,7 +509,7 @@ func MemoryCheckFails(campaign *state.Campaign,
 		if stale {
 			continue
 		}
-		if ComputeRowDigest(ids, rowsByID) != objStr(c, "row_digest") {
+		if ComputeRowDigest(ids, rowsByID) != validation.ObjStr(c, "row_digest") {
 			continue // stale: row content changed since recording
 		}
 		return nil, nil

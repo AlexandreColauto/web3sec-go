@@ -46,8 +46,8 @@ func TestLoadTableEmpty(t *testing.T) {
 		table.O[2].K != "prices" {
 		t.Errorf("key order = %v", table.O)
 	}
-	if objAt(table, "prices").Kind != validation.Arr {
-		t.Errorf("prices kind = %c", objAt(table, "prices").Kind)
+	if validation.ObjAt(table, "prices").Kind != validation.Arr {
+		t.Errorf("prices kind = %c", validation.ObjAt(table, "prices").Kind)
 	}
 	if _, err := os.Stat(filepath.Join(c.Dir, "prices.json")); err == nil {
 		t.Error("load_table must not create the file")
@@ -62,7 +62,7 @@ func TestSetPriceRow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	pid := objAt(row, "price_id").S
+	pid := validation.ObjAt(row, "price_id").S
 	if !prcID.MatchString(pid) {
 		t.Errorf("price_id = %q; want PRC-<8 hex>", pid)
 	}
@@ -105,30 +105,30 @@ func TestSetPriceEventKeepsRawActor(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	pid := objAt(row, "price_id").S
+	pid := validation.ObjAt(row, "price_id").S
 	evs, err := c.Events()
 	if err != nil {
 		t.Fatal(err)
 	}
 	var found int
 	for _, e := range evs {
-		if objStr(e, "type") != "price.set" {
+		if validation.ObjStr(e, "type") != "price.set" {
 			continue
 		}
 		found++
-		if objStr(e, "ref") != pid {
-			t.Errorf("ref = %q; want %q", objStr(e, "ref"), pid)
+		if validation.ObjStr(e, "ref") != pid {
+			t.Errorf("ref = %q; want %q", validation.ObjStr(e, "ref"), pid)
 		}
 		want := `{"actor":" op ","asset":"ETH","source":"coinmetrics","usd":1.0}`
-		if got := validation.CanonCompact(objAt(e, "data")); got != want {
+		if got := validation.CanonCompact(validation.ObjAt(e, "data")); got != want {
 			t.Errorf("data = %s; want %s", got, want)
 		}
 	}
 	if found != 1 {
 		t.Errorf("price.set events = %d; want 1", found)
 	}
-	if objAt(row, "set_by").S != "op" {
-		t.Errorf("set_by = %q; want stripped", objAt(row, "set_by").S)
+	if validation.ObjAt(row, "set_by").S != "op" {
+		t.Errorf("set_by = %q; want stripped", validation.ObjAt(row, "set_by").S)
 	}
 }
 
@@ -146,22 +146,22 @@ func TestSetPriceAppendOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if n := len(objAt(table, "prices").A); n != 2 {
+	if n := len(validation.ObjAt(table, "prices").A); n != 2 {
 		t.Fatalf("rows = %d; want 2 (append-only)", n)
 	}
-	got1, err := PriceRow(c, objAt(first, "price_id").S)
+	got1, err := PriceRow(c, validation.ObjAt(first, "price_id").S)
 	if err != nil {
 		t.Fatal(err)
 	}
-	got2, err := PriceRow(c, objAt(second, "price_id").S)
+	got2, err := PriceRow(c, validation.ObjAt(second, "price_id").S)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got1 == nil || got2 == nil {
 		t.Fatal("both rows must stay addressable")
 	}
-	if objAt(*got1, "usd").F != 1000.0 || objAt(*got2, "usd").F != 2000.0 {
-		t.Errorf("usd = %v / %v", objAt(*got1, "usd").F, objAt(*got2, "usd").F)
+	if validation.ObjAt(*got1, "usd").F != 1000.0 || validation.ObjAt(*got2, "usd").F != 2000.0 {
+		t.Errorf("usd = %v / %v", validation.ObjAt(*got1, "usd").F, validation.ObjAt(*got2, "usd").F)
 	}
 }
 
@@ -222,14 +222,14 @@ func TestSetPriceFullCaseMapping(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objAt(row, "asset").S; got != "SS" {
+	if got := validation.ObjAt(row, "asset").S; got != "SS" {
 		t.Errorf("asset = %q; want SS", got)
 	}
 	row, err = SetPrice(c, "ﬁat", 1.0, "coinmetrics", "", "op")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objAt(row, "asset").S; got != "FIAT" {
+	if got := validation.ObjAt(row, "asset").S; got != "FIAT" {
 		t.Errorf("asset = %q; want FIAT", got)
 	}
 }
@@ -242,10 +242,10 @@ func TestSetPriceStripsPythonWhitespace(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objAt(row, "asset").S; got != "ETH" {
+	if got := validation.ObjAt(row, "asset").S; got != "ETH" {
 		t.Errorf("asset = %q; want ETH", got)
 	}
-	if got := objAt(row, "source").S; got != "coinmetrics" {
+	if got := validation.ObjAt(row, "source").S; got != "coinmetrics" {
 		t.Errorf("source = %q", got)
 	}
 }
@@ -263,11 +263,11 @@ func TestSaveTableStampsAndValidates(t *testing.T) {
 	if p != filepath.Join(c.Dir, "prices.json") {
 		t.Errorf("path = %q", p)
 	}
-	if objAt(table, "campaign_id").S != c.CampaignID {
+	if validation.ObjAt(table, "campaign_id").S != c.CampaignID {
 		t.Errorf("caller table not stamped: %s", validation.CanonSpaced(table))
 	}
-	if objAt(table, "updated_at").S != pinnedNow {
-		t.Errorf("updated_at = %q", objAt(table, "updated_at").S)
+	if validation.ObjAt(table, "updated_at").S != pinnedNow {
+		t.Errorf("updated_at = %q", validation.ObjAt(table, "updated_at").S)
 	}
 	back, err := LoadTable(c)
 	if err != nil {

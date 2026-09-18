@@ -19,13 +19,13 @@ func TestPhaseTransitionsRecorded(t *testing.T) {
 		t.Fatal(err)
 	}
 	st, _ := c.State()
-	if got := objStr(st, "phase"); got != "STRUCTURAL_INDEX" {
+	if got := validation.ObjStr(st, "phase"); got != "STRUCTURAL_INDEX" {
 		t.Errorf("phase: %q", got)
 	}
 	hist := objVal(st, "phase_history")
 	var tos []string
 	for _, h := range hist.A {
-		tos = append(tos, objStr(h, "to"))
+		tos = append(tos, validation.ObjStr(h, "to"))
 	}
 	if len(tos) != 2 || tos[0] != "SNAPSHOT" || tos[1] != "STRUCTURAL_INDEX" {
 		t.Errorf("history to: %v", tos)
@@ -67,17 +67,17 @@ func TestPhaseTransitionEvent(t *testing.T) {
 	}
 	events, _ := c.Events()
 	last := events[len(events)-1]
-	if got := objStr(last, "type"); got != "phase.transition" {
+	if got := validation.ObjStr(last, "type"); got != "phase.transition" {
 		t.Errorf("type: %q", got)
 	}
-	if got := objStr(last, "ref"); got != "SNAPSHOT" {
+	if got := validation.ObjStr(last, "ref"); got != "SNAPSHOT" {
 		t.Errorf("ref: %q", got)
 	}
 	data := objVal(last, "data")
-	if got := objStr(data, "from"); got != "SCOPE" {
+	if got := validation.ObjStr(data, "from"); got != "SCOPE" {
 		t.Errorf("data.from: %q", got)
 	}
-	if got := objStr(data, "reason"); got != "because" {
+	if got := validation.ObjStr(data, "reason"); got != "because" {
 		t.Errorf("data.reason: %q", got)
 	}
 }
@@ -90,15 +90,15 @@ func TestHalt(t *testing.T) {
 		t.Fatal(err)
 	}
 	st, _ := c.State()
-	if got := objStr(st, "halt_reason"); got != "budget exhausted" {
+	if got := validation.ObjStr(st, "halt_reason"); got != "budget exhausted" {
 		t.Errorf("halt_reason: %q", got)
 	}
-	if got := objStr(st, "phase"); got != "HALTED" {
+	if got := validation.ObjStr(st, "phase"); got != "HALTED" {
 		t.Errorf("phase: %q", got)
 	}
 	hist := objVal(st, "phase_history")
 	last := hist.A[len(hist.A)-1]
-	if got := objStr(last, "to"); got != "HALTED" {
+	if got := validation.ObjStr(last, "to"); got != "HALTED" {
 		t.Errorf("history to: %q", got)
 	}
 }
@@ -123,32 +123,32 @@ func TestComplete(t *testing.T) {
 		t.Fatal(err)
 	}
 	st, _ := c.State()
-	if got := objStr(st, "completed_by"); got != "op" {
+	if got := validation.ObjStr(st, "completed_by"); got != "op" {
 		t.Errorf("completed_by: %q", got)
 	}
-	if got := objStr(st, "completed_reason"); got != "all findings reviewed and closed" {
+	if got := validation.ObjStr(st, "completed_reason"); got != "all findings reviewed and closed" {
 		t.Errorf("completed_reason (must be stripped): %q", got)
 	}
-	if got := objStr(st, "phase"); got != "COMPLETE" {
+	if got := validation.ObjStr(st, "phase"); got != "COMPLETE" {
 		t.Errorf("phase: %q", got)
 	}
 	hist := objVal(st, "phase_history")
 	last := hist.A[len(hist.A)-1]
-	if got := objStr(last, "reason"); got != "op: all findings reviewed and closed" {
+	if got := validation.ObjStr(last, "reason"); got != "op: all findings reviewed and closed" {
 		t.Errorf("history reason: %q", got)
 	}
 	// last event is the phase.transition to COMPLETE; the decision
 	// event (campaign.completed) is the one before it
 	events, _ := c.Events()
 	ev := events[len(events)-2]
-	if got := objStr(ev, "type"); got != "campaign.completed" {
+	if got := validation.ObjStr(ev, "type"); got != "campaign.completed" {
 		t.Errorf("event type: %q", got)
 	}
-	if got := objStr(ev, "ref"); got != c.CampaignID {
+	if got := validation.ObjStr(ev, "ref"); got != c.CampaignID {
 		t.Errorf("event ref: %q", got)
 	}
 	data := objVal(ev, "data")
-	if got := objStr(data, "actor"); got != "op" {
+	if got := validation.ObjStr(data, "actor"); got != "op" {
 		t.Errorf("data.actor: %q", got)
 	}
 	// completed_* keys appended after floor_policy (insertion order)
@@ -209,7 +209,7 @@ func TestBudgetConsumption(t *testing.T) {
 	st, _ := c.State()
 	var found bool
 	for _, e := range objVal(st, "events").A {
-		if objStr(e, "type") == "budget.discovery_set" {
+		if validation.ObjStr(e, "type") == "budget.discovery_set" {
 			found = true
 			d := objVal(e, "data")
 			var dk []string
@@ -225,7 +225,7 @@ func TestBudgetConsumption(t *testing.T) {
 			if v := objVal(d, "new"); v.I != 400 {
 				t.Errorf("new: %+v", v)
 			}
-			if got := objStr(d, "actor"); got != "op" {
+			if got := validation.ObjStr(d, "actor"); got != "op" {
 				t.Errorf("actor: %q", got)
 			}
 		}
@@ -260,8 +260,8 @@ func TestBudgetConsumption(t *testing.T) {
 	}
 	events, _ := c.Events()
 	last := events[len(events)-1]
-	if objStr(last, "type") != "budget.limit_set" {
-		t.Errorf("event: %q", objStr(last, "type"))
+	if validation.ObjStr(last, "type") != "budget.limit_set" {
+		t.Errorf("event: %q", validation.ObjStr(last, "type"))
 	}
 	d := objVal(last, "data")
 	if v := objVal(d, "new"); v.Kind != validation.Null {

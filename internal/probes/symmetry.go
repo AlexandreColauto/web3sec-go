@@ -438,7 +438,7 @@ func PrimitiveMatrix(index validation.Value) validation.Value {
 		flat = append(flat, divs...)
 		families = append(families, validation.VObj(
 			kv("name", validation.VStr(fam.Name)),
-			kv("members", strArr(fam.Members)),
+			kv("members", validation.StrArr(fam.Members)),
 			kv("cells", symCellValues(famCells)),
 			kv("divergences", symDivergenceValues(divs)),
 			kv("divergence_total", validation.VInt(int64(len(divs))))))
@@ -501,7 +501,7 @@ func symDivergenceValues(divs []symDivergence) validation.Value {
 			kv("observed", validation.VStr(d.Observed)),
 			kv("expected_site", symSiteValue(d.ExpCell)),
 			kv("observed_site", symSiteValue(d.ObsCell)),
-			kv("members", strArr(d.Members)),
+			kv("members", validation.StrArr(d.Members)),
 			kv("question", validation.VStr(symQuestion(d)))))
 	}
 	return validation.VArr(out...)
@@ -608,14 +608,14 @@ func symmetryRawRows(index, model validation.Value) ([]validation.Value, map[str
 				extra = append(extra, kv("custody", validation.VStr(label)))
 			}
 			extra = append(extra,
-				kv("forward", strArr(forward)),
+				kv("forward", validation.StrArr(forward)),
 				kv("inherited", validation.VBool(false)),
 				kv("observed", vGet(d, "observed")),
 				kv("family", vGet(d, "family")),
 				kv("direction", vGet(d, "direction")),
 				kv("asset", vGet(d, "asset")),
 				kv("divergence", vGet(d, "kind")),
-				kv("members", strArr(members)),
+				kv("members", validation.StrArr(members)),
 				kv("divergence_question", vGet(d, "question")))
 			row := rawRow(contract, function, line,
 				vStr(d, "direction")+":"+vStr(d, "asset"), TierOfGate(mods, model),
@@ -634,7 +634,7 @@ func symmetryRawRows(index, model validation.Value) ([]validation.Value, map[str
 				kv("expected_asset", vGet(d, "expected_asset")),
 				kv("observed", vGet(d, "observed")),
 				kv("base_function", vGet(exp, "function")),
-				kv("members", strArr(members)),
+				kv("members", validation.StrArr(members)),
 				kv("why", vGet(d, "question")))
 		}
 	}

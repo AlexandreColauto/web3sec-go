@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"websec/internal/validation"
 
 	"websec/internal/findings"
 	"websec/internal/state"
@@ -92,11 +93,11 @@ func ackCmd(root string, args []string, r *Runner) error {
 		}
 		line := ackLine{fid: fid}
 		if hit {
-			ack := objAt(objAt(f, "dedup_meta"), "in_code_ack")
+			ack := validation.ObjAt(validation.ObjAt(f, "dedup_meta"), "in_code_ack")
 			line.hit = true
-			line.file = objStr(ack, "file")
-			line.lineNo = int(objAt(ack, "line").I)
-			line.phrase = objStr(ack, "phrase")
+			line.file = validation.ObjStr(ack, "file")
+			line.lineNo = int(validation.ObjAt(ack, "line").I)
+			line.phrase = validation.ObjStr(ack, "phrase")
 		}
 		return line, nil
 	}
@@ -127,7 +128,7 @@ func ackCmd(root string, args []string, r *Runner) error {
 		return err
 	}
 	for _, f := range all {
-		line, err := scan(objStr(f, "finding_id"))
+		line, err := scan(validation.ObjStr(f, "finding_id"))
 		if err != nil {
 			return err
 		}

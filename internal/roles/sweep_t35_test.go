@@ -33,7 +33,7 @@ func t35SeqFinding(t *testing.T, c *state.Campaign,
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	if _, err := findings.Transition(c, fid, "POSSIBLE", "triage", "", "",
 		false); err != nil {
 		t.Fatal(err)
@@ -74,51 +74,51 @@ func TestRolesParitySharedHelper(t *testing.T) {
 		t.Fatal(err)
 	}
 	var entry validation.Value
-	for _, r := range objAt(prop, "sequence_requirements").A {
-		if objStr(r, "finding_id") == fidSeq {
+	for _, r := range validation.ObjAt(prop, "sequence_requirements").A {
+		if validation.ObjStr(r, "finding_id") == fidSeq {
 			entry = r
 		}
 	}
 	if entry.Kind != validation.Obj {
 		t.Fatalf("proposer row for %s missing: %s", fidSeq,
-			validation.CanonCompact(objAt(prop, "sequence_requirements")))
+			validation.CanonCompact(validation.ObjAt(prop, "sequence_requirements")))
 	}
-	sr := objAt(crit, "sequence_requirement")
-	if objStr(sr, "finding_id") != objStr(entry, "finding_id") {
-		t.Errorf("finding_id = %q", objStr(sr, "finding_id"))
+	sr := validation.ObjAt(crit, "sequence_requirement")
+	if validation.ObjStr(sr, "finding_id") != validation.ObjStr(entry, "finding_id") {
+		t.Errorf("finding_id = %q", validation.ObjStr(sr, "finding_id"))
 	}
-	if objAt(sr, "steps").I != objAt(entry, "steps").I {
-		t.Errorf("steps = %v, want %v", objAt(sr, "steps"),
-			objAt(entry, "steps"))
+	if validation.ObjAt(sr, "steps").I != validation.ObjAt(entry, "steps").I {
+		t.Errorf("steps = %v, want %v", validation.ObjAt(sr, "steps"),
+			validation.ObjAt(entry, "steps"))
 	}
-	if objAt(sr, "n_actors").I != int64(len(objAt(entry, "actors").A)) {
-		t.Errorf("n_actors = %v, want %d", objAt(sr, "n_actors"),
-			len(objAt(entry, "actors").A))
+	if validation.ObjAt(sr, "n_actors").I != int64(len(validation.ObjAt(entry, "actors").A)) {
+		t.Errorf("n_actors = %v, want %d", validation.ObjAt(sr, "n_actors"),
+			len(validation.ObjAt(entry, "actors").A))
 	}
-	if objStr(sr, "note") != objStr(entry, "note") {
-		t.Errorf("note = %q, want %q", objStr(sr, "note"),
-			objStr(entry, "note"))
+	if validation.ObjStr(sr, "note") != validation.ObjStr(entry, "note") {
+		t.Errorf("note = %q, want %q", validation.ObjStr(sr, "note"),
+			validation.ObjStr(entry, "note"))
 	}
-	if objAt(entry, "steps").I != 2 {
-		t.Errorf("steps = %v, want 2", objAt(entry, "steps"))
+	if validation.ObjAt(entry, "steps").I != 2 {
+		t.Errorf("steps = %v, want 2", validation.ObjAt(entry, "steps"))
 	}
-	if got := t35StrList(objAt(entry, "actors")); strings.Join(got, ",") !=
+	if got := t35StrList(validation.ObjAt(entry, "actors")); strings.Join(got, ",") !=
 		"alice,bob" {
 		t.Errorf("actors = %v, want [alice bob]", got)
 	}
-	if objAt(sr, "n_actors").I != 2 {
-		t.Errorf("n_actors = %v, want 2", objAt(sr, "n_actors"))
+	if validation.ObjAt(sr, "n_actors").I != 2 {
+		t.Errorf("n_actors = %v, want 2", validation.ObjAt(sr, "n_actors"))
 	}
 	soloCrit, err := BuildCriticContext(c, fidSolo)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objAt(soloCrit, "sequence_requirement").Kind != validation.Null {
+	if validation.ObjAt(soloCrit, "sequence_requirement").Kind != validation.Null {
 		t.Errorf("solo sequence_requirement = %v, want null",
-			objAt(soloCrit, "sequence_requirement"))
+			validation.ObjAt(soloCrit, "sequence_requirement"))
 	}
-	for _, r := range objAt(prop, "sequence_requirements").A {
-		if objStr(r, "finding_id") == fidSolo {
+	for _, r := range validation.ObjAt(prop, "sequence_requirements").A {
+		if validation.ObjStr(r, "finding_id") == fidSolo {
 			t.Error("the solo finding must not appear in the proposer rows")
 		}
 	}
@@ -145,12 +145,12 @@ func TestCriticBundleHidesDistinctiveActorValues(t *testing.T) {
 		strings.Contains(blob, "VICTIM_XYZ_QQ") {
 		t.Fatal("hostile actor marker survived into the critic bundle")
 	}
-	sr := objAt(crit, "sequence_requirement")
-	if objAt(sr, "steps").I != 2 {
-		t.Errorf("steps = %v, want 2", objAt(sr, "steps"))
+	sr := validation.ObjAt(crit, "sequence_requirement")
+	if validation.ObjAt(sr, "steps").I != 2 {
+		t.Errorf("steps = %v, want 2", validation.ObjAt(sr, "steps"))
 	}
-	if objAt(sr, "n_actors").I != 2 {
-		t.Errorf("n_actors = %v, want 2", objAt(sr, "n_actors"))
+	if validation.ObjAt(sr, "n_actors").I != 2 {
+		t.Errorf("n_actors = %v, want 2", validation.ObjAt(sr, "n_actors"))
 	}
 	// the proposer leg still sees the full row (it wrote the sequence).
 	prop, err := BuildProposerContext(c, nil)
@@ -158,15 +158,15 @@ func TestCriticBundleHidesDistinctiveActorValues(t *testing.T) {
 		t.Fatal(err)
 	}
 	var entry validation.Value
-	for _, r := range objAt(prop, "sequence_requirements").A {
-		if objStr(r, "finding_id") == fid {
+	for _, r := range validation.ObjAt(prop, "sequence_requirements").A {
+		if validation.ObjStr(r, "finding_id") == fid {
 			entry = r
 		}
 	}
 	if entry.Kind != validation.Obj {
 		t.Fatalf("proposer row for %s missing", fid)
 	}
-	got := strings.Join(t35StrList(objAt(entry, "actors")), ",")
+	got := strings.Join(t35StrList(validation.ObjAt(entry, "actors")), ",")
 	if got != "EVIL_ACTOR_ZZ9,VICTIM_XYZ_QQ" {
 		t.Errorf("proposer actors = %q", got)
 	}
@@ -208,7 +208,7 @@ func TestS2CriticBundleRendersZeroPaddedCitation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	f = setKey(f, "security_invariants", validation.VArr(validation.VObj(
 		kv("id", validation.VStr("INV-001")),
 		kv("statement", validation.VStr(
@@ -220,15 +220,15 @@ func TestS2CriticBundleRendersZeroPaddedCitation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	iv := objAt(b, "invariant_verification")
+	iv := validation.ObjAt(b, "invariant_verification")
 	if len(iv.A) != 1 {
 		t.Fatalf("invariant_verification = %s", validation.CanonCompact(iv))
 	}
-	if got := objStr(iv.A[0], "statement"); got !=
+	if got := validation.ObjStr(iv.A[0], "statement"); got !=
 		"totalAssets never decreases except via withdraw" {
 		t.Errorf("statement = %q", got)
 	}
-	if got := objStr(iv.A[0], "status"); got != "UNVERIFIED" {
+	if got := validation.ObjStr(iv.A[0], "status"); got != "UNVERIFIED" {
 		t.Errorf("status = %q, want UNVERIFIED", got)
 	}
 }
@@ -250,9 +250,9 @@ func TestBundleStillCleanAsserts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("bundle is not plain JSON: %v", err)
 	}
-	if objAt(round, "negative_memory").Kind != validation.Obj {
+	if validation.ObjAt(round, "negative_memory").Kind != validation.Obj {
 		t.Errorf("negative_memory = %s",
-			validation.CanonCompact(objAt(round, "negative_memory")))
+			validation.CanonCompact(validation.ObjAt(round, "negative_memory")))
 	}
 	if blob == "" {
 		t.Error("bundle serialized to an empty document")

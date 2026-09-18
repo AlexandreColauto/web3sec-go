@@ -93,8 +93,8 @@ func TestYieldReportAndAllocationAdvice(t *testing.T) {
 		t.Fatal(err)
 	}
 	rows := map[string]validation.Value{}
-	for _, r := range objAt(rep, "trajectories").A {
-		rows[objStr(r, "trajectory")] = r
+	for _, r := range validation.ObjAt(rep, "trajectories").A {
+		rows[validation.ObjStr(r, "trajectory")] = r
 	}
 	eco := rows["economic"]
 	if got := floatField(eco, "total_cost_usd"); got != 80 {
@@ -116,7 +116,7 @@ func TestYieldReportAndAllocationAdvice(t *testing.T) {
 	if got := floatField(st, "yield_usd_per_usd"); got != 0 {
 		t.Errorf("static yield = %v, want 0.0", got)
 	}
-	if got := intField(objAt(rep, "totals"), "confirmed_findings"); got != 1 {
+	if got := intField(validation.ObjAt(rep, "totals"), "confirmed_findings"); got != 1 {
 		t.Errorf("totals confirmed_findings = %d, want 1", got)
 	}
 	advice, err := AllocationAdvice(c)
@@ -126,10 +126,10 @@ func TestYieldReportAndAllocationAdvice(t *testing.T) {
 	if len(advice) != 2 {
 		t.Fatalf("advice rows = %d, want 2", len(advice))
 	}
-	if got := objStr(advice[0], "trajectory"); got != "economic" {
+	if got := validation.ObjStr(advice[0], "trajectory"); got != "economic" {
 		t.Errorf("advice[0] = %q, want economic", got)
 	}
-	if got := objStr(advice[0], "advice"); !strings.Contains(got, "more budget") {
+	if got := validation.ObjStr(advice[0], "advice"); !strings.Contains(got, "more budget") {
 		t.Errorf("advice[0] = %q, want the more-budget verdict", got)
 	}
 }
@@ -142,12 +142,12 @@ func TestZeroCostIsAReportingGapNotInfiniteYield(t *testing.T) {
 		t.Fatal(err)
 	}
 	var row validation.Value
-	for _, r := range objAt(rep, "trajectories").A {
-		if objStr(r, "trajectory") == "historical" {
+	for _, r := range validation.ObjAt(rep, "trajectories").A {
+		if validation.ObjStr(r, "trajectory") == "historical" {
 			row = r
 		}
 	}
-	if y := objAt(row, "yield_usd_per_usd"); y.Kind != validation.Null {
+	if y := validation.ObjAt(row, "yield_usd_per_usd"); y.Kind != validation.Null {
 		t.Fatalf("yield = %s, want null (not inf, not 0)",
 			validation.DumpIndented(y))
 	}
@@ -163,20 +163,20 @@ func TestNoLimitIsExplicit(t *testing.T) {
 		t.Fatal(err)
 	}
 	// sum() over no trajectory rows at all is the INT 0, not 0.0.
-	if spent := objAt(st, "spent_usd"); spent.Kind != validation.Int ||
+	if spent := validation.ObjAt(st, "spent_usd"); spent.Kind != validation.Int ||
 		spent.I != 0 {
 		t.Errorf("spent_usd = %s, want int 0",
 			validation.DumpIndented(spent))
 	}
-	if got := objStr(st, "status"); got != "no-limit" {
+	if got := validation.ObjStr(st, "status"); got != "no-limit" {
 		t.Errorf("status = %q, want no-limit", got)
 	}
-	if objAt(st, "limit_usd").Kind != validation.Null {
+	if validation.ObjAt(st, "limit_usd").Kind != validation.Null {
 		t.Errorf("limit_usd = %s, want null",
-			validation.DumpIndented(objAt(st, "limit_usd")))
+			validation.DumpIndented(validation.ObjAt(st, "limit_usd")))
 	}
-	if !strings.Contains(objStr(st, "note"), "unbounded") {
-		t.Errorf("note = %q, want unbounded", objStr(st, "note"))
+	if !strings.Contains(validation.ObjStr(st, "note"), "unbounded") {
+		t.Errorf("note = %q, want unbounded", validation.ObjStr(st, "note"))
 	}
 }
 
@@ -190,7 +190,7 @@ func TestWithinAndExceeded(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(st, "status"); got != "within" {
+	if got := validation.ObjStr(st, "status"); got != "within" {
 		t.Errorf("status = %q, want within", got)
 	}
 	if got := floatField(st, "remaining_usd"); got != 100 {
@@ -205,7 +205,7 @@ func TestWithinAndExceeded(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(st, "status"); got != "exceeded" {
+	if got := validation.ObjStr(st, "status"); got != "exceeded" {
 		t.Errorf("status = %q, want exceeded", got)
 	}
 	if floatField(st, "over_by_usd") <= 0 {
@@ -223,7 +223,7 @@ func TestClearCeilingReturnsToNoLimit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(st, "status"); got != "within" {
+	if got := validation.ObjStr(st, "status"); got != "within" {
 		t.Errorf("status = %q, want within", got)
 	}
 	if _, err := c.SetCostCeiling(nil, "lead"); err != nil {
@@ -233,7 +233,7 @@ func TestClearCeilingReturnsToNoLimit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(st, "status"); got != "no-limit" {
+	if got := validation.ObjStr(st, "status"); got != "no-limit" {
 		t.Errorf("status = %q, want no-limit after clearing", got)
 	}
 }
@@ -279,7 +279,7 @@ func TestCostMirrorComparesSpendNotJustIds(t *testing.T) {
 		AmountUSD: 15.0, Actor: "op"}); err != nil {
 		t.Fatal(err)
 	} else {
-		id = objStr(ev, "cost_id")
+		id = validation.ObjStr(ev, "cost_id")
 	}
 	f := filepath.Join(c.Dir, "costs.jsonl")
 	raw, _ := os.ReadFile(f)

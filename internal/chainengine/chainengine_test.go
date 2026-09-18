@@ -24,7 +24,7 @@ func kv(k string, v validation.Value) validation.KV {
 	return validation.KV{K: k, V: v}
 }
 
-func objStrOf(v validation.Value, key string) string { return objStr(v, key) }
+func objStrOf(v validation.Value, key string) string { return validation.ObjStr(v, key) }
 
 func listAt(v validation.Value, key string) validation.Value {
 	return listOf(v, key)
@@ -60,8 +60,8 @@ func hypo(t *testing.T, c *state.Campaign, class string, granted, required []str
 			kv("profile", validation.VStr("arbitrary EOA")),
 			kv("capabilities", validation.VArr()))),
 		kv("capabilities", validation.VObj(
-			kv("granted", strArr(granted)),
-			kv("required", strArr(required)))),
+			kv("granted", validation.StrArr(granted)),
+			kv("required", validation.StrArr(required)))),
 	), "code", "test", "")
 	if err != nil {
 		t.Fatalf("ingest hypothesis: %v", err)
@@ -113,8 +113,8 @@ func evidenceItem(rec validation.Value, level, typ, desc, eid string) validation
 		kv("level", validation.VStr(level)),
 		kv("type", validation.VStr(typ)),
 		kv("description", validation.VStr(desc)),
-		kv("sandbox_profile", objAt(rec, "profile")),
-		kv("artifact_id", objAt(rec, "exec_id")),
+		kv("sandbox_profile", validation.ObjAt(rec, "profile")),
+		kv("artifact_id", validation.ObjAt(rec, "exec_id")),
 	)
 }
 
@@ -150,7 +150,7 @@ func confirm(t *testing.T, c *state.Campaign, fid string, level, tier string) {
 	if err != nil {
 		t.Fatalf("load finding: %v", err)
 	}
-	cls := objStr(objAt(f, "root_cause"), "class")
+	cls := validation.ObjStr(validation.ObjAt(f, "root_cause"), "class")
 	if _, ok := findings.ECONOMIC_CONFIRMATION_CLASSES[cls]; ok {
 		mintEconomicEvidence(t, c, fid, rec)
 	}
@@ -168,7 +168,7 @@ func confirm(t *testing.T, c *state.Campaign, fid string, level, tier string) {
 	if err != nil {
 		t.Fatalf("reload finding: %v", err)
 	}
-	ver := objAt(vf, "verification")
+	ver := validation.ObjAt(vf, "verification")
 	if ver.Kind != validation.Obj {
 		ver = validation.VObj()
 	}
@@ -209,7 +209,7 @@ func mintEconomicEvidence(t *testing.T, c *state.Campaign, fid string,
 	if err != nil {
 		t.Fatalf("reload finding: %v", err)
 	}
-	ei := objAt(f2, "economic_impact")
+	ei := validation.ObjAt(f2, "economic_impact")
 	if ei.Kind != validation.Obj {
 		ei = validation.VObj()
 	}
@@ -247,9 +247,9 @@ func TestCapabilityLinksAndProposals(t *testing.T) {
 	if len(links) != 1 {
 		t.Fatalf("links = %v", links)
 	}
-	got := objStr(links[0], "from") + "->" + objStr(links[0], "to") + ":" +
-		objStr(links[0], "capability")
-	want := objStr(f1, "finding_id") + "->" + objStr(f2, "finding_id") +
+	got := validation.ObjStr(links[0], "from") + "->" + validation.ObjStr(links[0], "to") + ":" +
+		validation.ObjStr(links[0], "capability")
+	want := validation.ObjStr(f1, "finding_id") + "->" + validation.ObjStr(f2, "finding_id") +
 		":control_perceived_asset_price"
 	if got != want {
 		t.Fatalf("link = %s, want %s", got, want)
@@ -265,8 +265,8 @@ func TestCapabilityLinksAndProposals(t *testing.T) {
 			members[pyStr(m)] = struct{}{}
 		}
 		if len(members) == 2 {
-			_, a := members[objStr(f1, "finding_id")]
-			_, b := members[objStr(f2, "finding_id")]
+			_, a := members[validation.ObjStr(f1, "finding_id")]
+			_, b := members[validation.ObjStr(f2, "finding_id")]
 			if a && b {
 				found = true
 			}
@@ -282,8 +282,8 @@ func TestChainRequiresConfirmedMembers(t *testing.T) {
 	f1 := hypo(t, c, "oracle-manipulation", []string{"cap one here"}, nil, "F1 title here")
 	f2 := hypo(t, c, "logic-error", []string{"cap two here"},
 		[]string{"cap one here"}, "F2 title here")
-	_, err := MaterializeChain(c, []string{objStr(f1, "finding_id"),
-		objStr(f2, "finding_id")}, "T", "", nil, nil)
+	_, err := MaterializeChain(c, []string{validation.ObjStr(f1, "finding_id"),
+		validation.ObjStr(f2, "finding_id")}, "T", "", nil, nil)
 	if err == nil || !strings.Contains(err.Error(), "CONFIRMED") {
 		t.Fatalf("err = %v, want IllegalTransition mentioning CONFIRMED", err)
 	}
@@ -307,10 +307,10 @@ func TestChainRequiresCapabilityContinuity(t *testing.T) {
 	f1 := hypo(t, c, "oracle-manipulation", []string{"cap one here"}, nil, "F1 title here")
 	f2 := hypo(t, c, "logic-error", []string{"cap two here"},
 		[]string{"unrelated need"}, "F2 title here")
-	confirm(t, c, objStr(f1, "finding_id"), "E5", "T3")
-	confirm(t, c, objStr(f2, "finding_id"), "E5", "T3")
-	_, err := MaterializeChain(c, []string{objStr(f1, "finding_id"),
-		objStr(f2, "finding_id")}, "T", "", nil, nil)
+	confirm(t, c, validation.ObjStr(f1, "finding_id"), "E5", "T3")
+	confirm(t, c, validation.ObjStr(f2, "finding_id"), "E5", "T3")
+	_, err := MaterializeChain(c, []string{validation.ObjStr(f1, "finding_id"),
+		validation.ObjStr(f2, "finding_id")}, "T", "", nil, nil)
 	if err == nil || !strings.Contains(err.Error(), "capability gap") {
 		t.Fatalf("err = %v, want capability gap", err)
 	}
@@ -323,8 +323,8 @@ func TestMaterializedChainInheritsFloorAndLinks(t *testing.T) {
 		[]string{"cap one here"}, "F2 title here")
 	f3 := hypo(t, c, "liquidation-logic", []string{"cap three here"},
 		[]string{"cap two here"}, "F3 title here")
-	ids := []string{objStr(f1, "finding_id"), objStr(f2, "finding_id"),
-		objStr(f3, "finding_id")}
+	ids := []string{validation.ObjStr(f1, "finding_id"), validation.ObjStr(f2, "finding_id"),
+		validation.ObjStr(f3, "finding_id")}
 	for _, id := range ids {
 		confirm(t, c, id, "E5", "T3")
 	}
@@ -332,14 +332,14 @@ func TestMaterializedChainInheritsFloorAndLinks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("materialize: %v", err)
 	}
-	if objStr(ch, "evidence_floor") != "E7" {
-		t.Fatalf("floor = %s, want E7", objStr(ch, "evidence_floor"))
+	if validation.ObjStr(ch, "evidence_floor") != "E7" {
+		t.Fatalf("floor = %s, want E7", validation.ObjStr(ch, "evidence_floor"))
 	}
 	if len(listOf(ch, "capability_links").A) != 2 {
 		t.Fatalf("links = %v", listOf(ch, "capability_links"))
 	}
-	if objStr(ch, "status") != "proposed" {
-		t.Fatalf("status = %s", objStr(ch, "status"))
+	if validation.ObjStr(ch, "status") != "proposed" {
+		t.Fatalf("status = %s", validation.ObjStr(ch, "status"))
 	}
 	all, err := findings.LoadAllFindings(c)
 	if err != nil {
@@ -347,7 +347,7 @@ func TestMaterializedChainInheritsFloorAndLinks(t *testing.T) {
 	}
 	n := 0
 	for _, f := range all {
-		if objStr(f, "status") == "CHAIN" {
+		if validation.ObjStr(f, "status") == "CHAIN" {
 			n++
 		}
 	}
@@ -361,15 +361,15 @@ func TestChainFailsWithWeakestMemberAtLowEvidence(t *testing.T) {
 	f1 := hypo(t, c, "oracle-manipulation", []string{"cap one here"}, nil, "F1 title here")
 	f2 := hypo(t, c, "logic-error", []string{"cap two here"},
 		[]string{"cap one here"}, "F2 title here")
-	confirm(t, c, objStr(f1, "finding_id"), "E5", "T3")
-	confirm(t, c, objStr(f2, "finding_id"), "E4", "T1")
-	ch, err := MaterializeChain(c, []string{objStr(f1, "finding_id"),
-		objStr(f2, "finding_id")}, "Titled chain for floor inheritance", "", nil, nil)
+	confirm(t, c, validation.ObjStr(f1, "finding_id"), "E5", "T3")
+	confirm(t, c, validation.ObjStr(f2, "finding_id"), "E4", "T1")
+	ch, err := MaterializeChain(c, []string{validation.ObjStr(f1, "finding_id"),
+		validation.ObjStr(f2, "finding_id")}, "Titled chain for floor inheritance", "", nil, nil)
 	if err != nil {
 		t.Fatalf("materialize: %v", err)
 	}
-	if objStr(ch, "evidence_floor") != "E4" {
-		t.Fatalf("floor = %s, want E4", objStr(ch, "evidence_floor"))
+	if validation.ObjStr(ch, "evidence_floor") != "E4" {
+		t.Fatalf("floor = %s, want E4", validation.ObjStr(ch, "evidence_floor"))
 	}
 }
 
@@ -391,7 +391,7 @@ func TestDuplicateMaterializationOverSameMembersIsRejected(t *testing.T) {
 	f1 := hypo(t, c, "oracle-manipulation", []string{"cap one here"}, nil, "F1 title here")
 	f2 := hypo(t, c, "logic-error", []string{"cap two here"},
 		[]string{"cap one here"}, "F2 title here")
-	ids := []string{objStr(f1, "finding_id"), objStr(f2, "finding_id")}
+	ids := []string{validation.ObjStr(f1, "finding_id"), validation.ObjStr(f2, "finding_id")}
 	for _, id := range ids {
 		confirm(t, c, id, "E5", "T3")
 	}
@@ -399,7 +399,7 @@ func TestDuplicateMaterializationOverSameMembersIsRejected(t *testing.T) {
 	if err != nil {
 		t.Fatalf("first materialize: %v", err)
 	}
-	if objStr(ch1, "chain_signature") == "" {
+	if validation.ObjStr(ch1, "chain_signature") == "" {
 		t.Fatal("chain_signature is empty")
 	}
 	_, err = MaterializeChain(c, ids, "Second chain over the same pair", "", nil, nil)
@@ -421,7 +421,7 @@ func TestFindTerminalChainsDirectAndChain(t *testing.T) {
 	role := hypo(t, c, "access-control", []string{"extract_protocol_liquidity"},
 		[]string{"role_governor"}, "Governor drain title")
 	for _, f := range []validation.Value{direct, cap, role} {
-		confirm(t, c, objStr(f, "finding_id"), "E5", "T3")
+		confirm(t, c, validation.ObjStr(f, "finding_id"), "E5", "T3")
 	}
 	paths, err := FindTerminalChains(c, nil, 5, 1)
 	if err != nil {
@@ -430,14 +430,14 @@ func TestFindTerminalChainsDirectAndChain(t *testing.T) {
 	directFound, twoStep := false, false
 	for _, p := range paths {
 		ps := listOf(p, "path").A
-		if len(ps) == 1 && pyStr(ps[0]) == objStr(direct, "finding_id") {
+		if len(ps) == 1 && pyStr(ps[0]) == validation.ObjStr(direct, "finding_id") {
 			directFound = true
-			if objStr(p, "terminal_capability") != "drain_treasury" {
-				t.Fatalf("terminal = %s", objStr(p, "terminal_capability"))
+			if validation.ObjStr(p, "terminal_capability") != "drain_treasury" {
+				t.Fatalf("terminal = %s", validation.ObjStr(p, "terminal_capability"))
 			}
 		}
-		if len(ps) == 2 && pyStr(ps[0]) == objStr(cap, "finding_id") &&
-			pyStr(ps[1]) == objStr(role, "finding_id") {
+		if len(ps) == 2 && pyStr(ps[0]) == validation.ObjStr(cap, "finding_id") &&
+			pyStr(ps[1]) == validation.ObjStr(role, "finding_id") {
 			twoStep = true
 		}
 	}
@@ -453,7 +453,7 @@ func TestFindTerminalChainsDirectAndChain(t *testing.T) {
 func TestTerminalReportShapeAndBaseline(t *testing.T) {
 	c := newCampaign(t, "Acme Program")
 	f := hypo(t, c, "logic-error", []string{"drain_treasury"}, nil, "Direct drain")
-	confirm(t, c, objStr(f, "finding_id"), "E5", "T3")
+	confirm(t, c, validation.ObjStr(f, "finding_id"), "E5", "T3")
 	rep, err := TerminalReport(c, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -471,22 +471,22 @@ func TestTerminalReportShapeAndBaseline(t *testing.T) {
 	if len(listOf(rep, "shortest_by_terminal").A) != 1 {
 		t.Fatalf("shortest = %v", listOf(rep, "shortest_by_terminal"))
 	}
-	if objStr(rep, "note") != "terminal paths search CONFIRMED findings only; "+
+	if validation.ObjStr(rep, "note") != "terminal paths search CONFIRMED findings only; "+
 		"terminal = asset-kind capability granted by the last finding" {
-		t.Fatalf("note = %s", objStr(rep, "note"))
+		t.Fatalf("note = %s", validation.ObjStr(rep, "note"))
 	}
 	// an explicit role baseline reaches the role-required finding
 	rb := []string{"call_any_entry_point", "role_governor"}
 	role := hypo(t, c, "access-control", []string{"extract_protocol_liquidity"},
 		[]string{"role_governor"}, "Governor drain")
-	confirm(t, c, objStr(role, "finding_id"), "E5", "T3")
+	confirm(t, c, validation.ObjStr(role, "finding_id"), "E5", "T3")
 	rep2, err := TerminalReport(c, &rb)
 	if err != nil {
 		t.Fatal(err)
 	}
 	found := false
 	for _, p := range listOf(rep2, "direct").A {
-		if objStr(p, "terminal_finding") == objStr(role, "finding_id") {
+		if validation.ObjStr(p, "terminal_finding") == validation.ObjStr(role, "finding_id") {
 			found = true
 		}
 	}
@@ -504,7 +504,7 @@ func TestMaterializeChainTerminalAnnotationGates(t *testing.T) {
 	f1 := hypo(t, c, "oracle-manipulation", []string{"cap one here"}, nil, "F1 title here")
 	f2 := hypo(t, c, "logic-error", []string{"drain_treasury"},
 		[]string{"cap one here"}, "F2 title here")
-	ids := []string{objStr(f1, "finding_id"), objStr(f2, "finding_id")}
+	ids := []string{validation.ObjStr(f1, "finding_id"), validation.ObjStr(f2, "finding_id")}
 	for _, id := range ids {
 		confirm(t, c, id, "E5", "T3")
 	}
@@ -542,13 +542,13 @@ func TestMaterializeChainTerminalAnnotationGates(t *testing.T) {
 	if err != nil {
 		t.Fatalf("materialize terminal: %v", err)
 	}
-	td := objAt(ch, "terminal")
-	if objStr(td, "capability") != "drain_treasury" ||
-		objStr(td, "via_finding") != objStr(f2, "finding_id") {
+	td := validation.ObjAt(ch, "terminal")
+	if validation.ObjStr(td, "capability") != "drain_treasury" ||
+		validation.ObjStr(td, "via_finding") != validation.ObjStr(f2, "finding_id") {
 		t.Fatalf("terminal doc = %v", td)
 	}
 	if pyFloatAt(td, "total_capital_required_usd") != 2500 {
-		t.Fatalf("capital = %v", objAt(td, "total_capital_required_usd"))
+		t.Fatalf("capital = %v", validation.ObjAt(td, "total_capital_required_usd"))
 	}
 	rep, err := TerminalReport(c, nil)
 	if err != nil {
@@ -562,7 +562,7 @@ func TestMaterializeChainTerminalAnnotationGates(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(listOf(rep2, "materialized").A) != 1 ||
-		objStr(rep2, "note") != ChainReportNote {
+		validation.ObjStr(rep2, "note") != ChainReportNote {
 		t.Fatalf("chain_report = %v", rep2)
 	}
 }
@@ -572,7 +572,7 @@ func TestMaterializeChainRequiresOneSourcePin(t *testing.T) {
 	f1 := hypo(t, c, "oracle-manipulation", []string{"cap one here"}, nil, "F1 title here")
 	f2 := hypo(t, c, "logic-error", []string{"cap two here"},
 		[]string{"cap one here"}, "F2 title here")
-	ids := []string{objStr(f1, "finding_id"), objStr(f2, "finding_id")}
+	ids := []string{validation.ObjStr(f1, "finding_id"), validation.ObjStr(f2, "finding_id")}
 	for _, id := range ids {
 		confirm(t, c, id, "E5", "T3")
 	}
@@ -610,7 +610,7 @@ func TestBuildCapabilityIndexSkipsTerminalStatuses(t *testing.T) {
 	c := newCampaign(t, "Acme Program")
 	keep := hypo(t, c, "logic-error", []string{"cap keep"}, nil, "Keep title here")
 	skip := hypo(t, c, "logic-error", []string{"cap skip"}, nil, "Skip title here")
-	if _, err := findings.Transition(c, objStr(skip, "finding_id"),
+	if _, err := findings.Transition(c, validation.ObjStr(skip, "finding_id"),
 		"INFORMATIONAL", "out of scope", "", "", false); err != nil {
 		t.Fatal(err)
 	}
@@ -618,14 +618,14 @@ func TestBuildCapabilityIndexSkipsTerminalStatuses(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	granted := objAt(idx, "granted")
+	granted := validation.ObjAt(idx, "granted")
 	if !hasKey(granted, "cap_keep") {
 		t.Fatalf("granted = %v", granted)
 	}
 	if hasKey(granted, "cap_skip") {
 		t.Fatalf("INFORMATIONAL finding leaked into the index: %v", granted)
 	}
-	if idsOf(granted.O, "cap_keep")[0] != objStr(keep, "finding_id") {
+	if idsOf(granted.O, "cap_keep")[0] != validation.ObjStr(keep, "finding_id") {
 		t.Fatalf("index id = %v", granted)
 	}
 }
@@ -659,11 +659,11 @@ func TestBuildCapabilityIndexDropsSuperseded(t *testing.T) {
 	hypo(t, c, "logic-error", []string{"cap keep"}, nil, "Keep title here")
 	sup := hypo(t, c, "logic-error", []string{"cap sup"}, nil, "Sup title here")
 	dsp := hypo(t, c, "logic-error", []string{"cap dsp"}, nil, "Dsp title here")
-	if _, err := findings.Transition(c, objStr(sup, "finding_id"),
+	if _, err := findings.Transition(c, validation.ObjStr(sup, "finding_id"),
 		"SUPERSEDED", "answered by the successor", "", "", false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := findings.Transition(c, objStr(dsp, "finding_id"),
+	if _, err := findings.Transition(c, validation.ObjStr(dsp, "finding_id"),
 		"DISPROVED", "repro says no", "", "", false); err != nil {
 		t.Fatal(err)
 	}
@@ -671,7 +671,7 @@ func TestBuildCapabilityIndexDropsSuperseded(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	granted := objAt(idx, "granted")
+	granted := validation.ObjAt(idx, "granted")
 	if !hasKey(granted, "cap_keep") {
 		t.Fatalf("live granter missing: %v", granted)
 	}

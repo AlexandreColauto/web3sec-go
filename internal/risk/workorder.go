@@ -53,7 +53,7 @@ func (k WorkOrderKey) Less(o WorkOrderKey) bool {
 // taxonomy is invented here. Pure: reads recorded fields, writes nothing,
 // calls no model.
 func WorkOrderKeyFor(finding validation.Value) (WorkOrderKey, error) {
-	impact := orObj(objAt(finding, "economic_impact"))
+	impact := orObj(validation.ObjAt(finding, "economic_impact"))
 	blast := blastRadius(impact)
 	rank, ok := wBlast[blast]
 	if !ok {
@@ -68,7 +68,7 @@ func WorkOrderKeyFor(finding validation.Value) (WorkOrderKey, error) {
 		BlastRank:  -rank,
 		Privileged: privilegeClass(finding) != "unprivileged",
 		BandRank:   -bandRankOr(band, -1),
-		FindingID:  orStr(objAt(finding, "finding_id")),
+		FindingID:  orStr(validation.ObjAt(finding, "finding_id")),
 	}, nil
 }
 

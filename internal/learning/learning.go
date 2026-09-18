@@ -85,11 +85,11 @@ func findingCapabilityLabels(c *state.Campaign, findingID *string,
 	if err != nil {
 		return nil
 	}
-	caps := objAt(finding, "capabilities")
+	caps := validation.ObjAt(finding, "capabilities")
 	if caps.Kind != validation.Obj {
 		return nil
 	}
-	return capabilities.NormalizeLabels(strList(objAt(caps, key)))
+	return capabilities.NormalizeLabels(strList(validation.ObjAt(caps, key)))
 }
 
 // writeThenLog is the r40 unwind-on-refusal door for the learning package's
@@ -223,13 +223,13 @@ func QueueMemory(c *state.Campaign, o QueueOpts) (validation.Value, error) {
 	for _, key := range []string{"granted", "required"} {
 		labels := findingCapabilityLabels(c, o.FindingID, key)
 		if len(labels) > 0 {
-			mem.O = append(mem.O, kv(key, strArr(labels)))
+			mem.O = append(mem.O, kv(key, validation.StrArr(labels)))
 		}
 	}
 	if err := validation.Validate(mem, "memory", 1); err != nil {
 		return validation.VNull(), err
 	}
-	mid := objStr(mem, "memory_id")
+	mid := validation.ObjStr(mem, "memory_id")
 	path := filepath.Join(c.MemoryDir, mid+".json")
 	data := validation.VObj(
 		kv("kind", validation.VStr(o.Kind)),
@@ -286,7 +286,7 @@ var memoryIDRe = regexp.MustCompile(`^MEM-[0-9a-f]+$`)
 // (constraint 4). Rows partitioned 'held-out'/'training' are evaluation data
 // and can never be approved or promoted. Absent partition == 'dev'.
 func AssertApprovable(memoryID string, mem validation.Value) error {
-	partition := objStr(mem, "partition")
+	partition := validation.ObjStr(mem, "partition")
 	if partition == "" {
 		partition = "dev"
 	}
@@ -380,7 +380,7 @@ func RejectMemory(c *state.Campaign, memoryID, reason, rejectionClass string) (v
 	if err != nil {
 		return validation.VNull(), err
 	}
-	status := objStr(mem, "promotion_status")
+	status := validation.ObjStr(mem, "promotion_status")
 	if status == "human-approved" || status == "promoted" {
 		return validation.VNull(), fmt.Errorf(
 			"%s is already %s: revoke the approval instead of rejecting it",
@@ -530,7 +530,7 @@ func PromotionCommands(c *state.Campaign, memoryID, actor string) ([]validation.
 	if err != nil {
 		return nil, err
 	}
-	status := objStr(mem, "promotion_status")
+	status := validation.ObjStr(mem, "promotion_status")
 	if status != "human-approved" {
 		return nil, fmt.Errorf("%s is %s; human approval required before any "+
 			"promotion", memoryID, pyReprStr(status))
@@ -560,11 +560,11 @@ func ReflectionEntry(c *state.Campaign, o ReflectionOpts) (validation.Value, err
 		kv("campaign_id", validation.VStr(c.CampaignID)),
 		kv("round", validation.VInt(o.Round)),
 		kv("at", validation.VStr(state.NowIso())),
-		kv("false_assumptions", strArr(o.FalseAssumptions)),
-		kv("tool_failures", strArr(o.ToolFailures)),
-		kv("wasted_effort", strArr(o.WastedEffort)),
-		kv("what_worked", strArr(o.WhatWorked)),
-		kv("process_improvements", strArr(o.ProcessImprovements)))
+		kv("false_assumptions", validation.StrArr(o.FalseAssumptions)),
+		kv("tool_failures", validation.StrArr(o.ToolFailures)),
+		kv("wasted_effort", validation.StrArr(o.WastedEffort)),
+		kv("what_worked", validation.StrArr(o.WhatWorked)),
+		kv("process_improvements", validation.StrArr(o.ProcessImprovements)))
 	path := filepath.Join(c.Dir, "learnings.jsonl")
 	data := validation.VObj(kv("round", validation.VInt(o.Round)))
 	if err := state.AppendJsonlThenLog(c, path, validation.DumpsOrdered(entry, false),
@@ -608,7 +608,7 @@ func PlannerHint(c *state.Campaign, o HintOpts) (validation.Value, error) {
 		kv("actor", validation.VStr(o.Actor)),
 		kv("at", validation.VStr(state.NowIso())))
 	path := filepath.Join(c.Dir, "planner_hints.jsonl")
-	hid := objStr(row, "hint_id")
+	hid := validation.ObjStr(row, "hint_id")
 	data := validation.VObj(
 		kv("kind", validation.VStr(o.Kind)),
 		kv("actor", validation.VStr(o.Actor)))
@@ -642,7 +642,7 @@ func LoadPlannerHints(c *state.Campaign, kind *string) ([]validation.Value, erro
 		if err != nil {
 			return nil, err
 		}
-		if kind != nil && *kind != "" && objStr(row, "kind") != *kind {
+		if kind != nil && *kind != "" && validation.ObjStr(row, "kind") != *kind {
 			continue
 		}
 		out = append(out, row)
@@ -663,7 +663,7 @@ func PendingMemory(c *state.Campaign) ([]validation.Value, error) {
 	}
 	out := []validation.Value{}
 	for _, m := range rows {
-		if objStr(m, "promotion_status") == "pending" {
+		if validation.ObjStr(m, "promotion_status") == "pending" {
 			out = append(out, m)
 		}
 	}
@@ -715,12 +715,12 @@ func NegativeMemoryLookup(c *state.Campaign, patternText string) ([]validation.V
 	}
 	hits := []validation.Value{}
 	for _, m := range rows {
-		if !inList(objStr(m, "status"), negativeStatuses) {
+		if !inList(validation.ObjStr(m, "status"), negativeStatuses) {
 			continue
 		}
-		neg := objAt(m, "negative_mode")
-		text := strings.ToLower(objStr(m, "pattern") + " " +
-			objStr(neg, "why_safe"))
+		neg := validation.ObjAt(m, "negative_mode")
+		text := strings.ToLower(validation.ObjStr(m, "pattern") + " " +
+			validation.ObjStr(neg, "why_safe"))
 		for _, w := range ReSplit(text) {
 			if _, ok := words[w]; ok {
 				hits = append(hits, m)
@@ -773,7 +773,7 @@ func BenchmarkCase(c *state.Campaign, o BenchmarkOpts) (validation.Value, error)
 		kv("source_finding", strOrNull(o.SourceFinding)),
 		kv("created_at", validation.VStr(state.NowIso())))
 	path := filepath.Join(c.Dir, "benchmarks.jsonl")
-	cid := objStr(c4, "case_id")
+	cid := validation.ObjStr(c4, "case_id")
 	data := validation.VObj(kv("name", validation.VStr(o.Name)))
 	if err := state.AppendJsonlThenLog(c, path, validation.DumpsOrdered(c4, false),
 		func() error {
@@ -801,14 +801,6 @@ func strOrNull(s *string) validation.Value {
 		return validation.VNull()
 	}
 	return validation.VStr(*s)
-}
-
-func strArr(items []string) validation.Value {
-	out := make([]validation.Value, 0, len(items))
-	for _, s := range items {
-		out = append(out, validation.VStr(s))
-	}
-	return validation.VArr(out...)
 }
 
 func strList(v validation.Value) []string {
@@ -857,8 +849,8 @@ func pyReprTuple(items []string) string {
 // stale taxonomy label — the CLI warns; the human decides).
 func StaleBugClass(c *state.Campaign, mem validation.Value) (
 	rowClass, findingClass string, stale bool) {
-	fid := objStr(mem, "finding_id")
-	rowClass = objStr(mem, "bug_class")
+	fid := validation.ObjStr(mem, "finding_id")
+	rowClass = validation.ObjStr(mem, "bug_class")
 	if fid == "" || rowClass == "" {
 		return "", "", false
 	}
@@ -902,7 +894,7 @@ func StaleBugClass(c *state.Campaign, mem validation.Value) (
 
 // rootClass is root_cause.class of a finding row.
 func rootClass(f validation.Value) string {
-	rc := objAt(f, "root_cause")
+	rc := validation.ObjAt(f, "root_cause")
 	if rc.Kind != validation.Obj {
 		return ""
 	}
@@ -924,12 +916,12 @@ func supersededBy(c *state.Campaign, fid string) string {
 	}
 	next := ""
 	for _, ev := range events {
-		if objStr(ev, "type") != "finding.superseded" {
+		if validation.ObjStr(ev, "type") != "finding.superseded" {
 			continue
 		}
-		d := objAt(ev, "data")
-		if objStr(d, "old") == fid {
-			next = objStr(d, "new")
+		d := validation.ObjAt(ev, "data")
+		if validation.ObjStr(d, "old") == fid {
+			next = validation.ObjStr(d, "new")
 		}
 	}
 	return next

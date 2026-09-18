@@ -17,7 +17,7 @@ import (
 // absent key is false — the schema refuses non-booleans at load time, and
 // this is the last line of defense for hand-built policies in tests.
 func PriorsEnabled(policy validation.Value) bool {
-	v := objAt(policy, "acceptance_priors")
+	v := validation.ObjAt(policy, "acceptance_priors")
 	return v.Kind == validation.Bool && v.B
 }
 

@@ -28,7 +28,7 @@ func Unpriceable(c *state.Campaign) (validation.Value, error) {
 	}
 	var decisions []validation.Value
 	for _, e := range events {
-		switch objStr(e, "type") {
+		switch validation.ObjStr(e, "type") {
 		case "finding.unpriceable", "finding.impact_recorded":
 			decisions = append(decisions, e)
 		}
@@ -48,21 +48,21 @@ func Unpriceable(c *state.Campaign) (validation.Value, error) {
 			// unreadable/invalid: section 4 already reports it
 			continue
 		}
-		imp := objAt(fdata, "economic_impact")
+		imp := validation.ObjAt(fdata, "economic_impact")
 		if imp.Kind != validation.Obj {
 			continue
 		}
-		if pv := objAt(imp, "priceable"); pv.Kind != validation.Bool || pv.B {
+		if pv := validation.ObjAt(imp, "priceable"); pv.Kind != validation.Bool || pv.B {
 			continue
 		}
 		checked++
-		fid := objStr(fdata, "finding_id")
+		fid := validation.ObjStr(fdata, "finding_id")
 		if fid == "" {
 			fid = strings.TrimSuffix(filepath.Base(p), ".json")
 		}
 		var mine []validation.Value
 		for _, e := range decisions {
-			if objStr(e, "ref") == fid {
+			if validation.ObjStr(e, "ref") == fid {
 				mine = append(mine, e)
 			}
 		}
@@ -74,7 +74,7 @@ func Unpriceable(c *state.Campaign) (validation.Value, error) {
 			continue
 		}
 		last := mine[len(mine)-1]
-		if objStr(last, "type") != "finding.unpriceable" {
+		if validation.ObjStr(last, "type") != "finding.unpriceable" {
 			problems = append(problems, validation.VStr(fmt.Sprintf(
 				"finding %s records economic_impact.priceable=false but "+
 					"the log's latest impact decision is a priced "+
@@ -82,8 +82,8 @@ func Unpriceable(c *state.Campaign) (validation.Value, error) {
 					"the log", fid)))
 			continue
 		}
-		recorded := objAt(objAt(last, "data"), "ceiling")
-		ceiling := objAt(imp, "ceiling")
+		recorded := validation.ObjAt(validation.ObjAt(last, "data"), "ceiling")
+		ceiling := validation.ObjAt(imp, "ceiling")
 		if !pyEqual(recorded, ceiling) {
 			problems = append(problems, validation.VStr(fmt.Sprintf(
 				"finding %s records ceiling %s but the log's last "+
@@ -100,17 +100,17 @@ func Unpriceable(c *state.Campaign) (validation.Value, error) {
 	// gate already refuses to credit an erased decision (it reads the
 	// file); what was missing was that the AUDIT stays silent about it.
 	for _, e := range decisions {
-		if objStr(e, "type") != "finding.unpriceable" {
+		if validation.ObjStr(e, "type") != "finding.unpriceable" {
 			continue
 		}
-		fid := objStr(e, "ref")
+		fid := validation.ObjStr(e, "ref")
 		fdata, ok := findingFileOf(c, fid)
 		if !ok {
 			continue // findings section reports the missing file
 		}
-		imp := objAt(fdata, "economic_impact")
+		imp := validation.ObjAt(fdata, "economic_impact")
 		if imp.Kind == validation.Obj {
-			if pv := objAt(imp, "priceable"); pv.Kind == validation.Bool &&
+			if pv := validation.ObjAt(imp, "priceable"); pv.Kind == validation.Bool &&
 				!pv.B {
 				continue // the decision still stands in the file
 			}
@@ -119,8 +119,8 @@ func Unpriceable(c *state.Campaign) (validation.Value, error) {
 		// log order; this event's own finding's LAST impact decision wins.
 		last := ""
 		for _, e2 := range decisions {
-			if objStr(e2, "ref") == fid {
-				last = objStr(e2, "type")
+			if validation.ObjStr(e2, "ref") == fid {
+				last = validation.ObjStr(e2, "type")
 			}
 		}
 		if last != "finding.unpriceable" {
@@ -148,7 +148,7 @@ func findingFileOf(c *state.Campaign, fid string) (validation.Value, bool) {
 	if err != nil {
 		return validation.Value{}, false
 	}
-	if objStr(v, "finding_id") != fid {
+	if validation.ObjStr(v, "finding_id") != fid {
 		return validation.Value{}, false
 	}
 	return v, true
@@ -197,7 +197,7 @@ func pyEqual(a, b validation.Value) bool {
 			if !bkeys[kv.K] {
 				return false
 			}
-			if !pyEqual(kv.V, objAt(b, kv.K)) {
+			if !pyEqual(kv.V, validation.ObjAt(b, kv.K)) {
 				return false
 			}
 		}

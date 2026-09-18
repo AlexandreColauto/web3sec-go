@@ -31,26 +31,26 @@ func TestIndexSnapshotStampsCampaign(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(idx, "campaign_id") != c.CampaignID {
-		t.Fatalf("campaign_id %q", objStr(idx, "campaign_id"))
+	if validation.ObjStr(idx, "campaign_id") != c.CampaignID {
+		t.Fatalf("campaign_id %q", validation.ObjStr(idx, "campaign_id"))
 	}
-	if objStr(idx, "snapshot_id") != "unpinned" {
-		t.Fatalf("snapshot_id %q", objStr(idx, "snapshot_id"))
+	if validation.ObjStr(idx, "snapshot_id") != "unpinned" {
+		t.Fatalf("snapshot_id %q", validation.ObjStr(idx, "snapshot_id"))
 	}
-	if objStr(idx, "backend") != "regex" {
-		t.Fatalf("backend %q", objStr(idx, "backend"))
+	if validation.ObjStr(idx, "backend") != "regex" {
+		t.Fatalf("backend %q", validation.ObjStr(idx, "backend"))
 	}
-	nodes := objList(objAt(idx, "nodes"))
-	edges := objList(objAt(idx, "edges"))
-	if got := objAt(idx, "entry_count"); got.Kind != validation.Int ||
+	nodes := objList(validation.ObjAt(idx, "nodes"))
+	edges := objList(validation.ObjAt(idx, "edges"))
+	if got := validation.ObjAt(idx, "entry_count"); got.Kind != validation.Int ||
 		got.I != int64(len(nodes)+len(edges)) {
 		t.Fatalf("entry_count %v want %d", got, len(nodes)+len(edges))
 	}
-	stats := objAt(idx, "stats")
+	stats := validation.ObjAt(idx, "stats")
 	for _, key := range []string{"solidity_files", "other_files_listed",
 		"contracts", "functions", "state_variables", "entry_points",
 		"external_call_edges"} {
-		if objAt(stats, key).Kind != validation.Int {
+		if validation.ObjAt(stats, key).Kind != validation.Int {
 			t.Fatalf("stats.%s missing", key)
 		}
 	}
@@ -118,7 +118,7 @@ func storedCreatedAt(c *state.Campaign) string {
 	if err != nil {
 		return ""
 	}
-	return objStr(idx, "created_at")
+	return validation.ObjStr(idx, "created_at")
 }
 
 func TestEnsureFreshIndexUnpinnedAlwaysRebuilds(t *testing.T) {
@@ -138,8 +138,8 @@ func TestEnsureFreshIndexUnpinnedAlwaysRebuilds(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(stored, "snapshot_id") != "unpinned" {
-		t.Fatalf("snapshot_id %q", objStr(stored, "snapshot_id"))
+	if validation.ObjStr(stored, "snapshot_id") != "unpinned" {
+		t.Fatalf("snapshot_id %q", validation.ObjStr(stored, "snapshot_id"))
 	}
 	if err := validation.WriteJson(IndexPath(c),
 		setKeyV(stored, "created_at", validation.VStr("SENTINEL")), ""); err != nil {
@@ -161,8 +161,8 @@ func TestEnsureFreshIndexReusesPinnedAndRebuildsStale(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(idx, "snapshot_id") != sid {
-		t.Fatalf("snapshot_id %q", objStr(idx, "snapshot_id"))
+	if validation.ObjStr(idx, "snapshot_id") != sid {
+		t.Fatalf("snapshot_id %q", validation.ObjStr(idx, "snapshot_id"))
 	}
 	if err := validation.WriteJson(IndexPath(c),
 		setKeyV(idx, "created_at", validation.VStr("SENTINEL")), ""); err != nil {
@@ -196,10 +196,10 @@ func TestEnsureFreshIndexReusesPinnedAndRebuildsStale(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if objStr(rebuilt, "snapshot_id") != sid ||
-			objStr(rebuilt, "parse_version") != ParseVersion {
+		if validation.ObjStr(rebuilt, "snapshot_id") != sid ||
+			validation.ObjStr(rebuilt, "parse_version") != ParseVersion {
 			t.Fatalf("did not rebuild: %v / %v",
-				objStr(rebuilt, "snapshot_id"), objStr(rebuilt, "parse_version"))
+				validation.ObjStr(rebuilt, "snapshot_id"), validation.ObjStr(rebuilt, "parse_version"))
 		}
 	}
 }
@@ -211,11 +211,11 @@ func TestValueFlowReportRegistersAndConverges(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(rep, "snapshot_id") != "unpinned" {
-		t.Fatalf("snapshot_id %q", objStr(rep, "snapshot_id"))
+	if validation.ObjStr(rep, "snapshot_id") != "unpinned" {
+		t.Fatalf("snapshot_id %q", validation.ObjStr(rep, "snapshot_id"))
 	}
-	if objAt(rep, "stats").Kind != validation.Obj {
-		t.Fatalf("stats %v", objAt(rep, "stats"))
+	if validation.ObjAt(rep, "stats").Kind != validation.Obj {
+		t.Fatalf("stats %v", validation.ObjAt(rep, "stats"))
 	}
 	if _, err := os.Stat(filepath.Join(c.ArtifactsDir, ValueFlowFile)); err != nil {
 		t.Fatalf("value_flow artifact: %v", err)
@@ -226,13 +226,13 @@ func TestValueFlowReportRegistersAndConverges(t *testing.T) {
 		t.Fatal(err)
 	}
 	found := false
-	for _, a := range objAt(st, "artifacts").A {
-		if objStr(a, "kind") == "value-flow" {
+	for _, a := range validation.ObjAt(st, "artifacts").A {
+		if validation.ObjStr(a, "kind") == "value-flow" {
 			found = true
 		}
 	}
 	if !found {
-		t.Fatalf("value-flow not registered: %v", objAt(st, "artifacts"))
+		t.Fatalf("value-flow not registered: %v", validation.ObjAt(st, "artifacts"))
 	}
 	verdict, err := c.VerifyLog()
 	if err != nil {
@@ -259,13 +259,13 @@ func TestValueFlowReportStampsRecon(t *testing.T) {
 	if stamp.Kind != validation.Obj {
 		t.Fatalf("no sinks stamp: %s", validation.CanonCompact(stamp))
 	}
-	if objStr(stamp, "src") != tree {
-		t.Fatalf("stamp src = %q, want %q", objStr(stamp, "src"), tree)
+	if validation.ObjStr(stamp, "src") != tree {
+		t.Fatalf("stamp src = %q, want %q", validation.ObjStr(stamp, "src"), tree)
 	}
-	if objStr(stamp, "at") == "" {
+	if validation.ObjStr(stamp, "at") == "" {
 		t.Fatal("stamp at is empty")
 	}
-	if got := objStr(stamp, "campaign_id"); got != c.CampaignID {
+	if got := validation.ObjStr(stamp, "campaign_id"); got != c.CampaignID {
 		t.Fatalf("stamp campaign_id = %q, want %q", got, c.CampaignID)
 	}
 	// the audit trail mirrors the stamp: the valueflow.computed event names
@@ -276,11 +276,11 @@ func TestValueFlowReportStampsRecon(t *testing.T) {
 	}
 	found := false
 	for _, e := range evts {
-		if objStr(e, "type") != "valueflow.computed" {
+		if validation.ObjStr(e, "type") != "valueflow.computed" {
 			continue
 		}
-		data := objAt(e, "data")
-		if objStr(data, "verb") == "sinks" && objStr(data, "src") == tree {
+		data := validation.ObjAt(e, "data")
+		if validation.ObjStr(data, "verb") == "sinks" && validation.ObjStr(data, "src") == tree {
 			found = true
 		}
 	}
@@ -296,17 +296,17 @@ func TestValueFlowReportStampsRecon(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	recon := objAt(st, "recon")
+	recon := validation.ObjAt(st, "recon")
 	if recon.Kind != validation.Obj || len(recon.O) != 1 ||
 		recon.O[0].K != "sinks" {
 		t.Fatalf("double run left %s", validation.CanonCompact(recon))
 	}
-	if len(objAt(recon, "sinks").O) != 3 {
+	if len(validation.ObjAt(recon, "sinks").O) != 3 {
 		t.Fatalf("sinks row keys = %s", validation.CanonCompact(
-			objAt(recon, "sinks")))
+			validation.ObjAt(recon, "sinks")))
 	}
 	// FIX-C: the stamp names the campaign it ran under
-	if got := objStr(objAt(recon, "sinks"), "campaign_id"); got != c.CampaignID {
+	if got := validation.ObjStr(validation.ObjAt(recon, "sinks"), "campaign_id"); got != c.CampaignID {
 		t.Fatalf("sinks campaign_id = %q, want %q", got, c.CampaignID)
 	}
 }
@@ -486,7 +486,7 @@ func TestForeignTreeNeverClaimsTheActivePin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(idx, "snapshot_id"); got != "unpinned" {
+	if got := validation.ObjStr(idx, "snapshot_id"); got != "unpinned" {
 		t.Fatalf("decoy content CLAIMED the active pin %s: stamped %q",
 			sid, got)
 	}
@@ -498,17 +498,17 @@ func TestForeignTreeNeverClaimsTheActivePin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(stored, "snapshot_id") != "unpinned" {
+	if validation.ObjStr(stored, "snapshot_id") != "unpinned" {
 		t.Fatalf("EnsureFreshIndex persisted a false claim: %q",
-			objStr(stored, "snapshot_id"))
+			validation.ObjStr(stored, "snapshot_id"))
 	}
 	// The REAL tree still claims its pin (no over-refusal):
 	homing, err := IndexSnapshot(c, real, "regex")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(homing, "snapshot_id") != sid {
+	if validation.ObjStr(homing, "snapshot_id") != sid {
 		t.Fatalf("the pinned tree lost its stamp: %q",
-			objStr(homing, "snapshot_id"))
+			validation.ObjStr(homing, "snapshot_id"))
 	}
 }

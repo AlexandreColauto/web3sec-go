@@ -214,7 +214,7 @@ func pinnedCompiler(c *state.Campaign) (*string, error) {
 		return nil, fmt.Errorf("the active snapshot's pin manifest %s "+
 			"cannot be read: %v", pinPath, err)
 	}
-	compiler := objAt(objAt(pin, "config"), "compiler")
+	compiler := validation.ObjAt(validation.ObjAt(pin, "config"), "compiler")
 	// Python's `if compiler:` truthiness — validation.PyTruthy is the
 	// canonical predicate, so a FALSY-BUT-PRESENT pin (0, false, "", 0.0) is
 	// no pin and str() renders a truthy scalar ("0.8.24", "0.8.24, --opt",

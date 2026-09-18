@@ -240,45 +240,45 @@ func execPreview(r *Runner, profile, command, workdir string,
 		return 2
 	}
 	avail := "yes"
-	if !(objAt(pv, "available").Kind == validation.Bool &&
-		objAt(pv, "available").B) {
+	if !(validation.ObjAt(pv, "available").Kind == validation.Bool &&
+		validation.ObjAt(pv, "available").B) {
 		avail = "NO — install the runtime to execute this profile"
 	}
 	fmt.Fprintf(r.Out, "exec preview [%s]  available: %s\n",
-		objStr(pv, "profile"), avail)
-	if objStr(pv, "profile") != "host-readonly" {
-		fmt.Fprintf(r.Out, "  network: %s\n", objStr(pv, "network"))
-		wdText := objStr(pv, "workdir")
+		validation.ObjStr(pv, "profile"), avail)
+	if validation.ObjStr(pv, "profile") != "host-readonly" {
+		fmt.Fprintf(r.Out, "  network: %s\n", validation.ObjStr(pv, "network"))
+		wdText := validation.ObjStr(pv, "workdir")
 		if wdText == "" {
 			wdText = "(sandbox tmpfs)"
 		}
 		fmt.Fprintf(r.Out, "  workdir: %s (%s)\n", wdText,
-			objStr(pv, "workdir_mode"))
-		keys := objAt(pv, "env_keys")
+			validation.ObjStr(pv, "workdir_mode"))
+		keys := validation.ObjAt(pv, "env_keys")
 		if len(keys.A) > 0 {
 			fmt.Fprintf(r.Out, "  env keys: %s\n", joinScalars(keys))
 		}
-		if m := objAt(pv, "svm_mount"); m.Kind == validation.Str {
+		if m := validation.ObjAt(pv, "svm_mount"); m.Kind == validation.Str {
 			fmt.Fprintf(r.Out, "  svm mount: %s -> /home/foundry/.svm\n", m.S)
 		}
 		parts := []string{}
-		for _, a := range objAt(pv, "argv").A {
+		for _, a := range validation.ObjAt(pv, "argv").A {
 			parts = append(parts, shlexQuote(scalarStr(a)))
 		}
 		fmt.Fprintf(r.Out, "  $ %s\n", strings.Join(parts, " "))
 	} else {
-		cwd := objStr(pv, "workdir")
+		cwd := validation.ObjStr(pv, "workdir")
 		if cwd == "" {
 			cwd = "(current directory)"
 		}
 		fmt.Fprintf(r.Out, "  command (host shell, cwd %s): %s\n", cwd,
-			objStr(pv, "command"))
-		keys := objAt(pv, "env_keys")
+			validation.ObjStr(pv, "command"))
+		keys := validation.ObjAt(pv, "env_keys")
 		if len(keys.A) > 0 {
 			fmt.Fprintf(r.Out, "  extra env keys: %s\n", joinScalars(keys))
 		}
 	}
-	fmt.Fprintf(r.Out, "  note: %s\n", objStr(pv, "note"))
+	fmt.Fprintf(r.Out, "  note: %s\n", validation.ObjStr(pv, "note"))
 	return 0
 }
 
@@ -316,7 +316,7 @@ func execRun(c *state.Campaign, campaignID, profile, command, workdir,
 	if err != nil {
 		return r.withErr(c.Dir, func() error { return err })
 	}
-	if issues := objAt(pre, "issues"); len(issues.A) > 0 {
+	if issues := validation.ObjAt(pre, "issues"); len(issues.A) > 0 {
 		for _, i := range issues.A {
 			fmt.Fprintf(r.Err, "exec preflight FAIL: %s\n", scalarStr(i))
 		}
@@ -325,7 +325,7 @@ func execRun(c *state.Campaign, campaignID, profile, command, workdir,
 			"webv2 env doctor "+campaignID+")")
 		return 2
 	}
-	for _, w := range objAt(pre, "warnings").A {
+	for _, w := range validation.ObjAt(pre, "warnings").A {
 		fmt.Fprintf(r.Err, "exec preflight warn: %s\n", scalarStr(w))
 	}
 	sb, err := newExecSandbox(c, profile)
@@ -348,19 +348,19 @@ func execRun(c *state.Campaign, campaignID, profile, command, workdir,
 		fmt.Fprintf(r.Err, "exec failed: %s\n", err)
 		return 2
 	}
-	fmt.Fprintf(r.Out, "%s  [%s] exit=%s %s\n", objStr(rec, "exec_id"),
-		objStr(rec, "profile"), scalarStr(objAt(rec, "exit_status")),
-		pyHead(objStr(rec, "command"), 70))
+	fmt.Fprintf(r.Out, "%s  [%s] exit=%s %s\n", validation.ObjStr(rec, "exec_id"),
+		validation.ObjStr(rec, "profile"), scalarStr(validation.ObjAt(rec, "exit_status")),
+		pyHead(validation.ObjStr(rec, "command"), 70))
 	fmt.Fprintf(r.Out, "output: %s / %s (mint with `webv2 mint ... --exec %s`)\n",
-		objStr(rec, "stdout_path"), objStr(rec, "stderr_path"),
-		objStr(rec, "exec_id"))
-	if objStr(rec, "profile") == "host-readonly" &&
-		objAt(rec, "exit_status").Kind == validation.Int &&
-		objAt(rec, "exit_status").I == 0 {
+		validation.ObjStr(rec, "stdout_path"), validation.ObjStr(rec, "stderr_path"),
+		validation.ObjStr(rec, "exec_id"))
+	if validation.ObjStr(rec, "profile") == "host-readonly" &&
+		validation.ObjAt(rec, "exit_status").Kind == validation.Int &&
+		validation.ObjAt(rec, "exit_status").I == 0 {
 		fmt.Fprintln(r.Out, "  (host-readonly ran on the host — this exec can "+
 			"NEVER back E4+ evidence; use a container profile for that)")
 	}
-	exit := objAt(rec, "exit_status")
+	exit := validation.ObjAt(rec, "exit_status")
 	if exit.Kind == validation.Int && exit.I != 0 {
 		// r36 F1/F6 at the CLI boundary: the operator hears the sandbox's
 		// own account of a failed run, not just "exit=-1". The note is
@@ -374,11 +374,11 @@ func execRun(c *state.Campaign, campaignID, profile, command, workdir,
 			fmt.Fprintf(r.Out, "  %s\n", msg)
 		}
 		res := sandbox.ClassifyFailure(rec)
-		class := objStr(res, "class")
+		class := validation.ObjStr(res, "class")
 		if class == "environment" || class == "setup" || class == "unknown" {
 			fmt.Fprintf(r.Out, "  classified: %s — %s (re-check: webv2 "+
 				"classify %s %s)\n", strings.ToUpper(class),
-				objStr(res, "note"), campaignID, objStr(rec, "exec_id"))
+				validation.ObjStr(res, "note"), campaignID, validation.ObjStr(rec, "exec_id"))
 		}
 	}
 	return 0
@@ -392,7 +392,7 @@ func execRun(c *state.Campaign, campaignID, profile, command, workdir,
 // mid-stream, and a log with no such line (a twin-era or
 // externally-reported record) forwards nothing rather than an invention.
 func sandboxNote(rec validation.Value) (string, bool) {
-	p := objStr(rec, "stderr_path")
+	p := validation.ObjStr(rec, "stderr_path")
 	if p == "" {
 		return "", false
 	}
@@ -430,7 +430,7 @@ func sandboxNote(rec validation.Value) (string, bool) {
 // that the log on disk is incomplete, with the counts the record actually
 // carries — never a fabricated total, never a promise mint has not made.
 func captureNote(rec validation.Value) string {
-	oc := objAt(rec, "output_capture")
+	oc := validation.ObjAt(rec, "output_capture")
 	if oc.Kind != validation.Obj {
 		return ""
 	}
@@ -439,11 +439,11 @@ func captureNote(rec validation.Value) string {
 		{"stdout", "stdout_truncated", "stdout_total_bytes"},
 		{"stderr", "stderr_truncated", "stderr_total_bytes"},
 	} {
-		if f := objAt(oc, stream.flag); f.Kind != validation.Bool || !f.B {
+		if f := validation.ObjAt(oc, stream.flag); f.Kind != validation.Bool || !f.B {
 			continue
 		}
-		total := objAt(oc, stream.total)
-		capV := objAt(oc, "cap_bytes")
+		total := validation.ObjAt(oc, stream.total)
+		capV := validation.ObjAt(oc, "cap_bytes")
 		if total.Kind == validation.Int && capV.Kind == validation.Int {
 			parts = append(parts, fmt.Sprintf(
 				"%s truncated: the run wrote %d bytes and the capture keeps "+
@@ -454,7 +454,7 @@ func captureNote(rec validation.Value) string {
 		parts = append(parts, stream.name+
 			" truncated: the true byte count is not in the record")
 	}
-	if w := objAt(oc, "output_withheld"); w.Kind == validation.Bool && w.B {
+	if w := validation.ObjAt(oc, "output_withheld"); w.Kind == validation.Bool && w.B {
 		parts = append(parts, "output totals unknown: the capture was "+
 			"withheld (output_withheld in the record)")
 	}
@@ -517,9 +517,9 @@ func execFindingBindingRefused(c *state.Campaign, finding string) (int, string) 
 		return 2, "exec refused: --finding " + finding + " is not in " +
 			"this campaign (" + ferr.Error() + ")\n"
 	}
-	if findings.IsTerminal(objStr(f, "status")) {
+	if findings.IsTerminal(validation.ObjStr(f, "status")) {
 		return 2, "exec refused: --finding " + finding + " is " +
-			objStr(f, "status") + " — an exec bound to a dead row can " +
+			validation.ObjStr(f, "status") + " — an exec bound to a dead row can " +
 			"never mint against it; run against the live successor\n"
 	}
 	return 0, ""

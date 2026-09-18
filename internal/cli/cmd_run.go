@@ -89,7 +89,7 @@ func runRun(root string, args []string, r *Runner) error {
 // so the clamped stand-in never changes the run, only the digits.
 func restoreMaxStagesHalt(summary validation.Value, clamped *int64,
 	digits string) {
-	if digits == "" || clamped == nil || objStr(summary, "halt") !=
+	if digits == "" || clamped == nil || validation.ObjStr(summary, "halt") !=
 		"max_stages="+strconv.FormatInt(*clamped, 10) {
 		return
 	}
@@ -106,12 +106,12 @@ func restoreMaxStagesHalt(summary validation.Value, clamped *int64,
 // stage blocks the run, 2 when the scheduler halted, 0 otherwise.
 func emitRunSummary(r *Runner, summary validation.Value) error {
 	fmt.Fprintln(r.Out, validation.DumpIndentedASCII(withoutKey(summary, "needs_model")))
-	if nm := objAt(summary, "needs_model"); nm.Kind == validation.Obj {
-		fmt.Fprintf(r.Out, "\nHALTED at model stage: %s\n", objStr(nm, "stage"))
-		fmt.Fprintf(r.Out, "  prompt:  %s\n", scalarStr(objAt(nm, "prompt_path")))
-		fmt.Fprintf(r.Out, "  budget:  %s\n", scalarStr(objAt(nm, "budget_class")))
+	if nm := validation.ObjAt(summary, "needs_model"); nm.Kind == validation.Obj {
+		fmt.Fprintf(r.Out, "\nHALTED at model stage: %s\n", validation.ObjStr(nm, "stage"))
+		fmt.Fprintf(r.Out, "  prompt:  %s\n", scalarStr(validation.ObjAt(nm, "prompt_path")))
+		fmt.Fprintf(r.Out, "  budget:  %s\n", scalarStr(validation.ObjAt(nm, "budget_class")))
 		blocks := []string{}
-		if b := objAt(nm, "blocks"); b.Kind == validation.Arr {
+		if b := validation.ObjAt(nm, "blocks"); b.Kind == validation.Arr {
 			for _, x := range b.A {
 				blocks = append(blocks, scalarStr(x))
 			}
@@ -121,8 +121,8 @@ func emitRunSummary(r *Runner, summary validation.Value) error {
 			"then run again.")
 		return &t14Exit{code: 3}
 	}
-	if objStr(summary, "status") == "halted" {
-		return t14ExitErr(2, "\nHALTED: %s\n", scalarStr(objAt(summary, "halt")))
+	if validation.ObjStr(summary, "status") == "halted" {
+		return t14ExitErr(2, "\nHALTED: %s\n", scalarStr(validation.ObjAt(summary, "halt")))
 	}
 	return nil
 }

@@ -239,13 +239,13 @@ func verifyQueue(c *state.Campaign, r *Runner) error {
 		if objBool(item, "mandatory") {
 			flag = "MANDATORY"
 		}
-		title := []rune(objStr(item, "title"))
+		title := []rune(validation.ObjStr(item, "title"))
 		if len(title) > 60 {
 			title = title[:60]
 		}
 		fmt.Fprintf(r.Out, "[%s] %s  at %s  %s  — %s\n", flag,
-			objStr(item, "finding_id"), objStr(item, "evidence_level"),
-			objStr(item, "bug_class"), string(title))
+			validation.ObjStr(item, "finding_id"), validation.ObjStr(item, "evidence_level"),
+			validation.ObjStr(item, "bug_class"), string(title))
 	}
 	return nil
 }
@@ -318,7 +318,7 @@ func verifyScaffold(c *state.Campaign, a *verifyArgs, r *Runner) error {
 	}
 	var entry validation.Value
 	found := false
-	if reg := objAt(links, "invariants"); reg.Kind == validation.Obj {
+	if reg := validation.ObjAt(links, "invariants"); reg.Kind == validation.Obj {
 		for _, kv := range reg.O {
 			if kv.K == a.invariant {
 				entry, found = kv.V, true

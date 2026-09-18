@@ -59,7 +59,7 @@ func t6Refreshes(t *testing.T, c *state.Campaign) []validation.Value {
 	t.Helper()
 	var out []validation.Value
 	for _, e := range t6Events(t, c) {
-		if objStr(e, "type") == "artifact.refreshed" {
+		if validation.ObjStr(e, "type") == "artifact.refreshed" {
 			out = append(out, e)
 		}
 	}
@@ -80,7 +80,7 @@ func t6IndexRow(t *testing.T, c *state.Campaign) validation.Value {
 	}
 	var rows []validation.Value
 	for _, a := range objListAt(st, "artifacts") {
-		if objStr(a, "kind") == "structural-index" {
+		if validation.ObjStr(a, "kind") == "structural-index" {
 			rows = append(rows, a)
 		}
 	}
@@ -111,8 +111,8 @@ func t6AuditArtifacts(t *testing.T, root, cid string) (validation.Value, validat
 	if err != nil {
 		t.Fatalf("audit json: %v (%q)", err, out)
 	}
-	sec := objAt(objAt(rep, "sections"), "artifacts")
-	if ok := objAt(sec, "ok"); ok.Kind != validation.Bool || !ok.B {
+	sec := validation.ObjAt(validation.ObjAt(rep, "sections"), "artifacts")
+	if ok := validation.ObjAt(sec, "ok"); ok.Kind != validation.Bool || !ok.B {
 		t.Fatalf("artifacts section not ok: %s", validation.DumpIndented(sec))
 	}
 	return sec, rep
@@ -129,7 +129,7 @@ func TestIndexRefreshEventOnRewrittenArtifact(t *testing.T) {
 	t6Index(t, root, c.CampaignID, src)
 
 	row := t6IndexRow(t, c)
-	before := objStr(row, "sha256")
+	before := validation.ObjStr(row, "sha256")
 	fileSha, err := validation.Sha256File(t6IndexPath(c))
 	if err != nil {
 		t.Fatal(err)
@@ -153,11 +153,11 @@ func TestIndexRefreshEventOnRewrittenArtifact(t *testing.T) {
 		t.Fatalf("artifact.refreshed events: %d want 1", len(evs))
 	}
 	ev := evs[0]
-	if got, want := objStr(ev, "ref"), objStr(row, "artifact_id"); got != want {
+	if got, want := validation.ObjStr(ev, "ref"), validation.ObjStr(row, "artifact_id"); got != want {
 		t.Errorf("refresh ref %q want the registered row %q", got, want)
 	}
-	d := objAt(ev, "data")
-	if got := objStr(d, "old_sha256"); got != before {
+	d := validation.ObjAt(ev, "data")
+	if got := validation.ObjStr(d, "old_sha256"); got != before {
 		t.Errorf("old_sha256 %q want the pre-rewrite hash %q", got, before)
 	}
 	row = t6IndexRow(t, c)
@@ -165,10 +165,10 @@ func TestIndexRefreshEventOnRewrittenArtifact(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(row, "sha256"); got != fileSha {
+	if got := validation.ObjStr(row, "sha256"); got != fileSha {
 		t.Errorf("registry hash %q != rewritten bytes %q", got, fileSha)
 	}
-	if got := objStr(d, "new_sha256"); got != fileSha {
+	if got := validation.ObjStr(d, "new_sha256"); got != fileSha {
 		t.Errorf("new_sha256 %q != rewritten bytes %q", got, fileSha)
 	}
 	if got := objInt(row, "refresh_count"); got != 1 {
@@ -178,10 +178,10 @@ func TestIndexRefreshEventOnRewrittenArtifact(t *testing.T) {
 	if got := objInt(sec, "checked"); got != 1 {
 		t.Errorf("artifacts section checked %d want 1 (the refreshed row)", got)
 	}
-	if probs := objAt(sec, "problems").A; len(probs) != 0 {
+	if probs := validation.ObjAt(sec, "problems").A; len(probs) != 0 {
 		t.Errorf("artifacts section problems: %v", probs)
 	}
-	if ok := objAt(rep, "ok"); ok.Kind != validation.Bool || !ok.B {
+	if ok := validation.ObjAt(rep, "ok"); ok.Kind != validation.Bool || !ok.B {
 		t.Errorf("audit overall not ok")
 	}
 }
@@ -195,7 +195,7 @@ func TestIndexUnchangedTreeEmitsNoEvents(t *testing.T) {
 	})
 	t6Index(t, root, c.CampaignID, src)
 	row := t6IndexRow(t, c)
-	before := objStr(row, "sha256")
+	before := validation.ObjStr(row, "sha256")
 	raw, err := os.ReadFile(t6IndexPath(c))
 	if err != nil {
 		t.Fatal(err)
@@ -221,7 +221,7 @@ func TestIndexUnchangedTreeEmitsNoEvents(t *testing.T) {
 		t.Error("an unchanged rebuild rewrote the index bytes")
 	}
 	row = t6IndexRow(t, c)
-	if got := objStr(row, "sha256"); got != before {
+	if got := validation.ObjStr(row, "sha256"); got != before {
 		t.Errorf("row sha256 moved to %q on an unchanged rebuild", got)
 	}
 	if got := objInt(row, "refresh_count"); got != 0 {
@@ -324,8 +324,8 @@ func TestIndexConcurrentRefresh(t *testing.T) {
 	}
 	prev := ""
 	for i, ev := range evs {
-		d := objAt(ev, "data")
-		oldSha, newSha := objStr(d, "old_sha256"), objStr(d, "new_sha256")
+		d := validation.ObjAt(ev, "data")
+		oldSha, newSha := validation.ObjStr(d, "old_sha256"), validation.ObjStr(d, "new_sha256")
 		if oldSha == "" || newSha == "" {
 			t.Fatalf("refresh %d has an empty hash pair: %s", i,
 				validation.DumpIndented(d))
@@ -346,7 +346,7 @@ func TestIndexConcurrentRefresh(t *testing.T) {
 		t.Fatal(err)
 	}
 	row := t6IndexRow(t, c)
-	if got := objStr(row, "sha256"); got != fileSha {
+	if got := validation.ObjStr(row, "sha256"); got != fileSha {
 		t.Fatalf("final row sha256 %q != final bytes %q", got, fileSha)
 	}
 	if prev != fileSha {

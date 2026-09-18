@@ -156,7 +156,7 @@ func Eval(c *state.Campaign) (validation.Value, error) {
 		var prog string
 		for _, kv := range cs.O {
 			if kv.K == "program" {
-				prog = objStr(kv.V, "program")
+				prog = validation.ObjStr(kv.V, "program")
 			}
 		}
 		if !strings.EqualFold(prog, program) {

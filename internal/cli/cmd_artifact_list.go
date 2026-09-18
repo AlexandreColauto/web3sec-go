@@ -48,10 +48,10 @@ func runArtifactList(root string, args []string, r *Runner) int {
 	if err != nil {
 		return r.withErr(root, func() error { return err })
 	}
-	rows := objAt(st, "artifacts").A
+	rows := validation.ObjAt(st, "artifacts").A
 	shown := make([]validation.Value, 0, len(rows))
 	for _, row := range rows {
-		if kind != "" && objStr(row, "kind") != kind {
+		if kind != "" && validation.ObjStr(row, "kind") != kind {
 			continue
 		}
 		shown = append(shown, row)
@@ -66,11 +66,11 @@ func runArtifactList(root string, args []string, r *Runner) int {
 	}
 	for _, row := range shown {
 		note := ""
-		if n := objStr(row, "note"); n != "" {
+		if n := validation.ObjStr(row, "note"); n != "" {
 			note = "  " + pyHead(n, 60)
 		}
-		fmt.Fprintf(r.Out, "%s  %s  %s%s\n", objStr(row, "artifact_id"),
-			objStr(row, "kind"), objStr(row, "path"), note)
+		fmt.Fprintf(r.Out, "%s  %s  %s%s\n", validation.ObjStr(row, "artifact_id"),
+			validation.ObjStr(row, "kind"), validation.ObjStr(row, "path"), note)
 	}
 	return 0
 }

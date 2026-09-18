@@ -39,7 +39,7 @@ func snapExcludedFromRecord(t *testing.T, root, cid string) []string {
 		t.Fatal(err)
 	}
 	var out []string
-	for _, v := range objAt(objAt(snap, "source"), "excluded").A {
+	for _, v := range validation.ObjAt(validation.ObjAt(snap, "source"), "excluded").A {
 		if v.Kind == validation.Str {
 			out = append(out, v.S)
 		}

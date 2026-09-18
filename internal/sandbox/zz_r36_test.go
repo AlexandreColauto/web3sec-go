@@ -146,7 +146,7 @@ func TestR36ContainerTimeoutHonesty(t *testing.T) {
 		t.Fatal(err)
 	}
 	raw, err := os.ReadFile(filepath.Join(c.ExecsDir,
-		objStr(rec, "exec_id"), "stderr.log"))
+		validation.ObjStr(rec, "exec_id"), "stderr.log"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -172,7 +172,7 @@ func TestR36ContainerTimeoutHonesty(t *testing.T) {
 		t.Fatalf("timeout record must explain itself: %q", stderrLog)
 	}
 	stdoutLog, err := os.ReadFile(filepath.Join(c.ExecsDir,
-		objStr(rec, "exec_id"), "stdout.log"))
+		validation.ObjStr(rec, "exec_id"), "stdout.log"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -202,9 +202,9 @@ func TestR36RealDockerTimeoutKillsContainer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	name := "webv2-exec-" + strings.ToLower(objStr(rec, "exec_id"))
+	name := "webv2-exec-" + strings.ToLower(validation.ObjStr(rec, "exec_id"))
 	stderrLog, err := os.ReadFile(filepath.Join(c.ExecsDir,
-		objStr(rec, "exec_id"), "stderr.log"))
+		validation.ObjStr(rec, "exec_id"), "stderr.log"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -232,7 +232,7 @@ func TestR36RealDockerTimeoutKillsContainer(t *testing.T) {
 		time.Sleep(250 * time.Millisecond)
 	}
 	stdoutLog, err := os.ReadFile(filepath.Join(c.ExecsDir,
-		objStr(rec, "exec_id"), "stdout.log"))
+		validation.ObjStr(rec, "exec_id"), "stdout.log"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -347,7 +347,7 @@ func TestR36WorkdirResolvedAndNoFabricatedHash(t *testing.T) {
 		t.Fatal(err)
 	}
 	raw, err := os.ReadFile(filepath.Join(c.ExecsDir,
-		objStr(rec, "exec_id"), "exec_record.json"))
+		validation.ObjStr(rec, "exec_id"), "exec_record.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -404,7 +404,7 @@ func TestR36HostReadonlyFilesystemLabelIsHonest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fs := strAt(objAt(rec, "environment"), "filesystem")
+	fs := strAt(validation.ObjAt(rec, "environment"), "filesystem")
 	if fs == "readonly" {
 		t.Fatalf("host-readonly record claims filesystem %q while the run "+
 			"writes the host filesystem unconfined", fs)
@@ -429,7 +429,7 @@ func TestR36OutputCaptureCapAndAccounting(t *testing.T) {
 		t.Fatal(err)
 	}
 	raw, err := os.ReadFile(filepath.Join(c.ExecsDir,
-		objStr(rec, "exec_id"), "exec_record.json"))
+		validation.ObjStr(rec, "exec_id"), "exec_record.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -451,7 +451,7 @@ func TestR36OutputCaptureCapAndAccounting(t *testing.T) {
 		t.Fatalf("stdout_total_bytes = %v, want the true count >= 30000000",
 			oc["stdout_total_bytes"])
 	}
-	stdoutPath := objStr(rec, "stdout_path")
+	stdoutPath := validation.ObjStr(rec, "stdout_path")
 	st, err := os.Stat(stdoutPath)
 	if err != nil {
 		t.Fatal(err)

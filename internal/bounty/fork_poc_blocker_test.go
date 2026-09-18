@@ -69,17 +69,17 @@ func TestForkPocBlockerCarriesStatusReason(t *testing.T) {
 			if row.Kind == validation.Null {
 				t.Fatal("no mainnet-fork-poc row in policy_checks")
 			}
-			if got := objStr(row, "result"); got != "fail" {
+			if got := validation.ObjStr(row, "result"); got != "fail" {
 				t.Errorf("mainnet-fork-poc result = %s, want fail", got)
 			}
-			if got := objStr(row, "detail"); got != tc.forkWhy {
+			if got := validation.ObjStr(row, "detail"); got != tc.forkWhy {
 				t.Errorf("check detail = %q, want the seam's reason %q",
 					got, tc.forkWhy)
 			}
 			blocker, ok := forkPocBlocker(result)
 			if !ok {
 				t.Fatalf("no fork blocker in %s",
-					validation.CanonCompact(objAt(result, "blocking_reasons")))
+					validation.CanonCompact(validation.ObjAt(result, "blocking_reasons")))
 			}
 			if tc.wantPrecise {
 				if !strings.HasPrefix(blocker, "no proven mainnet fork PoC: ") {
@@ -92,7 +92,7 @@ func TestForkPocBlockerCarriesStatusReason(t *testing.T) {
 			} else if blocker != forkPocBlockerFallback {
 				t.Errorf("blocker = %q, want the fallback constant", blocker)
 			}
-			if ready := objAt(result, "submission_ready"); pyTruthyBigNonEmpty(ready) {
+			if ready := validation.ObjAt(result, "submission_ready"); pyTruthyBigNonEmpty(ready) {
 				t.Errorf("submission_ready = True with the fork PoC unproven")
 			}
 		})
@@ -101,7 +101,7 @@ func TestForkPocBlockerCarriesStatusReason(t *testing.T) {
 
 // forkPocBlocker is the one blocking reason about the fork PoC.
 func forkPocBlocker(result validation.Value) (string, bool) {
-	for _, r := range objAt(result, "blocking_reasons").A {
+	for _, r := range validation.ObjAt(result, "blocking_reasons").A {
 		if r.Kind == validation.Str && strings.Contains(r.S, "mainnet fork PoC") {
 			return r.S, true
 		}
@@ -134,17 +134,17 @@ func TestForkPocWaiverBlockerUnchanged(t *testing.T) {
 	if row.Kind == validation.Null {
 		t.Fatal("no mainnet-fork-poc row in policy_checks")
 	}
-	if got := objStr(row, "result"); got != "pass" {
+	if got := validation.ObjStr(row, "result"); got != "pass" {
 		t.Errorf("waived mainnet-fork-poc result = %s, want pass", got)
 	}
-	if got := objStr(row, "detail"); !strings.HasPrefix(got, "waived by alice: ") {
+	if got := validation.ObjStr(row, "detail"); !strings.HasPrefix(got, "waived by alice: ") {
 		t.Errorf("waived detail = %q, want the waiver's provenance", got)
 	}
 	if blocker, ok := forkPocBlocker(result); ok {
 		t.Errorf("waived check appended the blocker %q: %s", blocker,
-			validation.CanonCompact(objAt(result, "blocking_reasons")))
+			validation.CanonCompact(validation.ObjAt(result, "blocking_reasons")))
 	}
-	if ready := objAt(result, "submission_ready"); !pyTruthyBigNonEmpty(ready) {
+	if ready := validation.ObjAt(result, "submission_ready"); !pyTruthyBigNonEmpty(ready) {
 		t.Errorf("submission_ready = %s, want True (the waiver answered the "+
 			"fork PoC)", validation.PyRepr(ready))
 	}

@@ -178,13 +178,13 @@ func adjudicated(cases []validation.Value) (map[string]classCount, int, int, int
 	counts := map[string]classCount{}
 	globalK, globalN, skipped := 0, 0, 0
 	for _, c := range cases {
-		gold := objAt(c, "gold")
-		outcome := orStr(objAt(gold, "outcome"))
+		gold := validation.ObjAt(c, "gold")
+		outcome := orStr(validation.ObjAt(gold, "outcome"))
 		if !vocab[outcome] {
 			skipped++
 			continue
 		}
-		class := orStr(objAt(gold, "bug_class"))
+		class := orStr(validation.ObjAt(gold, "bug_class"))
 		cc := counts[class]
 		if outcome == AcceptedOutcome {
 			cc.k++

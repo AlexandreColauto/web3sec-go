@@ -47,11 +47,11 @@ func TestValidSpecLoads(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	steps := listOf(objAt(spec, "steps"))
-	if got := intOf(objAt(steps[1], "mine_blocks")); got != 5 {
+	steps := listOf(validation.ObjAt(spec, "steps"))
+	if got := intOf(validation.ObjAt(steps[1], "mine_blocks")); got != 5 {
 		t.Errorf("mine_blocks = %d", got)
 	}
-	er := objAt(steps[0], "expect_revert")
+	er := validation.ObjAt(steps[0], "expect_revert")
 	if er.Kind != validation.Bool || er.B {
 		t.Errorf("expect_revert = %v", er)
 	}
@@ -84,7 +84,7 @@ func TestFieldRulesFailLoud(t *testing.T) {
 			return appendStep(s, cloneStep(t, s, 0))
 		}, "step"},
 		{"actors-extra", func(t *testing.T, s validation.Value) validation.Value {
-			actors := objAt(s, "actors")
+			actors := validation.ObjAt(s, "actors")
 			actors.O = append(actors.O, validation.KV{K: "evil",
 				V: validation.VStr("0x123")})
 			return setPath(t, s, []string{"actors"}, actors)
@@ -269,7 +269,7 @@ func TestArtifactKindRegistered(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	kinds := objAt(objAt(objAt(objAt(objAt(doc, "properties"), "artifacts"),
+	kinds := validation.ObjAt(validation.ObjAt(validation.ObjAt(validation.ObjAt(validation.ObjAt(doc, "properties"), "artifacts"),
 		"items"), "properties"), "kind")
 	if !enumHas(kinds, "sequence-poc") {
 		t.Error("campaign_state kinds must include sequence-poc")
@@ -314,17 +314,17 @@ func TestValueEchoFlagged(t *testing.T) {
 		t.Fatalf("flags = %d, want 1", len(flags))
 	}
 	f := flags[0]
-	if intOf(objAt(f, "step")) != 3 || objStr(f, "actor") != "victim" {
+	if intOf(validation.ObjAt(f, "step")) != 3 || validation.ObjStr(f, "actor") != "victim" {
 		t.Errorf("flag = %v", f)
 	}
-	if intOf(objAt(f, "arg_index")) != 0 {
-		t.Errorf("arg_index = %v", objAt(f, "arg_index"))
+	if intOf(validation.ObjAt(f, "arg_index")) != 0 {
+		t.Errorf("arg_index = %v", validation.ObjAt(f, "arg_index"))
 	}
-	if intOf(objAt(f, "echoes_attacker_step")) != 2 {
-		t.Errorf("echoes = %v", objAt(f, "echoes_attacker_step"))
+	if intOf(validation.ObjAt(f, "echoes_attacker_step")) != 2 {
+		t.Errorf("echoes = %v", validation.ObjAt(f, "echoes_attacker_step"))
 	}
-	if !strings.Contains(objStr(f, "note"), "public information") {
-		t.Errorf("note = %q", objStr(f, "note"))
+	if !strings.Contains(validation.ObjStr(f, "note"), "public information") {
+		t.Errorf("note = %q", validation.ObjStr(f, "note"))
 	}
 }
 
@@ -359,7 +359,7 @@ func TestNonDictStepsIgnored(t *testing.T) {
 
 // enumHas is `"x" in schema-enum`.
 func enumHas(kinds validation.Value, want string) bool {
-	for _, v := range listOf(objAt(kinds, "enum")) {
+	for _, v := range listOf(validation.ObjAt(kinds, "enum")) {
 		if v.Kind == validation.Str && v.S == want {
 			return true
 		}
@@ -370,7 +370,7 @@ func enumHas(kinds validation.Value, want string) bool {
 // cloneStep deep-copies step i of the spec (json round-trip in Python).
 func cloneStep(t *testing.T, spec validation.Value, i int) validation.Value {
 	t.Helper()
-	steps := listOf(objAt(spec, "steps"))
+	steps := listOf(validation.ObjAt(spec, "steps"))
 	raw := validation.DumpIndented(steps[i])
 	v, err := validation.ParseOrdered([]byte(raw))
 	if err != nil {
@@ -422,7 +422,7 @@ func reorderKeys(t *testing.T, v validation.Value, deep bool) validation.Value {
 	keys := objKeys(v)
 	sort.Sort(sort.Reverse(sort.StringSlice(keys)))
 	for _, k := range keys {
-		val := objAt(v, k)
+		val := validation.ObjAt(v, k)
 		if deep && val.Kind == validation.Arr {
 			items := make([]validation.Value, len(val.A))
 			for i, it := range val.A {

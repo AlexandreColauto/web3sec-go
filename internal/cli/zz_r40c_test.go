@@ -24,6 +24,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"websec/internal/validation"
 
 	"websec/internal/state"
 )
@@ -182,7 +183,7 @@ func TestR40cDoctorLossSentenceNamesTheRightDirection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mirrored := len(objAt(st, "events").A)
+	mirrored := len(validation.ObjAt(st, "events").A)
 	if mirrored <= logged {
 		t.Fatalf("fixture is not the loss shape: projection %d, log %d",
 			mirrored, logged)

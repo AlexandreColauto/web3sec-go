@@ -96,7 +96,7 @@ func stubSolcDir(t *testing.T, dir *string) {
 }
 
 func boolField(v validation.Value, key string) bool  { return boolAt(v, key) }
-func strField(v validation.Value, key string) string { return objStr(v, key) }
+func strField(v validation.Value, key string) string { return validation.ObjStr(v, key) }
 
 // --- tests/test_env_solc.py -------------------------------------------------
 
@@ -113,10 +113,10 @@ func TestDownloadFailureClassifiesEnvironmentWithFix(t *testing.T) {
 		t.Fatal(err)
 	}
 	res := ClassifyFailure(rec)
-	if got := objStr(res, "class"); got != "environment" {
+	if got := validation.ObjStr(res, "class"); got != "environment" {
 		t.Fatalf("class = %q, want environment", got)
 	}
-	note := objStr(res, "note")
+	note := validation.ObjStr(res, "note")
 	if !strings.Contains(note, "WEBV2_SOLC_DIR") {
 		t.Errorf("note missing WEBV2_SOLC_DIR: %q", note)
 	}
@@ -138,10 +138,10 @@ func TestPlainLogicFailureStaysLogic(t *testing.T) {
 		t.Fatal(err)
 	}
 	res := ClassifyFailure(rec)
-	if cls := objStr(res, "class"); cls != "logic" {
+	if cls := validation.ObjStr(res, "class"); cls != "logic" {
 		t.Fatalf("class = %q, want logic (test failed is a logic signal)", cls)
 	}
-	note := objStr(res, "note")
+	note := validation.ObjStr(res, "note")
 	if !strings.Contains(note, "only class that argues the finding") {
 		t.Errorf("logic note = %q", note)
 	}
@@ -172,25 +172,25 @@ func TestDoctorProbeReportsAbsentCompiler(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	solc := objAt(report, "solc")
+	solc := validation.ObjAt(report, "solc")
 	if solc.Kind != validation.Obj {
 		t.Fatalf("solc = %s", validation.DumpIndented(solc))
 	}
-	if got := objStr(solc, "required"); got != "0.8.24" {
+	if got := validation.ObjStr(solc, "required"); got != "0.8.24" {
 		t.Errorf("required = %q", got)
 	}
 	if boolField(solc, "present") {
 		t.Errorf("present = true, want false")
 	}
 	found := false
-	for _, i := range objAt(report, "issues").A {
+	for _, i := range validation.ObjAt(report, "issues").A {
 		if strings.Contains(i.S, "solc 0.8.24 missing") {
 			found = true
 		}
 	}
 	if !found {
 		t.Errorf("issues lack the missing-solc problem: %s",
-			validation.DumpIndented(objAt(report, "issues")))
+			validation.DumpIndented(validation.ObjAt(report, "issues")))
 	}
 	if boolField(report, "ok") {
 		t.Errorf("ok = true, want false")
@@ -209,11 +209,11 @@ func TestDoctorProbeReportsPresentCompiler(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	solc := objAt(report, "solc")
+	solc := validation.ObjAt(report, "solc")
 	if !boolField(solc, "present") {
 		t.Errorf("present = false, want true")
 	}
-	if p := objAt(solc, "problem"); p.Kind != validation.Null {
+	if p := validation.ObjAt(solc, "problem"); p.Kind != validation.Null {
 		t.Errorf("problem = %s, want null", validation.DumpIndented(p))
 	}
 }
@@ -262,14 +262,14 @@ func TestDoctorRefusesNonVersionCompilerPin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	solc := objAt(report, "solc")
+	solc := validation.ObjAt(report, "solc")
 	if boolField(solc, "present") {
 		t.Error("present = true for a pin that was never probed")
 	}
 	if boolField(solc, "checked") {
 		t.Error("checked = true for a pin that was never probed")
 	}
-	problem := objStr(solc, "problem")
+	problem := validation.ObjStr(solc, "problem")
 	if !strings.Contains(problem, "not a solc version") {
 		t.Errorf("problem = %q, want the not-a-version refusal", problem)
 	}
@@ -320,7 +320,7 @@ func TestDoctorProbeSkippedWithoutDaemon(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if s := objAt(report, "solc"); s.Kind != validation.Null {
+	if s := validation.ObjAt(report, "solc"); s.Kind != validation.Null {
 		t.Fatalf("solc = %s, want null (daemon issue already reported)",
 			validation.DumpIndented(s))
 	}
@@ -351,7 +351,7 @@ func TestDoctorProbeNoneWithoutPinnedCompiler(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if s := objAt(report, "solc"); s.Kind != validation.Null {
+	if s := validation.ObjAt(report, "solc"); s.Kind != validation.Null {
 		t.Fatalf("solc = %s, want null", validation.DumpIndented(s))
 	}
 }
@@ -378,21 +378,21 @@ func TestDoctorProfileFitMarksFloorGap(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fit := objAt(report, "profile_fit")
+	fit := validation.ObjAt(report, "profile_fit")
 	if fit.Kind != validation.Obj {
 		t.Fatalf("profile_fit = %s, want an object",
 			validation.DumpIndented(fit))
 	}
-	if got := objStr(fit, "docker-networkless"); got !=
+	if got := validation.ObjStr(fit, "docker-networkless"); got !=
 		"E4-only (campaign floor E6)" {
 		t.Errorf("docker-networkless fit = %q", got)
 	}
-	if got := objStr(fit, "fork-runner"); got !=
+	if got := validation.ObjStr(fit, "fork-runner"); got !=
 		"E5-only (campaign floor E6)" {
 		t.Errorf("fork-runner fit = %q", got)
 	}
 	// host-readonly has no evidence ceiling and is never fit-marked
-	if objAt(fit, "host-readonly").Kind != validation.Null {
+	if validation.ObjAt(fit, "host-readonly").Kind != validation.Null {
 		t.Errorf("host-readonly must not appear in profile_fit: %s",
 			validation.DumpIndented(fit))
 	}
@@ -427,7 +427,7 @@ func TestEnvReportPinsMinicertoraHostProfile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	profiles := objAt(report, "profiles")
+	profiles := validation.ObjAt(report, "profiles")
 	if !boolAt(profiles, "minicertora") {
 		t.Errorf("profiles = %s, want minicertora enumerated",
 			validation.DumpIndented(profiles))
@@ -436,7 +436,7 @@ func TestEnvReportPinsMinicertoraHostProfile(t *testing.T) {
 		t.Errorf("profiles = %s, want halmos still enumerated",
 			validation.DumpIndented(profiles))
 	}
-	e4 := objAt(report, "e4_capable")
+	e4 := validation.ObjAt(report, "e4_capable")
 	for _, v := range e4.A {
 		switch v.S {
 		case "minicertora", "halmos", "forge-fuzz", "host-readonly":
@@ -479,20 +479,20 @@ func TestPreflightOKWhenDaemonImageAndCachePresent(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !boolField(pre, "ok") {
-		t.Errorf("ok = false: %s", validation.DumpIndented(objAt(pre, "issues")))
+		t.Errorf("ok = false: %s", validation.DumpIndented(validation.ObjAt(pre, "issues")))
 	}
-	if n := len(objAt(pre, "issues").A); n != 0 {
+	if n := len(validation.ObjAt(pre, "issues").A); n != 0 {
 		t.Errorf("issues = %d, want 0", n)
 	}
-	checks := objAt(pre, "checks")
+	checks := validation.ObjAt(pre, "checks")
 	for _, name := range []string{"docker", "image", "solc", "workdir"} {
-		st := objStr(objAt(checks, name), "status")
+		st := validation.ObjStr(validation.ObjAt(checks, name), "status")
 		if st != "ok" && st != "na" {
 			t.Errorf("%s status = %q: %s", name, st,
-				validation.DumpIndented(objAt(checks, name)))
+				validation.DumpIndented(validation.ObjAt(checks, name)))
 		}
 	}
-	if got := objStr(objAt(checks, "solc"), "status"); got != "ok" {
+	if got := validation.ObjStr(validation.ObjAt(checks, "solc"), "status"); got != "ok" {
 		t.Errorf("solc status = %q, want ok", got)
 	}
 }
@@ -512,14 +512,14 @@ func TestPreflightMissingDaemonFailsWithFix(t *testing.T) {
 		t.Errorf("ok = true, want false")
 	}
 	found := false
-	for _, i := range objAt(pre, "issues").A {
+	for _, i := range validation.ObjAt(pre, "issues").A {
 		if strings.Contains(i.S, "docker daemon") {
 			found = true
 		}
 	}
 	if !found {
 		t.Errorf("issues lack docker daemon: %s",
-			validation.DumpIndented(objAt(pre, "issues")))
+			validation.DumpIndented(validation.ObjAt(pre, "issues")))
 	}
 }
 
@@ -533,17 +533,17 @@ func TestPreflightImageAbsentWarnsNotFails(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !boolField(pre, "ok") {
-		t.Errorf("ok = false: %s", validation.DumpIndented(objAt(pre, "issues")))
+		t.Errorf("ok = false: %s", validation.DumpIndented(validation.ObjAt(pre, "issues")))
 	}
 	found := false
-	for _, w := range objAt(pre, "warnings").A {
+	for _, w := range validation.ObjAt(pre, "warnings").A {
 		if strings.Contains(w.S, "pull") {
 			found = true
 		}
 	}
 	if !found {
 		t.Errorf("warnings lack the pull note: %s",
-			validation.DumpIndented(objAt(pre, "warnings")))
+			validation.DumpIndented(validation.ObjAt(pre, "warnings")))
 	}
 }
 
@@ -557,9 +557,9 @@ func TestPreflightHostReadonlySkipsContainerChecks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	checks := objAt(pre, "checks")
+	checks := validation.ObjAt(pre, "checks")
 	for _, name := range []string{"docker", "image", "solc"} {
-		if got := objStr(objAt(checks, name), "status"); got != "na" {
+		if got := validation.ObjStr(validation.ObjAt(checks, name), "status"); got != "na" {
 			t.Errorf("%s status = %q, want na", name, got)
 		}
 	}
@@ -582,7 +582,7 @@ func TestPreflightWorkdirMissingFailsWithFix(t *testing.T) {
 		t.Errorf("ok = true, want false")
 	}
 	found := false
-	for _, i := range objAt(pre, "issues").A {
+	for _, i := range validation.ObjAt(pre, "issues").A {
 		if strings.Contains(i.S, "no-such-dir") &&
 			strings.Contains(strings.ToLower(i.S), "workdir") {
 			found = true
@@ -590,7 +590,7 @@ func TestPreflightWorkdirMissingFailsWithFix(t *testing.T) {
 	}
 	if !found {
 		t.Errorf("issues lack the workdir problem: %s",
-			validation.DumpIndented(objAt(pre, "issues")))
+			validation.DumpIndented(validation.ObjAt(pre, "issues")))
 	}
 }
 
@@ -609,14 +609,14 @@ func TestPreflightWorkdirFileFails(t *testing.T) {
 		t.Errorf("ok = true, want false")
 	}
 	found := false
-	for _, i := range objAt(pre, "issues").A {
+	for _, i := range validation.ObjAt(pre, "issues").A {
 		if strings.Contains(i.S, "not a directory") {
 			found = true
 		}
 	}
 	if !found {
 		t.Errorf("issues lack 'not a directory': %s",
-			validation.DumpIndented(objAt(pre, "issues")))
+			validation.DumpIndented(validation.ObjAt(pre, "issues")))
 	}
 }
 
@@ -633,11 +633,11 @@ func TestPreflightWorkdirOK(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(objAt(objAt(pre, "checks"), "workdir"), "status"); got != "ok" {
+	if got := validation.ObjStr(validation.ObjAt(validation.ObjAt(pre, "checks"), "workdir"), "status"); got != "ok" {
 		t.Errorf("workdir status = %q, want ok", got)
 	}
 	if !boolField(pre, "ok") {
-		t.Errorf("ok = false: %s", validation.DumpIndented(objAt(pre, "issues")))
+		t.Errorf("ok = false: %s", validation.DumpIndented(validation.ObjAt(pre, "issues")))
 	}
 }
 
@@ -658,7 +658,7 @@ func TestPreflightSolcCacheMissingFailsWithExactPath(t *testing.T) {
 		t.Errorf("ok = true, want false")
 	}
 	var issue string
-	for _, i := range objAt(pre, "issues").A {
+	for _, i := range validation.ObjAt(pre, "issues").A {
 		if strings.Contains(strings.ToLower(i.S), "solc") {
 			issue = i.S
 		}
@@ -685,11 +685,11 @@ func TestPreflightSolcCachePresentOK(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(objAt(objAt(pre, "checks"), "solc"), "status"); got != "ok" {
+	if got := validation.ObjStr(validation.ObjAt(validation.ObjAt(pre, "checks"), "solc"), "status"); got != "ok" {
 		t.Errorf("solc status = %q, want ok", got)
 	}
 	if !boolField(pre, "ok") {
-		t.Errorf("ok = false: %s", validation.DumpIndented(objAt(pre, "issues")))
+		t.Errorf("ok = false: %s", validation.DumpIndented(validation.ObjAt(pre, "issues")))
 	}
 }
 
@@ -703,17 +703,17 @@ func TestPreflightSolcUnsetWarns(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !boolField(pre, "ok") {
-		t.Errorf("ok = false: %s", validation.DumpIndented(objAt(pre, "issues")))
+		t.Errorf("ok = false: %s", validation.DumpIndented(validation.ObjAt(pre, "issues")))
 	}
 	found := false
-	for _, w := range objAt(pre, "warnings").A {
+	for _, w := range validation.ObjAt(pre, "warnings").A {
 		if strings.Contains(w.S, "WEBV2_SOLC_DIR") {
 			found = true
 		}
 	}
 	if !found {
 		t.Errorf("warnings lack WEBV2_SOLC_DIR: %s",
-			validation.DumpIndented(objAt(pre, "warnings")))
+			validation.DumpIndented(validation.ObjAt(pre, "warnings")))
 	}
 }
 
@@ -741,11 +741,11 @@ func TestPreflightNoCompilerPinIsNA(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(objAt(objAt(pre, "checks"), "solc"), "status"); got != "na" {
+	if got := validation.ObjStr(validation.ObjAt(validation.ObjAt(pre, "checks"), "solc"), "status"); got != "na" {
 		t.Errorf("solc status = %q, want na", got)
 	}
 	if boolField(pre, "ok") != true {
-		t.Errorf("ok = false: %s", validation.DumpIndented(objAt(pre, "issues")))
+		t.Errorf("ok = false: %s", validation.DumpIndented(validation.ObjAt(pre, "issues")))
 	}
 }
 

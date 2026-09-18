@@ -1,5 +1,7 @@
 package state
 
+import "websec/internal/validation"
+
 import "testing"
 
 // Re-Completing must REPLACE completed_by/completed_reason, not append a
@@ -32,7 +34,7 @@ func TestCompleteReplacesNotDuplicatesKeys(t *testing.T) {
 	if n := count("completed_reason"); n != 1 {
 		t.Errorf("completed_reason appears %d times, want 1", n)
 	}
-	if got := objStr(st, "completed_by"); got != "op2" {
+	if got := validation.ObjStr(st, "completed_by"); got != "op2" {
 		t.Errorf("completed_by = %q, want op2 (replaced on re-Complete)", got)
 	}
 }

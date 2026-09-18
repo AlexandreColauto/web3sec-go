@@ -7,7 +7,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"time"
+
 	"unicode/utf8"
 
 	"websec/internal/state"
@@ -17,19 +17,6 @@ import (
 // kv is validation.KV{K: k, V: v} (non-test files cannot use the test kv()).
 func kv(k string, v validation.Value) validation.KV {
 	return validation.KV{K: k, V: v}
-}
-
-// objAt is v.get(key) for the object case (Null when absent/not an object).
-func objAt(v validation.Value, key string) validation.Value {
-	if v.Kind != validation.Obj {
-		return validation.VNull()
-	}
-	for _, kv := range v.O {
-		if kv.K == key {
-			return kv.V
-		}
-	}
-	return validation.VNull()
 }
 
 // fieldAt is (key in v, v[key]): present-but-null stays distinct.
@@ -43,15 +30,6 @@ func fieldAt(v validation.Value, key string) (validation.Value, bool) {
 		}
 	}
 	return validation.VNull(), false
-}
-
-// objStr is v.get(key) when it is a string ("" otherwise).
-func objStr(v validation.Value, key string) string {
-	f, ok := fieldAt(v, key)
-	if !ok || f.Kind != validation.Str {
-		return ""
-	}
-	return f.S
 }
 
 // listAt is v.get(key) when it is a list ([]Value otherwise).
@@ -96,15 +74,6 @@ func pyTruthyBigNonEmpty(v validation.Value) bool {
 		return len(v.O) > 0
 	}
 	return false
-}
-
-// strArr builds the list Value of strings (`[]` when empty, never null).
-func strArr(items []string) validation.Value {
-	out := make([]validation.Value, len(items))
-	for i, s := range items {
-		out[i] = validation.VStr(s)
-	}
-	return validation.VArr(out...)
 }
 
 // strList reads a list Value as strings (non-strings become "").
@@ -189,17 +158,6 @@ func fileExists(path string) bool {
 func dirExists(path string) bool {
 	st, err := os.Stat(path)
 	return err == nil && st.IsDir()
-}
-
-// nowIso is now_iso (state's is unexported; snapshot and findings carry the
-// same copy). The WEBV2_NOW golden-suite clock pin is honored identically.
-func nowIso() string {
-	if v := os.Getenv("WEBV2_NOW"); v != "" {
-		return v
-	}
-	now := time.Now().UTC()
-	return now.Format("2006-01-02T15:04:05") + "." +
-		pad6(now.Nanosecond()/1000) + "+00:00"
 }
 
 func pad6(n int) string {

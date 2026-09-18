@@ -137,18 +137,18 @@ func TestEvalStoreAddStampsFrameworkOwnedFields(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cid := objStr(stored, "case_id")
+	cid := validation.ObjStr(stored, "case_id")
 	if !regexp.MustCompile(`^CASE-[a-f0-9]{12}$`).MatchString(cid) {
 		t.Fatalf("case_id = %q", cid)
 	}
-	if got := objStr(stored, "partition"); got != "dev" {
+	if got := validation.ObjStr(stored, "partition"); got != "dev" {
 		t.Fatalf("partition = %q", got)
 	}
-	if got := objAt(stored, "schema_version"); got.Kind != validation.Int || got.I != 2 {
+	if got := validation.ObjAt(stored, "schema_version"); got.Kind != validation.Int || got.I != 2 {
 		t.Fatalf("schema_version = %v", got)
 	}
-	if objAt(stored, "created_at").Kind != validation.Str ||
-		objStr(stored, "created_at") == "" {
+	if validation.ObjAt(stored, "created_at").Kind != validation.Str ||
+		validation.ObjStr(stored, "created_at") == "" {
 		t.Fatal("created_at not stamped")
 	}
 }
@@ -239,7 +239,7 @@ func TestEvalStoreListFiltersPartitionDatasetProgram(t *testing.T) {
 		}
 		ids := make([]string, 0, len(got))
 		for _, c := range got {
-			ids = append(ids, objStr(c, "case_id"))
+			ids = append(ids, validation.ObjStr(c, "case_id"))
 		}
 		if strings.Join(ids, ",") != strings.Join(want, ",") {
 			t.Fatalf("filter(%v,%v,%v) = %v want %v",

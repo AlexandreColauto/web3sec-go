@@ -30,7 +30,7 @@ func t17ScaffoldBytes(t *testing.T, c *state.Campaign, invID string,
 	}
 	var entry validation.Value
 	found := false
-	for _, kv := range objAt(links, "invariants").O {
+	for _, kv := range validation.ObjAt(links, "invariants").O {
 		if kv.K == invID {
 			entry, found = kv.V, true
 		}

@@ -98,7 +98,7 @@ func TestR38ClassifyVerbContainerShapes(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		return objStr(rec, "exec_id")
+		return validation.ObjStr(rec, "exec_id")
 	}
 	cases := []struct {
 		name        string
@@ -176,7 +176,7 @@ func TestR38SeamAuditWiredCopies(t *testing.T) {
 			"  direct: %s", validation.CanonCompact(wired),
 			validation.CanonCompact(direct))
 	}
-	if note := objStr(wired, "note"); !strings.Contains(note,
+	if note := validation.ObjStr(wired, "note"); !strings.Contains(note,
 		"could not find the command") {
 		t.Errorf("wired classifier still carries the stale docker text: %q", note)
 	}
@@ -199,9 +199,9 @@ func TestR38SeamAuditWiredCopies(t *testing.T) {
 	// The envgo copy's honest host-profile shape (the sandbox default would
 	// still run the container solc block for a host profile): every
 	// container check stays "na" on a host profile, nothing is a warn/fail.
-	checks := objAt(preWired, "checks")
+	checks := validation.ObjAt(preWired, "checks")
 	for _, name := range []string{"docker", "image", "solc"} {
-		if got := objStr(objAt(checks, name), "status"); got != "na" {
+		if got := validation.ObjStr(validation.ObjAt(checks, name), "status"); got != "na" {
 			t.Errorf("host-readonly preflight check %s = %q, want na", name, got)
 		}
 	}
@@ -234,11 +234,11 @@ func TestR38SeamAuditWiredCopies(t *testing.T) {
 
 // r38StrAt/r38BoolAt are the field readers the cli package does not carry.
 func r38StrAt(v validation.Value, key string) string {
-	return objStr(v, key)
+	return validation.ObjStr(v, key)
 }
 
 func r38BoolAt(v validation.Value, key string) bool {
-	b := objAt(v, key)
+	b := validation.ObjAt(v, key)
 	return b.Kind == validation.Bool && b.B
 }
 

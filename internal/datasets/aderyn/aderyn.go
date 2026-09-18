@@ -69,13 +69,13 @@ func ToPayloads(doc validation.Value) ([]validation.Value, error) {
 		out   validation.Value
 	}
 	var rows []row
-	issues := valsOf(objAt(objAt(doc, "high_issues"), "issues"))
+	issues := valsOf(validation.ObjAt(validation.ObjAt(doc, "high_issues"), "issues"))
 	for _, r := range issues {
-		check := objStr(r, "detector_name")
+		check := validation.ObjStr(r, "detector_name")
 		if check == "" {
 			return nil, fmt.Errorf("aderyn: issue without 'detector_name' id")
 		}
-		desc := strings.TrimSpace(objStr(r, "description"))
+		desc := strings.TrimSpace(validation.ObjStr(r, "description"))
 		if desc == "" {
 			continue
 		}
@@ -84,9 +84,9 @@ func ToPayloads(doc validation.Value) ([]validation.Value, error) {
 			line int64
 		}
 		var sites []site
-		for _, inst := range valsOf(objAt(r, "instances")) {
-			p := objStr(inst, "contract_path")
-			ln := objAt(inst, "line_no")
+		for _, inst := range valsOf(validation.ObjAt(r, "instances")) {
+			p := validation.ObjStr(inst, "contract_path")
+			ln := validation.ObjAt(inst, "line_no")
 			if p == "" || ln.Kind != validation.Int {
 				continue // a location we cannot anchor is noise
 			}
@@ -172,20 +172,6 @@ func clip(s string, n int) string {
 // packages keep their own copy instead of sharing a helper package) ---------
 
 func kv(k string, v validation.Value) validation.KV { return validation.KV{K: k, V: v} }
-
-func objAt(v validation.Value, key string) validation.Value {
-	if v.Kind != validation.Obj {
-		return validation.VNull()
-	}
-	for _, e := range v.O {
-		if e.K == key {
-			return e.V
-		}
-	}
-	return validation.VNull()
-}
-
-func objStr(v validation.Value, key string) string { return objAt(v, key).S }
 
 func valsOf(v validation.Value) []validation.Value {
 	if v.Kind != validation.Arr {

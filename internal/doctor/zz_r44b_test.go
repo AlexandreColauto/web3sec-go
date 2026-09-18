@@ -32,7 +32,7 @@ func r44bPin(t *testing.T, c *state.Campaign) (string, string) {
 	if err != nil {
 		t.Fatalf("pin: %v", err)
 	}
-	sid := objStr(pinned, "snapshot_id")
+	sid := validation.ObjStr(pinned, "snapshot_id")
 	if sid == "" {
 		t.Fatal("pin returned no snapshot id")
 	}
@@ -52,7 +52,7 @@ func TestR44bSnapshotScopeReadFailureIsNotMissing(t *testing.T) {
 	if intField(before, "files") <= 0 {
 		t.Fatalf("BEFORE files = %d, want > 0", intField(before, "files"))
 	}
-	if ex := objAt(before, "exists"); ex.Kind != validation.Null {
+	if ex := validation.ObjAt(before, "exists"); ex.Kind != validation.Null {
 		t.Fatalf("BEFORE exists = %s, want the absent key",
 			validation.DumpIndented(ex))
 	}
@@ -72,18 +72,18 @@ func TestR44bSnapshotScopeReadFailureIsNotMissing(t *testing.T) {
 		t.Fatalf("doctor discloses a pin-store read failure; it does not "+
 			"fail the run (rc 0 is documented precedent): %v", err)
 	}
-	if got := objStr(res, "active_snapshot"); got != sid {
+	if got := validation.ObjStr(res, "active_snapshot"); got != sid {
 		t.Fatalf("active_snapshot = %q, want %q", got, sid)
 	}
-	if ex := objAt(res, "exists"); ex.Kind != validation.Bool || ex.B {
+	if ex := validation.ObjAt(res, "exists"); ex.Kind != validation.Bool || ex.B {
 		t.Fatalf("exists = %s, want false (existence was not established)",
 			validation.DumpIndented(ex))
 	}
-	readErr := objStr(res, "read_error")
+	readErr := validation.ObjStr(res, "read_error")
 	if readErr == "" {
 		t.Fatalf("no read_error key: %s", validation.DumpsOrdered(res, false))
 	}
-	note := objStr(res, "note")
+	note := validation.ObjStr(res, "note")
 	for _, want := range []string{"could not be read", "permission denied",
 		snapDir} {
 		if !strings.Contains(note, want) {
@@ -97,7 +97,7 @@ func TestR44bSnapshotScopeReadFailureIsNotMissing(t *testing.T) {
 	// The human view prints "snapshot <id>: MISSING — <note>"; the note is
 	// the only reason text it renders, so the read failure must be the
 	// sentence it carries (r37b's human-surface contract).
-	if objStr(res, "note") == "snapshot "+sid+" directory missing" {
+	if validation.ObjStr(res, "note") == "snapshot "+sid+" directory missing" {
 		t.Fatal("the read-failure note is the missing-pin note")
 	}
 }
@@ -112,14 +112,14 @@ func TestR44bSnapshotScopeGenuinelyMissingPinKeepsTheMissingShape(t *testing.T) 
 	if err != nil {
 		t.Fatalf("a missing pin is a disclosed shape, not a failure: %v", err)
 	}
-	if ex := objAt(res, "exists"); ex.Kind != validation.Bool || ex.B {
+	if ex := validation.ObjAt(res, "exists"); ex.Kind != validation.Bool || ex.B {
 		t.Fatalf("exists = %s, want false", validation.DumpIndented(ex))
 	}
-	if re := objAt(res, "read_error"); re.Kind != validation.Null {
+	if re := validation.ObjAt(res, "read_error"); re.Kind != validation.Null {
 		t.Fatalf("an absent pin has no read_error: %s",
 			validation.DumpIndented(re))
 	}
-	if note := objStr(res, "note"); note != "snapshot "+sid+" directory missing" {
+	if note := validation.ObjStr(res, "note"); note != "snapshot "+sid+" directory missing" {
 		t.Fatalf("note = %q, want the r37b missing-pin sentence", note)
 	}
 }
@@ -152,14 +152,14 @@ func TestR44bSnapshotScopeUnpinnedAndHealthyStayGreen(t *testing.T) {
 	if err != nil {
 		t.Fatalf("an unpinned campaign: %v", err)
 	}
-	if s := objAt(res, "active_snapshot"); s.Kind != validation.Null {
+	if s := validation.ObjAt(res, "active_snapshot"); s.Kind != validation.Null {
 		t.Fatalf("active_snapshot = %s, want null",
 			validation.DumpIndented(s))
 	}
-	if note := objStr(res, "note"); !strings.Contains(note, "no snapshot pinned") {
+	if note := validation.ObjStr(res, "note"); !strings.Contains(note, "no snapshot pinned") {
 		t.Fatalf("note = %q", note)
 	}
-	if re := objAt(res, "read_error"); re.Kind != validation.Null {
+	if re := validation.ObjAt(res, "read_error"); re.Kind != validation.Null {
 		t.Fatalf("an unpinned campaign has no read_error: %s",
 			validation.DumpIndented(re))
 	}
@@ -173,7 +173,7 @@ func TestR44bSnapshotScopeUnpinnedAndHealthyStayGreen(t *testing.T) {
 	if intField(res, "files") <= 0 {
 		t.Fatalf("files = %d, want > 0", intField(res, "files"))
 	}
-	if re := objAt(res, "read_error"); re.Kind != validation.Null {
+	if re := validation.ObjAt(res, "read_error"); re.Kind != validation.Null {
 		t.Fatalf("a readable store has no read_error: %s",
 			validation.DumpIndented(re))
 	}

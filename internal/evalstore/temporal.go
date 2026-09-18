@@ -141,15 +141,15 @@ func PartitionHealth(cases []validation.Value) (excluded []validation.Value, pro
 func PartitionHealthFull(cases []validation.Value) Health {
 	rows := make([]*healthRow, 0, len(cases))
 	for _, c := range cases {
-		r := &healthRow{c: c, id: objStr(c, "case_id"),
-			created: objStr(c, "created_at"), key: dupKey(c),
-			manual: objStr(objAt(c, "source"), "dataset") == "manual"}
+		r := &healthRow{c: c, id: validation.ObjStr(c, "case_id"),
+			created: validation.ObjStr(c, "created_at"), key: dupKey(c),
+			manual: validation.ObjStr(validation.ObjAt(c, "source"), "dataset") == "manual"}
 		// The partition vocabulary mirrors backtest.Run exactly (the
 		// consumer): held-out ranks, dev sources priors, training is
 		// neither. Training rows are still near-dup REFERENCES — the
 		// locked rule says dev/training — but they never anchor the
 		// temporal max, which the locked rule scopes to dev.
-		switch objStr(c, "partition") {
+		switch validation.ObjStr(c, "partition") {
 		case "held-out":
 			r.held = true
 		case "dev", "":
@@ -157,7 +157,7 @@ func PartitionHealthFull(cases []validation.Value) Health {
 		case "training":
 			r.ref = true
 		}
-		if dep := objAt(c, "deployed_at"); dep.Kind != validation.Null {
+		if dep := validation.ObjAt(c, "deployed_at"); dep.Kind != validation.Null {
 			date, ok := parseYMD(dep.S)
 			if dep.Kind != validation.Str || !ok {
 				r.excluded = true
@@ -243,8 +243,8 @@ func PartitionHealthFull(cases []validation.Value) Health {
 	// Canonical report: the excluded set sorted by case_id, the problems
 	// sorted as strings. Same rows in any input order => same bytes.
 	sort.SliceStable(excluded, func(i, j int) bool {
-		return objStr(excluded[i].Case, "case_id") <
-			objStr(excluded[j].Case, "case_id")
+		return validation.ObjStr(excluded[i].Case, "case_id") <
+			validation.ObjStr(excluded[j].Case, "case_id")
 	})
 	sort.Strings(problems)
 	return Health{Excluded: excluded, Problems: problems}
@@ -303,19 +303,19 @@ func parseYMD(s string) (string, bool) {
 // schema (gold.root_cause required, minLength 10) keeps that shape out of
 // every stored suite.
 func dupKey(c validation.Value) string {
-	gold := objAt(c, "gold")
+	gold := validation.ObjAt(c, "gold")
 	parts := []string{
-		strings.ToLower(objStr(gold, "bug_class")),
-		strings.ToLower(objStr(gold, "root_cause")),
+		strings.ToLower(validation.ObjStr(gold, "bug_class")),
+		strings.ToLower(validation.ObjStr(gold, "root_cause")),
 	}
-	for _, loc := range objAt(gold, "locations").A {
+	for _, loc := range validation.ObjAt(gold, "locations").A {
 		if loc.Kind != validation.Obj {
 			continue
 		}
-		if f := objStr(loc, "file"); f != "" {
+		if f := validation.ObjStr(loc, "file"); f != "" {
 			parts = append(parts, strings.ToLower(filepath.Base(f)))
 		}
 	}
-	parts = append(parts, strings.ToLower(objStr(objAt(c, "code"), "repo")))
+	parts = append(parts, strings.ToLower(validation.ObjStr(validation.ObjAt(c, "code"), "repo")))
 	return strings.Join(parts, " ")
 }

@@ -126,7 +126,7 @@ func actorFragments(spec validation.Value, role string) ([]string, string,
 		return nil, "", specErrf("sequence spec field 'actors': role key %s "+
 			"is not a shell-safe identifier", validation.PyReprStr(role))
 	}
-	addr := objStr(objAt(spec, "actors"), role)
+	addr := validation.ObjStr(validation.ObjAt(spec, "actors"), role)
 	if strings.HasPrefix(addr, "anvil:") {
 		n := strings.SplitN(addr, ":", 2)[1]
 		if err := checkAnvilIndex(n); err != nil {
@@ -153,9 +153,9 @@ func actorFragments(spec validation.Value, role string) ([]string, string,
 // resolveAddr is _resolve_addr: a shell fragment resolving an account
 // reference at run time.
 func resolveAddr(spec validation.Value, ref string) (string, error) {
-	actors := objAt(spec, "actors")
+	actors := validation.ObjAt(spec, "actors")
 	if hasObjKey(actors, ref) {
-		val := objStr(actors, ref)
+		val := validation.ObjStr(actors, ref)
 		if strings.HasPrefix(val, "anvil:") {
 			n := strings.SplitN(val, ":", 2)[1]
 			if err := checkAnvilIndex(n); err != nil {
@@ -202,7 +202,7 @@ func BuildCommand(spec validation.Value, workdir string) (string, error) {
 		`UNLOCKED=$(cast rpc --rpc-url "$FORK_RPC_URL" eth_accounts ` +
 			`2>/dev/null | grep -o '0x[0-9a-fA-F]\{40\}')`,
 	}
-	steps := listOf(objAt(spec, "steps"))
+	steps := listOf(validation.ObjAt(spec, "steps"))
 	for _, s := range steps {
 		lines, err := buildStep(spec, s)
 		if err != nil {
@@ -210,7 +210,7 @@ func BuildCommand(spec validation.Value, workdir string) (string, error) {
 		}
 		parts = append(parts, lines...)
 	}
-	for _, a := range listOf(objAt(spec, "final_assertions")) {
+	for _, a := range listOf(validation.ObjAt(spec, "final_assertions")) {
 		lines, err := buildAssertion(spec, a)
 		if err != nil {
 			return "", err
@@ -238,9 +238,9 @@ func BuildCommand(spec validation.Value, workdir string) (string, error) {
 // buildStep is build_command's per-step block (mine_blocks, actor setup,
 // cast send, result fragment).
 func buildStep(spec, s validation.Value) ([]string, error) {
-	n := intOf(objAt(s, "step"))
+	n := intOf(validation.ObjAt(s, "step"))
 	var out []string
-	if mine := intOf(objAt(s, "mine_blocks")); mine > 0 {
+	if mine := intOf(validation.ObjAt(s, "mine_blocks")); mine > 0 {
 		// anvil reads evm_mine's param as a timestamp, not a block count —
 		// block advancement is `anvil_mine <decimal N>`.
 		out = append(out, fmt.Sprintf(
@@ -248,22 +248,22 @@ func buildStep(spec, s validation.Value) ([]string, error) {
 				`>/dev/null 2>&1 || { echo "seq: anvil_mine before step `+
 				`%d failed" >&2; exit 1; }`, mine, n))
 	}
-	setup, flag, err := actorFragments(spec, objStr(s, "actor"))
+	setup, flag, err := actorFragments(spec, validation.ObjStr(s, "actor"))
 	if err != nil {
 		return nil, err
 	}
 	out = append(out, setup...)
-	args := joinArgs(objAt(s, "args"))
+	args := joinArgs(validation.ObjAt(s, "args"))
 	send := `out=$(cast send --rpc-url "$FORK_RPC_URL" ` +
-		shlexQuote(objStr(s, "target")) + " " +
-		shlexQuote(objStr(s, "function")) + args + valueFragment(s) + " " +
+		shlexQuote(validation.ObjStr(s, "target")) + " " +
+		shlexQuote(validation.ObjStr(s, "function")) + args + valueFragment(s) + " " +
 		flag + ` 2>"$WD/seq_err.txt")`
 	out = append(out, send, "rc=$?")
 	// s["actor"] is a shell-safe identifier (the field rule above), so it
 	// is safe to embed verbatim in the JSON template.
-	role := validation.CanonCompact(objAt(s, "actor"))
-	if validation.PyTruthy(objAt(s, "expect_revert")) {
-		j := `{"step": ` + validation.IntText(objAt(s, "step")) +
+	role := validation.CanonCompact(validation.ObjAt(s, "actor"))
+	if validation.PyTruthy(validation.ObjAt(s, "expect_revert")) {
+		j := `{"step": ` + validation.IntText(validation.ObjAt(s, "step")) +
 			`, "actor": ` + role + `, "tx_hash": null, "status": "revert",` +
 			` "revert_reason": "$reason"}`
 		out = append(out,
@@ -274,7 +274,7 @@ func buildStep(spec, s validation.Value) ([]string, error) {
 			"STEPS=$(add_step "+shellJSON(j)+")")
 		return out, nil
 	}
-	j := `{"step": ` + validation.IntText(objAt(s, "step")) +
+	j := `{"step": ` + validation.IntText(validation.ObjAt(s, "step")) +
 		`, "actor": ` + role + `, "tx_hash": "$tx", "status": "success",` +
 		` "revert_reason": null}`
 	out = append(out,
@@ -313,7 +313,7 @@ func joinArgs(v validation.Value) string {
 // The fragment rides before the actor flag, right after the calldata it
 // pays for, because the value is a field of the CALL, not of the sender.
 func valueFragment(s validation.Value) string {
-	v := objAt(s, "value")
+	v := validation.ObjAt(s, "value")
 	if v.Kind != validation.Str || v.S == "" {
 		return ""
 	}
@@ -322,11 +322,11 @@ func valueFragment(s validation.Value) string {
 
 // buildAssertion is build_command's per-assertion block.
 func buildAssertion(spec, a validation.Value) ([]string, error) {
-	kind := objStr(a, "kind")
+	kind := validation.ObjStr(a, "kind")
 	var readCmd string
 	switch kind {
 	case "balance":
-		addr, err := resolveAddr(spec, objStr(a, "account"))
+		addr, err := resolveAddr(spec, validation.ObjStr(a, "account"))
 		if err != nil {
 			return nil, err
 		}
@@ -334,16 +334,16 @@ func buildAssertion(spec, a validation.Value) ([]string, error) {
 			` 2>"$WD/seq_err.txt") || raw=""`
 	case "storage":
 		readCmd = `raw=$(cast storage --rpc-url "$FORK_RPC_URL" ` +
-			shlexQuote(objStr(a, "target")) + " " +
-			shlexQuote(objStr(a, "slot")) + ` 2>"$WD/seq_err.txt") || raw=""`
+			shlexQuote(validation.ObjStr(a, "target")) + " " +
+			shlexQuote(validation.ObjStr(a, "slot")) + ` 2>"$WD/seq_err.txt") || raw=""`
 	default: // call
 		readCmd = `raw=$(cast call --rpc-url "$FORK_RPC_URL" ` +
-			shlexQuote(objStr(a, "target")) + " " +
-			shlexQuote(objStr(a, "function")) + joinArgs(objAt(a, "args")) +
+			shlexQuote(validation.ObjStr(a, "target")) + " " +
+			shlexQuote(validation.ObjStr(a, "function")) + joinArgs(validation.ObjAt(a, "args")) +
 			` 2>"$WD/seq_err.txt") || raw=""`
 	}
-	op, value := objStr(a, "op"), objStr(a, "value")
-	j := `{"id": "` + objStr(a, "id") + `", "kind": "` + kind +
+	op, value := validation.ObjStr(a, "op"), validation.ObjStr(a, "value")
+	j := `{"id": "` + validation.ObjStr(a, "id") + `", "kind": "` + kind +
 		`", "observed": "$obs", "expected": "` + op + " " + value +
 		`", "passed": $passed}`
 	return []string{

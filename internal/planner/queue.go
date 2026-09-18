@@ -81,11 +81,11 @@ func WorkQueue(campaign *state.Campaign, plan, model validation.Value,
 		// re-enter the queue: a not-applicable row was a legitimate closing
 		// disposition (planner.gates) and re-queueing it kept the discovery
 		// proof permanently blocked (feedback-triage A1).
-		if st := objStr(p, "status"); st == "answered" ||
+		if st := validation.ObjStr(p, "status"); st == "answered" ||
 			st == "not-applicable" || st == "deprioritized" {
 			continue
 		}
-		cost := objStr(p, "budget_class")
+		cost := validation.ObjStr(p, "budget_class")
 		if cost == "" {
 			cost = "standard"
 		}
@@ -95,12 +95,12 @@ func WorkQueue(campaign *state.Campaign, plan, model validation.Value,
 			trajs = append(trajs, enumTrajectory(pyStr(t)))
 		}
 		out = append(out, validation.VObj(
-			kv("priority_id", objAt(p, "id")),
-			kv("question", objAt(p, "question")),
-			kv("risk", objAt(p, "risk")),
+			kv("priority_id", validation.ObjAt(p, "id")),
+			kv("question", validation.ObjAt(p, "question")),
+			kv("risk", validation.ObjAt(p, "risk")),
 			kv("cost", validation.VStr(cost)),
 			kv("slot", validation.VStr(DecisionRule(risk, cost))),
-			kv("trajectories", strArr(trajs)),
+			kv("trajectories", validation.StrArr(trajs)),
 			kv("components", keyOrEmpty(p, "components")),
 			kv("invariant_ids", keyOrEmpty(p, "invariant_ids")),
 			kv("required_context", keyOrEmpty(p, "required_context")),
@@ -119,7 +119,7 @@ func WorkQueue(campaign *state.Campaign, plan, model validation.Value,
 				kv("risk", validation.VFloat(0.7)),
 				kv("cost", validation.VStr("standard")),
 				kv("slot", validation.VStr(DecisionRule(0.7, "standard"))),
-				kv("trajectories", strArr([]string{"code"})),
+				kv("trajectories", validation.StrArr([]string{"code"})),
 				kv("components", validation.VArr()),
 				kv("invariant_ids", validation.VArr()),
 				kv("required_context", validation.VArr()),
@@ -233,10 +233,10 @@ func rankQueue(campaign *state.Campaign, model validation.Value,
 	for _, row := range rows {
 		out = append(out, ranked{
 			row:    row,
-			slot:   slotOrder[objStr(row, "slot")],
+			slot:   slotOrder[validation.ObjStr(row, "slot")],
 			weight: signals.scoreRow(row).weight(),
-			id:     objStr(row, "priority_id"),
-			q:      objStr(row, "question"),
+			id:     validation.ObjStr(row, "priority_id"),
+			q:      validation.ObjStr(row, "question"),
 		})
 	}
 	sort.SliceStable(out, func(i, j int) bool {
@@ -273,10 +273,10 @@ func buildQueueSignals(campaign *state.Campaign,
 		openQ:    map[string][]int{},
 	}
 	for _, c := range listOf(model, "contracts") {
-		if !pyTruthyBigNonEmpty(objAt(c, "in_scope")) {
+		if !pyTruthyBigNonEmpty(validation.ObjAt(c, "in_scope")) {
 			continue
 		}
-		name, path := objStr(c, "name"), objStr(c, "path")
+		name, path := validation.ObjStr(c, "name"), validation.ObjStr(c, "path")
 		if name != "" {
 			s.inScope[name] = path
 		}
@@ -285,8 +285,8 @@ func buildQueueSignals(campaign *state.Campaign,
 		}
 	}
 	for _, inv := range listOf(model, "invariants") {
-		band := queueSeverityBands[objStr(inv, "severity_if_broken")]
-		if id := objStr(inv, "id"); id != "" {
+		band := queueSeverityBands[validation.ObjStr(inv, "severity_if_broken")]
+		if id := validation.ObjStr(inv, "id"); id != "" {
 			s.invSev[id] = band
 		}
 		for _, ref := range listOf(inv, "applies_to") {
@@ -300,7 +300,7 @@ func buildQueueSignals(campaign *state.Campaign,
 		}
 	}
 	for ord, q := range listOf(model, "open_questions") {
-		if pyTruthyBigNonEmpty(objAt(q, "resolved")) {
+		if pyTruthyBigNonEmpty(validation.ObjAt(q, "resolved")) {
 			continue
 		}
 		// ord identifies the question: one model entry is one question, however
@@ -327,7 +327,7 @@ func buildQueueSignals(campaign *state.Campaign,
 		return nil, err
 	}
 	for _, row := range listOf(cov, "contracts") {
-		path := objStr(row, "path")
+		path := validation.ObjStr(row, "path")
 		if path == "" {
 			continue
 		}
@@ -341,10 +341,10 @@ func buildQueueSignals(campaign *state.Campaign,
 // trajectory count has been swept. Anything else — no row, `unknown`, zero
 // trajectories — is untouched.
 func coverageSwept(row validation.Value) bool {
-	if objStr(row, "status") == "unknown" || objStr(row, "status") == "" {
+	if validation.ObjStr(row, "status") == "unknown" || validation.ObjStr(row, "status") == "" {
 		return false
 	}
-	counts := objAt(row, "trajectory_counts")
+	counts := validation.ObjAt(row, "trajectory_counts")
 	return counts.Kind == validation.Obj && len(counts.O) >= 1
 }
 
@@ -403,7 +403,7 @@ func keyOrEmpty(p validation.Value, key string) validation.Value {
 
 // numAt is a numeric field as float64 (0 when absent/non-numeric).
 func numAt(v validation.Value, key string) float64 {
-	got := objAt(v, key)
+	got := validation.ObjAt(v, key)
 	switch got.Kind {
 	case validation.Flt:
 		return got.F

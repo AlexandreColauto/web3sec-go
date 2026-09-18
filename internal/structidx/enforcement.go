@@ -164,7 +164,7 @@ func EnforcementTableOpts(index validation.Value, name string,
 		{K: "name", V: validation.VStr(name)},
 		{K: "match", V: validation.VStr(match)},
 		{K: "concept_key", V: validation.VStr(key)},
-		{K: "concept_keys", V: strArr(keys)},
+		{K: "concept_keys", V: validation.StrArr(keys)},
 	}
 	if opts.Contract != "" {
 		kvs = append(kvs, validation.KV{K: "contract", V: validation.VStr(opts.Contract)})
@@ -231,7 +231,7 @@ func enforcementSites(index validation.Value, name, conceptKey string,
 	seen := map[string]bool{}
 	statementKind := map[string]bool{}
 	for _, n := range nodesOf(index, "function") {
-		id := objStr(n, "id")
+		id := validation.ObjStr(n, "id")
 		contract, function := splitNodeID(id)
 		guards := enfGuardsOf(n, conceptKey)
 		guarded := false
@@ -249,11 +249,11 @@ func enforcementSites(index validation.Value, name, conceptKey string,
 			guards: guards, guarded: guarded, entry: boolAt(n, "is_entry_point"),
 			depth: depth, hasDepth: ok}
 		for _, u := range usesOf(n) {
-			k := objStr(u, "kind")
+			k := validation.ObjStr(u, "kind")
 			if k != "write" && k != "read" {
 				continue
 			}
-			if !hasConceptKey(strList(objAt(u, "concept_keys")), conceptKey) {
+			if !hasConceptKey(strList(validation.ObjAt(u, "concept_keys")), conceptKey) {
 				continue
 			}
 			line := intAt(u, "line")
@@ -271,10 +271,10 @@ func enforcementSites(index validation.Value, name, conceptKey string,
 			continue
 		}
 		kinds := []string{}
-		if listHas(objAt(n, "writes_storage"), name) {
+		if listHas(validation.ObjAt(n, "writes_storage"), name) {
 			kinds = append(kinds, "write")
 		}
-		if listHas(objAt(n, "reads_storage"), name) {
+		if listHas(validation.ObjAt(n, "reads_storage"), name) {
 			kinds = append(kinds, "read")
 		}
 		for _, kind := range kinds {
@@ -381,22 +381,22 @@ func enforcementFamilies(index validation.Value) map[string]string {
 	}
 	byName := map[string]string{}
 	for _, n := range nodesOf(index, "") {
-		switch objStr(n, "kind") {
+		switch validation.ObjStr(n, "kind") {
 		case "contract", "interface", "library":
-			byName[objStr(n, "name")] = objStr(n, "id")
-			find(objStr(n, "id"))
+			byName[validation.ObjStr(n, "name")] = validation.ObjStr(n, "id")
+			find(validation.ObjStr(n, "id"))
 		}
 	}
 	for _, e := range edgesOf(index) {
-		if objStr(e, "rel") != "inherits" {
+		if validation.ObjStr(e, "rel") != "inherits" {
 			continue
 		}
-		to := objStr(e, "to")
+		to := validation.ObjStr(e, "to")
 		if i := strings.LastIndex(to, "#"); i >= 0 {
 			to = to[i+1:]
 		}
 		if id, ok := byName[to]; ok {
-			union(objStr(e, "from"), id)
+			union(validation.ObjStr(e, "from"), id)
 		}
 	}
 	out := map[string]string{}
@@ -411,7 +411,7 @@ func enforcementCallGraph(index validation.Value) map[string][]string {
 	known := map[string]bool{}
 	short := map[string]string{}
 	for _, n := range nodesOf(index, "") {
-		id := objStr(n, "id")
+		id := validation.ObjStr(n, "id")
 		known[id] = true
 		if _, f := splitNodeID(id); f != "" {
 			short["#"+f] = id
@@ -425,11 +425,11 @@ func enforcementCallGraph(index validation.Value) map[string][]string {
 	}
 	adj := map[string][]string{}
 	for _, e := range edgesOf(index) {
-		if objStr(e, "rel") != "calls" {
+		if validation.ObjStr(e, "rel") != "calls" {
 			continue
 		}
-		if id := resolve(objStr(e, "to")); id != "" {
-			from := objStr(e, "from")
+		if id := resolve(validation.ObjStr(e, "to")); id != "" {
+			from := validation.ObjStr(e, "from")
 			adj[from] = append(adj[from], id)
 		}
 	}
@@ -571,7 +571,7 @@ func enforcementDepths(index validation.Value) map[string]int {
 	queue := []string{}
 	for _, n := range nodesOf(index, "function") {
 		if boolAt(n, "is_entry_point") {
-			id := objStr(n, "id")
+			id := validation.ObjStr(n, "id")
 			if _, ok := dist[id]; !ok {
 				dist[id] = 0
 				queue = append(queue, id)
@@ -600,13 +600,13 @@ func enforcementDepths(index validation.Value) map[string]int {
 // reads_storage / writes_storage.
 func indexHasStorageName(index validation.Value, name string) bool {
 	for _, n := range nodesOf(index, "state-variable") {
-		if objStr(n, "name") == name {
+		if validation.ObjStr(n, "name") == name {
 			return true
 		}
 	}
 	for _, n := range nodesOf(index, "function") {
-		if listHas(objAt(n, "writes_storage"), name) ||
-			listHas(objAt(n, "reads_storage"), name) {
+		if listHas(validation.ObjAt(n, "writes_storage"), name) ||
+			listHas(validation.ObjAt(n, "reads_storage"), name) {
 			return true
 		}
 	}
@@ -617,13 +617,13 @@ func indexHasStorageName(index validation.Value, name string) bool {
 // whether it is about the queried variable (its concept keys intersect).
 func enfGuardsOf(n validation.Value, conceptKey string) []enfGuard {
 	out := []enfGuard{}
-	for _, g := range listOf(objAt(n, "guards")) {
+	for _, g := range listOf(validation.ObjAt(n, "guards")) {
 		rec := enfGuard{
 			line:  intAt(g, "line"),
 			class: intAt(g, "class"),
-			text:  objStr(g, "text"),
+			text:  validation.ObjStr(g, "text"),
 		}
-		rec.about = hasConceptKey(strList(objAt(g, "concept_keys")), conceptKey)
+		rec.about = hasConceptKey(strList(validation.ObjAt(g, "concept_keys")), conceptKey)
 		out = append(out, rec)
 	}
 	return out
@@ -633,17 +633,17 @@ func enfGuardsOf(n validation.Value, conceptKey string) []enfGuard {
 // kind (the precise line of a write or read of the variable).
 func useLine(n validation.Value, conceptKey, kind string) (int64, bool) {
 	for _, u := range usesOf(n) {
-		if objStr(u, "kind") != kind {
+		if validation.ObjStr(u, "kind") != kind {
 			continue
 		}
-		if hasConceptKey(strList(objAt(u, "concept_keys")), conceptKey) {
+		if hasConceptKey(strList(validation.ObjAt(u, "concept_keys")), conceptKey) {
 			return intAt(u, "line"), true
 		}
 	}
 	return 0, false
 }
 
-func usesOf(n validation.Value) []validation.Value { return listOf(objAt(n, "uses")) }
+func usesOf(n validation.Value) []validation.Value { return listOf(validation.ObjAt(n, "uses")) }
 
 func listOf(v validation.Value) []validation.Value {
 	if v.Kind != validation.Arr {
@@ -699,12 +699,12 @@ func hasConceptKey(keys []string, want string) bool {
 }
 
 func boolAt(v validation.Value, key string) bool {
-	x := objAt(v, key)
+	x := validation.ObjAt(v, key)
 	return x.Kind == validation.Bool && x.B
 }
 
 func intAt(v validation.Value, key string) int64 {
-	x := objAt(v, key)
+	x := validation.ObjAt(v, key)
 	if x.Kind != validation.Int {
 		return 0
 	}

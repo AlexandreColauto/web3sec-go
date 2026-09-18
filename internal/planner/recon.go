@@ -100,20 +100,20 @@ func checkReconStamps(campaign *state.Campaign) error {
 	}
 	sinksOK := false
 	switch {
-	case sinks.Kind != validation.Obj || objStr(sinks, "src") == "" ||
-		objStr(sinks, "at") == "":
+	case sinks.Kind != validation.Obj || validation.ObjStr(sinks, "src") == "" ||
+		validation.ObjStr(sinks, "at") == "":
 		missing = append(missing, "no `webv2 sinks` run on record "+
 			"(the campaign state carries no recon.sinks stamp)")
 		commands = append(commands, sinksCmd)
-	case objStr(sinks, "campaign_id") == "":
+	case validation.ObjStr(sinks, "campaign_id") == "":
 		missing = append(missing, "the `webv2 sinks` stamp on record does "+
 			"not name the campaign it ran under, so it cannot be bound to "+
 			"this campaign (a stamp written before the campaign binding "+
 			"existed)")
 		commands = append(commands, sinksCmd)
-	case objStr(sinks, "campaign_id") != campaign.CampaignID:
+	case validation.ObjStr(sinks, "campaign_id") != campaign.CampaignID:
 		missing = append(missing, "the `webv2 sinks` stamp on record names "+
-			"campaign "+objStr(sinks, "campaign_id")+", not this campaign ("+
+			"campaign "+validation.ObjStr(sinks, "campaign_id")+", not this campaign ("+
 			campaign.CampaignID+") — the stamp was not run here")
 		commands = append(commands, sinksCmd)
 	default:
@@ -127,10 +127,10 @@ func checkReconStamps(campaign *state.Campaign) error {
 		if err != nil {
 			return err
 		}
-		if preSrc := objStr(pre, "src"); preSrc != "" &&
-			preSrc != objStr(sinks, "src") {
+		if preSrc := validation.ObjStr(pre, "src"); preSrc != "" &&
+			preSrc != validation.ObjStr(sinks, "src") {
 			missing = append(missing, "the recon runs disagree about the "+
-				"tree: `webv2 sinks` ran over "+objStr(sinks, "src")+
+				"tree: `webv2 sinks` ran over "+validation.ObjStr(sinks, "src")+
 				", the prescreen over "+preSrc+" — the L-04 attestation "+
 				"reconciles divergence rows both recon runs read together")
 			commands = append(commands, prescreenCmd, sinksCmd)
@@ -160,7 +160,7 @@ func prescreenCampaignOnRecord(campaign *state.Campaign) string {
 	if err != nil {
 		return ""
 	}
-	if cid := objAt(rep, "campaign_id"); cid.Kind == validation.Str {
+	if cid := validation.ObjAt(rep, "campaign_id"); cid.Kind == validation.Str {
 		return cid.S
 	}
 	return ""
@@ -177,7 +177,7 @@ func prescreenSnapshotOnRecord(campaign *state.Campaign) (string, bool) {
 	if err != nil {
 		return "", false
 	}
-	sid := objAt(rep, "snapshot_id")
+	sid := validation.ObjAt(rep, "snapshot_id")
 	if sid.Kind != validation.Str || sid.S == "" {
 		return "", false
 	}

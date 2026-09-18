@@ -80,7 +80,7 @@ func symmetryCmd(root string, args []string, r *Runner) error {
 	if family != "" {
 		kept := []validation.Value{}
 		for _, f := range objListAt(matrix, "families") {
-			if objStr(f, "name") == family {
+			if validation.ObjStr(f, "name") == family {
 				kept = append(kept, f)
 			}
 		}
@@ -105,15 +105,15 @@ func filterSymmetryFamilies(matrix validation.Value, kept []validation.Value) va
 	for _, f := range kept {
 		divs = append(divs, objListAt(f, "divergences")...)
 	}
-	stats := objAt(matrix, "stats")
+	stats := validation.ObjAt(matrix, "stats")
 	return validation.VObj(
 		validation.KV{K: "families", V: validation.VArr(kept...)},
 		validation.KV{K: "divergences", V: validation.VArr(divs...)},
 		validation.KV{K: "stats", V: validation.VObj(
 			validation.KV{K: "families", V: validation.VInt(1)},
-			validation.KV{K: "members", V: objAt(stats, "members")},
-			validation.KV{K: "sites", V: objAt(stats, "sites")},
-			validation.KV{K: "cells", V: objAt(stats, "cells")},
+			validation.KV{K: "members", V: validation.ObjAt(stats, "members")},
+			validation.KV{K: "sites", V: validation.ObjAt(stats, "sites")},
+			validation.KV{K: "cells", V: validation.ObjAt(stats, "cells")},
 			validation.KV{K: "divergences", V: validation.VInt(int64(len(divs)))},
 			validation.KV{K: "filtered", V: validation.VBool(true)},
 		)})
@@ -122,14 +122,14 @@ func filterSymmetryFamilies(matrix validation.Value, kept []validation.Value) va
 // symmetryPrint renders the matrix: one block per family, cells grouped by
 // direction, then the divergences as questions.
 func symmetryPrint(r *Runner, matrix validation.Value) {
-	stats := objAt(matrix, "stats")
+	stats := validation.ObjAt(matrix, "stats")
 	fmt.Fprintf(r.Out, "symmetry: %s famil%s, %s member(s), %s cell(s), "+
 		"%s divergence(s)\n",
-		pyIntText(objAt(stats, "families")),
-		pluralSuffix(pyIntText(objAt(stats, "families")), "y", "ies"),
-		pyIntText(objAt(stats, "members")),
-		pyIntText(objAt(stats, "cells")),
-		pyIntText(objAt(stats, "divergences")))
+		pyIntText(validation.ObjAt(stats, "families")),
+		pluralSuffix(pyIntText(validation.ObjAt(stats, "families")), "y", "ies"),
+		pyIntText(validation.ObjAt(stats, "members")),
+		pyIntText(validation.ObjAt(stats, "cells")),
+		pyIntText(validation.ObjAt(stats, "divergences")))
 	fams := objListAt(matrix, "families")
 	if len(fams) == 0 {
 		fmt.Fprintln(r.Out, "  no inheritance family carries a custody primitive "+
@@ -137,18 +137,18 @@ func symmetryPrint(r *Runner, matrix validation.Value) {
 		return
 	}
 	for _, f := range fams {
-		fmt.Fprintf(r.Out, "  %s (%s)\n", objStr(f, "name"),
-			strings.Join(t14Strings(objAt(f, "members")), ", "))
+		fmt.Fprintf(r.Out, "  %s (%s)\n", validation.ObjStr(f, "name"),
+			strings.Join(t14Strings(validation.ObjAt(f, "members")), ", "))
 		byDirection := map[string][]string{}
 		order := []string{}
 		for _, c := range objListAt(f, "cells") {
-			d := objStr(c, "direction")
+			d := validation.ObjStr(c, "direction")
 			if _, seen := byDirection[d]; !seen {
 				order = append(order, d)
 			}
 			byDirection[d] = append(byDirection[d], fmt.Sprintf("%s %s %s.%s@%s",
-				objStr(c, "asset"), objStr(c, "primitive"), objStr(c, "contract"),
-				objStr(c, "function"), pyIntText(objAt(c, "line"))))
+				validation.ObjStr(c, "asset"), validation.ObjStr(c, "primitive"), validation.ObjStr(c, "contract"),
+				validation.ObjStr(c, "function"), pyIntText(validation.ObjAt(c, "line"))))
 		}
 		for _, d := range order {
 			fmt.Fprintf(r.Out, "    %-10s %s\n", d+":",
@@ -159,8 +159,8 @@ func symmetryPrint(r *Runner, matrix validation.Value) {
 			continue
 		}
 		for _, d := range divs {
-			fmt.Fprintf(r.Out, "    ! %s: %s\n", objStr(d, "kind"),
-				objStr(d, "question"))
+			fmt.Fprintf(r.Out, "    ! %s: %s\n", validation.ObjStr(d, "kind"),
+				validation.ObjStr(d, "question"))
 		}
 	}
 }

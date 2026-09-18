@@ -55,8 +55,8 @@ func r40eArtifactRow(t *testing.T, c *state.Campaign, suffix string) validation.
 	if err != nil {
 		t.Fatalf("state: %v", err)
 	}
-	for _, a := range objAt(st, "artifacts").A {
-		if strings.HasSuffix(objStr(a, "path"), suffix) {
+	for _, a := range validation.ObjAt(st, "artifacts").A {
+		if strings.HasSuffix(validation.ObjStr(a, "path"), suffix) {
 			return a
 		}
 	}
@@ -73,7 +73,7 @@ func r40eAuditMismatch(t *testing.T, c *state.Campaign, path string) string {
 	if row.Kind != validation.Obj {
 		return ""
 	}
-	stored := objStr(row, "sha256")
+	stored := validation.ObjStr(row, "sha256")
 	if stored == "" {
 		return "registered without a sha256"
 	}
@@ -104,7 +104,7 @@ func r40eEventCount(t *testing.T, c *state.Campaign, eventType string) int {
 	}
 	n := 0
 	for _, e := range evts {
-		if objStr(e, "type") == eventType {
+		if validation.ObjStr(e, "type") == eventType {
 			n++
 		}
 	}
@@ -161,7 +161,7 @@ func TestR40ERefusedMarkAnsweredRestoresPlanBytes(t *testing.T) {
 	t.Setenv("WEBV2_NOW", "2026-01-02T00:00:00.000000+00:00")
 	path := planPath(c)
 	before := r40eSha(t, path)
-	rowBefore := objStr(r40eArtifactRow(t, c, "campaign_plan.json"), "sha256")
+	rowBefore := validation.ObjStr(r40eArtifactRow(t, c, "campaign_plan.json"), "sha256")
 	if rowBefore != before {
 		t.Fatalf("fixture is not coherent: file %s row %s", before, rowBefore)
 	}
@@ -183,7 +183,7 @@ func TestR40ERefusedMarkAnsweredRestoresPlanBytes(t *testing.T) {
 		t.Fatalf("the refused closure rewrote the plan file (the flip "+
 			"without its event):\n before %s\n after  %s", before, got)
 	}
-	if got := objStr(r40eArtifactRow(t, c, "campaign_plan.json"), "sha256"); got != rowBefore {
+	if got := validation.ObjStr(r40eArtifactRow(t, c, "campaign_plan.json"), "sha256"); got != rowBefore {
 		t.Fatalf("the refused closure moved the registry row: %s -> %s",
 			rowBefore, got)
 	}
@@ -213,7 +213,7 @@ func TestR40ERefusedMarkAnsweredRestoresPlanBytes(t *testing.T) {
 	if after == before {
 		t.Fatal("the retry did not rewrite the plan")
 	}
-	if got := objStr(r40eArtifactRow(t, c, "campaign_plan.json"), "sha256"); got != after {
+	if got := validation.ObjStr(r40eArtifactRow(t, c, "campaign_plan.json"), "sha256"); got != after {
 		t.Fatalf("row sha %s != file sha %s after the retry", got, after)
 	}
 	if got := r40eAuditMismatch(t, c, path); got != "" {
@@ -329,7 +329,7 @@ func TestR40EHealthyPlanWritesStillWork(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, e := range evts {
-		types = append(types, objStr(e, "type"))
+		types = append(types, validation.ObjStr(e, "type"))
 	}
 	artIdx, decidedIdx := -1, -1
 	for i, ty := range types {

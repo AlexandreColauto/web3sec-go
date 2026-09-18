@@ -422,11 +422,11 @@ func TestIngestFromSlitherCreatesHypotheses(t *testing.T) {
 	}
 	// provenance survived the round-trip into the stored finding:
 	f := storedFinding(t, root, cid)
-	tools := objAt(objAt(f, "provenance"), "sast_tools").A
+	tools := validation.ObjAt(validation.ObjAt(f, "provenance"), "sast_tools").A
 	if len(tools) != 1 || tools[0].S != "slither:reentrancy-eth" {
 		t.Fatalf("provenance.sast_tools lost or wrong: %v", tools)
 	}
-	if cls := objAt(objAt(f, "root_cause"), "class").S; cls != "reentrancy" {
+	if cls := validation.ObjAt(validation.ObjAt(f, "root_cause"), "class").S; cls != "reentrancy" {
 		t.Fatalf("mapped class lost: %s", cls)
 	}
 }
@@ -458,15 +458,15 @@ func TestIngestFromAderynCreatesHypotheses(t *testing.T) {
 		t.Fatalf("summary must name the tool: %s", out)
 	}
 	f := storedFinding(t, root, cid)
-	tools := objAt(objAt(f, "provenance"), "sast_tools").A
+	tools := validation.ObjAt(validation.ObjAt(f, "provenance"), "sast_tools").A
 	if len(tools) != 1 || tools[0].S != "aderyn:reentrancy-state-change" {
 		t.Fatalf("provenance.sast_tools lost or wrong: %v", tools)
 	}
-	if cls := objAt(objAt(f, "root_cause"), "class").S; cls != "reentrancy" {
+	if cls := validation.ObjAt(validation.ObjAt(f, "root_cause"), "class").S; cls != "reentrancy" {
 		t.Fatalf("mapped class lost: %s", cls)
 	}
 	// The default stage is per-tool.
-	if got := objAt(f, "trajectory").S; got == "" {
+	if got := validation.ObjAt(f, "trajectory").S; got == "" {
 		t.Fatal("trajectory missing")
 	}
 }

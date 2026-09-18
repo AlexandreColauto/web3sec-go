@@ -41,10 +41,10 @@ func runForkdiff(root string, args []string, r *Runner) int {
 			fmt.Fprintln(r.Out, validation.DumpIndentedASCII(rep))
 			return nil
 		}
-		fmt.Fprintf(r.Out, "fork-diff: %s\n", objStr(rep, "diff_summary"))
+		fmt.Fprintf(r.Out, "fork-diff: %s\n", validation.ObjStr(rep, "diff_summary"))
 		for _, m := range objListAt(rep, "all_matches") {
-			fmt.Fprintf(r.Out, "  %s: score %s (%s)\n", objStr(m, "baseline"),
-				pyScore2(objAt(m, "score")), objStr(m, "verdict"))
+			fmt.Fprintf(r.Out, "  %s: score %s (%s)\n", validation.ObjStr(m, "baseline"),
+				pyScore2(validation.ObjAt(m, "score")), validation.ObjStr(m, "verdict"))
 		}
 		return nil
 	})

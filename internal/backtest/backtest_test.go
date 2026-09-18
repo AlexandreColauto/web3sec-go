@@ -101,11 +101,11 @@ func TestPseudoFindingCriticalIsBandless(t *testing.T) {
 	// row, but labeled by BandLine and the coverage count, never
 	// silent), while a representable band still carries through.
 	pf := pseudoFinding("reentrancy", "critical")
-	if got := objAt(objAt(pf, "risk"), "validated"); got.Kind != validation.Null {
+	if got := validation.ObjAt(validation.ObjAt(pf, "risk"), "validated"); got.Kind != validation.Null {
 		t.Fatalf("critical pseudo-finding carries validated = %v, want bandless", got)
 	}
 	pfHigh := pseudoFinding("reentrancy", "high")
-	if got := orStr(objAt(objAt(objAt(pfHigh, "risk"), "validated"), "band")); got != "high" {
+	if got := orStr(validation.ObjAt(validation.ObjAt(validation.ObjAt(pfHigh, "risk"), "validated"), "band")); got != "high" {
 		t.Fatalf("high pseudo-finding band = %q, want high", got)
 	}
 }

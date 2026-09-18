@@ -88,8 +88,8 @@ func hypo(t *testing.T, c *state.Campaign, class string, granted, required []str
 			kv("profile", validation.VStr("arbitrary EOA")),
 			kv("capabilities", validation.VArr()))),
 		kv("capabilities", validation.VObj(
-			kv("granted", strArr(granted)),
-			kv("required", strArr(required)))),
+			kv("granted", validation.StrArr(granted)),
+			kv("required", validation.StrArr(required)))),
 	), "code", "test", "")
 	if err != nil {
 		t.Fatalf("ingest hypothesis: %v", err)
@@ -152,8 +152,8 @@ func confirmSimple(t *testing.T, c *state.Campaign, fid string) validation.Value
 		kv("level", validation.VStr("E4")),
 		kv("type", validation.VStr("foundry-test")),
 		kv("description", validation.VStr("repro under sandbox")),
-		kv("sandbox_profile", objAt(rec, "profile")),
-		kv("artifact_id", objAt(rec, "exec_id")))
+		kv("sandbox_profile", validation.ObjAt(rec, "profile")),
+		kv("artifact_id", validation.ObjAt(rec, "exec_id")))
 	if _, err := findings.AddEvidence(c, fid, item); err != nil {
 		t.Fatalf("add evidence: %v", err)
 	}
@@ -171,7 +171,7 @@ func confirmSimple(t *testing.T, c *state.Campaign, fid string) validation.Value
 	if err != nil {
 		t.Fatalf("load finding: %v", err)
 	}
-	ver := objAt(vf, "verification")
+	ver := validation.ObjAt(vf, "verification")
 	if ver.Kind != validation.Obj {
 		ver = validation.VObj()
 	}
@@ -218,7 +218,7 @@ func TestBriefIsAPureView(t *testing.T) {
 	camp := newCamp(t, "Acme Program")
 	f := hypo(t, camp, "access-control", []string{"withdraw_unbacked_assets"},
 		nil, "Brief view finding one")
-	confirmSimple(t, camp, objStr(f, "finding_id"))
+	confirmSimple(t, camp, validation.ObjStr(f, "finding_id"))
 	stateBefore, err := os.ReadFile(camp.StatePath)
 	if err != nil {
 		t.Fatal(err)
@@ -228,7 +228,7 @@ func TestBriefIsAPureView(t *testing.T) {
 		t.Fatal(err)
 	}
 	findingPath := filepath.Join(camp.FindingsDir,
-		objStr(f, "finding_id")+".json")
+		validation.ObjStr(f, "finding_id")+".json")
 	findingBefore, err := os.ReadFile(findingPath)
 	if err != nil {
 		t.Fatal(err)
@@ -258,13 +258,13 @@ func TestBriefIsAPureView(t *testing.T) {
 		t.Errorf("brief mutated the finding on disk")
 	}
 	// the gate ran with save=False: the finding on disk gained no bounty block
-	reloaded, err := findings.LoadFinding(camp, objStr(f, "finding_id"))
+	reloaded, err := findings.LoadFinding(camp, validation.ObjStr(f, "finding_id"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if hasKey(reloaded, "bounty") {
 		t.Errorf("the view wrote a bounty block: %s",
-			validation.DumpIndented(objAt(reloaded, "bounty")))
+			validation.DumpIndented(validation.ObjAt(reloaded, "bounty")))
 	}
 }
 
@@ -287,7 +287,7 @@ func TestBriefStageCountIgnoresSubStages(t *testing.T) {
 		}
 	}
 	b := build(t, camp, false)
-	campSec := objAt(b, "campaign")
+	campSec := validation.ObjAt(b, "campaign")
 	done := intField(campSec, "stages_done")
 	total := intField(campSec, "stages_total")
 	if done != int64(len(pipeline.StageIDs)) ||
@@ -301,15 +301,15 @@ func TestBriefJSONRoundtrip(t *testing.T) {
 	camp := newCamp(t, "Acme Program")
 	f := hypo(t, camp, "access-control", []string{"withdraw_unbacked_assets"},
 		nil, "Brief json finding")
-	confirmSimple(t, camp, objStr(f, "finding_id"))
+	confirmSimple(t, camp, validation.ObjStr(f, "finding_id"))
 	b := build(t, camp, false)
 	dumped := validation.DumpIndented(b) // must be plain JSON-safe types
 	back, err := validation.ParseOrdered([]byte(dumped))
 	if err != nil {
 		t.Fatalf("json roundtrip: %v", err)
 	}
-	if objStr(objAt(back, "campaign"), "campaign_id") !=
-		objStr(objAt(b, "campaign"), "campaign_id") {
+	if validation.ObjStr(validation.ObjAt(back, "campaign"), "campaign_id") !=
+		validation.ObjStr(validation.ObjAt(b, "campaign"), "campaign_id") {
 		t.Errorf("campaign_id changed across the roundtrip")
 	}
 	if !hasKey(back, "next_actions") {
@@ -323,10 +323,10 @@ func TestBriefEmptyCampaignDoesNotCrash(t *testing.T) {
 		t.Fatal(err)
 	}
 	b := build(t, c, false)
-	if got := intField(objAt(b, "findings"), "total"); got != 0 {
+	if got := intField(validation.ObjAt(b, "findings"), "total"); got != 0 {
 		t.Errorf("findings.total = %d, want 0", got)
 	}
-	if v := objAt(objAt(b, "campaign"), "active_snapshot"); v.Kind != validation.Null {
+	if v := validation.ObjAt(validation.ObjAt(b, "campaign"), "active_snapshot"); v.Kind != validation.Null {
 		t.Errorf("active_snapshot = %s, want None", validation.PyRepr(v))
 	}
 	actions := listAt(b, "next_actions")
@@ -354,53 +354,53 @@ func TestBriefFlagsAMaterializableChain(t *testing.T) {
 		nil, "Brief chain step one")
 	f2 := hypo(t, camp, "logic-error", []string{"withdraw_unbacked_assets"},
 		[]string{"control_perceived_asset_price"}, "Brief chain step two")
-	confirmSimple(t, camp, objStr(f1, "finding_id"))
-	confirmSimple(t, camp, objStr(f2, "finding_id"))
+	confirmSimple(t, camp, validation.ObjStr(f1, "finding_id"))
+	confirmSimple(t, camp, validation.ObjStr(f2, "finding_id"))
 
 	b := build(t, camp, false)
-	mats := listAt(objAt(b, "findings"), "materializable_chains")
+	mats := listAt(validation.ObjAt(b, "findings"), "materializable_chains")
 	if len(mats) != 1 {
 		t.Fatalf("materializable_chains = %d, want 1", len(mats))
 	}
-	members := strListOf(objAt(mats[0], "members"))
-	want := map[string]bool{objStr(f1, "finding_id"): true,
-		objStr(f2, "finding_id"): true}
+	members := strListOf(validation.ObjAt(mats[0], "members"))
+	want := map[string]bool{validation.ObjStr(f1, "finding_id"): true,
+		validation.ObjStr(f2, "finding_id"): true}
 	if len(members) != 2 || !want[members[0]] || !want[members[1]] {
 		t.Errorf("members = %v, want the two findings", members)
 	}
 	found := false
 	for _, a := range listAt(b, "next_actions") {
 		if a.Kind == validation.Str && stringsContains(a.S, "materialize chain") &&
-			stringsContains(a.S, objStr(f2, "finding_id")) {
+			stringsContains(a.S, validation.ObjStr(f2, "finding_id")) {
 			found = true
 		}
 	}
 	if !found {
 		t.Errorf("no materialize-chain action in %v",
-			validation.PyRepr(objAt(b, "next_actions")))
+			validation.PyRepr(validation.ObjAt(b, "next_actions")))
 	}
 
 	// once materialized, it is no longer materializable
 	if _, err := chainengine.MaterializeChain(camp, []string{
-		objStr(f1, "finding_id"), objStr(f2, "finding_id")},
+		validation.ObjStr(f1, "finding_id"), validation.ObjStr(f2, "finding_id")},
 		"Brief two-step chain", "", nil, nil); err != nil {
 		t.Fatalf("materialize chain: %v", err)
 	}
 	b2 := build(t, camp, false)
-	if got := len(listAt(objAt(b2, "findings"), "materializable_chains")); got != 0 {
+	if got := len(listAt(validation.ObjAt(b2, "findings"), "materializable_chains")); got != 0 {
 		t.Errorf("materializable_chains after materialize = %d, want 0", got)
 	}
 }
 
 func TestBriefListsTheE6QueueAndGateDeficits(t *testing.T) {
 	camp := newCamp(t, "Acme Program")
-	c1 := objStr(confirmSimple(t, camp, objStr(hypo(t, camp, "access-control",
+	c1 := validation.ObjStr(confirmSimple(t, camp, validation.ObjStr(hypo(t, camp, "access-control",
 		[]string{"withdraw_unbacked_assets"}, nil,
 		"Brief E6 queue finding"), "finding_id")), "finding_id")
 	// an alive, unconfirmed finding: the deficit names what is missing
 	p := hypo(t, camp, "logic-error", []string{"some_capability"}, nil,
 		"Brief deficit finding")
-	if _, err := findings.Transition(camp, objStr(p, "finding_id"), "POSSIBLE",
+	if _, err := findings.Transition(camp, validation.ObjStr(p, "finding_id"), "POSSIBLE",
 		"triage", "triage", "", false); err != nil {
 		t.Fatalf("transition: %v", err)
 	}
@@ -409,9 +409,9 @@ func TestBriefListsTheE6QueueAndGateDeficits(t *testing.T) {
 	queue := listAt(b, "independent_verification_queue")
 	foundC1 := false
 	for _, x := range queue {
-		if objStr(x, "finding_id") == c1 {
+		if validation.ObjStr(x, "finding_id") == c1 {
 			foundC1 = true
-			if got := objStr(x, "evidence_level"); got != "E4" {
+			if got := validation.ObjStr(x, "evidence_level"); got != "E4" {
 				t.Errorf("queue evidence_level = %s, want E4", got)
 			}
 		}
@@ -431,18 +431,18 @@ func TestBriefListsTheE6QueueAndGateDeficits(t *testing.T) {
 		t.Errorf("no independently-verify action for %s", c1)
 	}
 
-	deficits := listAt(objAt(b, "findings"), "gate_deficits")
+	deficits := listAt(validation.ObjAt(b, "findings"), "gate_deficits")
 	foundP := false
 	for _, d := range deficits {
-		if objStr(d, "finding_id") == objStr(p, "finding_id") {
+		if validation.ObjStr(d, "finding_id") == validation.ObjStr(p, "finding_id") {
 			foundP = true
-			if objStr(d, "deficit") == "" {
+			if validation.ObjStr(d, "deficit") == "" {
 				t.Errorf("bare E0 finding has an empty deficit")
 			}
 		}
 	}
 	if !foundP {
-		t.Errorf("%s missing from gate_deficits", objStr(p, "finding_id"))
+		t.Errorf("%s missing from gate_deficits", validation.ObjStr(p, "finding_id"))
 	}
 }
 
@@ -461,20 +461,20 @@ func TestBriefBountyGateIsAView(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	f := confirmSimple(t, camp, objStr(hypo(t, camp, "access-control",
+	f := confirmSimple(t, camp, validation.ObjStr(hypo(t, camp, "access-control",
 		[]string{"withdraw_unbacked_assets"}, nil,
 		"Brief gate finding"), "finding_id"))
 	b := build(t, camp, false)
-	if got := objStr(objAt(b, "bounty"), "policy"); got != "policy.json" {
+	if got := validation.ObjStr(validation.ObjAt(b, "bounty"), "policy"); got != "policy.json" {
 		t.Errorf("bounty.policy = %q, want policy.json", got)
 	}
 	ev := map[string]validation.Value{}
-	for _, x := range listAt(objAt(b, "bounty"), "evaluated") {
-		ev[objStr(x, "finding_id")] = x
+	for _, x := range listAt(validation.ObjAt(b, "bounty"), "evaluated") {
+		ev[validation.ObjStr(x, "finding_id")] = x
 	}
-	entry, ok := ev[objStr(f, "finding_id")]
+	entry, ok := ev[validation.ObjStr(f, "finding_id")]
 	if !ok {
-		t.Fatalf("%s missing from bounty.evaluated", objStr(f, "finding_id"))
+		t.Fatalf("%s missing from bounty.evaluated", validation.ObjStr(f, "finding_id"))
 	}
 	if !objBool(entry, "eligible") {
 		t.Errorf("eligible = false, want true")
@@ -491,15 +491,15 @@ func TestBriefPendingMemoryAndRelations(t *testing.T) {
 	camp := newCamp(t, "Acme Program")
 	f := hypo(t, camp, "access-control", []string{"withdraw_unbacked_assets"},
 		nil, "Brief memory finding")
-	confirmSimple(t, camp, objStr(f, "finding_id"))
-	fid := objStr(f, "finding_id")
+	confirmSimple(t, camp, validation.ObjStr(f, "finding_id"))
+	fid := validation.ObjStr(f, "finding_id")
 	if _, err := learning.QueueMemory(camp, learning.QueueOpts{
 		Kind: "disproved", Status: "DISPROVED",
 		Pattern:   "brief pattern that is intended behavior",
 		FindingID: &fid}); err != nil {
 		t.Fatalf("queue memory: %v", err)
 	}
-	if _, err := relations.MintDisprovedBy(camp, objStr(f, "finding_id"),
+	if _, err := relations.MintDisprovedBy(camp, validation.ObjStr(f, "finding_id"),
 		nil, nil); err != nil {
 		t.Fatalf("mint disproved_by: %v", err)
 	}
@@ -507,12 +507,12 @@ func TestBriefPendingMemoryAndRelations(t *testing.T) {
 	b := build(t, camp, false)
 	foundPending := false
 	for _, m := range listAt(b, "pending_memory") {
-		if objStr(m, "finding_id") == objStr(f, "finding_id") {
+		if validation.ObjStr(m, "finding_id") == validation.ObjStr(f, "finding_id") {
 			foundPending = true
 		}
 	}
 	if !foundPending {
-		t.Errorf("pending_memory lacks %s", objStr(f, "finding_id"))
+		t.Errorf("pending_memory lacks %s", validation.ObjStr(f, "finding_id"))
 	}
 	foundAction := false
 	for _, a := range listAt(b, "next_actions") {
@@ -523,8 +523,8 @@ func TestBriefPendingMemoryAndRelations(t *testing.T) {
 	if !foundAction {
 		t.Errorf("no human-decision action in next_actions")
 	}
-	rel := objAt(b, "relations")
-	if got := intField(objAt(rel, "by_kind"), "disproved_by"); got != 1 {
+	rel := validation.ObjAt(b, "relations")
+	if got := intField(validation.ObjAt(rel, "by_kind"), "disproved_by"); got != 1 {
 		t.Errorf("relations.by_kind.disproved_by = %d, want 1", got)
 	}
 	if got := len(listAt(rel, "drift_problems")); got != 0 {
@@ -536,32 +536,32 @@ func TestBriefDeepFoldsInTheAudit(t *testing.T) {
 	camp := newCamp(t, "Acme Program")
 	f := hypo(t, camp, "access-control", []string{"withdraw_unbacked_assets"},
 		nil, "Brief deep finding")
-	confirmSimple(t, camp, objStr(f, "finding_id"))
+	confirmSimple(t, camp, validation.ObjStr(f, "finding_id"))
 	fast := build(t, camp, false)
-	fastInteg := objAt(fast, "integrity")
+	fastInteg := validation.ObjAt(fast, "integrity")
 	if !objBool(fastInteg, "ok") {
 		t.Errorf("fast integrity.ok = %s, want True",
-			validation.PyRepr(objAt(fastInteg, "ok")))
+			validation.PyRepr(validation.ObjAt(fastInteg, "ok")))
 	}
 	if intField(fastInteg, "events_checked") < 1 {
 		t.Errorf("fast integrity.events_checked = %d, want >= 1",
 			intField(fastInteg, "events_checked"))
 	}
 	deep := build(t, camp, true)
-	deepInteg := objAt(deep, "integrity")
+	deepInteg := validation.ObjAt(deep, "integrity")
 	if !objBool(deepInteg, "ok") {
 		t.Errorf("deep integrity.ok = %s, want True",
-			validation.PyRepr(objAt(deepInteg, "ok")))
+			validation.PyRepr(validation.ObjAt(deepInteg, "ok")))
 	}
-	if !stringsContains(objStr(deepInteg, "summary"), "audit") {
+	if !stringsContains(validation.ObjStr(deepInteg, "summary"), "audit") {
 		t.Errorf("deep integrity.summary = %q, want it to mention audit",
-			objStr(deepInteg, "summary"))
+			validation.ObjStr(deepInteg, "summary"))
 	}
 }
 
 func TestBriefTerminalAndEconomicsSections(t *testing.T) {
 	camp := newCamp(t, "Acme Program")
-	confirmSimple(t, camp, objStr(hypo(t, camp, "access-control",
+	confirmSimple(t, camp, validation.ObjStr(hypo(t, camp, "access-control",
 		[]string{"withdraw_unbacked_assets"}, nil,
 		"Brief terminal finding"), "finding_id"))
 	traj := "code"
@@ -573,13 +573,13 @@ func TestBriefTerminalAndEconomicsSections(t *testing.T) {
 	b := build(t, camp, false)
 	foundTerminal := false
 	for _, term := range listAt(b, "terminals") {
-		if objStr(term, "terminal_capability") == "withdraw_unbacked_assets" {
+		if validation.ObjStr(term, "terminal_capability") == "withdraw_unbacked_assets" {
 			foundTerminal = true
 		}
 	}
 	if !foundTerminal {
 		t.Errorf("no withdraw_unbacked_assets terminal: %s",
-			validation.PyRepr(objAt(b, "terminals")))
+			validation.PyRepr(validation.ObjAt(b, "terminals")))
 	}
 	foundAction := false
 	for _, a := range listAt(b, "next_actions") {
@@ -591,11 +591,11 @@ func TestBriefTerminalAndEconomicsSections(t *testing.T) {
 	if !foundAction {
 		t.Errorf("no terminal-state action in next_actions")
 	}
-	totals := objAt(objAt(b, "economics"), "totals")
-	if got := floatOf(objAt(totals, "total_cost_usd")); got != 10.0 {
+	totals := validation.ObjAt(validation.ObjAt(b, "economics"), "totals")
+	if got := floatOf(validation.ObjAt(totals, "total_cost_usd")); got != 10.0 {
 		t.Errorf("total_cost_usd = %v, want 10.0", got)
 	}
-	if got := floatOf(objAt(totals, "yield_usd_per_usd")); got != 0.0 {
+	if got := floatOf(validation.ObjAt(totals, "yield_usd_per_usd")); got != 0.0 {
 		t.Errorf("yield_usd_per_usd = %v, want 0.0", got)
 	}
 }
@@ -622,7 +622,7 @@ func oneGateFromConfirmed(t *testing.T, camp *state.Campaign) validation.Value {
 	t.Helper()
 	f := hypo(t, camp, "access-control", nil, nil,
 		"vault drain via unguarded sweep")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	if _, err := findings.Transition(camp, fid, "POSSIBLE", "triage",
 		"triage", "", false); err != nil {
 		t.Fatalf("transition: %v", err)
@@ -639,8 +639,8 @@ func oneGateFromConfirmed(t *testing.T, camp *state.Campaign) validation.Value {
 		kv("level", validation.VStr("E4")),
 		kv("type", validation.VStr("foundry-test")),
 		kv("description", validation.VStr("repro under sandbox")),
-		kv("sandbox_profile", objAt(rec, "profile")),
-		kv("artifact_id", objAt(rec, "exec_id")))
+		kv("sandbox_profile", validation.ObjAt(rec, "profile")),
+		kv("artifact_id", validation.ObjAt(rec, "exec_id")))
 	if _, err := findings.AddEvidence(camp, fid, item); err != nil {
 		t.Fatalf("add evidence: %v", err)
 	}
@@ -651,7 +651,7 @@ func oneGateFromConfirmed(t *testing.T, camp *state.Campaign) validation.Value {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ver := objAt(vf, "verification")
+	ver := validation.ObjAt(vf, "verification")
 	if ver.Kind != validation.Obj {
 		ver = validation.VObj()
 	}
@@ -674,19 +674,19 @@ func TestBriefingKeyIsMemoryRecallPending(t *testing.T) {
 	camp := newCamp(t, "test-program")
 	f := oneGateFromConfirmed(t, camp)
 	b := build(t, camp, false)
-	findingsBlock := objAt(b, "findings")
+	findingsBlock := validation.ObjAt(b, "findings")
 	if !hasKey(findingsBlock, "memory_recall_pending") {
 		t.Fatalf("memory_recall_pending missing from findings block")
 	}
 	listed := false
-	for _, fid := range strListOf(objAt(findingsBlock, "memory_recall_pending")) {
-		if fid == objStr(f, "finding_id") {
+	for _, fid := range strListOf(validation.ObjAt(findingsBlock, "memory_recall_pending")) {
+		if fid == validation.ObjStr(f, "finding_id") {
 			listed = true
 		}
 	}
 	if !listed {
 		t.Errorf("%s missing from memory_recall_pending",
-			objStr(f, "finding_id"))
+			validation.ObjStr(f, "finding_id"))
 	}
 	if hasKey(findingsBlock, "negative_rag_pending") {
 		t.Errorf("the retired negative_rag_pending key is still present")
@@ -702,7 +702,7 @@ func TestBriefingWordingNamesTheAction(t *testing.T) {
 		if a.Kind != validation.Str {
 			continue
 		}
-		if stringsContains(a.S, objStr(f, "finding_id")) &&
+		if stringsContains(a.S, validation.ObjStr(f, "finding_id")) &&
 			stringsContains(a.S, "memory recall pending") &&
 			stringsContains(a.S, "webv2 recall") {
 			found = true
@@ -710,7 +710,7 @@ func TestBriefingWordingNamesTheAction(t *testing.T) {
 	}
 	if !found {
 		t.Errorf("no recall wording in next_actions: %s",
-			validation.PyRepr(objAt(b, "next_actions")))
+			validation.PyRepr(validation.ObjAt(b, "next_actions")))
 	}
 	recall := 0
 	for _, a := range objStringList(t, b, "next_actions") {
@@ -730,21 +730,21 @@ func TestVerifiedCheckClearsThePendingFlag(t *testing.T) {
 	camp := newCamp(t, "test-program")
 	f := oneGateFromConfirmed(t, camp)
 	seedGlobalMemory(t)
-	if _, err := findings.RecordMemoryCheck(camp, objStr(f, "finding_id"),
+	if _, err := findings.RecordMemoryCheck(camp, validation.ObjStr(f, "finding_id"),
 		[]validation.Value{validation.VObj(
 			kv("memory_ids", validation.VArr(validation.VStr("MEM-shared01"))),
 			kv("mode", validation.VStr("negative")))}); err != nil {
 		t.Fatalf("record memory check: %v", err)
 	}
 	b := build(t, camp, false)
-	for _, fid := range strListOf(objAt(objAt(b, "findings"),
+	for _, fid := range strListOf(validation.ObjAt(validation.ObjAt(b, "findings"),
 		"memory_recall_pending")) {
-		if fid == objStr(f, "finding_id") {
+		if fid == validation.ObjStr(f, "finding_id") {
 			t.Errorf("%s still pending after a verified check",
-				objStr(f, "finding_id"))
+				validation.ObjStr(f, "finding_id"))
 		}
 	}
-	if got := len(listAt(objAt(b, "findings"), "memory_recall_pending")); got != 0 {
+	if got := len(listAt(validation.ObjAt(b, "findings"), "memory_recall_pending")); got != 0 {
 		t.Errorf("memory_recall_pending = %d, want 0", got)
 	}
 }
@@ -768,20 +768,20 @@ func hypoWithStatus(t *testing.T, camp *state.Campaign, title, class,
 		if status == "DUPLICATE" {
 			tgt := hypo(t, camp, class, []string{"withdraw_unbacked_assets"},
 				nil, title+" merge target")
-			if _, err := findings.Transition(camp, objStr(tgt, "finding_id"),
+			if _, err := findings.Transition(camp, validation.ObjStr(tgt, "finding_id"),
 				"OUT_OF_SCOPE", "test fixture target", "", "", false); err != nil {
 				t.Fatalf("junk the merge target: %v", err)
 			}
-			of = objStr(tgt, "finding_id")
+			of = validation.ObjStr(tgt, "finding_id")
 		}
-		if _, err := findings.TransitionWith(camp, objStr(f, "finding_id"),
+		if _, err := findings.TransitionWith(camp, validation.ObjStr(f, "finding_id"),
 			status, "test fixture", findings.TransitionOpts{
 				Actor:       "test fixture",
 				DuplicateOf: of}); err != nil {
 			t.Fatalf("transition %s: %v", status, err)
 		}
 	}
-	out, err := findings.LoadFinding(camp, objStr(f, "finding_id"))
+	out, err := findings.LoadFinding(camp, validation.ObjStr(f, "finding_id"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -802,7 +802,7 @@ func TestBriefProblemsNamesTheUnwrittenGraph(t *testing.T) {
 	camp := newCamp(t, "noop-program")
 	hypoWithStatus(t, camp, "unwritten graph finding", "access-control", "")
 	b := build(t, camp, false)
-	if got := intField(objAt(b, "relations"), "edge_count"); got != 0 {
+	if got := intField(validation.ObjAt(b, "relations"), "edge_count"); got != 0 {
 		t.Errorf("edge_count = %d, want 0", got)
 	}
 	found := false
@@ -818,7 +818,7 @@ func TestBriefProblemsNamesTheUnwrittenGraph(t *testing.T) {
 	}
 	if !found {
 		t.Errorf("no unwritten-graph problem line: %s",
-			validation.PyRepr(objAt(b, "problems")))
+			validation.PyRepr(validation.ObjAt(b, "problems")))
 	}
 }
 
@@ -828,7 +828,7 @@ func TestBriefHasNoProblemLineWithoutFindings(t *testing.T) {
 		t.Fatal(err)
 	}
 	b := build(t, c, false)
-	if got := intField(objAt(b, "findings"), "total"); got != 0 {
+	if got := intField(validation.ObjAt(b, "findings"), "total"); got != 0 {
 		t.Errorf("findings.total = %d, want 0", got)
 	}
 	if got := len(listAt(b, "problems")); got != 0 {
@@ -840,12 +840,12 @@ func TestBriefHasNoProblemLineWhenTheGraphHasEdges(t *testing.T) {
 	camp := newCamp(t, "noop-program")
 	a := hypoWithStatus(t, camp, "edge finding one", "access-control", "")
 	b := hypoWithStatus(t, camp, "edge finding two", "access-control", "")
-	if _, err := relations.MintCausation(camp, objStr(a, "finding_id"),
-		objStr(b, "finding_id"), "operator", "attested"); err != nil {
+	if _, err := relations.MintCausation(camp, validation.ObjStr(a, "finding_id"),
+		validation.ObjStr(b, "finding_id"), "operator", "attested"); err != nil {
 		t.Fatalf("mint causation: %v", err)
 	}
 	brief := build(t, camp, false)
-	if got := intField(objAt(brief, "relations"), "edge_count"); got != 1 {
+	if got := intField(validation.ObjAt(brief, "relations"), "edge_count"); got != 1 {
 		t.Errorf("edge_count = %d, want 1", got)
 	}
 	if problemsContain(t, brief, "graph was never written") {
@@ -861,10 +861,10 @@ func TestBriefHasNoProblemLineOnAClosedCampaign(t *testing.T) {
 		t.Fatalf("complete: %v", err)
 	}
 	b := build(t, camp, false)
-	if !objBool(objAt(b, "campaign"), "closed") {
+	if !objBool(validation.ObjAt(b, "campaign"), "closed") {
 		t.Errorf("campaign.closed = false, want true")
 	}
-	if got := intField(objAt(b, "relations"), "edge_count"); got != 0 {
+	if got := intField(validation.ObjAt(b, "relations"), "edge_count"); got != 0 {
 		t.Errorf("edge_count = %d, want 0", got)
 	}
 	if problemsContain(t, b, "graph was never written") {
@@ -878,7 +878,7 @@ func TestBriefHasNoProblemLineWhenOnlyJunkFindingsExist(t *testing.T) {
 	b := build(t, camp, false)
 	// Two records now: the DUPLICATE and its REAL merge target (the
 	// transition refuses a ghost --of), junk-closed OUT_OF_SCOPE.
-	if got := intField(objAt(b, "findings"), "total"); got != 2 {
+	if got := intField(validation.ObjAt(b, "findings"), "total"); got != 2 {
 		t.Errorf("findings.total = %d, want 2", got)
 	}
 	if problemsContain(t, b, "graph was never written") {
@@ -890,15 +890,15 @@ func TestBriefTreatsSupersededAsJunk(t *testing.T) {
 	camp := newCamp(t, "noop-program")
 	f := hypoWithStatus(t, camp, "superseded finding", "access-control",
 		"SUPERSEDED")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	b := build(t, camp, false)
-	if got := intField(objAt(b, "findings"), "total"); got != 1 {
+	if got := intField(validation.ObjAt(b, "findings"), "total"); got != 1 {
 		t.Errorf("findings.total = %d, want 1", got)
 	}
 	if problemsContain(t, b, "graph was never written") {
 		t.Errorf("superseded-only campaign reports the unwritten-graph problem")
 	}
-	for _, id := range t35IDs(listAt(objAt(b, "findings"), "gate_deficits")) {
+	for _, id := range t35IDs(listAt(validation.ObjAt(b, "findings"), "gate_deficits")) {
 		if id == fid {
 			t.Errorf("superseded finding %s listed in gate_deficits", fid)
 		}
@@ -940,7 +940,7 @@ func prio(i int, o prioOpts) validation.Value {
 		kvs = append(kvs, kv("created_at", validation.VStr(*o.t0)))
 	}
 	if len(o.invariantIDs) > 0 {
-		kvs = append(kvs, kv("invariant_ids", strArr(o.invariantIDs)))
+		kvs = append(kvs, kv("invariant_ids", validation.StrArr(o.invariantIDs)))
 	}
 	if o.probe != nil {
 		kvs = append(kvs, kv("probe", *o.probe))
@@ -1040,7 +1040,7 @@ func inv(t *testing.T, camp *state.Campaign, iid, kind, severity, status,
 	if err != nil {
 		t.Fatal(err)
 	}
-	reg := objAt(links, "invariants")
+	reg := validation.ObjAt(links, "invariants")
 	if reg.Kind != validation.Obj {
 		reg = validation.VObj()
 	}
@@ -1073,17 +1073,17 @@ func ledger(t *testing.T, camp *state.Campaign) (validation.Value, validation.Va
 	if err != nil {
 		t.Fatalf("build brief: %v", err)
 	}
-	return b, objAt(b, "attention")
+	return b, validation.ObjAt(b, "attention")
 }
 
 func attQueue(t *testing.T, att validation.Value) validation.Value {
 	t.Helper()
-	return objAt(att, "queue")
+	return validation.ObjAt(att, "queue")
 }
 
 func attInvariants(t *testing.T, att validation.Value) validation.Value {
 	t.Helper()
-	return objAt(att, "invariants")
+	return validation.ObjAt(att, "invariants")
 }
 
 func objStringList(t *testing.T, v validation.Value, key string) []string {
@@ -1121,26 +1121,26 @@ func TestQueueDebtLineShapeAndCommand(t *testing.T) {
 		t.Errorf("(worked, total, untouched) = (%d, %d, %d), want (4, 58, 54)",
 			objInt(q, "worked"), objInt(q, "total"), objInt(q, "untouched"))
 	}
-	oldest := objAt(q, "oldest")
-	if objStr(oldest, "priority_id") != "Q-005" {
-		t.Errorf("oldest = %q, want Q-005", objStr(oldest, "priority_id"))
+	oldest := validation.ObjAt(q, "oldest")
+	if validation.ObjStr(oldest, "priority_id") != "Q-005" {
+		t.Errorf("oldest = %q, want Q-005", validation.ObjStr(oldest, "priority_id"))
 	}
-	if objStr(oldest, "age") != "3h12m" {
-		t.Errorf("age = %q, want 3h12m", objStr(oldest, "age"))
+	if validation.ObjStr(oldest, "age") != "3h12m" {
+		t.Errorf("age = %q, want 3h12m", validation.ObjStr(oldest, "age"))
 	}
 	cmd := "webv2 answered " + camp.CampaignID +
 		" Q-005 answered --reason R --actor A"
 	wantLine := "questions worked 4/58 — oldest untouched: Q-005 " +
 		"(3h12m, INV-1 critical) — " + cmd
-	if objStr(q, "line") != wantLine {
-		t.Errorf("line = %q\nwant %q", objStr(q, "line"), wantLine)
+	if validation.ObjStr(q, "line") != wantLine {
+		t.Errorf("line = %q\nwant %q", validation.ObjStr(q, "line"), wantLine)
 	}
-	if objStr(oldest, "command") != cmd {
-		t.Errorf("command = %q, want %q", objStr(oldest, "command"), cmd)
+	if validation.ObjStr(oldest, "command") != cmd {
+		t.Errorf("command = %q, want %q", validation.ObjStr(oldest, "command"), cmd)
 	}
 	found := false
 	for _, l := range objStringList(t, att, "lines") {
-		if l == objStr(q, "line") {
+		if l == validation.ObjStr(q, "line") {
 			found = true
 		}
 	}
@@ -1163,7 +1163,7 @@ func TestOldestUntouchedTiesBreakOnTheLowestID(t *testing.T) {
 		}
 	}
 	_, att := ledger(t, camp)
-	if got := objStr(objAt(attQueue(t, att), "oldest"),
+	if got := validation.ObjStr(validation.ObjAt(attQueue(t, att), "oldest"),
 		"priority_id"); got != "Q-003" {
 		t.Errorf("oldest = %q, want Q-003", got)
 	}
@@ -1176,12 +1176,12 @@ func TestAFuturePerPriorityTimestampWouldBeatThePlanClock(t *testing.T) {
 		prio(2, prioOpts{t0: &t0a}), prio(1, prioOpts{t0: &t0b})},
 		"", nil, false)
 	_, att := ledger(t, camp)
-	oldest := objAt(attQueue(t, att), "oldest")
-	if got := objStr(oldest, "priority_id"); got != "Q-002" {
+	oldest := validation.ObjAt(attQueue(t, att), "oldest")
+	if got := validation.ObjStr(oldest, "priority_id"); got != "Q-002" {
 		t.Errorf("oldest = %q, want Q-002", got)
 	}
 	// the per-priority stamp is what the age is measured against
-	if got := objStr(oldest, "age"); got != "2h0m" {
+	if got := validation.ObjStr(oldest, "age"); got != "2h0m" {
 		t.Errorf("age = %q, want 2h0m (the per-priority stamp)", got)
 	}
 }
@@ -1194,16 +1194,16 @@ func TestProbeRowQueueCommandCarriesTheRequiredAnchorFlag(t *testing.T) {
 	q := attQueue(t, att)
 	cmd := "webv2 answered " + camp.CampaignID + " Q-001 answered " +
 		"--reason R --actor A --anchor FIELD"
-	if objStr(objAt(q, "oldest"), "command") != cmd {
+	if validation.ObjStr(validation.ObjAt(q, "oldest"), "command") != cmd {
 		t.Errorf("command = %q, want %q",
-			objStr(objAt(q, "oldest"), "command"), cmd)
+			validation.ObjStr(validation.ObjAt(q, "oldest"), "command"), cmd)
 	}
-	if !stringsHasSuffix(objStr(q, "line"), cmd) {
-		t.Errorf("line does not end with the command: %q", objStr(q, "line"))
+	if !stringsHasSuffix(validation.ObjStr(q, "line"), cmd) {
+		t.Errorf("line does not end with the command: %q", validation.ObjStr(q, "line"))
 	}
-	if !stringsHasSuffix(objStr(objAt(q, "oldest"), "action"), cmd) {
+	if !stringsHasSuffix(validation.ObjStr(validation.ObjAt(q, "oldest"), "action"), cmd) {
 		t.Errorf("action does not end with the command: %q",
-			objStr(objAt(q, "oldest"), "action"))
+			validation.ObjStr(validation.ObjAt(q, "oldest"), "action"))
 	}
 }
 
@@ -1230,21 +1230,21 @@ func TestInvariantDebtLineShapeAndCommand(t *testing.T) {
 	cmd := "webv2 invariant-verify " + camp.CampaignID + " INV-008 --exec EXEC-*"
 	wantLine := "invariants: 2 UNVERIFIED (liveness/critical first, with age) " +
 		"— verify INV-008 (unverified 3h12m): " + cmd
-	if objStr(iv, "line") != wantLine {
-		t.Errorf("line = %q\nwant %q", objStr(iv, "line"), wantLine)
+	if validation.ObjStr(iv, "line") != wantLine {
+		t.Errorf("line = %q\nwant %q", validation.ObjStr(iv, "line"), wantLine)
 	}
 	items := listAt(iv, "items")
 	if len(items) < 2 {
 		t.Fatalf("items = %d, want >= 2", len(items))
 	}
-	if objStr(items[0], "invariant_id") != "INV-008" {
-		t.Errorf("items[0] = %q, want INV-008", objStr(items[0], "invariant_id"))
+	if validation.ObjStr(items[0], "invariant_id") != "INV-008" {
+		t.Errorf("items[0] = %q, want INV-008", validation.ObjStr(items[0], "invariant_id"))
 	}
-	if objStr(items[0], "line") != "verify INV-008 (unverified 3h12m): "+cmd {
-		t.Errorf("items[0].line = %q", objStr(items[0], "line"))
+	if validation.ObjStr(items[0], "line") != "verify INV-008 (unverified 3h12m): "+cmd {
+		t.Errorf("items[0].line = %q", validation.ObjStr(items[0], "line"))
 	}
-	if objStr(items[1], "invariant_id") != "INV-002" {
-		t.Errorf("items[1] = %q, want INV-002", objStr(items[1], "invariant_id"))
+	if validation.ObjStr(items[1], "invariant_id") != "INV-002" {
+		t.Errorf("items[1] = %q, want INV-002", validation.ObjStr(items[1], "invariant_id"))
 	}
 	if objBool(items[1], "high_consequence") {
 		t.Errorf("items[1].high_consequence = true, want false")
@@ -1260,7 +1260,7 @@ func TestInvariantTotalCountsOnlyDictEntries(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	reg := objAt(links, "invariants")
+	reg := validation.ObjAt(links, "invariants")
 	reg.O = validation.SetOrAppend(reg.O, "INV-BROKEN", validation.VStr("not an entry"))
 	links.O = validation.SetOrAppend(links.O, "invariants", reg)
 	if _, err := invariants.SaveLinks(camp, links); err != nil {
@@ -1326,13 +1326,13 @@ func TestNoDebtLinesWhenNothingIsUntouched(t *testing.T) {
 	if got := len(listAt(att, "lines")); got != 0 {
 		t.Errorf("lines = %d, want 0", got)
 	}
-	if v := objAt(attQueue(t, att), "line"); v.Kind != validation.Null {
+	if v := validation.ObjAt(attQueue(t, att), "line"); v.Kind != validation.Null {
 		t.Errorf("queue.line = %s, want None", validation.PyRepr(v))
 	}
 	if got := objInt(attQueue(t, att), "worked"); got != 4 {
 		t.Errorf("queue.worked = %d, want 4", got)
 	}
-	if v := objAt(attInvariants(t, att), "line"); v.Kind != validation.Null {
+	if v := validation.ObjAt(attInvariants(t, att), "line"); v.Kind != validation.Null {
 		t.Errorf("invariants.line = %s, want None", validation.PyRepr(v))
 	}
 	if got := objInt(attInvariants(t, att), "unverified"); got != 0 {
@@ -1354,12 +1354,12 @@ func TestBlockedIsNotADisposition(t *testing.T) {
 	if got := objInt(q, "worked"); got != 1 {
 		t.Errorf("worked = %d, want 1", got)
 	}
-	if got := objStr(objAt(q, "oldest"), "priority_id"); got != "Q-004" {
+	if got := validation.ObjStr(validation.ObjAt(q, "oldest"), "priority_id"); got != "Q-004" {
 		t.Errorf("oldest = %q, want Q-004", got)
 	}
-	if !stringsHasPrefix(objStr(q, "line"),
+	if !stringsHasPrefix(validation.ObjStr(q, "line"),
 		"questions worked 1/2 — oldest untouched: Q-004 (3h12m)") {
-		t.Errorf("line = %q", objStr(q, "line"))
+		t.Errorf("line = %q", validation.ObjStr(q, "line"))
 	}
 }
 
@@ -1398,13 +1398,13 @@ func TestAgeUsesTheBriefsOwnGeneratedAt(t *testing.T) {
 	inv(t, camp, "INV-1", "", "critical", "",
 		"2026-09-08T11:59:00+00:00")
 	b, att := ledger(t, camp)
-	if got := objStr(b, "generated_at"); got != ledgerNow {
+	if got := validation.ObjStr(b, "generated_at"); got != ledgerNow {
 		t.Errorf("generated_at = %q, want %q", got, ledgerNow)
 	}
-	if got := objStr(objAt(attQueue(t, att), "oldest"), "age"); got != "2d5h" {
+	if got := validation.ObjStr(validation.ObjAt(attQueue(t, att), "oldest"), "age"); got != "2d5h" {
 		t.Errorf("queue age = %q, want 2d5h", got)
 	}
-	if got := objStr(listAt(attInvariants(t, att), "items")[0], "age"); got != "1m" {
+	if got := validation.ObjStr(listAt(attInvariants(t, att), "items")[0], "age"); got != "1m" {
 		t.Errorf("invariant age = %q, want 1m", got)
 	}
 }
@@ -1415,7 +1415,7 @@ func TestTwoHighestConsequenceItemsLeadTheDivergenceGate(t *testing.T) {
 		prioOpts{invariantIDs: []string{"INV-008"}})}, "", nil, true)
 	inv(t, camp, "INV-008", "liveness", "critical", "", "")
 	b, att := ledger(t, camp)
-	div := objAt(b, "divergence")
+	div := validation.ObjAt(b, "divergence")
 	if !pyTruthyInt64Only(div) || objBool(div, "closed") {
 		t.Fatalf("the fixture must keep the divergence gate open")
 	}
@@ -1426,7 +1426,7 @@ func TestTwoHighestConsequenceItemsLeadTheDivergenceGate(t *testing.T) {
 		}
 		// Task 7 fix round 1 (I-2): next_actions mint the ledger's
 		// command field; the action prose moved to the `# reason`.
-		lead[objStr(r, "command")] = true
+		lead[validation.ObjStr(r, "command")] = true
 	}
 	acts := objStringList(t, b, "next_actions")
 	leadIdx, divIdx := []int{}, []int{}
@@ -1470,7 +1470,7 @@ func TestTheQueueLeadsBothKindsWhenItIsHighConsequence(t *testing.T) {
 	want := []string{"queue/INV-008", "invariant/INV-008", "invariant/INV-002"}
 	got := []string{}
 	for _, r := range listAt(att, "ranked") {
-		got = append(got, objStr(r, "kind")+"/"+objStr(r, "invariant_id"))
+		got = append(got, validation.ObjStr(r, "kind")+"/"+validation.ObjStr(r, "invariant_id"))
 	}
 	if len(got) != len(want) {
 		t.Fatalf("ranked = %v, want %v", got, want)
@@ -1482,10 +1482,10 @@ func TestTheQueueLeadsBothKindsWhenItIsHighConsequence(t *testing.T) {
 	}
 	acts := objStringList(t, b, "next_actions")
 	// I-2 re-pin: next_actions mint the command field, not the action prose
-	if acts[0] != objStr(objAt(attQueue(t, att), "oldest"), "command") {
+	if acts[0] != validation.ObjStr(validation.ObjAt(attQueue(t, att), "oldest"), "command") {
 		t.Errorf("acts[0] = %q, want the queue action", acts[0])
 	}
-	if acts[1] != objStr(listAt(attInvariants(t, att), "items")[0], "command") {
+	if acts[1] != validation.ObjStr(listAt(attInvariants(t, att), "items")[0], "command") {
 		t.Errorf("acts[1] = %q, want the INV-008 action", acts[1])
 	}
 	for _, a := range acts {
@@ -1507,7 +1507,7 @@ func TestADisplacedQueueActionIsReEmittedRightAfterTheLead(t *testing.T) {
 		if i >= 3 {
 			break
 		}
-		kinds = append(kinds, objStr(r, "kind"))
+		kinds = append(kinds, validation.ObjStr(r, "kind"))
 	}
 	if len(kinds) != 3 {
 		t.Fatalf("ranked = %v, want 3 invariants", kinds)
@@ -1518,12 +1518,12 @@ func TestADisplacedQueueActionIsReEmittedRightAfterTheLead(t *testing.T) {
 		}
 	}
 	// I-2 re-pin: the command field, not the action prose
-	q := objStr(objAt(attQueue(t, att), "oldest"), "command")
+	q := validation.ObjStr(validation.ObjAt(attQueue(t, att), "oldest"), "command")
 	acts := objStringList(t, b, "next_actions")
-	if acts[0] != objStr(listAt(attInvariants(t, att), "items")[0], "command") {
+	if acts[0] != validation.ObjStr(listAt(attInvariants(t, att), "items")[0], "command") {
 		t.Errorf("acts[0] = %q", acts[0])
 	}
-	if acts[1] != objStr(listAt(attInvariants(t, att), "items")[1], "command") {
+	if acts[1] != validation.ObjStr(listAt(attInvariants(t, att), "items")[1], "command") {
 		t.Errorf("acts[1] = %q", acts[1])
 	}
 	if acts[2] != q {
@@ -1538,7 +1538,7 @@ func TestADisplacedQueueActionIsReEmittedRightAfterTheLead(t *testing.T) {
 	if count != 1 {
 		t.Errorf("queue action emitted %d times, want exactly 1", count)
 	}
-	third := objStr(listAt(attInvariants(t, att), "items")[2], "command")
+	third := validation.ObjStr(listAt(attInvariants(t, att), "items")[2], "command")
 	found := false
 	for _, a := range acts {
 		if a == third {
@@ -1568,8 +1568,8 @@ func TestTheCriticalInvariantLeadsAnOpenLensLine(t *testing.T) {
 	}
 	// I-2 re-pin: next_actions mint the command field (the ledger's own
 	// action/line prose stays pinned by the ledger tests)
-	lead := objStr(listAt(att, "ranked")[0], "command")
-	leadProse := objStr(listAt(att, "ranked")[0], "action")
+	lead := validation.ObjStr(listAt(att, "ranked")[0], "command")
+	leadProse := validation.ObjStr(listAt(att, "ranked")[0], "action")
 	if !stringsHasPrefix(leadProse, "verify INV-008 (unverified ") {
 		t.Errorf("ledger action prose = %q", leadProse)
 	}
@@ -1595,14 +1595,14 @@ func TestAStaleLensNeverOutranksACriticalUnverifiedInvariant(t *testing.T) {
 	_, att := ledger(t, camp)
 	ids := []string{}
 	for _, r := range listAt(att, "ranked") {
-		ids = append(ids, objStr(r, "invariant_id"))
+		ids = append(ids, validation.ObjStr(r, "invariant_id"))
 	}
 	if len(ids) != 2 || ids[0] != "INV-008" || ids[1] != "INV-002" {
 		t.Errorf("ranked ids = %v, want [INV-008 INV-002]", ids)
 	}
 	want := "verify INV-008 (unverified 1h0m): webv2 invariant-verify " +
 		camp.CampaignID + " INV-008 --exec EXEC-*"
-	if got := objStr(listAt(att, "ranked")[0], "action"); got != want {
+	if got := validation.ObjStr(listAt(att, "ranked")[0], "action"); got != want {
 		t.Errorf("ranked[0].action = %q\nwant %q", got, want)
 	}
 }
@@ -1616,16 +1616,16 @@ func TestClosedCampaignHasNoDebtLines(t *testing.T) {
 		t.Fatal(err)
 	}
 	b, att := ledger(t, camp)
-	if !objBool(objAt(b, "campaign"), "closed") {
+	if !objBool(validation.ObjAt(b, "campaign"), "closed") {
 		t.Errorf("campaign.closed = false, want true")
 	}
 	if got := len(listAt(att, "lines")); got != 0 {
 		t.Errorf("lines = %d, want 0", got)
 	}
-	if v := objAt(attQueue(t, att), "line"); v.Kind != validation.Null {
+	if v := validation.ObjAt(attQueue(t, att), "line"); v.Kind != validation.Null {
 		t.Errorf("queue.line = %s, want None", validation.PyRepr(v))
 	}
-	if v := objAt(attInvariants(t, att), "line"); v.Kind != validation.Null {
+	if v := validation.ObjAt(attInvariants(t, att), "line"); v.Kind != validation.Null {
 		t.Errorf("invariants.line = %s, want None", validation.PyRepr(v))
 	}
 	for _, a := range objStringList(t, b, "next_actions") {
@@ -1702,7 +1702,7 @@ func TestBriefWithoutPlanOrInvariantsHasNoDebtLine(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	att := objAt(b, "attention")
+	att := validation.ObjAt(b, "attention")
 	if got := len(listAt(att, "lines")); got != 0 {
 		t.Errorf("lines = %d, want 0", got)
 	}
@@ -1721,7 +1721,7 @@ func TestBriefWithoutPlanOrInvariantsHasNoDebtLine(t *testing.T) {
 func TestBriefStopsSuggestingWorkWhenClosed(t *testing.T) {
 	camp := newCamp(t, "Closure Program")
 	f := hypo(t, camp, "access-control", nil, nil, "Closure finding one")
-	fid := objStr(confirmSimple(t, camp, objStr(f, "finding_id")), "finding_id")
+	fid := validation.ObjStr(confirmSimple(t, camp, validation.ObjStr(f, "finding_id")), "finding_id")
 	before := build(t, camp, false)
 	foundWork := false
 	for _, a := range objStringList(t, before, "next_actions") {
@@ -1737,11 +1737,11 @@ func TestBriefStopsSuggestingWorkWhenClosed(t *testing.T) {
 		t.Fatal(err)
 	}
 	after := build(t, camp, false)
-	cb := objAt(after, "campaign")
+	cb := validation.ObjAt(after, "campaign")
 	if !objBool(cb, "closed") {
 		t.Errorf("campaign.closed = false, want true")
 	}
-	if got := objStr(cb, "completed_by"); got != "alice" {
+	if got := validation.ObjStr(cb, "completed_by"); got != "alice" {
 		t.Errorf("completed_by = %q, want alice", got)
 	}
 	meta := []string{"campaign marked COMPLETE", "FIX INTEGRITY FIRST",
@@ -1783,7 +1783,7 @@ func TestBriefStopsSuggestingWorkWhenClosed(t *testing.T) {
 func writeFindings(t *testing.T, c *state.Campaign, fs ...validation.Value) {
 	t.Helper()
 	for _, f := range fs {
-		p := filepath.Join(c.FindingsDir, objStr(f, "finding_id")+".json")
+		p := filepath.Join(c.FindingsDir, validation.ObjStr(f, "finding_id")+".json")
 		if err := validation.WriteJson(p, f, ""); err != nil {
 			t.Fatal(err)
 		}
@@ -1799,7 +1799,7 @@ func TestChToolFlagsPresenceGated(t *testing.T) {
 		f := validation.VObj(kv("finding_id", validation.VStr(id)))
 		if len(tools) > 0 {
 			f.O = append(f.O, kv("provenance", validation.VObj(kv("sast_tools",
-				strArr(tools)))))
+				validation.StrArr(tools)))))
 		}
 		if verdict != "" {
 			f.O = append(f.O, kv("verification", validation.VObj(kv("critic_verdict",
@@ -1817,12 +1817,12 @@ func TestChToolFlagsPresenceGated(t *testing.T) {
 		mk("F-c", []string{"slither:unchecked-transfer"}, "disproved"),
 		mk("F-d", []string{"slither:tx-origin"}, "pending"))
 	v := ChToolFlags(c, &[]string{})
-	if objAt(v, "total").I != 3 {
-		t.Fatalf("total: %v", objAt(v, "total"))
+	if validation.ObjAt(v, "total").I != 3 {
+		t.Fatalf("total: %v", validation.ObjAt(v, "total"))
 	}
-	bv := objAt(v, "by_verdict")
-	if objAt(bv, "confirmed").I != 1 || objAt(bv, "disproved").I != 1 ||
-		objAt(bv, "pending").I != 1 {
+	bv := validation.ObjAt(v, "by_verdict")
+	if validation.ObjAt(bv, "confirmed").I != 1 || validation.ObjAt(bv, "disproved").I != 1 ||
+		validation.ObjAt(bv, "pending").I != 1 {
 		t.Fatalf("verdict census: %v", bv)
 	}
 }
@@ -1837,7 +1837,7 @@ func TestChToolFlagsCensusAndCorroborated(t *testing.T) {
 		f := validation.VObj(kv("finding_id", validation.VStr(id)))
 		if len(tools) > 0 {
 			f.O = append(f.O, kv("provenance", validation.VObj(kv("sast_tools",
-				strArr(tools)))))
+				validation.StrArr(tools)))))
 		}
 		if verdict != "" {
 			f.O = append(f.O, kv("verification", validation.VObj(kv("critic_verdict",
@@ -1860,20 +1860,20 @@ func TestChToolFlagsCensusAndCorroborated(t *testing.T) {
 	if v.Kind != validation.Obj {
 		t.Fatalf("expected a section, got %v", v)
 	}
-	if objAt(v, "total").I != 6 {
-		t.Fatalf("total: %v", objAt(v, "total"))
+	if validation.ObjAt(v, "total").I != 6 {
+		t.Fatalf("total: %v", validation.ObjAt(v, "total"))
 	}
-	bv := objAt(v, "by_verdict")
+	bv := validation.ObjAt(v, "by_verdict")
 	if len(bv.O) != 5 {
 		t.Fatalf("zero buckets must be omitted: %v", bv)
 	}
-	if objAt(bv, "pending").I != 2 {
+	if validation.ObjAt(bv, "pending").I != 2 {
 		t.Fatalf("absent/unknown verdicts must land in pending: %v", bv)
 	}
-	if objAt(bv, "confirmed").Kind != validation.Null {
+	if validation.ObjAt(bv, "confirmed").Kind != validation.Null {
 		t.Fatalf("empty bucket present: %v", bv)
 	}
-	corr := objAt(v, "corroborated")
+	corr := validation.ObjAt(v, "corroborated")
 	if len(corr.A) != 1 || corr.A[0].S != "F-z" {
 		t.Fatalf("corroborated: %v", corr)
 	}

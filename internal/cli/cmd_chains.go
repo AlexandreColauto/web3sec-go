@@ -34,8 +34,8 @@ func printChains(r *Runner, rep validation.Value) {
 	links := t14List(rep, "capability_links")
 	fmt.Fprintf(r.Out, "capability links: %d\n", len(links.A))
 	for _, lnk := range links.A {
-		fmt.Fprintf(r.Out, "  %s --%s--> %s\n", objStr(lnk, "from"),
-			objStr(lnk, "capability"), objStr(lnk, "to"))
+		fmt.Fprintf(r.Out, "  %s --%s--> %s\n", validation.ObjStr(lnk, "from"),
+			validation.ObjStr(lnk, "capability"), validation.ObjStr(lnk, "to"))
 	}
 	proposals := t14List(rep, "proposals")
 	fmt.Fprintf(r.Out, "proposals: %d\n", len(proposals.A))
@@ -50,7 +50,7 @@ func printChains(r *Runner, rep validation.Value) {
 	// pre-B3 line byte-for-byte.
 	unproven := 0
 	for _, ch := range materialized.A {
-		if objStr(ch, "provenance") == "unproven" {
+		if validation.ObjStr(ch, "provenance") == "unproven" {
 			unproven++
 		}
 	}
@@ -65,9 +65,9 @@ func printChains(r *Runner, rep validation.Value) {
 		// B3: an unproven chain says so; a proven chain renders exactly as
 		// before (the marker is appended only when the field is present).
 		line := fmt.Sprintf("  %s [%s] %s (floor %s)",
-			objStr(ch, "chain_id"), objStr(ch, "status"),
-			objStr(ch, "title"), objStr(ch, "evidence_floor"))
-		if objStr(ch, "provenance") == "unproven" {
+			validation.ObjStr(ch, "chain_id"), validation.ObjStr(ch, "status"),
+			validation.ObjStr(ch, "title"), validation.ObjStr(ch, "evidence_floor"))
+		if validation.ObjStr(ch, "provenance") == "unproven" {
 			line += " — provenance unproven (hypothesis-level)"
 		}
 		fmt.Fprintln(r.Out, line)

@@ -52,7 +52,7 @@ func trippedLenses(campaign *state.Campaign) (map[string]string, error) {
 	}
 	out := map[string]string{}
 	for _, r := range rows {
-		lens := objStr(r, "lens")
+		lens := validation.ObjStr(r, "lens")
 		if lens == "" || lens == "unattributed" {
 			continue
 		}
@@ -84,20 +84,20 @@ func applyAutoTune(out []validation.Value, plan validation.Value,
 	rowLens := costs.ProbeRowLens(campaign)
 	known := map[string]bool{}
 	for _, l := range listOf(plan, "lenses") {
-		known[objStr(l, "id")] = true
+		known[validation.ObjStr(l, "id")] = true
 	}
 	prioLens := map[string]string{}
 	lensOfRow := map[string]string{}
 	for _, p := range listOf(plan, "priorities") {
-		prioLens[objStr(p, "id")] = costs.PrioLensBucket(p, rowLens,
+		prioLens[validation.ObjStr(p, "id")] = costs.PrioLensBucket(p, rowLens,
 			known)
 	}
 	moved := false
 	for i, row := range out {
-		if objStr(row, "slot") == "park" {
+		if validation.ObjStr(row, "slot") == "park" {
 			continue
 		}
-		lens := prioLens[objStr(row, "priority_id")]
+		lens := prioLens[validation.ObjStr(row, "priority_id")]
 		reason, ok := tripped[lens]
 		if !ok {
 			continue
@@ -106,7 +106,7 @@ func applyAutoTune(out []validation.Value, plan validation.Value,
 			validation.VStr("park"))
 		out[i].O = validation.SetOrAppend(out[i].O, "reason",
 			validation.VStr(reason))
-		lensOfRow[objStr(row, "priority_id")] = lens
+		lensOfRow[validation.ObjStr(row, "priority_id")] = lens
 		moved = true
 	}
 	if !moved {
@@ -118,8 +118,8 @@ func applyAutoTune(out []validation.Value, plan validation.Value,
 	// residue from the input order).
 	order := map[string]int{"now": 0, "next": 1, "batch": 2, "park": 3}
 	sort.SliceStable(out, func(i, j int) bool {
-		si := order[objStr(out[i], "slot")]
-		sj := order[objStr(out[j], "slot")]
+		si := order[validation.ObjStr(out[i], "slot")]
+		sj := order[validation.ObjStr(out[j], "slot")]
 		if si != sj {
 			return si < sj
 		}
@@ -127,13 +127,13 @@ func applyAutoTune(out []validation.Value, plan validation.Value,
 		if ri != rj {
 			return ri > rj
 		}
-		li, lj := lensOfRow[objStr(out[i], "priority_id")],
-			lensOfRow[objStr(out[j], "priority_id")]
+		li, lj := lensOfRow[validation.ObjStr(out[i], "priority_id")],
+			lensOfRow[validation.ObjStr(out[j], "priority_id")]
 		if li != lj {
 			return li < lj
 		}
-		return objStr(out[i], "priority_id") <
-			objStr(out[j], "priority_id")
+		return validation.ObjStr(out[i], "priority_id") <
+			validation.ObjStr(out[j], "priority_id")
 	})
 	return true
 }

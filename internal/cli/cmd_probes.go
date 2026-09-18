@@ -347,10 +347,10 @@ func probesRun(a *probesArgs, c *state.Campaign, r *Runner) error {
 	if err != nil {
 		return err
 	}
-	stats := objAt(surface, "stats")
+	stats := validation.ObjAt(surface, "stats")
 	fmt.Fprintf(r.Out, "probe surface: %d rows emitted (%d ranked, %d sites) "+
 		"— index_sha %s\n", objInt(stats, "emitted"), objInt(stats, "rows"),
-		objInt(stats, "sites"), t29Trunc(objStr(surface, "index_sha"), 12))
+		objInt(stats, "sites"), t29Trunc(validation.ObjStr(surface, "index_sha"), 12))
 	fmt.Fprintf(r.Out, "quotas: --per-axis %d --total %d (%s)\n", perAxis,
 		total, provenance)
 	for _, line := range probeAxisLines(surface, nil, true) {
@@ -360,7 +360,7 @@ func probesRun(a *probesArgs, c *state.Campaign, r *Runner) error {
 		fmt.Fprintln(r.Out, line)
 	}
 	for _, m := range t14List(surface, "missing").A {
-		fmt.Fprintf(r.Out, "  missing: %s\n", objStr(m, "reason"))
+		fmt.Fprintf(r.Out, "  missing: %s\n", validation.ObjStr(m, "reason"))
 	}
 	if !a.emit {
 		fmt.Fprintf(r.Out, "next: webv2 probes %s run --emit  (turn the rows "+
@@ -460,7 +460,7 @@ func effectiveProbeQuotas(a *probesArgs, c *state.Campaign) (int, int,
 // value — a bad record must never be silently ignored.
 func recordedProbeQuota(surface validation.Value, path, key, flag string,
 	def int) (int, string, error) {
-	raw := objAt(surface, key)
+	raw := validation.ObjAt(surface, key)
 	if raw.Kind != validation.Int {
 		return def, "default (" + probeQuotaArtifact +
 			" records no integer)", nil
@@ -524,25 +524,25 @@ func probeAxisLines(surface validation.Value, axisFilter *probes.AxisScope,
 	showAll bool) []string {
 	lines := []string{}
 	for _, a := range t14List(surface, "axes").A {
-		if axisFilter != nil && !t14InList(objStr(a, "axis"), axisFilter.Axes) {
+		if axisFilter != nil && !t14InList(validation.ObjStr(a, "axis"), axisFilter.Axes) {
 			continue
 		}
 		if !showAll && objInt(a, "emitted") == 0 {
 			continue
 		}
 		lines = append(lines, fmt.Sprintf("  %s (%s, %s): sites %d, rows %d, "+
-			"emitted %d, tail %d — %s", objStr(a, "axis"), objStr(a, "lens"),
-			objStr(a, "probe"), objInt(a, "sites"), objInt(a, "rows"),
-			objInt(a, "emitted"), objInt(a, "tail"), objStr(a, "status")))
+			"emitted %d, tail %d — %s", validation.ObjStr(a, "axis"), validation.ObjStr(a, "lens"),
+			validation.ObjStr(a, "probe"), objInt(a, "sites"), objInt(a, "rows"),
+			objInt(a, "emitted"), objInt(a, "tail"), validation.ObjStr(a, "status")))
 		if showAll {
 			for _, b := range t14List(a, "blind").A {
 				near := ""
-				if nearVal := objAt(b, "near"); nearVal.Kind == validation.Str {
+				if nearVal := validation.ObjAt(b, "near"); nearVal.Kind == validation.Str {
 					near = " (near " + nearVal.S + ")"
 				}
 				lines = append(lines, fmt.Sprintf("      blind: %s%s — %s",
-					scalarStr(objAt(b, "key")), near,
-					scalarStr(objAt(b, "reason"))))
+					scalarStr(validation.ObjAt(b, "key")), near,
+					scalarStr(validation.ObjAt(b, "reason"))))
 			}
 		}
 	}
@@ -553,7 +553,7 @@ func probeAxisLines(surface validation.Value, axisFilter *probes.AxisScope,
 func probeWarningLines(surface validation.Value) []string {
 	lines := []string{}
 	for _, w := range t14List(surface, "warnings").A {
-		if msg := objStr(w, "message"); msg != "" {
+		if msg := validation.ObjStr(w, "message"); msg != "" {
 			lines = append(lines, "  warning: "+msg)
 		}
 	}
@@ -601,40 +601,40 @@ func probesList(a *probesArgs, c *state.Campaign, r *Runner) error {
 	if a.asJSON {
 		rows := []validation.Value{}
 		for _, row := range t14List(*surface, "rows").A {
-			if axisFilter != nil && !t14InList(objStr(row, "axis"), axisFilter.Axes) {
+			if axisFilter != nil && !t14InList(validation.ObjStr(row, "axis"), axisFilter.Axes) {
 				continue
 			}
-			d := objAt(dispositions, objStr(row, "row_id"))
+			d := validation.ObjAt(dispositions, validation.ObjStr(row, "row_id"))
 			rows = append(rows, validation.VObj(
-				validation.KV{K: "row_id", V: objAt(row, "row_id")},
-				validation.KV{K: "probe", V: objAt(row, "probe")},
-				validation.KV{K: "axis", V: objAt(row, "axis")},
-				validation.KV{K: "lens", V: objAt(row, "lens")},
-				validation.KV{K: "tier", V: objAt(row, "tier")},
-				validation.KV{K: "rank", V: objAt(row, "rank")},
-				validation.KV{K: "assertion_gap", V: objAt(row, "assertion_gap")},
+				validation.KV{K: "row_id", V: validation.ObjAt(row, "row_id")},
+				validation.KV{K: "probe", V: validation.ObjAt(row, "probe")},
+				validation.KV{K: "axis", V: validation.ObjAt(row, "axis")},
+				validation.KV{K: "lens", V: validation.ObjAt(row, "lens")},
+				validation.KV{K: "tier", V: validation.ObjAt(row, "tier")},
+				validation.KV{K: "rank", V: validation.ObjAt(row, "rank")},
+				validation.KV{K: "assertion_gap", V: validation.ObjAt(row, "assertion_gap")},
 				validation.KV{K: "anchors", V: strListValue(probes.RowAnchorPairs(row, index))},
-				validation.KV{K: "priority_id", V: objAt(d, "priority_id")},
-				validation.KV{K: "status", V: objAt(d, "status")},
+				validation.KV{K: "priority_id", V: validation.ObjAt(d, "priority_id")},
+				validation.KV{K: "status", V: validation.ObjAt(d, "status")},
 				validation.KV{K: "dispositioned", V: validation.VBool(objBool(d, "dispositioned"))},
-				validation.KV{K: "reason", V: objAt(d, "reason")},
-				validation.KV{K: "anchor", V: objAt(d, "anchor")}))
+				validation.KV{K: "reason", V: validation.ObjAt(d, "reason")},
+				validation.KV{K: "anchor", V: validation.ObjAt(d, "anchor")}))
 		}
 		axes := []validation.Value{}
 		for _, ax := range t14List(*surface, "axes").A {
-			if axisFilter != nil && !t14InList(objStr(ax, "axis"), axisFilter.Axes) {
+			if axisFilter != nil && !t14InList(validation.ObjStr(ax, "axis"), axisFilter.Axes) {
 				continue
 			}
 			axes = append(axes, ax)
 		}
 		t14PrintJSON(r.Out, validation.VObj(
-			validation.KV{K: "campaign_id", V: objAt(*surface, "campaign_id")},
-			validation.KV{K: "index_sha", V: objAt(*surface, "index_sha")},
-			validation.KV{K: "current_index_sha", V: objAt(*summary, "current_index_sha")},
-			validation.KV{K: "stale", V: objAt(*summary, "stale")},
-			validation.KV{K: "rows", V: objAt(*summary, "rows")},
-			validation.KV{K: "dispositioned", V: objAt(*summary, "dispositioned")},
-			validation.KV{K: "open", V: objAt(*summary, "open")},
+			validation.KV{K: "campaign_id", V: validation.ObjAt(*surface, "campaign_id")},
+			validation.KV{K: "index_sha", V: validation.ObjAt(*surface, "index_sha")},
+			validation.KV{K: "current_index_sha", V: validation.ObjAt(*summary, "current_index_sha")},
+			validation.KV{K: "stale", V: validation.ObjAt(*summary, "stale")},
+			validation.KV{K: "rows", V: validation.ObjAt(*summary, "rows")},
+			validation.KV{K: "dispositioned", V: validation.ObjAt(*summary, "dispositioned")},
+			validation.KV{K: "open", V: validation.ObjAt(*summary, "open")},
 			validation.KV{K: "axes", V: validation.VArr(axes...)},
 			validation.KV{K: "surface_rows", V: validation.VArr(rows...)}))
 		return nil
@@ -658,7 +658,7 @@ func probesList(a *probesArgs, c *state.Campaign, r *Runner) error {
 	// axis filter (not the raw artifact size).
 	selected := make([]validation.Value, 0, len(t14List(*surface, "rows").A))
 	for _, row := range t14List(*surface, "rows").A {
-		if axisFilter != nil && !t14InList(objStr(row, "axis"), axisFilter.Axes) {
+		if axisFilter != nil && !t14InList(validation.ObjStr(row, "axis"), axisFilter.Axes) {
 			continue
 		}
 		selected = append(selected, row)
@@ -670,17 +670,17 @@ func probesList(a *probesArgs, c *state.Campaign, r *Runner) error {
 				len(selected)-consoleRowCap)
 			break
 		}
-		d := objAt(dispositions, objStr(row, "row_id"))
+		d := validation.ObjAt(dispositions, validation.ObjStr(row, "row_id"))
 		stateStr := "open (not emitted)"
 		switch {
 		case objBool(d, "dispositioned"):
 			stateStr = "dispositioned"
-		case objStr(d, "status") != "" && objStr(d, "status") != "open":
-			stateStr = "open (" + objStr(d, "status") + ")"
-		case objStr(d, "priority_id") != "":
+		case validation.ObjStr(d, "status") != "" && validation.ObjStr(d, "status") != "open":
+			stateStr = "open (" + validation.ObjStr(d, "status") + ")"
+		case validation.ObjStr(d, "priority_id") != "":
 			stateStr = "open"
 		}
-		prio := objStr(d, "priority_id")
+		prio := validation.ObjStr(d, "priority_id")
 		if prio == "" {
 			prio = "—"
 		}
@@ -689,9 +689,9 @@ func probesList(a *probesArgs, c *state.Campaign, r *Runner) error {
 			anchors = "—"
 		}
 		fmt.Fprintf(r.Out, "    %s rank %d tier %d gap %d %s — %s %s\n",
-			objStr(row, "row_id"), objInt(row, "rank"), objInt(row, "tier"),
+			validation.ObjStr(row, "row_id"), objInt(row, "rank"), objInt(row, "tier"),
 			objInt(row, "assertion_gap"), anchors, prio, stateStr)
-		if reason := objStr(d, "reason"); reason != "" {
+		if reason := validation.ObjStr(d, "reason"); reason != "" {
 			fmt.Fprintf(r.Out, "        reason: %s\n", reason)
 		}
 	}
@@ -712,21 +712,21 @@ func t29PrintProbeClosure(c *state.Campaign, plan *validation.Value,
 		return // never break a disposition on this
 	}
 	for _, entry := range t14List(div, "lenses").A {
-		probe := objAt(entry, "probe")
-		if probe.Kind != validation.Obj || objStr(probe, "message") == "" {
+		probe := validation.ObjAt(entry, "probe")
+		if probe.Kind != validation.Obj || validation.ObjStr(probe, "message") == "" {
 			continue
 		}
 		if lensNames != nil {
-			_, a := lensNames[objStr(entry, "lens")]
-			_, b := lensNames[objStr(entry, "id")]
+			_, a := lensNames[validation.ObjStr(entry, "lens")]
+			_, b := lensNames[validation.ObjStr(entry, "id")]
 			if !a && !b {
 				continue
 			}
 		}
-		if onlyClosed && !t14Truthy(objAt(probe, "closed")) {
+		if onlyClosed && !t14Truthy(validation.ObjAt(probe, "closed")) {
 			continue
 		}
-		fmt.Fprintf(w, "%s\n", objStr(probe, "message"))
+		fmt.Fprintf(w, "%s\n", validation.ObjStr(probe, "message"))
 	}
 }
 
@@ -765,9 +765,9 @@ func probesBlank(a *probesArgs, c *state.Campaign, r *Runner) error {
 		return t14ExitErr(2, "probes blank: %v\n", err)
 	}
 	fmt.Fprintf(r.Out, "blank attestation recorded: %s cites %s (actor %s) — "+
-		"`webv2 brief %s` now sees the axis attested\n", objStr(entry, "axis"),
-		validation.PyReprStr(objStr(entry, "anchor_blind")),
-		objStr(entry, "actor"), c.CampaignID)
+		"`webv2 brief %s` now sees the axis attested\n", validation.ObjStr(entry, "axis"),
+		validation.PyReprStr(validation.ObjStr(entry, "anchor_blind")),
+		validation.ObjStr(entry, "actor"), c.CampaignID)
 	return nil
 }
 
@@ -794,7 +794,7 @@ func strListValue(items []string) validation.Value {
 }
 
 func objBool(v validation.Value, key string) bool {
-	got := objAt(v, key)
+	got := validation.ObjAt(v, key)
 	return got.Kind == validation.Bool && got.B
 }
 

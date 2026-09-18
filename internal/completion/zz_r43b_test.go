@@ -11,6 +11,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"websec/internal/validation"
 
 	"websec/internal/state"
 )
@@ -33,11 +34,11 @@ func TestR43bMemoryStoreGuardIsLive(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ProofStatus(learning): %v", err)
 	}
-	if pyTruthyBigNonEmpty(objAt(pr, "done")) {
+	if pyTruthyBigNonEmpty(validation.ObjAt(pr, "done")) {
 		t.Fatal("learning certified DONE over an unlistable memory store")
 	}
 	joined := ""
-	for _, m := range objAt(pr, "missing").A {
+	for _, m := range validation.ObjAt(pr, "missing").A {
 		joined += m.S + "\n"
 	}
 	t.Logf("learning proof with an unlistable memory store:\n%s", joined)

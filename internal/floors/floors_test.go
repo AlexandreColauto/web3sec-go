@@ -41,8 +41,8 @@ func setPolicy(t *testing.T, c *state.Campaign, class, floor string) validation.
 // rowOf is the floor_table_report row for one class.
 func rowOf(t *testing.T, report validation.Value, class string) validation.Value {
 	t.Helper()
-	for _, r := range objAt(report, "rows").A {
-		if objStr(r, "class") == class {
+	for _, r := range validation.ObjAt(report, "rows").A {
+		if validation.ObjStr(r, "class") == class {
 			return r
 		}
 	}
@@ -59,7 +59,7 @@ func eventTypes(t *testing.T, c *state.Campaign, kind string) []validation.Value
 	}
 	var out []validation.Value
 	for _, e := range events {
-		if objStr(e, "type") == kind {
+		if validation.ObjStr(e, "type") == kind {
 			out = append(out, e)
 		}
 	}
@@ -175,22 +175,22 @@ func TestFloorTableReportMixesDefaultsAndOverrides(t *testing.T) {
 		t.Fatal(err)
 	}
 	row := rowOf(t, rep, "reentrancy")
-	if got := objStr(row, "default_floor"); got != "E4" {
+	if got := validation.ObjStr(row, "default_floor"); got != "E4" {
 		t.Errorf("reentrancy default_floor = %q, want E4", got)
 	}
-	if got := objStr(row, "effective_floor"); got != "E5" {
+	if got := validation.ObjStr(row, "effective_floor"); got != "E5" {
 		t.Errorf("reentrancy effective_floor = %q, want E5", got)
 	}
-	if got := objStr(objAt(row, "override"), "actor"); got != "lead" {
+	if got := validation.ObjStr(validation.ObjAt(row, "override"), "actor"); got != "lead" {
 		t.Errorf("reentrancy override actor = %q, want lead", got)
 	}
 	// a class with no override shows the default
 	other := rowOf(t, rep, "oracle-manipulation")
-	if objAt(other, "override").Kind != validation.Null {
+	if validation.ObjAt(other, "override").Kind != validation.Null {
 		t.Errorf("oracle-manipulation override = %v, want None",
-			validation.PyRepr(objAt(other, "override")))
+			validation.PyRepr(validation.ObjAt(other, "override")))
 	}
-	if got := objStr(other, "effective_floor"); got != "E5" {
+	if got := validation.ObjStr(other, "effective_floor"); got != "E5" {
 		t.Errorf("oracle-manipulation effective_floor = %q, want E5", got)
 	}
 }
@@ -231,7 +231,7 @@ func TestPolicyFileSeedsAtInit(t *testing.T) {
 		t.Fatalf("floor_policy.set events = %d, want 2", len(events))
 	}
 	for _, e := range events {
-		if got := objStr(objAt(e, "data"), "actor"); got != "campaign-init" {
+		if got := validation.ObjStr(validation.ObjAt(e, "data"), "actor"); got != "campaign-init" {
 			t.Errorf("seeded event actor = %q, want campaign-init", got)
 		}
 	}
@@ -268,7 +268,7 @@ func TestAuditCatchesHandEditedPolicy(t *testing.T) {
 		t.Fatalf("floor_policy.set events = %d, want 1", len(events))
 	}
 	// the log says E5, the projection says E6 — drift is the diagnosis
-	if got := objStr(objAt(events[0], "data"), "floor"); got != "E5" {
+	if got := validation.ObjStr(validation.ObjAt(events[0], "data"), "floor"); got != "E5" {
 		t.Errorf("logged floor = %q, want E5", got)
 	}
 	ov, err := FloorOverride(c, "reentrancy")
@@ -286,14 +286,14 @@ func TestAuditCatchesProjectionDrift(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	policy := objAt(st, "floor_policy")
+	policy := validation.ObjAt(st, "floor_policy")
 	policy.A[0].O[1].V = validation.VStr("E4")
 	st.O = validation.SetOrAppend(st.O, "floor_policy", policy)
 	if err := saveStateFunc(c, st); err != nil {
 		t.Fatal(err)
 	}
 	events := eventTypes(t, c, "floor_policy.set")
-	if got := objStr(objAt(events[0], "data"), "floor"); got != "E5" {
+	if got := validation.ObjStr(validation.ObjAt(events[0], "data"), "floor"); got != "E5" {
 		t.Errorf("logged floor = %q, want E5", got)
 	}
 	ov, err := FloorOverride(c, "reentrancy")
@@ -311,7 +311,7 @@ func TestStateSchemaAcceptsFloorPolicy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(objAt(st, "floor_policy").A[0], "class"); got != "reentrancy" {
+	if got := validation.ObjStr(validation.ObjAt(st, "floor_policy").A[0], "class"); got != "reentrancy" {
 		t.Errorf("floor_policy[0].class = %q, want reentrancy", got)
 	}
 }
@@ -585,7 +585,7 @@ func TestApplyPolicyFileVectors(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if got := validation.CanonCompact(objAt(st, "floor_policy")); got != *v.FloorPolicyJSON {
+			if got := validation.CanonCompact(validation.ObjAt(st, "floor_policy")); got != *v.FloorPolicyJSON {
 				t.Errorf("%s: floor_policy = %s\n want %s",
 					v.Name, got, *v.FloorPolicyJSON)
 			}
@@ -699,7 +699,7 @@ func TestClockAndSaveSeams(t *testing.T) {
 	SetNowIso(func() string { return "2030-01-01T00:00:00.000000+00:00" })
 	defer SetNowIso(nil)
 	entry := setPolicy(t, c, "reentrancy", "E5")
-	if got := objStr(entry, "at"); got != "2030-01-01T00:00:00.000000+00:00" {
+	if got := validation.ObjStr(entry, "at"); got != "2030-01-01T00:00:00.000000+00:00" {
 		t.Errorf("seam clock not used: at = %q", got)
 	}
 
@@ -759,12 +759,12 @@ func TestOverrideOnlyClassIsVisibleInTable(t *testing.T) {
 		t.Fatal(err)
 	}
 	found := false
-	rows := objAt(rep, "rows")
+	rows := validation.ObjAt(rep, "rows")
 	for _, r := range rows.A {
-		if objStr(r, "class") == "price-oracle-stale" {
+		if validation.ObjStr(r, "class") == "price-oracle-stale" {
 			found = true
-			eff := objStr(r, "effective_floor")
-			ov := objAt(r, "override")
+			eff := validation.ObjStr(r, "effective_floor")
+			ov := validation.ObjAt(r, "override")
 			if eff != "E4" || ov.Kind == validation.Null {
 				t.Fatalf("override-only row malformed: eff %q ov %v",
 					eff, ov.Kind)

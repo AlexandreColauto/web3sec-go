@@ -46,15 +46,15 @@ func TestToPayloadsRealShape(t *testing.T) {
 		t.Fatalf("want 1 payload (only high_issues is admitted), got %d", len(ps))
 	}
 	p := ps[0]
-	if got := objStr(objAt(p, "root_cause"), "class"); got != "reentrancy" {
+	if got := validation.ObjStr(validation.ObjAt(p, "root_cause"), "class"); got != "reentrancy" {
 		t.Fatalf("class: %s", got)
 	}
-	if got := objStr(objAt(p, "root_cause"), "mechanism"); got != "static pattern: aderyn/reentrancy-state-change" {
+	if got := validation.ObjStr(validation.ObjAt(p, "root_cause"), "mechanism"); got != "static pattern: aderyn/reentrancy-state-change" {
 		t.Fatalf("mechanism: %s", got)
 	}
 	// Title = "Aderyn <detector>: " + first line of the description, clipped
 	// to 120 RUNES (the real description's first line is longer than that).
-	title := objStr(p, "title")
+	title := validation.ObjStr(p, "title")
 	if !strings.HasPrefix(title, "Aderyn reentrancy-state-change: Changing state after an external call") {
 		t.Fatalf("title prefix: %q", title)
 	}
@@ -63,41 +63,41 @@ func TestToPayloadsRealShape(t *testing.T) {
 	}
 	// root_cause.description keeps the CLIPPED full prose (900 runes), so the
 	// first line is still present there.
-	desc := objStr(objAt(p, "root_cause"), "description")
+	desc := validation.ObjStr(validation.ObjAt(p, "root_cause"), "description")
 	if !strings.HasPrefix(desc, "Changing state after an external call") {
 		t.Fatalf("root_cause.description: %q", desc)
 	}
 	if firstLine(desc) != "Changing state after an external call can lead to re-entrancy attacks.Use the checks-effects-interactions pattern to avoid this issue." {
 		t.Fatalf("firstLine(description) = %q", firstLine(desc))
 	}
-	if got := objStr(objAt(p, "attacker"), "profile"); got != "static analysis (Aderyn)" {
+	if got := validation.ObjStr(validation.ObjAt(p, "attacker"), "profile"); got != "static analysis (Aderyn)" {
 		t.Fatalf("attacker profile: %s", got)
 	}
-	pro := objAt(p, "provenance")
-	if got := objStr(pro, "discovered_by"); got != "sast/aderyn" {
+	pro := validation.ObjAt(p, "provenance")
+	if got := validation.ObjStr(pro, "discovered_by"); got != "sast/aderyn" {
 		t.Fatalf("discovered_by: %s", got)
 	}
-	tools := valsOf(objAt(pro, "sast_tools"))
+	tools := valsOf(validation.ObjAt(pro, "sast_tools"))
 	if len(tools) != 1 || tools[0].S != "aderyn:reentrancy-state-change" {
 		t.Fatalf("sast_tools: %v", tools)
 	}
-	if ev := valsOf(objAt(p, "evidence")); len(ev) != 0 {
+	if ev := valsOf(validation.ObjAt(p, "evidence")); len(ev) != 0 {
 		t.Fatalf("evidence must be empty: %v", ev)
 	}
 	// instances[] -> affected[]: contract_path + line_no, sorted by line.
-	aff := valsOf(objAt(p, "affected"))
+	aff := valsOf(validation.ObjAt(p, "affected"))
 	if len(aff) != 2 {
 		t.Fatalf("affected: %d, want 2", len(aff))
 	}
 	wantPath := "ES03BankReentrancy.sol"
-	if got := objStr(aff[0], "path"); got != wantPath {
+	if got := validation.ObjStr(aff[0], "path"); got != wantPath {
 		t.Fatalf("affected[0] path: %q, want %q", got, wantPath)
 	}
-	lines := valsOf(objAt(aff[0], "lines"))
+	lines := valsOf(validation.ObjAt(aff[0], "lines"))
 	if len(lines) != 2 || lines[0].I != lines[1].I {
 		t.Fatalf("affected lines shape: %v", lines)
 	}
-	if objAt(aff[0], "entry_point").B {
+	if validation.ObjAt(aff[0], "entry_point").B {
 		t.Fatal("tool payloads are never entry points")
 	}
 }
@@ -142,7 +142,7 @@ func TestUnmappedDetectorKeepsDefaultClass(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(ps) != 1 || objStr(objAt(ps[0], "root_cause"), "class") != "logic-error" {
+	if len(ps) != 1 || validation.ObjStr(validation.ObjAt(ps[0], "root_cause"), "class") != "logic-error" {
 		t.Fatalf("unmapped detectors must land logic-error, got %d payloads", len(ps))
 	}
 }
@@ -164,7 +164,7 @@ func TestPayloadPassesHypothesisValidation(t *testing.T) {
 	}
 	for _, p := range ps {
 		for _, k := range []string{"title", "root_cause", "affected", "attacker", "evidence"} {
-			if objAt(p, k).Kind == validation.Null {
+			if validation.ObjAt(p, k).Kind == validation.Null {
 				t.Fatalf("payload missing %s", k)
 			}
 		}

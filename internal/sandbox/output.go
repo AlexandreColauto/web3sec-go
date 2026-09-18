@@ -17,7 +17,7 @@ import (
 func ExecOutput(rec validation.Value) string {
 	var b strings.Builder
 	for _, key := range []string{"stdout_path", "stderr_path"} {
-		p := objStr(rec, key)
+		p := validation.ObjStr(rec, key)
 		if p == "" {
 			continue
 		}

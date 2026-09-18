@@ -79,9 +79,9 @@ func runPublish(root string, args []string, r *Runner) int {
 		}
 		fmt.Fprintf(r.Out, "published %s signature(s) and %s approved "+
 			"memory row(s) for %s to the %s tier\n",
-			pyIntText(objAt(rep, "signatures_added")),
-			pyIntText(objAt(rep, "memory_added")),
-			objStr(rep, "program_key"), objStr(rep, "tier"))
+			pyIntText(validation.ObjAt(rep, "signatures_added")),
+			pyIntText(validation.ObjAt(rep, "memory_added")),
+			validation.ObjStr(rep, "program_key"), validation.ObjStr(rep, "tier"))
 		if disc != nil {
 			// I6: the state is made legible, never enforced — the framework
 			// does not refuse, delay, or suppress the publish while an
@@ -99,25 +99,25 @@ func runPublish(root string, args []string, r *Runner) int {
 					"no embargo\n", id, len(disc.FindingIDs))
 			}
 		}
-		noop := objAt(rep, "noop")
+		noop := validation.ObjAt(rep, "noop")
 		if noop.Kind != validation.Null {
 			// B5b/D6: a publish that adds nothing says so, and why — the
 			// reason is computed by publish_campaign from the same data it
 			// used, never re-derived (and never invented) here.
 			fmt.Fprintf(r.Out, "nothing changed — %s\n",
-				strings.Join(listStringsCLI(objAt(noop, "reasons")), "; "))
-			next := listStringsCLI(objAt(noop, "next"))
+				strings.Join(listStringsCLI(validation.ObjAt(noop, "reasons")), "; "))
+			next := listStringsCLI(validation.ObjAt(noop, "next"))
 			if len(next) > 0 {
 				fmt.Fprintf(r.Out, "next: %s\n", strings.Join(next, " | "))
 			} else {
 				fmt.Fprintf(r.Out, "next: nothing to do — everything "+
 					"publishable is already in the %s tier (publish again "+
 					"after new confirmations or approvals)\n",
-					objStr(rep, "tier"))
+					validation.ObjStr(rep, "tier"))
 			}
 		}
 		fmt.Fprintf(r.Out, "store: %s  record: %s\n",
-			objStr(rep, "store"), objStr(rep, "record_id"))
+			validation.ObjStr(rep, "store"), validation.ObjStr(rep, "record_id"))
 		return nil
 	})
 }

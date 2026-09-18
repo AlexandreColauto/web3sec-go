@@ -88,7 +88,7 @@ func dispatchGolden(t *testing.T, o *Orchestrator, c *state.Campaign,
 	doc, step validation.Value, ids *idMap, root string) (validation.Value, error) {
 	t.Helper()
 	op := strAt(step, "op")
-	args := objAt(step, "args")
+	args := validation.ObjAt(step, "args")
 	if v, err, done := dispatchFacade(t, o, c, doc, op, args, ids, root); done {
 		return v, err
 	}
@@ -117,7 +117,7 @@ func dispatchFacade(t *testing.T, o *Orchestrator, c *state.Campaign,
 		return v, err, true
 	case "snapshot":
 		opts := SnapshotOpts{}
-		if cfg := objAt(args, "config"); cfg.Kind != validation.Null {
+		if cfg := validation.ObjAt(args, "config"); cfg.Kind != validation.Null {
 			opts.Config = &cfg
 		}
 		v, err := o.Snapshot(realPath(root, strAt(args, "target")), opts)
@@ -178,17 +178,17 @@ func dispatchFacadeInputs(o *Orchestrator, doc validation.Value, op string,
 		v, err := o.CriticContext()
 		return v, err, true
 	case "discovery_context":
-		extra := strListOf(objAt(args, "extra"))
+		extra := strListOf(validation.ObjAt(args, "extra"))
 		for i := range extra {
 			extra[i] = realPath(root, extra[i])
 		}
 		v, err := o.DiscoveryContext(strAt(args, "stage"), extra)
 		return v, err, true
 	case "load_protocol_model":
-		v, err := o.LoadProtocolModel(objAt(doc, "model"))
+		v, err := o.LoadProtocolModel(validation.ObjAt(doc, "model"))
 		return v, err, true
 	case "ingest", "ingest_answered", "ingest_orphaned":
-		f, err := o.Ingest(objAt(args, "payload"), ingestOptsOf(args))
+		f, err := o.Ingest(validation.ObjAt(args, "payload"), ingestOptsOf(args))
 		ids.note(f)
 		return f, err, true
 	case "verify_independently":
@@ -206,7 +206,7 @@ func dispatchPlan(t *testing.T, o *Orchestrator, c *state.Campaign, op string,
 	t.Helper()
 	switch op {
 	case "plan", "plan_clobber":
-		v, err := o.Plan(objAt(args, "plan"), validation.VNull(),
+		v, err := o.Plan(validation.ObjAt(args, "plan"), validation.VNull(),
 			boolAt(args, "rebuild"))
 		return v, err, true
 	case "plan_readonly":
@@ -214,7 +214,7 @@ func dispatchPlan(t *testing.T, o *Orchestrator, c *state.Campaign, op string,
 			boolAt(args, "rebuild"))
 		return v, err, true
 	case "plan_rebuild":
-		v, err := o.Plan(validation.VNull(), objAt(args, "model"), true)
+		v, err := o.Plan(validation.VNull(), validation.ObjAt(args, "model"), true)
 		return v, err, true
 	case "plan_readonly_unchanged":
 		before := dumpTree(root)
@@ -256,7 +256,7 @@ func dispatchFixture(t *testing.T, o *Orchestrator, c *state.Campaign,
 func ingestAll(o *Orchestrator, doc validation.Value,
 	ids *idMap) (validation.Value, error) {
 	out := []validation.Value{}
-	for _, h := range objAt(doc, "hypos").A {
+	for _, h := range validation.ObjAt(doc, "hypos").A {
 		payload := copyObj(h)
 		payload.O = dropKeys(payload.O, "trajectory", "stage")
 		f, err := o.Ingest(payload, IngestOpts{
@@ -297,7 +297,7 @@ func mutateFinding(c *state.Campaign, args validation.Value,
 	if err != nil {
 		return validation.VNull(), err
 	}
-	for _, kv := range objAt(args, "fields").O {
+	for _, kv := range validation.ObjAt(args, "fields").O {
 		f.O = validation.SetOrAppend(f.O, kv.K, kv.V)
 	}
 	if err := findings.SaveFinding(c, &f); err != nil {

@@ -174,10 +174,10 @@ func TestBlastRankDominatesHigherBlastFirst(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(got[0], "finding_id") != "F-aaaaaaaaaaa1" ||
-		objStr(got[1], "finding_id") != "F-bbbbbbbbbbb2" {
-		t.Fatalf("order = %s, %s", objStr(got[0], "finding_id"),
-			objStr(got[1], "finding_id"))
+	if validation.ObjStr(got[0], "finding_id") != "F-aaaaaaaaaaa1" ||
+		validation.ObjStr(got[1], "finding_id") != "F-bbbbbbbbbbb2" {
+		t.Fatalf("order = %s, %s", validation.ObjStr(got[0], "finding_id"),
+			validation.ObjStr(got[1], "finding_id"))
 	}
 }
 
@@ -196,7 +196,7 @@ func TestUnprivilegedBeatsPrivilegedAtEqualBlastAndBand(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(rows[0], "finding_id") != "F-bbbbbbbbbbb2" {
+	if validation.ObjStr(rows[0], "finding_id") != "F-bbbbbbbbbbb2" {
 		t.Fatalf("order = %v", rows)
 	}
 }
@@ -215,8 +215,8 @@ func TestBandBreaksTiesAfterBlastAndPrivilege(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(rows[0], "finding_id") != "F-bbbbbbbbbbb2" ||
-		objStr(rows[1], "finding_id") != "F-aaaaaaaaaaa1" {
+	if validation.ObjStr(rows[0], "finding_id") != "F-bbbbbbbbbbb2" ||
+		validation.ObjStr(rows[1], "finding_id") != "F-aaaaaaaaaaa1" {
 		t.Fatalf("order = %v", rows)
 	}
 }
@@ -234,7 +234,7 @@ func TestExactTiesKeepFindingIDOrder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(rows[0], "finding_id") != "F-aaaaaaaaaaa1" {
+	if validation.ObjStr(rows[0], "finding_id") != "F-aaaaaaaaaaa1" {
 		t.Fatalf("order = %v", rows)
 	}
 }
@@ -276,9 +276,9 @@ func TestWorkOrderKeyIsTotalAndDeterministic(t *testing.T) {
 		t.Fatal(err)
 	}
 	for i := range first {
-		if objStr(first[i], "finding_id") != objStr(again[i], "finding_id") {
+		if validation.ObjStr(first[i], "finding_id") != validation.ObjStr(again[i], "finding_id") {
 			t.Fatalf("run order differs at %d: %s vs %s", i,
-				objStr(first[i], "finding_id"), objStr(again[i], "finding_id"))
+				validation.ObjStr(first[i], "finding_id"), validation.ObjStr(again[i], "finding_id"))
 		}
 	}
 	// every component is a plain sortable scalar (no dicts/objects)
@@ -311,5 +311,5 @@ func bandOf(t *testing.T, finding validation.Value) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return objStr(v, "band")
+	return validation.ObjStr(v, "band")
 }

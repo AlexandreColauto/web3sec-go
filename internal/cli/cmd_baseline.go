@@ -8,6 +8,7 @@ package cli
 import (
 	"fmt"
 	"strings"
+	"websec/internal/validation"
 
 	"websec/internal/forkdiff"
 )
@@ -142,8 +143,8 @@ func baselineAdd(sp *argSpec, r *Runner) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(r.Out, "baseline %s: sha256 %s...\n", objStr(meta, "name"),
-		first16(objStr(meta, "fingerprint_sha256")))
+	fmt.Fprintf(r.Out, "baseline %s: sha256 %s...\n", validation.ObjStr(meta, "name"),
+		first16(validation.ObjStr(meta, "fingerprint_sha256")))
 	return nil
 }
 
@@ -153,9 +154,9 @@ func baselineList(_ *argSpec, r *Runner) error {
 		return err
 	}
 	for _, m := range rows {
-		line := fmt.Sprintf("%s: sha256 %s...", objStr(m, "name"),
-			first16(objStr(m, "fingerprint_sha256")))
-		if u := objStr(m, "source_url"); u != "" {
+		line := fmt.Sprintf("%s: sha256 %s...", validation.ObjStr(m, "name"),
+			first16(validation.ObjStr(m, "fingerprint_sha256")))
+		if u := validation.ObjStr(m, "source_url"); u != "" {
 			line += "  " + u
 		}
 		fmt.Fprintln(r.Out, line)

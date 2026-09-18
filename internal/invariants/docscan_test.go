@@ -89,12 +89,12 @@ func TestDocumentedInvariantsFromSnapshot(t *testing.T) {
 	if len(keys) != 2 || keys[0] != "INV-1" || keys[1] != "INV-2" {
 		t.Fatalf("documented ids = %v, want [INV-1 INV-2]", keys)
 	}
-	e := objAt(doc, "INV-1")
-	if f := objStr(e, "file"); !strings.HasPrefix(f, "README") {
+	e := validation.ObjAt(doc, "INV-1")
+	if f := validation.ObjStr(e, "file"); !strings.HasPrefix(f, "README") {
 		t.Errorf("file = %q, want a README path", f)
 	}
-	if !strings.Contains(objStr(e, "context"), "balances") {
-		t.Errorf("context = %q, want the balance line", objStr(e, "context"))
+	if !strings.Contains(validation.ObjStr(e, "context"), "balances") {
+		t.Errorf("context = %q, want the balance line", validation.ObjStr(e, "context"))
 	}
 }
 
@@ -126,13 +126,13 @@ func TestReconcileNoDivergence(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := strList(objAt(rep, "missing_from_model")); len(got) != 0 {
+	if got := strList(validation.ObjAt(rep, "missing_from_model")); len(got) != 0 {
 		t.Errorf("missing_from_model = %v, want empty", got)
 	}
-	if got := strList(objAt(rep, "extra_in_model")); len(got) != 0 {
+	if got := strList(validation.ObjAt(rep, "extra_in_model")); len(got) != 0 {
 		t.Errorf("extra_in_model = %v, want empty", got)
 	}
-	if got := strList(objAt(rep, "documented")); len(got) != 2 {
+	if got := strList(validation.ObjAt(rep, "documented")); len(got) != 2 {
 		t.Errorf("documented = %v, want two ids", got)
 	}
 }
@@ -147,11 +147,11 @@ func TestReconcileReportsDocumentedButMissing(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := strList(objAt(rep, "missing_from_model")); len(got) != 1 ||
+	if got := strList(validation.ObjAt(rep, "missing_from_model")); len(got) != 1 ||
 		got[0] != "INV-2" {
 		t.Errorf("missing_from_model = %v, want [INV-2]", got)
 	}
-	if got := strList(objAt(rep, "extra_in_model")); len(got) != 0 {
+	if got := strList(validation.ObjAt(rep, "extra_in_model")); len(got) != 0 {
 		t.Errorf("extra_in_model = %v, want empty", got)
 	}
 	events, err := c.Events()
@@ -160,14 +160,14 @@ func TestReconcileReportsDocumentedButMissing(t *testing.T) {
 	}
 	var hits []validation.Value
 	for _, ev := range events {
-		if objStr(ev, "type") == "invariants.reconciled" {
+		if validation.ObjStr(ev, "type") == "invariants.reconciled" {
 			hits = append(hits, ev)
 		}
 	}
 	if len(hits) != 1 {
 		t.Fatalf("invariants.reconciled events = %d, want 1", len(hits))
 	}
-	miss := objAt(objAt(hits[0], "data"), "missing_from_model")
+	miss := validation.ObjAt(validation.ObjAt(hits[0], "data"), "missing_from_model")
 	if got := strList(miss); len(got) != 1 || got[0] != "INV-2" {
 		t.Errorf("logged missing_from_model = %v, want [INV-2]", got)
 	}
@@ -183,14 +183,14 @@ func TestReconcileNotesUndocumentedExtras(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := strList(objAt(rep, "missing_from_model")); len(got) != 0 {
+	if got := strList(validation.ObjAt(rep, "missing_from_model")); len(got) != 0 {
 		t.Errorf("missing_from_model = %v, want empty", got)
 	}
-	if got := strList(objAt(rep, "extra_in_model")); len(got) != 1 ||
+	if got := strList(validation.ObjAt(rep, "extra_in_model")); len(got) != 1 ||
 		got[0] != "INV-9" {
 		t.Errorf("extra_in_model = %v, want [INV-9]", got)
 	}
-	if got := objStr(rep, "note"); got != "model covers every documented "+
+	if got := validation.ObjStr(rep, "note"); got != "model covers every documented "+
 		"invariant id" {
 		t.Errorf("note = %q", got)
 	}
@@ -210,7 +210,7 @@ func TestSeedFromModelThenReconcile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := strList(objAt(rep, "missing_from_model")); len(got) != 1 ||
+	if got := strList(validation.ObjAt(rep, "missing_from_model")); len(got) != 1 ||
 		got[0] != "INV-2" {
 		t.Errorf("missing_from_model = %v, want [INV-2]", got)
 	}
@@ -223,11 +223,11 @@ func TestPlaybookInvariantSeedsAsDocumentedWithProvenance(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	e := objAt(objAt(links, "invariants"), "INV-RE-CEI-ORDERING")
-	if got := objStr(e, "source"); got != "documented" {
+	e := validation.ObjAt(validation.ObjAt(links, "invariants"), "INV-RE-CEI-ORDERING")
+	if got := validation.ObjStr(e, "source"); got != "documented" {
 		t.Errorf("source = %q, want documented", got)
 	}
-	if got := objStr(e, "source_detail"); got != "playbook" {
+	if got := validation.ObjStr(e, "source_detail"); got != "playbook" {
 		t.Errorf("source_detail = %q, want playbook", got)
 	}
 }
@@ -238,14 +238,14 @@ func TestModelInventedInvariantStaysGuarded(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	e := objAt(objAt(links, "invariants"), "INV-ZZZ-CUSTOM-1")
-	if got := objStr(e, "source"); got != "model" {
+	e := validation.ObjAt(validation.ObjAt(links, "invariants"), "INV-ZZZ-CUSTOM-1")
+	if got := validation.ObjStr(e, "source"); got != "model" {
 		t.Errorf("source = %q, want model", got)
 	}
 	if hasKey(e, "source_detail") {
 		t.Errorf("source_detail present, want absent")
 	}
-	if got := objStr(e, "status"); got != "UNVERIFIED" {
+	if got := validation.ObjStr(e, "status"); got != "UNVERIFIED" {
 		t.Errorf("status = %q, want UNVERIFIED", got)
 	}
 }
@@ -261,13 +261,13 @@ func TestTargetDocStillWinsAndHasNoPlaybookProvenance(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	e := objAt(objAt(links, "invariants"), "INV-1")
-	if got := objStr(e, "source"); got != "documented" {
+	e := validation.ObjAt(validation.ObjAt(links, "invariants"), "INV-1")
+	if got := validation.ObjStr(e, "source"); got != "documented" {
 		t.Errorf("source = %q, want documented", got)
 	}
 	if hasKey(e, "source_detail") {
 		t.Errorf("source_detail = %q, want absent (target-docs provenance)",
-			objStr(e, "source_detail"))
+			validation.ObjStr(e, "source_detail"))
 	}
 }
 
@@ -371,12 +371,12 @@ func TestReconcileVectorsMatchPythonTwin(t *testing.T) {
 			protoWithReadme(t, readmeTwoInvs), nil, nil); err != nil {
 			t.Fatal(err)
 		}
-		ids := strList(objAt(tc, "ids"))
+		ids := strList(validation.ObjAt(tc, "ids"))
 		rep, err := Reconcile(c, invModel(ids...))
 		if err != nil {
 			t.Fatal(err)
 		}
-		want := objAt(tc, "rep")
+		want := validation.ObjAt(tc, "rep")
 		if validation.DumpIndented(rep) != validation.DumpIndented(want) {
 			t.Errorf("reconcile[%d] ids=%v\n got: %s\nwant: %s", i, ids,
 				validation.DumpIndented(rep), validation.DumpIndented(want))

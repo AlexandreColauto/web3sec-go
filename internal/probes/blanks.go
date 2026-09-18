@@ -70,7 +70,7 @@ func resolveLensAxis(surface validation.Value, scope *AxisScope,
 	return AxisMeta{}, errf("blank attestation cites %s, which no axis on %s "+
 		"published; the lens's blind[] keys are %s",
 		validation.PyReprStr(anchorBlind), validation.PyReprStr(scope.Token),
-		validation.PyRepr(strArr(sortedStrSet(published))))
+		validation.PyRepr(validation.StrArr(sortedStrSet(published))))
 }
 
 // blankReplaces is _blank_replaces: which prior attestation this one
@@ -155,7 +155,7 @@ func SetBlank(c *state.Campaign, axis, anchorBlind, reason,
 		return validation.VNull(), errf("blank attestation cites %s, which "+
 			"is not in %s's published blind[] keys: %s",
 			validation.PyReprStr(anchorBlind), resolved.Axis,
-			validation.PyRepr(strArr(sortedStrings(keys))))
+			validation.PyRepr(validation.StrArr(sortedStrings(keys))))
 	}
 	entry := validation.VObj(
 		kv("axis", validation.VStr(resolved.Lens)),

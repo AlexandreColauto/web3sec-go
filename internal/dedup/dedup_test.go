@@ -177,7 +177,7 @@ func wireSeams(t *testing.T) {
 // canonical report templates use (<A>, <B>, <C>, <LIN>).
 type tok struct{ id, name string }
 
-func fid(f validation.Value) string { return objStr(f, "finding_id") }
+func fid(f validation.Value) string { return validation.ObjStr(f, "finding_id") }
 
 // assertCanon compares the compact canonical JSON of v (Python's
 // json.dumps(sort_keys=True, separators=(",", ":"))) against a template
@@ -213,7 +213,7 @@ func eventTypes(t *testing.T, c *state.Campaign) []string {
 	}
 	out := make([]string, 0, len(evs))
 	for _, e := range evs {
-		out = append(out, objStr(e, "type"))
+		out = append(out, validation.ObjStr(e, "type"))
 	}
 	return out
 }
@@ -265,8 +265,8 @@ func TestRepeatedSweepsAreIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(kept, "status") != "HYPOTHESIS" {
-		t.Fatalf("earliest finding status = %q, want HYPOTHESIS", objStr(kept, "status"))
+	if validation.ObjStr(kept, "status") != "HYPOTHESIS" {
+		t.Fatalf("earliest finding status = %q, want HYPOTHESIS", validation.ObjStr(kept, "status"))
 	}
 }
 
@@ -298,11 +298,11 @@ func TestEarliestCreatedFindingIsKept(t *testing.T) {
 			`"signature":"48b7907d5bb641e3"}],"tier2_clusters":[],"tier3_flags":[],`+
 			`"untouched":1}`,
 		tok{fid(a), "<A>"}, tok{fid(b), "<B>"})
-	merges := objAt(report, "tier1_merges").A
-	if len(merges) != 1 || objStr(merges[0], "kept") != fid(a) ||
-		objStr(merges[0], "merged") != fid(b) {
+	merges := validation.ObjAt(report, "tier1_merges").A
+	if len(merges) != 1 || validation.ObjStr(merges[0], "kept") != fid(a) ||
+		validation.ObjStr(merges[0], "merged") != fid(b) {
 		t.Fatalf("tier1_merges = %s, want kept=%s merged=%s",
-			validation.CanonCompact(objAt(report, "tier1_merges")), fid(a), fid(b))
+			validation.CanonCompact(validation.ObjAt(report, "tier1_merges")), fid(a), fid(b))
 	}
 }
 
@@ -322,11 +322,11 @@ func TestLineageIDIsStableAcrossRuns(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	clusters := objAt(first, "tier2_clusters").A
+	clusters := validation.ObjAt(first, "tier2_clusters").A
 	if len(clusters) == 0 {
 		t.Fatal("same root cause should cluster")
 	}
-	lin1 := objStr(clusters[0], "lineage_id")
+	lin1 := validation.ObjStr(clusters[0], "lineage_id")
 	assertCanon(t, "first sweep cluster", first,
 		`{"cross_snapshot_flags":[],"tier1_merges":[],"tier2_clusters":`+
 			`[{"auto_merged":[],"lineage_id":"<LIN>","members":["<A>","<B>"]}],`+
@@ -336,11 +336,11 @@ func TestLineageIDIsStableAcrossRuns(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	lin2 := objStr(objAt(second, "tier2_clusters").A[0], "lineage_id")
+	lin2 := validation.ObjStr(validation.ObjAt(second, "tier2_clusters").A[0], "lineage_id")
 	if lin1 != lin2 {
 		t.Fatalf("lineage id churned between sweeps: %q != %q", lin1, lin2)
 	}
-	if got := objAt(objAt(second, "tier2_clusters").A[0], "members").A; len(got) != 2 {
+	if got := validation.ObjAt(validation.ObjAt(second, "tier2_clusters").A[0], "members").A; len(got) != 2 {
 		t.Fatalf("cluster members = %d, want 2", len(got))
 	}
 }
@@ -371,13 +371,13 @@ func TestTier1AutoMerge(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		statuses[fid(x)] = objStr(rec, "status")
-		dedups[fid(x)] = objAt(rec, "dedup")
+		statuses[fid(x)] = validation.ObjStr(rec, "status")
+		dedups[fid(x)] = validation.ObjAt(rec, "dedup")
 	}
 	if statuses[fid(f)] != "HYPOTHESIS" || statuses[fid(g)] != "DUPLICATE" {
 		t.Fatalf("statuses = %v, want earliest HYPOTHESIS and later DUPLICATE", statuses)
 	}
-	if got := objStr(dedups[fid(g)], "duplicate_of"); got != fid(f) {
+	if got := validation.ObjStr(dedups[fid(g)], "duplicate_of"); got != fid(f) {
 		t.Fatalf("duplicate_of = %q, want %q", got, fid(f))
 	}
 	assertCanon(t, "dup dedup", dedups[fid(g)],
@@ -417,11 +417,11 @@ func TestTier3FlagNeverAutoMerges(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(a, "status") != "HYPOTHESIS" || objStr(b, "status") != "HYPOTHESIS" {
+	if validation.ObjStr(a, "status") != "HYPOTHESIS" || validation.ObjStr(b, "status") != "HYPOTHESIS" {
 		t.Fatalf("tier-3 must never auto-merge: statuses %q/%q",
-			objStr(a, "status"), objStr(b, "status"))
+			validation.ObjStr(a, "status"), validation.ObjStr(b, "status"))
 	}
-	assertCanon(t, "flagged a", objAt(a, "dedup"),
+	assertCanon(t, "flagged a", validation.ObjAt(a, "dedup"),
 		`{"economic_signature":"3b7b159a6831ef2d","possible_duplicate_of":["<B>"],`+
 			`"technical_signature":"feb7d9e440f86a71"}`,
 		tok{fid(g), "<B>"})
@@ -455,13 +455,13 @@ func TestIncompatibleClassesNeverTier3(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objAt(a, "dedup").Kind != validation.Obj {
+	if validation.ObjAt(a, "dedup").Kind != validation.Obj {
 		t.Fatal("dedup must stay an object")
 	}
 	if ids := valueStrings(getDeep(a, "dedup", "possible_duplicate_of")); len(ids) != 0 {
 		t.Fatalf("possible_duplicate_of = %v, want none", ids)
 	}
-	assertCanon(t, "incompatible a", objAt(a, "dedup"),
+	assertCanon(t, "incompatible a", validation.ObjAt(a, "dedup"),
 		`{"economic_signature":"3b7b159a6831ef2d","technical_signature":"feb7d9e440f86a71"}`)
 }
 
@@ -552,12 +552,12 @@ func TestSetRootCauseSignatureShapes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertCanon(t, "root cause dedup", objAt(got, "dedup"),
+	assertCanon(t, "root cause dedup", validation.ObjAt(got, "dedup"),
 		`{"root_cause_signature":"25fb8f4a8ed723de",`+
 			`"technical_signature":"48b7907d5bb641e3"}`)
-	assertCanon(t, "root cause meta", objAt(got, "dedup_meta"),
+	assertCanon(t, "root cause meta", validation.ObjAt(got, "dedup_meta"),
 		`{"root_cause_sentence":"Normalized  Sentence  Here"}`)
-	if got := objStr(objAt(got, "root_cause"), "cwe"); got != "CWE-682" {
+	if got := validation.ObjStr(validation.ObjAt(got, "root_cause"), "cwe"); got != "CWE-682" {
 		t.Fatalf("cwe = %q, want CWE-682", got)
 	}
 	// a falsy cwe ("" is Python-falsy) leaves the existing cwe in place
@@ -566,12 +566,12 @@ func TestSetRootCauseSignatureShapes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertCanon(t, "second root cause dedup", objAt(got, "dedup"),
+	assertCanon(t, "second root cause dedup", validation.ObjAt(got, "dedup"),
 		`{"root_cause_signature":"306557b4f21046c0",`+
 			`"technical_signature":"48b7907d5bb641e3"}`)
-	assertCanon(t, "second root cause meta", objAt(got, "dedup_meta"),
+	assertCanon(t, "second root cause meta", validation.ObjAt(got, "dedup_meta"),
 		`{"root_cause_sentence":"Second  Sentence"}`)
-	if got := objStr(objAt(got, "root_cause"), "cwe"); got != "CWE-682" {
+	if got := validation.ObjStr(validation.ObjAt(got, "root_cause"), "cwe"); got != "CWE-682" {
 		t.Fatalf("falsy cwe overwrote the value: %q", got)
 	}
 	// nil cwe is the same falsy case
@@ -579,7 +579,7 @@ func TestSetRootCauseSignatureShapes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(objAt(got, "root_cause"), "cwe"); got != "CWE-682" {
+	if got := validation.ObjStr(validation.ObjAt(got, "root_cause"), "cwe"); got != "CWE-682" {
 		t.Fatalf("nil cwe overwrote the value: %q", got)
 	}
 	if types := eventTypes(t, c); types[len(types)-1] != "dedup.root_cause_set" {
@@ -594,10 +594,10 @@ func TestSetEconomicSignatureShape(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertCanon(t, "economic dedup", objAt(got, "dedup"),
+	assertCanon(t, "economic dedup", validation.ObjAt(got, "dedup"),
 		`{"economic_signature":"a04e53361f4e929f",`+
 			`"technical_signature":"48b7907d5bb641e3"}`)
-	assertCanon(t, "economic meta", objAt(got, "dedup_meta"),
+	assertCanon(t, "economic meta", validation.ObjAt(got, "dedup_meta"),
 		`{"economic_effect_sentence":"attacker drains the pool"}`)
 	types := eventTypes(t, c)
 	if len(types) < 2 || types[len(types)-1] != "dedup.economic_set" {
@@ -631,10 +631,10 @@ func TestCrossSnapshotTier1Flag(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(flagged, "status") != "HYPOTHESIS" {
-		t.Fatalf("cross-snapshot dup status = %q, want HYPOTHESIS", objStr(flagged, "status"))
+	if validation.ObjStr(flagged, "status") != "HYPOTHESIS" {
+		t.Fatalf("cross-snapshot dup status = %q, want HYPOTHESIS", validation.ObjStr(flagged, "status"))
 	}
-	assertCanon(t, "cross dedup", objAt(flagged, "dedup"),
+	assertCanon(t, "cross dedup", validation.ObjAt(flagged, "dedup"),
 		`{"possible_duplicate_of":["<A>"],"technical_signature":"48b7907d5bb641e3"}`,
 		tok{fid(a), "<A>"})
 	evs, err := c.Events()
@@ -643,12 +643,12 @@ func TestCrossSnapshotTier1Flag(t *testing.T) {
 	}
 	last := evs[len(evs)-1]
 	flagEv := evs[len(evs)-2]
-	if objStr(flagEv, "type") != "dedup.cross_snapshot_flagged" ||
-		objStr(flagEv, "ref") != fid(b) {
+	if validation.ObjStr(flagEv, "type") != "dedup.cross_snapshot_flagged" ||
+		validation.ObjStr(flagEv, "ref") != fid(b) {
 		t.Fatalf("flag event = %s", validation.CanonCompact(flagEv))
 	}
-	assertCanon(t, "flag event data", objAt(flagEv, "data"), `{"of":"<A>"}`, tok{fid(a), "<A>"})
-	assertCanon(t, "run event data", objAt(last, "data"),
+	assertCanon(t, "flag event data", validation.ObjAt(flagEv, "data"), `{"of":"<A>"}`, tok{fid(a), "<A>"})
+	assertCanon(t, "run event data", validation.ObjAt(last, "data"),
 		`{"tier1":0,"tier2_clusters":0,"tier3_flags":0}`)
 }
 
@@ -668,7 +668,7 @@ func TestTier2SameSpotAutoMerges(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	lin := objStr(objAt(report, "tier2_clusters").A[0], "lineage_id")
+	lin := validation.ObjStr(validation.ObjAt(report, "tier2_clusters").A[0], "lineage_id")
 	assertCanon(t, "tier2 same spot", report,
 		`{"cross_snapshot_flags":[],"tier1_merges":[],"tier2_clusters":`+
 			`[{"auto_merged":["<B>"],"lineage_id":"<LIN>","members":["<A>","<B>"]}],`+
@@ -678,7 +678,7 @@ func TestTier2SameSpotAutoMerges(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(dup, "status") != "DUPLICATE" || objStr(objAt(dup, "dedup"), "duplicate_of") != fid(f) {
+	if validation.ObjStr(dup, "status") != "DUPLICATE" || validation.ObjStr(validation.ObjAt(dup, "dedup"), "duplicate_of") != fid(f) {
 		t.Fatalf("tier2 same-spot dup = %s", validation.CanonCompact(dup))
 	}
 }
@@ -707,7 +707,7 @@ func TestTier2SameSpotStaleSnapshotClustersOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	lin := objStr(objAt(report, "tier2_clusters").A[0], "lineage_id")
+	lin := validation.ObjStr(validation.ObjAt(report, "tier2_clusters").A[0], "lineage_id")
 	// tier-2 records NO cross-snapshot flag (the asymmetry with tier 1)
 	assertCanon(t, "tier2 stale", report,
 		`{"cross_snapshot_flags":[],"tier1_merges":[],"tier2_clusters":`+
@@ -718,8 +718,8 @@ func TestTier2SameSpotStaleSnapshotClustersOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(still, "status") != "HYPOTHESIS" {
-		t.Fatalf("stale tier2 dup status = %q, want HYPOTHESIS", objStr(still, "status"))
+	if validation.ObjStr(still, "status") != "HYPOTHESIS" {
+		t.Fatalf("stale tier2 dup status = %q, want HYPOTHESIS", validation.ObjStr(still, "status"))
 	}
 }
 
@@ -810,7 +810,7 @@ func TestResolveCandidateDistinctRecordsBothSides(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertCanon(t, "returned side", objAt(got, "dedup"),
+	assertCanon(t, "returned side", validation.ObjAt(got, "dedup"),
 		`{"candidate_verdicts":{"<B>":"distinct"},`+
 			`"economic_signature":"b9c34f97454df07d","possible_duplicate_of":["<B>"],`+
 			`"technical_signature":"48b7907d5bb641e3"}`,
@@ -832,17 +832,17 @@ func TestResolveCandidateDistinctRecordsBothSides(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if objStr(rec, "status") != "HYPOTHESIS" {
+		if validation.ObjStr(rec, "status") != "HYPOTHESIS" {
 			t.Fatalf("%s status = %q, want HYPOTHESIS (distinct leaves both open)",
-				pair.label, objStr(rec, "status"))
+				pair.label, validation.ObjStr(rec, "status"))
 		}
-		assertCanon(t, pair.label, objAt(rec, "dedup"), pair.want, pair.tk)
+		assertCanon(t, pair.label, validation.ObjAt(rec, "dedup"), pair.want, pair.tk)
 	}
 	last := lastEvent(t, c)
-	if objStr(last, "type") != "dedup.candidate_resolved" || objStr(last, "ref") != fid(f) {
+	if validation.ObjStr(last, "type") != "dedup.candidate_resolved" || validation.ObjStr(last, "ref") != fid(f) {
 		t.Fatalf("resolve event = %s", validation.CanonCompact(last))
 	}
-	assertCanon(t, "resolve event data", objAt(last, "data"),
+	assertCanon(t, "resolve event data", validation.ObjAt(last, "data"),
 		`{"actor":"pytest","of":"<B>","verdict":"distinct"}`, tok{fid(g), "<B>"})
 }
 
@@ -861,11 +861,11 @@ func TestResolveCandidateSameMergesYounger(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(older, "status") != "HYPOTHESIS" {
-		t.Fatalf("older status = %q, want HYPOTHESIS", objStr(older, "status"))
+	if validation.ObjStr(older, "status") != "HYPOTHESIS" {
+		t.Fatalf("older status = %q, want HYPOTHESIS", validation.ObjStr(older, "status"))
 	}
-	if objStr(younger, "status") != "DUPLICATE" ||
-		objStr(objAt(younger, "dedup"), "duplicate_of") != fid(f) {
+	if validation.ObjStr(younger, "status") != "DUPLICATE" ||
+		validation.ObjStr(validation.ObjAt(younger, "dedup"), "duplicate_of") != fid(f) {
 		t.Fatalf("younger = %s, want DUPLICATE of %s",
 			validation.CanonCompact(younger), fid(f))
 	}
@@ -877,8 +877,8 @@ func TestResolveCandidateSameMergesYounger(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(again, "status") != "DUPLICATE" {
-		t.Fatalf("second verdict changed the status to %q", objStr(again, "status"))
+	if validation.ObjStr(again, "status") != "DUPLICATE" {
+		t.Fatalf("second verdict changed the status to %q", validation.ObjStr(again, "status"))
 	}
 }
 
@@ -904,7 +904,7 @@ func TestResolveCandidateNoteRecordsOnBothSides(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		got := objStr(objAt(objAt(loaded, "dedup_meta"), "candidate_notes"), other)
+		got := validation.ObjStr(validation.ObjAt(validation.ObjAt(loaded, "dedup_meta"), "candidate_notes"), other)
 		if got != note {
 			t.Fatalf("candidate_notes[%s] = %q, want %q", other, got, note)
 		}
@@ -914,7 +914,7 @@ func TestResolveCandidateNoteRecordsOnBothSides(t *testing.T) {
 // ---- G1 corroboration -------------------------------------------------------
 
 // idOf returns the finding_id string of a finding value.
-func idOf(v validation.Value) string { return objStr(v, "finding_id") }
+func idOf(v validation.Value) string { return validation.ObjStr(v, "finding_id") }
 
 // reloadID loads a finding from disk, failing the test on error.
 func reloadID(t *testing.T, c *state.Campaign, id string) validation.Value {
@@ -966,7 +966,7 @@ func setupPairUntooled(t *testing.T) (*state.Campaign, validation.Value, validat
 
 func TestResolveSameRecordsCorroboration(t *testing.T) {
 	c, f, toolF := setupPair(t) // f model-flagged (no sast_tools), toolF has provenance.sast_tools
-	if _, err := ResolveCandidate(c, objStr(f, "finding_id"), objStr(toolF, "finding_id"),
+	if _, err := ResolveCandidate(c, validation.ObjStr(f, "finding_id"), validation.ObjStr(toolF, "finding_id"),
 		"same", "", "operator"); err != nil {
 		t.Fatal(err)
 	}
@@ -974,7 +974,7 @@ func TestResolveSameRecordsCorroboration(t *testing.T) {
 	// record must exist on whichever survives (the non-tool side).
 	reloaded := reloadID(t, c, idOf(f))
 	corr := getDeep(reloaded, "dedup_meta", "corroborated_by")
-	if corr.Kind != validation.Str || corr.S != objStr(toolF, "finding_id") {
+	if corr.Kind != validation.Str || corr.S != validation.ObjStr(toolF, "finding_id") {
 		t.Fatalf("corroborated_by not recorded on the model side: %s", validation.CanonCompact(corr))
 	}
 }
@@ -996,11 +996,11 @@ func TestResolveSameRecordsCorroborationWhenToolSideOlder(t *testing.T) {
 		t.Fatal(err)
 	}
 	survivor := reloadID(t, c, idOf(toolF))
-	if objStr(survivor, "status") == "DUPLICATE" {
+	if validation.ObjStr(survivor, "status") == "DUPLICATE" {
 		t.Fatalf("the older tool side must survive the merge: %s",
 			validation.CanonCompact(survivor))
 	}
-	if s := objStr(reloadID(t, c, idOf(younger)), "status"); s != "DUPLICATE" {
+	if s := validation.ObjStr(reloadID(t, c, idOf(younger)), "status"); s != "DUPLICATE" {
 		t.Fatalf("the younger model side status = %q, want DUPLICATE", s)
 	}
 	// Direction matters: a tool-side survivor is not the corroborated side.
@@ -1093,8 +1093,8 @@ func TestRunDedupNoAutoMerge(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if objStr(rec, "status") != "HYPOTHESIS" {
-			t.Fatalf("auto_merge=False changed a status to %q", objStr(rec, "status"))
+		if validation.ObjStr(rec, "status") != "HYPOTHESIS" {
+			t.Fatalf("auto_merge=False changed a status to %q", validation.ObjStr(rec, "status"))
 		}
 	}
 }
@@ -1123,7 +1123,7 @@ func TestRunDedupExcludesTerminalFindings(t *testing.T) {
 		`{"cross_snapshot_flags":[],"tier1_merges":[],"tier2_clusters":[],`+
 			`"tier3_flags":[],"untouched":2}`,
 		tok{fid(a), "<A>"}, tok{fid(b), "<B>"})
-	if got := objAt(report, "untouched"); got.I != 2 {
+	if got := validation.ObjAt(report, "untouched"); got.I != 2 {
 		t.Fatalf("untouched = %d, want 2 (terminal findings leave the sweep)", got.I)
 	}
 }
@@ -1151,7 +1151,7 @@ func TestRunDedupCombinedTiers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	lin := objStr(objAt(report, "tier2_clusters").A[0], "lineage_id")
+	lin := validation.ObjStr(validation.ObjAt(report, "tier2_clusters").A[0], "lineage_id")
 	assertCanon(t, "combined report", report,
 		`{"cross_snapshot_flags":[],"tier1_merges":[{"kept":"<A>","merged":"<B>",`+
 			`"signature":"48b7907d5bb641e3"}],"tier2_clusters":[{"auto_merged":[],`+
@@ -1159,10 +1159,10 @@ func TestRunDedupCombinedTiers(t *testing.T) {
 			`"b":"<C>","signature":"9cdcd94c794a64d7"}],"untouched":2}`,
 		tok{fid(a), "<A>"}, tok{fid(b), "<B>"}, tok{fid(cc), "<C>"}, tok{lin, "<LIN>"})
 	last := lastEvent(t, c)
-	if objStr(last, "type") != "dedup.run" {
-		t.Fatalf("last event = %q, want dedup.run", objStr(last, "type"))
+	if validation.ObjStr(last, "type") != "dedup.run" {
+		t.Fatalf("last event = %q, want dedup.run", validation.ObjStr(last, "type"))
 	}
-	assertCanon(t, "run data", objAt(last, "data"),
+	assertCanon(t, "run data", validation.ObjAt(last, "data"),
 		`{"tier1":1,"tier2_clusters":1,"tier3_flags":1}`)
 }
 
@@ -1218,7 +1218,7 @@ func TestRunDedupNoAutoMergeStillFoldsLineage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	lin := objStr(objAt(report, "tier2_clusters").A[0], "lineage_id")
+	lin := validation.ObjStr(validation.ObjAt(report, "tier2_clusters").A[0], "lineage_id")
 	assertCanon(t, "no merge cluster", report,
 		`{"cross_snapshot_flags":[],"tier1_merges":[],"tier2_clusters":`+
 			`[{"auto_merged":[],"lineage_id":"<LIN>","members":["<A>","<B>"]}],`+
@@ -1230,11 +1230,11 @@ func TestRunDedupNoAutoMergeStillFoldsLineage(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if got := objStr(objAt(rec, "dedup"), "lineage_id"); got != lin {
+		if got := validation.ObjStr(validation.ObjAt(rec, "dedup"), "lineage_id"); got != lin {
 			t.Fatalf("%s lineage_id = %q, want %q", fid(x), got, lin)
 		}
-		if objStr(rec, "status") != "HYPOTHESIS" {
-			t.Fatalf("%s status = %q, want HYPOTHESIS", fid(x), objStr(rec, "status"))
+		if validation.ObjStr(rec, "status") != "HYPOTHESIS" {
+			t.Fatalf("%s status = %q, want HYPOTHESIS", fid(x), validation.ObjStr(rec, "status"))
 		}
 	}
 }
@@ -1258,7 +1258,7 @@ func TestTier2MergeRemovesMemberFromTier3(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	lin := objStr(objAt(report, "tier2_clusters").A[0], "lineage_id")
+	lin := validation.ObjStr(validation.ObjAt(report, "tier2_clusters").A[0], "lineage_id")
 	assertCanon(t, "tier2 wins", report,
 		`{"cross_snapshot_flags":[],"tier1_merges":[],"tier2_clusters":`+
 			`[{"auto_merged":["<B>"],"lineage_id":"<LIN>","members":["<A>","<B>"]}],`+
@@ -1298,12 +1298,12 @@ func TestRunDedupGroupOrderIsInsertionOrder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	clusters := objAt(report, "tier2_clusters").A
+	clusters := validation.ObjAt(report, "tier2_clusters").A
 	if len(clusters) != 2 {
 		t.Fatalf("tier2 clusters = %d, want 2", len(clusters))
 	}
-	l1 := objStr(clusters[0], "lineage_id")
-	l2 := objStr(clusters[1], "lineage_id")
+	l1 := validation.ObjStr(clusters[0], "lineage_id")
+	l2 := validation.ObjStr(clusters[1], "lineage_id")
 	assertCanon(t, "cluster order", report,
 		`{"cross_snapshot_flags":[],"tier1_merges":[],"tier2_clusters":`+
 			`[{"auto_merged":[],"lineage_id":"<L1>","members":["<A>","<B>"]},`+
@@ -1343,7 +1343,7 @@ func TestRunDedupTier3PairOrderIsMemberOrder(t *testing.T) {
 			`"tier3_flags":[{"a":"<A>","b":"<B>","signature":"5df75953c4810fe9"},`+
 			`{"a":"<C>","b":"<D>","signature":"3e994ab531d19e79"}],"untouched":4}`,
 		tok{fid(g1), "<A>"}, tok{fid(g2), "<B>"}, tok{fid(g3), "<C>"}, tok{fid(g4), "<D>"})
-	if got := len(objAt(report, "tier3_flags").A); got != 2 {
+	if got := len(validation.ObjAt(report, "tier3_flags").A); got != 2 {
 		t.Fatalf("tier3 flags = %d, want 2", got)
 	}
 }
@@ -1353,7 +1353,7 @@ func TestRunDedupTier3PairOrderIsMemberOrder(t *testing.T) {
 func TestSignatureOnDeadRowRefused(t *testing.T) {
 	c := dedupCamp(t)
 	fv := hypo(t, c, "Reentrancy in withdraw() drains the vault pool")
-	f := objStr(fv, "finding_id")
+	f := validation.ObjStr(fv, "finding_id")
 	if _, err := findings.Transition(c, f, "DISPROVED", "no reachable path",
 		"critic", "", false); err != nil {
 		t.Fatalf("disprove: %v", err)

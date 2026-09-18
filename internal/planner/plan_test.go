@@ -15,7 +15,7 @@ func pinnedCampaign(t *testing.T, tag string, plan validation.Value) *state.Camp
 	t.Helper()
 	t.Setenv("WEBV2_NOW", "2026-09-09T12:00:00.000000+00:00")
 	c, err := state.Init(t.TempDir(), "T9 "+tag, state.InitOpts{
-		CampaignID: objStr(plan, "campaign_id")})
+		CampaignID: validation.ObjStr(plan, "campaign_id")})
 	if err != nil {
 		t.Fatalf("init campaign: %v", err)
 	}
@@ -42,7 +42,7 @@ func TestDefaultPlanRichOracle(t *testing.T) {
 	requireJSON(t, "rich plan", plan, want)
 	qs := []validation.Value{}
 	for _, p := range listOf(plan, "priorities") {
-		qs = append(qs, objAt(p, "question"))
+		qs = append(qs, validation.ObjAt(p, "question"))
 	}
 	requireJSON(t, "rich questions", validation.VArr(qs...),
 		at(t, root, "default_plan", "rich_questions"))
@@ -105,8 +105,8 @@ func TestDefaultPlanPreExistingQuestions(t *testing.T) {
 		t.Fatalf("plan has %d priorities, want > %d", len(prios), len(want.A))
 	}
 	for i, q := range want.A {
-		requireJSON(t, "pre_existing/"+itoa(i), objAt(prios[i], "question"), q)
-		requireJSON(t, "pre_existing id/"+itoa(i), objAt(prios[i], "id"),
+		requireJSON(t, "pre_existing/"+itoa(i), validation.ObjAt(prios[i], "question"), q)
+		requireJSON(t, "pre_existing id/"+itoa(i), validation.ObjAt(prios[i], "id"),
 			validation.VStr(qid(i+1)))
 	}
 }
@@ -114,7 +114,7 @@ func TestDefaultPlanPreExistingQuestions(t *testing.T) {
 // TestSavePlanBadClassOracle pins the non-canonical bug_class rejection.
 func TestSavePlanBadClassOracle(t *testing.T) {
 	root := oracles(t)
-	model := objAt(at(t, root, "seed_lenses").A[0], "model")
+	model := validation.ObjAt(at(t, root, "seed_lenses").A[0], "model")
 	camp := newCampaign(t, "sp")
 	plan, err := DefaultPlanFromModel(camp, model)
 	if err != nil {
@@ -135,8 +135,8 @@ func TestSavePlanBadClassOracle(t *testing.T) {
 func TestSavePlanWritesAndRegisters(t *testing.T) {
 	root := oracles(t)
 	want := at(t, root, "load_plan")
-	model := objAt(at(t, root, "seed_lenses").A[0], "model")
-	camp := pinnedCampaign(t, "sp2", objAt(want, "plan"))
+	model := validation.ObjAt(at(t, root, "seed_lenses").A[0], "model")
+	camp := pinnedCampaign(t, "sp2", validation.ObjAt(want, "plan"))
 	plan, err := DefaultPlanFromModel(camp, model)
 	if err != nil {
 		t.Fatalf("default plan: %v", err)
@@ -156,7 +156,7 @@ func TestSavePlanWritesAndRegisters(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load plan: %v", err)
 	}
-	requireJSON(t, "reloaded plan", loaded, objAt(want, "plan"))
+	requireJSON(t, "reloaded plan", loaded, validation.ObjAt(want, "plan"))
 	if n := len(listOf(loaded, "priorities")); n != int(at(t, root,
 		"load_plan", "priorities").I) {
 		t.Fatalf("loaded %d priorities", n)
@@ -169,10 +169,10 @@ func TestSavePlanWritesAndRegisters(t *testing.T) {
 	if len(arts) != 1 {
 		t.Fatalf("expected exactly 1 artifact row, got %d", len(arts))
 	}
-	requireJSON(t, "artifact note", objAt(arts[0], "note"),
-		objAt(at(t, root, "load_plan", "artifacts").A[0], "note"))
-	requireJSON(t, "artifact refresh_reason", objAt(arts[0], "refresh_reason"),
-		objAt(at(t, root, "load_plan", "artifacts").A[0], "refresh_reason"))
+	requireJSON(t, "artifact note", validation.ObjAt(arts[0], "note"),
+		validation.ObjAt(at(t, root, "load_plan", "artifacts").A[0], "note"))
+	requireJSON(t, "artifact refresh_reason", validation.ObjAt(arts[0], "refresh_reason"),
+		validation.ObjAt(at(t, root, "load_plan", "artifacts").A[0], "refresh_reason"))
 }
 
 // TestLoadPlanReadonlyMissing pins the FileNotFoundError text.

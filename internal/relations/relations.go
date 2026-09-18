@@ -131,10 +131,10 @@ func mintInto(c *state.Campaign, rels *[]validation.Value, kind string,
 			"%s is a derived query — it is never stored (resemblance_report "+
 				"recomputes it on demand)", pyReprStr(kind))
 	}
-	if objStr(src, "type") != spec.Src || objStr(dst, "type") != spec.Dst {
+	if validation.ObjStr(src, "type") != spec.Src || validation.ObjStr(dst, "type") != spec.Dst {
 		return validation.VNull(), false, fmt.Errorf(
 			"%s requires %s -> %s, got %s -> %s", kind, spec.Src, spec.Dst,
-			objStr(src, "type"), objStr(dst, "type"))
+			validation.ObjStr(src, "type"), validation.ObjStr(dst, "type"))
 	}
 	if spec.Policy == "human-gated" {
 		if actor == nil || *actor == "" {
@@ -147,9 +147,9 @@ func mintInto(c *state.Campaign, rels *[]validation.Value, kind string,
 			"%s is deterministic: a non-empty support anchor is required", kind)
 	}
 	for _, r := range *rels {
-		if objStr(r, "kind") == kind &&
-			validation.CanonCompact(objAt(r, "src")) == validation.CanonCompact(src) &&
-			validation.CanonCompact(objAt(r, "dst")) == validation.CanonCompact(dst) {
+		if validation.ObjStr(r, "kind") == kind &&
+			validation.CanonCompact(validation.ObjAt(r, "src")) == validation.CanonCompact(src) &&
+			validation.CanonCompact(validation.ObjAt(r, "dst")) == validation.CanonCompact(dst) {
 			return r, false, nil // idempotent
 		}
 	}
@@ -166,11 +166,11 @@ func mintInto(c *state.Campaign, rels *[]validation.Value, kind string,
 		return validation.VNull(), false, err
 	}
 	*rels = append(*rels, edge)
-	rid := objStr(edge, "relation_id")
+	rid := validation.ObjStr(edge, "relation_id")
 	data := validation.VObj(
 		kv("kind", validation.VStr(kind)),
-		kv("src", validation.VStr(objStr(src, "id"))),
-		kv("dst", validation.VStr(objStr(dst, "id"))),
+		kv("src", validation.VStr(validation.ObjStr(src, "id"))),
+		kv("dst", validation.VStr(validation.ObjStr(dst, "id"))),
 		kv("policy", validation.VStr(spec.Policy)))
 	if _, err := c.Log("relation.minted", &rid, &data); err != nil {
 		return validation.VNull(), false, err
@@ -224,7 +224,7 @@ func MintChainedWith(c *state.Campaign, chainID string,
 	var chain validation.Value
 	found := false
 	for _, ch := range chains {
-		if objStr(ch, "chain_id") == chainID {
+		if validation.ObjStr(ch, "chain_id") == chainID {
 			chain, found = ch, true
 			break
 		}
@@ -232,7 +232,7 @@ func MintChainedWith(c *state.Campaign, chainID string,
 	if !found {
 		return nil, fmt.Errorf("no materialized chain %s", pyReprStr(chainID))
 	}
-	members := strList(objAt(chain, "members"))
+	members := strList(validation.ObjAt(chain, "members"))
 	out := []validation.Value{}
 	for i := 0; i+1 < len(members); i++ {
 		a, b := members[i], members[i+1]
@@ -263,26 +263,26 @@ func MintValidatedBy(c *state.Campaign, findingID string,
 		}
 		execIDs = map[string]struct{}{}
 		for _, rec := range recs {
-			execIDs[objStr(rec, "exec_id")] = struct{}{}
+			execIDs[validation.ObjStr(rec, "exec_id")] = struct{}{}
 		}
 	}
 	out := []validation.Value{}
-	for _, item := range objAt(f, "evidence").A {
-		if !inList(objStr(item, "level"), evidenceLevels) {
+	for _, item := range validation.ObjAt(f, "evidence").A {
+		if !inList(validation.ObjStr(item, "level"), evidenceLevels) {
 			continue
 		}
-		aid := objStr(item, "artifact_id")
+		aid := validation.ObjStr(item, "artifact_id")
 		if aid == "" {
 			continue
 		}
 		if _, ok := execIDs[aid]; !ok {
 			continue
 		}
-		note := objStr(item, "level") + " " + pyStr(objAt(item, "type")) + " evidence"
+		note := validation.ObjStr(item, "level") + " " + pyStr(validation.ObjAt(item, "type")) + " evidence"
 		edge, err := appendEdge(c, rels, "validated_by",
 			node("finding", findingID), node("exec", aid),
 			validation.VObj(kv("evidence_id",
-				validation.VStr(objStr(item, "evidence_id")))), &note)
+				validation.VStr(validation.ObjStr(item, "evidence_id")))), &note)
 		if err != nil {
 			return nil, err
 		}
@@ -300,7 +300,7 @@ func MintObservedIn(c *state.Campaign, findingID string,
 		return nil, err
 	}
 	out := []validation.Value{}
-	for _, entry := range objAt(f, "snapshot_ids").O {
+	for _, entry := range validation.ObjAt(f, "snapshot_ids").O {
 		if entry.V.Kind != validation.Str || entry.V.S == "" {
 			continue
 		}
@@ -328,22 +328,22 @@ func MintDisprovedBy(c *state.Campaign, findingID string,
 	}
 	out := []validation.Value{}
 	for _, mem := range mems {
-		if objStr(mem, "finding_id") != findingID ||
-			objStr(mem, "status") != "DISPROVED" {
+		if validation.ObjStr(mem, "finding_id") != findingID ||
+			validation.ObjStr(mem, "status") != "DISPROVED" {
 			continue
 		}
-		note := head200(objStr(mem, "evidence_summary"))
+		note := head200(validation.ObjStr(mem, "evidence_summary"))
 		if note == "" {
-			note = head200(objStr(mem, "pattern"))
+			note = head200(validation.ObjStr(mem, "pattern"))
 		}
 		var notePtr *string
 		if note != "" {
 			notePtr = &note
 		}
 		edge, err := appendEdge(c, rels, "disproved_by",
-			node("finding", findingID), node("memory", objStr(mem, "memory_id")),
+			node("finding", findingID), node("memory", validation.ObjStr(mem, "memory_id")),
 			validation.VObj(
-				kv("memory_id", validation.VStr(objStr(mem, "memory_id"))),
+				kv("memory_id", validation.VStr(validation.ObjStr(mem, "memory_id"))),
 				kv("status", validation.VStr("DISPROVED"))), notePtr)
 		if err != nil {
 			return nil, err
@@ -363,14 +363,14 @@ func historyCommits(c *state.Campaign) ([]validation.Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return objAt(doc, "security_relevant_commits").A, nil
+	return validation.ObjAt(doc, "security_relevant_commits").A, nil
 }
 
 // affectedPaths is _affected_paths.
 func affectedPaths(f validation.Value) map[string]struct{} {
 	out := map[string]struct{}{}
-	for _, a := range objAt(f, "affected").A {
-		if p := objStr(a, "path"); p != "" {
+	for _, a := range validation.ObjAt(f, "affected").A {
+		if p := validation.ObjStr(a, "path"); p != "" {
 			out[p] = struct{}{}
 		}
 	}
@@ -390,11 +390,11 @@ func matchingCommit(c *state.Campaign, findingID, commit string) (*validation.Va
 		return nil, err
 	}
 	for _, cm := range commits {
-		if objStr(cm, "commit") != commit {
+		if validation.ObjStr(cm, "commit") != commit {
 			continue
 		}
 		matched := []string{}
-		for _, fp := range strList(objAt(cm, "files")) {
+		for _, fp := range strList(validation.ObjAt(cm, "files")) {
 			if _, ok := paths[fp]; ok {
 				matched = append(matched, fp)
 			}
@@ -405,9 +405,9 @@ func matchingCommit(c *state.Campaign, findingID, commit string) (*validation.Va
 		}
 		sup := validation.VObj(
 			kv("commit", validation.VStr(commit)),
-			kv("date", objAt(cm, "date")),
-			kv("subject", objAt(cm, "subject")),
-			kv("matched_files", strArr(matched)))
+			kv("date", validation.ObjAt(cm, "date")),
+			kv("subject", validation.ObjAt(cm, "subject")),
+			kv("matched_files", validation.StrArr(matched)))
 		return &sup, nil
 	}
 	return nil, nil
@@ -445,8 +445,8 @@ func MintReintroducedBy(c *state.Campaign, findingID, commit,
 			"both commits must touch paths affected by %s in the mined "+
 				"history — reintroduced_by must be checkable", findingID)
 	}
-	laterDate := objStr(*later, "date")
-	earlierDate := objStr(*earlier, "date")
+	laterDate := validation.ObjStr(*later, "date")
+	earlierDate := validation.ObjStr(*earlier, "date")
 	if !(laterDate > earlierDate) {
 		return validation.VNull(), fmt.Errorf(
 			"reintroduction commit %s (%s) is not dated after the fix commit "+
@@ -493,7 +493,7 @@ func MintAllDeterministic(c *state.Campaign) (int, error) {
 	}
 	execIDs := map[string]struct{}{}
 	for _, rec := range recs {
-		execIDs[objStr(rec, "exec_id")] = struct{}{}
+		execIDs[validation.ObjStr(rec, "exec_id")] = struct{}{}
 	}
 	mems, err := learning.AllMemory(c)
 	if err != nil {
@@ -504,7 +504,7 @@ func MintAllDeterministic(c *state.Campaign) (int, error) {
 		return 0, err
 	}
 	for _, ch := range chains {
-		if _, err := MintChainedWith(c, objStr(ch, "chain_id"), &rels); err != nil {
+		if _, err := MintChainedWith(c, validation.ObjStr(ch, "chain_id"), &rels); err != nil {
 			return 0, err
 		}
 	}
@@ -513,7 +513,7 @@ func MintAllDeterministic(c *state.Campaign) (int, error) {
 		return 0, err
 	}
 	for _, f := range all {
-		fid := objStr(f, "finding_id")
+		fid := validation.ObjStr(f, "finding_id")
 		if _, err := MintValidatedBy(c, fid, &rels, execIDs); err != nil {
 			return 0, err
 		}
@@ -542,8 +542,8 @@ func exploitPath(c *state.Campaign, findingID string) ([]string, error) {
 		return nil, err
 	}
 	for _, ch := range chains {
-		if inList(findingID, strList(objAt(ch, "members"))) {
-			return strList(objAt(ch, "members")), nil
+		if inList(findingID, strList(validation.ObjAt(ch, "members"))) {
+			return strList(validation.ObjAt(ch, "members")), nil
 		}
 	}
 	return []string{findingID}, nil
@@ -575,7 +575,7 @@ func CapabilityCoverage(c *state.Campaign, candidateID,
 			dependsRaw[lab] = struct{}{}
 		}
 	}
-	pin := objStr(objAt(cand, "snapshot_ids"), "source")
+	pin := validation.ObjStr(validation.ObjAt(cand, "snapshot_ids"), "source")
 	provides := map[string]struct{}{}
 	codeSourced := map[string]struct{}{}
 	all, err := findings.LoadAllFindings(c)
@@ -583,13 +583,13 @@ func CapabilityCoverage(c *state.Campaign, candidateID,
 		return validation.VNull(), err
 	}
 	for _, f := range all {
-		if s := objStr(f, "status"); s == "DUPLICATE" || s == "OUT_OF_SCOPE" {
+		if s := validation.ObjStr(f, "status"); s == "DUPLICATE" || s == "OUT_OF_SCOPE" {
 			continue
 		}
 		for _, lab := range capabilities.Granted(f) {
 			codeSourced[lab] = struct{}{}
 		}
-		if objStr(objAt(f, "snapshot_ids"), "source") == pin {
+		if validation.ObjStr(validation.ObjAt(f, "snapshot_ids"), "source") == pin {
 			for _, lab := range capabilities.Granted(f) {
 				provides[lab] = struct{}{}
 			}
@@ -665,17 +665,17 @@ func CapabilityCoverage(c *state.Campaign, candidateID,
 			"state — re-verify whether the missing capabilities are truly gone "+
 			"or merely moved")
 	}
-	classMatch := objStr(objAt(cand, "root_cause"), "class") ==
-		objStr(objAt(prim, "root_cause"), "class")
+	classMatch := validation.ObjStr(validation.ObjAt(cand, "root_cause"), "class") ==
+		validation.ObjStr(validation.ObjAt(prim, "root_cause"), "class")
 	return validation.VObj(
 		kv("candidate_id", validation.VStr(candidateID)),
 		kv("primitive_id", validation.VStr(primitiveID)),
 		kv("class_match", validation.VBool(classMatch)),
-		kv("granted_overlap", strArr(overlap)),
+		kv("granted_overlap", validation.StrArr(overlap)),
 		kv("similarity", sim),
-		kv("primitive_depended_on", strArr(dependsSorted)),
-		kv("still_provided", strArr(satisfied)),
-		kv("missing", strArr(missing)),
+		kv("primitive_depended_on", validation.StrArr(dependsSorted)),
+		kv("still_provided", validation.StrArr(satisfied)),
+		kv("missing", validation.StrArr(missing)),
 		kv("candidate_reaches_terminal", validation.VBool(terminal)),
 		kv("advisory", validation.VStr(strings.Join(bits, " ")))), nil
 }
@@ -694,26 +694,26 @@ func ResemblanceReport(c *state.Campaign,
 		return validation.VNull(), err
 	}
 	for _, f := range all {
-		fid := objStr(f, "finding_id")
+		fid := validation.ObjStr(f, "finding_id")
 		if fid == candidateID {
 			continue
 		}
-		if s := objStr(f, "status"); s != "CONFIRMED" && s != "CHAIN" {
+		if s := validation.ObjStr(f, "status"); s != "CONFIRMED" && s != "CHAIN" {
 			continue
 		}
 		cov, err := CapabilityCoverage(c, candidateID, fid)
 		if err != nil {
 			return validation.VNull(), err
 		}
-		classMatch := objAt(cov, "class_match").B
-		if !classMatch && len(objAt(cov, "granted_overlap").A) == 0 {
+		classMatch := validation.ObjAt(cov, "class_match").B
+		if !classMatch && len(validation.ObjAt(cov, "granted_overlap").A) == 0 {
 			continue
 		}
 		out = append(out, cov)
 	}
 	sort.SliceStable(out, func(i, j int) bool {
 		ci, cj := out[i], out[j]
-		mi, mj := !objAt(ci, "class_match").B, !objAt(cj, "class_match").B
+		mi, mj := !validation.ObjAt(ci, "class_match").B, !validation.ObjAt(cj, "class_match").B
 		if mi != mj {
 			return !mi
 		}
@@ -721,12 +721,12 @@ func ResemblanceReport(c *state.Campaign,
 		if si != sj {
 			return si > sj
 		}
-		return len(objAt(ci, "missing").A) < len(objAt(cj, "missing").A)
+		return len(validation.ObjAt(ci, "missing").A) < len(validation.ObjAt(cj, "missing").A)
 	})
 	return validation.VObj(
 		kv("candidate_id", validation.VStr(candidateID)),
-		kv("candidate_class", objAt(objAt(cand, "root_cause"), "class")),
-		kv("candidate_required", strArr(capabilities.Required(cand))),
+		kv("candidate_class", validation.ObjAt(validation.ObjAt(cand, "root_cause"), "class")),
+		kv("candidate_required", validation.StrArr(capabilities.Required(cand))),
 		kv("matches", validation.VArr(out...)),
 		kv("note", validation.VStr("derived query — resemblance edges are "+
 			"never stored; recomputed on demand so a heuristic can never "+
@@ -749,18 +749,18 @@ func VerifyRelations(c *state.Campaign) (validation.Value, error) {
 	}
 	mintedRefs := map[string]struct{}{}
 	for _, e := range events {
-		if objStr(e, "type") == "relation.minted" {
-			mintedRefs[objStr(e, "ref")] = struct{}{}
+		if validation.ObjStr(e, "type") == "relation.minted" {
+			mintedRefs[validation.ObjStr(e, "ref")] = struct{}{}
 		}
 	}
 	for _, r := range rels {
-		kind := objStr(r, "kind")
-		src, dst := objAt(r, "src"), objAt(r, "dst")
-		support := objAt(r, "support")
+		kind := validation.ObjStr(r, "kind")
+		src, dst := validation.ObjAt(r, "src"), validation.ObjAt(r, "dst")
+		support := validation.ObjAt(r, "support")
 		if support.Kind != validation.Obj {
 			support = validation.VObj()
 		}
-		rid := objStr(r, "relation_id")
+		rid := validation.ObjStr(r, "relation_id")
 		if rid == "" {
 			rid = "?"
 		}
@@ -774,7 +774,7 @@ func VerifyRelations(c *state.Campaign) (validation.Value, error) {
 			continue
 		}
 		if spec.Policy == "human-gated" {
-			if objStr(r, "actor") == "" {
+			if validation.ObjStr(r, "actor") == "" {
 				problems = append(problems, fmt.Sprintf(
 					"%s: %s lacks the recorded human actor", rid, kind))
 			}
@@ -791,7 +791,7 @@ func VerifyRelations(c *state.Campaign) (validation.Value, error) {
 	}
 	return validation.VObj(
 		kv("checked", validation.VInt(int64(len(rels)))),
-		kv("problems", strArr(problems)),
+		kv("problems", validation.StrArr(problems)),
 		kv("ok", validation.VBool(len(problems) == 0))), nil
 }
 
@@ -806,11 +806,11 @@ func reDerive(c *state.Campaign, kind string, src, dst,
 			return err
 		}
 		for _, ch := range chains {
-			if objStr(ch, "chain_id") != objStr(support, "chain_id") {
+			if validation.ObjStr(ch, "chain_id") != validation.ObjStr(support, "chain_id") {
 				continue
 			}
-			m := strList(objAt(ch, "members"))
-			si, di := indexOf(m, objStr(src, "id")), indexOf(m, objStr(dst, "id"))
+			m := strList(validation.ObjAt(ch, "members"))
+			si, di := indexOf(m, validation.ObjStr(src, "id")), indexOf(m, validation.ObjStr(dst, "id"))
 			if si >= 0 && di >= 0 && si+1 == di {
 				return nil
 			}
@@ -818,20 +818,20 @@ func reDerive(c *state.Campaign, kind string, src, dst,
 		}
 		return errors.New("")
 	case "validated_by":
-		f, err := findings.LoadFinding(c, objStr(src, "id"))
+		f, err := findings.LoadFinding(c, validation.ObjStr(src, "id"))
 		if err != nil {
 			return err
 		}
 		var item validation.Value
 		found := false
-		for _, e := range objAt(f, "evidence").A {
-			if objStr(e, "evidence_id") == objStr(support, "evidence_id") {
+		for _, e := range validation.ObjAt(f, "evidence").A {
+			if validation.ObjStr(e, "evidence_id") == validation.ObjStr(support, "evidence_id") {
 				item, found = e, true
 				break
 			}
 		}
-		if !found || !inList(objStr(item, "level"), evidenceLevels) ||
-			objStr(item, "artifact_id") != objStr(dst, "id") {
+		if !found || !inList(validation.ObjStr(item, "level"), evidenceLevels) ||
+			validation.ObjStr(item, "artifact_id") != validation.ObjStr(dst, "id") {
 			return errors.New("evidence no longer traces to this exec")
 		}
 		recs, err := sandbox.AllExecs(c)
@@ -840,19 +840,19 @@ func reDerive(c *state.Campaign, kind string, src, dst,
 		}
 		ids := map[string]struct{}{}
 		for _, rec := range recs {
-			ids[objStr(rec, "exec_id")] = struct{}{}
+			ids[validation.ObjStr(rec, "exec_id")] = struct{}{}
 		}
-		if _, ok := ids[objStr(dst, "id")]; !ok {
+		if _, ok := ids[validation.ObjStr(dst, "id")]; !ok {
 			return errors.New("exec record missing")
 		}
 		return nil
 	case "observed_in":
-		f, err := findings.LoadFinding(c, objStr(src, "id"))
+		f, err := findings.LoadFinding(c, validation.ObjStr(src, "id"))
 		if err != nil {
 			return err
 		}
-		if objStr(objAt(f, "snapshot_ids"), objStr(support, "pin")) !=
-			objStr(dst, "id") {
+		if validation.ObjStr(validation.ObjAt(f, "snapshot_ids"), validation.ObjStr(support, "pin")) !=
+			validation.ObjStr(dst, "id") {
 			return errors.New("finding no longer pinned to this snapshot")
 		}
 		return nil
@@ -862,35 +862,35 @@ func reDerive(c *state.Campaign, kind string, src, dst,
 			return err
 		}
 		for _, mem := range mems {
-			if objStr(mem, "memory_id") != objStr(support, "memory_id") {
+			if validation.ObjStr(mem, "memory_id") != validation.ObjStr(support, "memory_id") {
 				continue
 			}
-			if objStr(mem, "status") != "DISPROVED" ||
-				objStr(mem, "finding_id") != objStr(src, "id") {
+			if validation.ObjStr(mem, "status") != "DISPROVED" ||
+				validation.ObjStr(mem, "finding_id") != validation.ObjStr(src, "id") {
 				break
 			}
 			return nil
 		}
 		return errors.New("memory no longer disproves this finding")
 	case "fixed_by", "reintroduced_by":
-		s, err := matchingCommit(c, objStr(src, "id"), objStr(support, "commit"))
+		s, err := matchingCommit(c, validation.ObjStr(src, "id"), validation.ObjStr(support, "commit"))
 		if err != nil {
 			return err
 		}
 		if s == nil {
 			return errors.New("commit no longer matches the affected paths")
 		}
-		if validation.CanonCompact(objAt(*s, "matched_files")) !=
-			validation.CanonCompact(objAt(support, "matched_files")) {
+		if validation.CanonCompact(validation.ObjAt(*s, "matched_files")) !=
+			validation.CanonCompact(validation.ObjAt(support, "matched_files")) {
 			return errors.New("matched files drifted")
 		}
 		if kind == "reintroduced_by" {
-			e, err := matchingCommit(c, objStr(src, "id"),
-				objStr(support, "after_commit"))
+			e, err := matchingCommit(c, validation.ObjStr(src, "id"),
+				validation.ObjStr(support, "after_commit"))
 			if err != nil {
 				return err
 			}
-			if e == nil || !(objStr(*s, "date") > objStr(*e, "date")) {
+			if e == nil || !(validation.ObjStr(*s, "date") > validation.ObjStr(*e, "date")) {
 				return errors.New("date order no longer holds")
 			}
 		}
@@ -907,7 +907,7 @@ func GraphView(c *state.Campaign) (validation.Value, error) {
 	}
 	byKind := map[string][]validation.Value{}
 	for _, r := range rels {
-		k := objStr(r, "kind")
+		k := validation.ObjStr(r, "kind")
 		byKind[k] = append(byKind[k], r)
 	}
 	grouped := validation.VObj()
@@ -934,12 +934,12 @@ var clusterStatuses = []string{"CONFIRMED", "CHAIN"}
 // affectedSignature is _affected_signature.
 func affectedSignature(f validation.Value) []string {
 	parts := map[string]struct{}{}
-	for _, a := range objAt(f, "affected").A {
-		path := strings.TrimSpace(objStr(a, "path"))
+	for _, a := range validation.ObjAt(f, "affected").A {
+		path := strings.TrimSpace(validation.ObjStr(a, "path"))
 		if path == "" {
 			continue
 		}
-		fn := strings.TrimSpace(objStr(a, "function"))
+		fn := strings.TrimSpace(validation.ObjStr(a, "function"))
 		if fn != "" {
 			parts[path+"::"+fn] = struct{}{}
 		} else {
@@ -957,10 +957,10 @@ func RootCauseClusters(c *state.Campaign) (validation.Value, error) {
 	}
 	byClass := map[string][]validation.Value{}
 	for _, f := range all {
-		if !inList(objStr(f, "status"), clusterStatuses) {
+		if !inList(validation.ObjStr(f, "status"), clusterStatuses) {
 			continue
 		}
-		cls := strings.TrimSpace(objStr(objAt(f, "root_cause"), "class"))
+		cls := strings.TrimSpace(validation.ObjStr(validation.ObjAt(f, "root_cause"), "class"))
 		if cls == "" {
 			continue
 		}
@@ -982,11 +982,11 @@ func RootCauseClusters(c *state.Campaign) (validation.Value, error) {
 			continue
 		}
 		sort.SliceStable(members, func(i, j int) bool {
-			return objStr(members[i], "finding_id") < objStr(members[j], "finding_id")
+			return validation.ObjStr(members[i], "finding_id") < validation.ObjStr(members[j], "finding_id")
 		})
 		memberIDs := map[string]struct{}{}
 		for _, f := range members {
-			memberIDs[objStr(f, "finding_id")] = struct{}{}
+			memberIDs[validation.ObjStr(f, "finding_id")] = struct{}{}
 		}
 		sigOrder := []string{}
 		sub := map[string][]validation.Value{}
@@ -1016,7 +1016,7 @@ func RootCauseClusters(c *state.Campaign) (validation.Value, error) {
 			ids := []string{}
 			immunized := []string{}
 			for _, f := range fs {
-				fid := objStr(f, "finding_id")
+				fid := validation.ObjStr(f, "finding_id")
 				ids = append(ids, fid)
 				if immunize.IsImmunized(f) {
 					immunized = append(immunized, fid)
@@ -1024,35 +1024,35 @@ func RootCauseClusters(c *state.Campaign) (validation.Value, error) {
 			}
 			sort.Strings(immunized)
 			subclusters = append(subclusters, validation.VObj(
-				kv("locations", strArr(locations)),
-				kv("finding_ids", strArr(ids)),
-				kv("immunized", strArr(immunized))))
+				kv("locations", validation.StrArr(locations)),
+				kv("finding_ids", validation.StrArr(ids)),
+				kv("immunized", validation.StrArr(immunized))))
 		}
-		rc := objAt(members[0], "root_cause")
+		rc := validation.ObjAt(members[0], "root_cause")
 		attested := []validation.Value{}
 		for _, r := range rels {
-			if objStr(r, "kind") != "caused_by" {
+			if validation.ObjStr(r, "kind") != "caused_by" {
 				continue
 			}
-			src, dst := objAt(r, "src"), objAt(r, "dst")
-			_, sOK := memberIDs[objStr(src, "id")]
-			_, dOK := memberIDs[objStr(dst, "id")]
+			src, dst := validation.ObjAt(r, "src"), validation.ObjAt(r, "dst")
+			_, sOK := memberIDs[validation.ObjStr(src, "id")]
+			_, dOK := memberIDs[validation.ObjStr(dst, "id")]
 			if sOK && dOK {
 				attested = append(attested, validation.VObj(
-					kv("src", validation.VStr(objStr(src, "id"))),
-					kv("dst", validation.VStr(objStr(dst, "id"))),
-					kv("actor", objAt(r, "actor"))))
+					kv("src", validation.VStr(validation.ObjStr(src, "id"))),
+					kv("dst", validation.VStr(validation.ObjStr(dst, "id"))),
+					kv("actor", validation.ObjAt(r, "actor"))))
 			}
 		}
 		memberIDsList := []string{}
 		for _, f := range members {
-			memberIDsList = append(memberIDsList, objStr(f, "finding_id"))
+			memberIDsList = append(memberIDsList, validation.ObjStr(f, "finding_id"))
 		}
 		clusters = append(clusters, validation.VObj(
 			kv("class", validation.VStr(cls)),
-			kv("description", validation.VStr(head300(objStr(rc, "description")))),
-			kv("mechanism", objAt(rc, "mechanism")),
-			kv("members", strArr(memberIDsList)),
+			kv("description", validation.VStr(head300(validation.ObjStr(rc, "description")))),
+			kv("mechanism", validation.ObjAt(rc, "mechanism")),
+			kv("members", validation.StrArr(memberIDsList)),
 			kv("subclusters", validation.VArr(subclusters...)),
 			kv("attested_causation", validation.VArr(attested...))))
 	}
@@ -1072,23 +1072,6 @@ func (API) VerifyRelations(c *state.Campaign) (validation.Value, error) {
 }
 
 // ---- helpers --------------------------------------------------------------
-
-func objAt(v validation.Value, key string) validation.Value {
-	for _, kv := range v.O {
-		if kv.K == key {
-			return kv.V
-		}
-	}
-	return validation.VNull()
-}
-
-func objStr(v validation.Value, key string) string {
-	f := objAt(v, key)
-	if f.Kind == validation.Str {
-		return f.S
-	}
-	return ""
-}
 
 func kv(k string, v validation.Value) validation.KV {
 	return validation.KV{K: k, V: v}
@@ -1110,14 +1093,6 @@ func supportOrNull(s *validation.Value) validation.Value {
 
 func supportTruthy(s *validation.Value) bool {
 	return s != nil && s.Kind == validation.Obj && len(s.O) > 0
-}
-
-func strArr(items []string) validation.Value {
-	out := make([]validation.Value, 0, len(items))
-	for _, s := range items {
-		out = append(out, validation.VStr(s))
-	}
-	return validation.VArr(out...)
 }
 
 func strList(v validation.Value) []string {
@@ -1158,7 +1133,7 @@ func sortedKeys(m map[string]struct{}) []string {
 }
 
 func simOf(v validation.Value) float64 {
-	s := objAt(v, "similarity")
+	s := validation.ObjAt(v, "similarity")
 	if s.Kind == validation.Flt {
 		return s.F
 	}

@@ -28,7 +28,7 @@ func (o *Orchestrator) LoadProtocolModel(model validation.Value) (validation.Val
 	if err != nil {
 		return validation.VNull(), err
 	}
-	seeded := pyLen(objAt(loaded, "invariants"))
+	seeded := pyLen(validation.ObjAt(loaded, "invariants"))
 	// Fail loud on a partial/empty seed: run-2 saved the artifact and logged
 	// protocol_model.loaded while the registry silently stayed empty, and the
 	// stage auto-completed on the file alone — the gap only surfaced 40
@@ -42,7 +42,7 @@ func (o *Orchestrator) LoadProtocolModel(model validation.Value) (validation.Val
 			return validation.VNull(), err
 		}
 	}
-	reg := objAt(links, "invariants")
+	reg := validation.ObjAt(links, "invariants")
 	// does the model point at the protocol's OWN documented invariants?
 	// divergence is surfaced (and logged), never hidden.
 	recon, err := invariants.Reconcile(o.C, loaded)

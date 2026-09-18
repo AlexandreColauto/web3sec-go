@@ -67,7 +67,7 @@ func sequenceCoverage(c *state.Campaign) (validation.Value, error) {
 		rows = append(rows, row)
 		if problem.Kind != validation.Null {
 			problems = append(problems, validation.VStr(fmt.Sprintf("%s: %s",
-				objStr(row, "finding_id"), problem.S)))
+				validation.ObjStr(row, "finding_id"), problem.S)))
 		}
 		applicable += app
 		covered += cov
@@ -91,7 +91,7 @@ func seqExecIndex(c *state.Campaign) (map[string]validation.Value, error) {
 	}
 	execs := map[string]validation.Value{}
 	for _, r := range recs {
-		if eid := objStr(r, "exec_id"); eid != "" {
+		if eid := validation.ObjStr(r, "exec_id"); eid != "" {
 			execs[eid] = r
 		}
 	}
@@ -154,11 +154,11 @@ func sequenceRow(c *state.Campaign, execs map[string]validation.Value,
 // degraded branch.
 func seqCoveredBy(c *state.Campaign, execs map[string]validation.Value,
 	f validation.Value) string {
-	ver := objAt(f, "verification")
+	ver := validation.ObjAt(f, "verification")
 	if ver.Kind != validation.Obj {
 		ver = validation.VObj()
 	}
-	repro := objAt(ver, "reproduction")
+	repro := validation.ObjAt(ver, "reproduction")
 	if repro.Kind != validation.Obj {
 		repro = validation.VObj()
 	}
@@ -166,12 +166,12 @@ func seqCoveredBy(c *state.Campaign, execs map[string]validation.Value,
 		if a.Kind != validation.Obj {
 			continue
 		}
-		rec, ok := execs[objStr(a, "artifact_id")]
+		rec, ok := execs[validation.ObjStr(a, "artifact_id")]
 		if !ok {
 			continue
 		}
 		if cov, _ := sequencepoc.VerifySequenceCoverage(c, f, rec); cov {
-			return objStr(rec, "exec_id")
+			return validation.ObjStr(rec, "exec_id")
 		}
 	}
 	return ""
@@ -180,7 +180,7 @@ func seqCoveredBy(c *state.Campaign, execs map[string]validation.Value,
 // attemptsOf is `raw_attempts if isinstance(raw_attempts, list) else []`
 // over `repro.get("attempts") or []`.
 func attemptsOf(repro validation.Value) []validation.Value {
-	v := objAt(repro, "attempts")
+	v := validation.ObjAt(repro, "attempts")
 	if !validation.PyTruthy(v) || v.Kind != validation.Arr {
 		return nil
 	}

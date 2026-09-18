@@ -95,7 +95,7 @@ func TestR44cMemoryCitationRefusesUnreadableStore(t *testing.T) {
 	r44cChmod(t, c.MemoryDir)
 
 	err := ValidateResponse("proposer", "hypothesis",
-		r44cHypothesis(objStr(row, "memory_id")), c)
+		r44cHypothesis(validation.ObjStr(row, "memory_id")), c)
 	if err == nil {
 		t.Fatal("a citation was resolved against an unreadable memory store")
 	}
@@ -118,7 +118,7 @@ func TestR44cMemoryCitationRefusesUnreadableStore(t *testing.T) {
 func TestR44cMemoryCitationRefusesUnreadableRow(t *testing.T) {
 	c := r44cCampaign(t, "C-r44cbidr2")
 	row := r44cQueuePrior(t, c)
-	mid := objStr(row, "memory_id")
+	mid := validation.ObjStr(row, "memory_id")
 	r44cChmod(t, filepath.Join(c.MemoryDir, mid+".json"))
 
 	err := ValidateResponse("proposer", "hypothesis", r44cHypothesis(mid), c)
@@ -138,7 +138,7 @@ func TestR44cMemoryCitationRefusesUnreadableRow(t *testing.T) {
 func TestR44cMemoryCitationHonestShapesStayGreen(t *testing.T) {
 	c := r44cCampaign(t, "C-r44cbidg1")
 	row := r44cQueuePrior(t, c)
-	mid := objStr(row, "memory_id")
+	mid := validation.ObjStr(row, "memory_id")
 
 	if err := ValidateResponse("proposer", "hypothesis",
 		r44cHypothesis(mid), c); err != nil {

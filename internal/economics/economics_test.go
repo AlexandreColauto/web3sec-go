@@ -81,7 +81,7 @@ func TestOddDecimalsFamilyFlagIsEmitted(t *testing.T) {
 	if len(risky) != 1 {
 		t.Fatalf("risky = %s, want one row", dump(validation.VArr(risky...)))
 	}
-	flags := objAt(risky[0], "flags")
+	flags := validation.ObjAt(risky[0], "flags")
 	if dump(flags) != "[\n  \"odd-decimals-7\"\n]" {
 		t.Errorf("flags = %s, want [odd-decimals-7]", dump(flags))
 	}
@@ -134,7 +134,7 @@ func TestDebtAssetAddsSolvencyEquation(t *testing.T) {
 	if !found {
 		t.Errorf("no liq_threshold equation: %s", dump(validation.VArr(eqs...)))
 	}
-	breaks := objAt(eqs[0], "breakable_by")
+	breaks := validation.ObjAt(eqs[0], "breakable_by")
 	hasInsolvency := false
 	for _, b := range breaks.A {
 		if b.S == "insolvency-by-withdraw-order" {
@@ -179,12 +179,12 @@ func TestGoldenEconomicsMatchPythonVectors(t *testing.T) {
 	checked := 0
 	for _, name := range goldenModels {
 		model := readTestJson(t, name+"_model.json")
-		group := objAt(golden, name)
+		group := validation.ObjAt(golden, name)
 		if group.Kind != validation.Obj {
 			t.Fatalf("golden has no %s group", name)
 		}
 		for _, tc := range cases {
-			want := objAt(group, tc.key)
+			want := validation.ObjAt(group, tc.key)
 			if want.Kind == validation.Null {
 				t.Errorf("golden %s/%s missing", name, tc.key)
 				continue
@@ -211,7 +211,7 @@ func TestCatalogQuestionsAreByteExact(t *testing.T) {
 	}
 	for i, row := range catalog.A {
 		wantIdx := int64(i + 1)
-		if got := objAt(row, "index"); got.I != wantIdx {
+		if got := validation.ObjAt(row, "index"); got.I != wantIdx {
 			t.Errorf("row %d index = %d, want %d", i, got.I, wantIdx)
 		}
 		if got, want := transformName(i), objStrOf(row, "name"); got != want {
@@ -283,8 +283,8 @@ func TestEquationNumberingContinuesFromRecordedEquations(t *testing.T) {
 	}
 	wantMissing := validation.VArr(validation.VStr("enforced_by"),
 		validation.VStr("breakable_by"))
-	if dump(objAt(gaps[0], "missing")) != dump(wantMissing) {
-		t.Errorf("missing = %s, want %s", dump(objAt(gaps[0], "missing")),
+	if dump(validation.ObjAt(gaps[0], "missing")) != dump(wantMissing) {
+		t.Errorf("missing = %s, want %s", dump(validation.ObjAt(gaps[0], "missing")),
 			dump(wantMissing))
 	}
 }
@@ -323,10 +323,10 @@ func TestEconomicSummaryKeyOrder(t *testing.T) {
 	if strings.Join(keys, ",") != want {
 		t.Errorf("summary keys = %v, want %s", keys, want)
 	}
-	if objAt(summary, "equations").I != 4 {
-		t.Errorf("equations = %s, want 4", dump(objAt(summary, "equations")))
+	if validation.ObjAt(summary, "equations").I != 4 {
+		t.Errorf("equations = %s, want 4", dump(validation.ObjAt(summary, "equations")))
 	}
-	oracles := objAt(summary, "oracles")
+	oracles := validation.ObjAt(summary, "oracles")
 	if dump(oracles) != "[\n  \"ORC-1\",\n  \"ORC-2\"\n]" {
 		t.Errorf("oracles = %s", dump(oracles))
 	}

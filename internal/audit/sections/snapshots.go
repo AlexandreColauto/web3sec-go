@@ -90,7 +90,7 @@ func Snapshots(c *state.Campaign) (validation.Value, error) {
 			continue
 		}
 		snap, perr := validation.ReadJson(meta)
-		recorded := objAt(objAt(snap, "source"), "content_hash")
+		recorded := validation.ObjAt(validation.ObjAt(snap, "source"), "content_hash")
 		if perr != nil || recorded.Kind != validation.Str {
 			// r44b: an I/O failure on the manifest is a READ failure, not
 			// a content verdict — Python's os errors are uncaught there
@@ -121,19 +121,19 @@ func Snapshots(c *state.Campaign) (validation.Value, error) {
 					name, trunc12(recorded.S), actual[:12])))
 		}
 		// The self-describing manifest (where present).
-		manifest := objAt(snap, "manifest")
+		manifest := validation.ObjAt(snap, "manifest")
 		if manifest.Kind == validation.Obj && len(manifest.O) > 0 {
 			actualRoot, err := snapshot.SourceMerkleRoot(snapDir)
 			if err != nil {
 				return validation.Value{}, err
 			}
-			manifestRoot := objStr(manifest, "source_merkle_root")
+			manifestRoot := validation.ObjStr(manifest, "source_merkle_root")
 			if actualRoot != manifestRoot {
 				problems = append(problems, validation.VStr(
 					fmt.Sprintf("%s: manifest source_merkle_root mismatch (stored %s..., actual %s...)",
 						name, trunc12(manifestRoot), actualRoot[:12])))
 			}
-			manifestMH := objStr(manifest, "manifest_hash")
+			manifestMH := validation.ObjStr(manifest, "manifest_hash")
 			// Recompute metal hash over the manifest's own fields
 			// (excluding manifest_hash itself).
 			fields := withoutKey(manifest, "manifest_hash")
@@ -152,7 +152,7 @@ func Snapshots(c *state.Campaign) (validation.Value, error) {
 	// already says exists:false), do not block ingest over a deleted dir
 	// the operator may be mid-recovery from.
 	if st, serr := c.State(); serr == nil {
-		active := objStr(st, "active_snapshot_id")
+		active := validation.ObjStr(st, "active_snapshot_id")
 		for _, name := range referencedSnapshotIDs(st) {
 			pinPath := filepath.Join(snapsRoot, name)
 			_, derr := os.Stat(pinPath)
@@ -200,14 +200,14 @@ func referencedSnapshotIDs(st validation.Value) []string {
 		seen[s] = true
 		out = append(out, s)
 	}
-	add(objStr(st, "active_snapshot_id"))
+	add(validation.ObjStr(st, "active_snapshot_id"))
 	// r12: the projection check reads EVERY row of state.snapshots, and
 	// the brief/learning layers trust non-active rows too — a deleted
 	// directory for an INACTIVE row was a ghost pin the message already
 	// named ("the ledger pins are ghosts") but no check covered. Every
 	// referenced row must exist, active or not.
-	for _, r := range objAt(st, "snapshots").A {
-		add(objStr(r, "snapshot_id"))
+	for _, r := range validation.ObjAt(st, "snapshots").A {
+		add(validation.ObjStr(r, "snapshot_id"))
 	}
 	sort.Strings(out)
 	return out

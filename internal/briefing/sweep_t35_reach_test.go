@@ -13,12 +13,12 @@ func TestBriefSurfacesReachabilityForStuckClass(t *testing.T) {
 	c := newCamp(t, "Acme Program")
 	f := t35WorkHypo(t, c, "cross-chain replay hypothesis",
 		"subset-of-users", "cross-chain-replay", nil)
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	b := build(t, c, false)
-	stuck := listAt(objAt(b, "findings"), "structurally_unreachable")
+	stuck := listAt(validation.ObjAt(b, "findings"), "structurally_unreachable")
 	item := validation.VNull()
 	for _, x := range stuck {
-		if objStr(x, "finding_id") == fid {
+		if validation.ObjStr(x, "finding_id") == fid {
 			item = x
 		}
 	}
@@ -26,20 +26,20 @@ func TestBriefSurfacesReachabilityForStuckClass(t *testing.T) {
 		t.Fatalf("finding %s missing from structurally_unreachable: %v", fid,
 			t35IDs(stuck))
 	}
-	if got := objStr(item, "floor"); got != "E6" {
+	if got := validation.ObjStr(item, "floor"); got != "E6" {
 		t.Errorf("floor = %q, want E6", got)
 	}
 	hasPin := false
-	for _, m := range strListOf(objAt(item, "missing")) {
+	for _, m := range strListOf(validation.ObjAt(item, "missing")) {
 		if strings.Contains(m, "pin") {
 			hasPin = true
 		}
 	}
 	if !hasPin {
-		t.Errorf("missing = %v, want a pin demand", objAt(item, "missing"))
+		t.Errorf("missing = %v, want a pin demand", validation.ObjAt(item, "missing"))
 	}
 	named := false
-	for _, a := range objAt(b, "next_actions").A {
+	for _, a := range validation.ObjAt(b, "next_actions").A {
 		// Task 7 fix round 1 (I-2): the line leads with the real command
 		// (`webv2 floors <C> set …`), so "floors set" is no longer a
 		// contiguous substring — the command head and the stuck reason

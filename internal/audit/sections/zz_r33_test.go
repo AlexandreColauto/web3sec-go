@@ -78,8 +78,8 @@ func r33Rewire(t *testing.T, c *state.Campaign, iid, sha, prop, kind,
 	if err != nil {
 		t.Fatal(err)
 	}
-	reg := objAt(links, "invariants")
-	e := objAt(reg, iid)
+	reg := validation.ObjAt(links, "invariants")
+	e := validation.ObjAt(reg, iid)
 	if e.Kind != validation.Obj {
 		t.Fatalf("fixture: no %s in links", iid)
 	}
@@ -102,7 +102,7 @@ func r33Problems(v validation.Value) string {
 // r33Runs joins the rendered harness_runs lines.
 func r33Runs(v validation.Value) string {
 	out := ""
-	for _, r := range objAt(v, "harness_runs").A {
+	for _, r := range validation.ObjAt(v, "harness_runs").A {
 		if r.Kind == validation.Str {
 			out += r.S + "\n"
 		}
@@ -113,7 +113,7 @@ func r33Runs(v validation.Value) string {
 // r33LineFor is the rendered line for iid ("" when the invariant renders
 // none).
 func r33LineFor(v validation.Value, iid string) string {
-	for _, r := range objAt(v, "harness_runs").A {
+	for _, r := range validation.ObjAt(v, "harness_runs").A {
 		if r.Kind == validation.Str && strings.HasPrefix(r.S, iid+":") {
 			return r.S
 		}
@@ -137,7 +137,7 @@ func r33Audit(t *testing.T, c *state.Campaign) validation.Value {
 func r33WantBurn(t *testing.T, v validation.Value, unbackedIID string,
 	frags ...string) {
 	t.Helper()
-	if objAt(v, "ok").B {
+	if validation.ObjAt(v, "ok").B {
 		t.Fatalf("section 11 must burn: %s", validation.CanonCompact(v))
 	}
 	joined := r33Problems(v)
@@ -164,7 +164,7 @@ func r33WantBurn(t *testing.T, v validation.Value, unbackedIID string,
 // unqualified blessing lines and exited 0.
 func TestR33ReportDuplicateRowBurns(t *testing.T) {
 	c, _, sha := zzR32bCampaign(t, r33Body("p1"), "p1")
-	if v := r33Audit(t, c); !objAt(v, "ok").B {
+	if v := r33Audit(t, c); !validation.ObjAt(v, "ok").B {
 		t.Fatalf("control: the honest single row must be green: %s",
 			validation.CanonCompact(v))
 	}
@@ -195,7 +195,7 @@ func TestR33ReportDuplicateRowBurns(t *testing.T) {
 // fold too.
 func TestR33ReportFoldEqualDuplicateRowBurns(t *testing.T) {
 	c, _, sha := zzR32bCampaign(t, r33Body("p1", "P1"), "p1")
-	if v := r33Audit(t, c); !objAt(v, "ok").B {
+	if v := r33Audit(t, c); !validation.ObjAt(v, "ok").B {
 		t.Fatalf("control: one row is honest: %s",
 			validation.CanonCompact(v))
 	}
@@ -226,7 +226,7 @@ func TestR33ReportDuplicateControlsStayGreen(t *testing.T) {
 		r33Rewire(t, c, "INV-4", sha, "p2",
 			string(harness.ReportKind), harness.ReportExecLabel(sha))
 		v := r33Audit(t, c)
-		if !objAt(v, "ok").B {
+		if !validation.ObjAt(v, "ok").B {
 			t.Fatalf("two properties of one report must both bless: %s",
 				validation.CanonCompact(v))
 		}
@@ -247,7 +247,7 @@ func TestR33ReportDuplicateControlsStayGreen(t *testing.T) {
 		r33Rewire(t, c, "INV-3", shaB, "p1",
 			string(harness.ReportKind), harness.ReportExecLabel(shaB))
 		v := r33Audit(t, c)
-		if !objAt(v, "ok").B {
+		if !validation.ObjAt(v, "ok").B {
 			t.Fatalf("a refresh of one's own proof is not a collision: %s",
 				validation.CanonCompact(v))
 		}
@@ -310,7 +310,7 @@ func TestR33PinnedReportSchemaStateBurns(t *testing.T) {
 			c, _, _ := zzR32bCampaign(t, strings.Replace(base,
 				`"schema_version": "1.0"`, `"schema_version": "`+sv+`"`,
 				1), "p1")
-			if v := r33Audit(t, c); !objAt(v, "ok").B {
+			if v := r33Audit(t, c); !validation.ObjAt(v, "ok").B {
 				t.Fatalf("schema_version %s must bind and audit: %s", sv,
 					validation.CanonCompact(v))
 			}
@@ -369,12 +369,12 @@ func TestR33ReportRungWearingAnExecKindBurns(t *testing.T) {
 func TestR33HonestReportRungStaysGreen(t *testing.T) {
 	c, h, _ := zzR32bCampaign(t, r33Body("p1"), "p1")
 	v := r33Audit(t, c)
-	if !objAt(v, "ok").B {
+	if !validation.ObjAt(v, "ok").B {
 		t.Fatalf("the honest report rung must stay green: %s",
 			validation.CanonCompact(v))
 	}
 	want := "INV-3: PROVEN-BOUNDED (miniprover, k=4, " +
-		objStr(h, "exec") + ")"
+		validation.ObjStr(h, "exec") + ")"
 	if got := r33LineFor(v, "INV-3"); got != want {
 		t.Fatalf("honest line = %q, want %q", got, want)
 	}

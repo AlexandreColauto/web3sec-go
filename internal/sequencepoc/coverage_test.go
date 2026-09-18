@@ -85,7 +85,7 @@ func stage(t *testing.T, c *state.Campaign, result, spec validation.Value,
 	if err != nil {
 		t.Fatal(err)
 	}
-	out := filepath.Dir(objStr(rec, "stdout_path"))
+	out := filepath.Dir(validation.ObjStr(rec, "stdout_path"))
 	if err := os.WriteFile(filepath.Join(out, "spec.json"),
 		CanonicalJSON(spec), 0o644); err != nil {
 		t.Fatal(err)
@@ -124,7 +124,7 @@ func TestFullPass(t *testing.T) {
 func TestMissingResult(t *testing.T) {
 	c := testCampaign(t)
 	rec := stage(t, c, validation.VNull(), validation.VNull(), nil)
-	if err := os.Remove(filepath.Join(filepath.Dir(objStr(rec, "stdout_path")),
+	if err := os.Remove(filepath.Join(filepath.Dir(validation.ObjStr(rec, "stdout_path")),
 		"sequence_result.json")); err != nil {
 		t.Fatal(err)
 	}
@@ -137,7 +137,7 @@ func TestMissingResult(t *testing.T) {
 func TestMalformedResultDegradesNotCrashes(t *testing.T) {
 	c := testCampaign(t)
 	rec := stage(t, c, validation.VNull(), validation.VNull(), nil)
-	if err := os.WriteFile(filepath.Join(filepath.Dir(objStr(rec, "stdout_path")),
+	if err := os.WriteFile(filepath.Join(filepath.Dir(validation.ObjStr(rec, "stdout_path")),
 		"sequence_result.json"), []byte("{broken"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -162,7 +162,7 @@ func TestStepCountGapRejected(t *testing.T) {
 	c := testCampaign(t)
 	spec := coverageSpec(t)
 	bad := setKey(goodResult(t, spec), "steps", validation.VArr(
-		listOf(objAt(goodResult(t, spec), "steps"))[0]))
+		listOf(validation.ObjAt(goodResult(t, spec), "steps"))[0]))
 	ok, reasons := verify(t, c, seqFinding(t), stage(t, c, bad, spec, nil))
 	if ok || !anyContainsFold(reasons, "step") {
 		t.Fatalf("ok=%v reasons=%v", ok, reasons)
@@ -241,7 +241,7 @@ func TestExecutedActorSupersetYieldsNoActorReason(t *testing.T) {
 	c := testCampaign(t)
 	spec := coverageSpec(t)
 	res := goodResult(t, spec)
-	steps := append(listOf(objAt(res, "steps")), mustParse(t,
+	steps := append(listOf(validation.ObjAt(res, "steps")), mustParse(t,
 		`{"step": 3, "actor": "arbiter", "tx_hash": null, "status": "revert",
           "revert_reason": "execution reverted: no"}`))
 	res = setKey(res, "steps", validation.VArr(steps...))
@@ -316,7 +316,7 @@ func TestExecOutsideCampaignTreeRejected(t *testing.T) {
 func TestMissingSpecWithResultPresent(t *testing.T) {
 	c := testCampaign(t)
 	rec := stage(t, c, validation.VNull(), validation.VNull(), nil)
-	if err := os.Remove(filepath.Join(filepath.Dir(objStr(rec, "stdout_path")),
+	if err := os.Remove(filepath.Join(filepath.Dir(validation.ObjStr(rec, "stdout_path")),
 		"spec.json")); err != nil {
 		t.Fatal(err)
 	}

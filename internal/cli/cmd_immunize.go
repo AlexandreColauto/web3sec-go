@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"websec/internal/validation"
 
 	"websec/internal/immunize"
 	"websec/internal/state"
@@ -163,18 +164,18 @@ func immunizeCmd(root string, args []string, r *Runner) error {
 		}
 		return err
 	}
-	pv := objAt(objAt(f, "verification"), "patch_verified")
+	pv := validation.ObjAt(validation.ObjAt(f, "verification"), "patch_verified")
 	stateText := "BYPASS FOUND"
 	if immunize.IsImmunized(f) {
 		stateText = "IMMUNIZED"
 	}
 	fmt.Fprintf(r.Out, "%s: %s — patch blocks the fork PoC (%s) and %s "+
-		"boundary mutations\n", pos[1], stateText, objStr(pv, "artifact_id"),
-		scalarStr(objAt(pv, "boundary_mutations_tested")))
-	if pyTruthyCLI(objAt(pv, "boundary_bypass_found")) {
+		"boundary mutations\n", pos[1], stateText, validation.ObjStr(pv, "artifact_id"),
+		scalarStr(validation.ObjAt(pv, "boundary_mutations_tested")))
+	if pyTruthyCLI(validation.ObjAt(pv, "boundary_bypass_found")) {
 		fmt.Fprintf(r.Out, "  BYPASS: %s — fix the patch and re-verify; the "+
 			"bounty gate fails until it holds\n",
-			truncateStr(objStr(pv, "bypass"), 80))
+			truncateStr(validation.ObjStr(pv, "bypass"), 80))
 	}
 	return nil
 }

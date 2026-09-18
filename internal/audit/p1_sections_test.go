@@ -159,7 +159,7 @@ func auditScenario(t *testing.T, c *state.Campaign) validation.Value {
 // sectionVal is one named section of a report.
 func sectionVal(t *testing.T, report validation.Value, name string) validation.Value {
 	t.Helper()
-	secs := objAt(report, "sections")
+	secs := validation.ObjAt(report, "sections")
 	for _, s := range secs.O {
 		if s.K == name {
 			return s.V
@@ -217,7 +217,7 @@ func pythonSectionOrder(t *testing.T, fullReport string) []string {
 		t.Fatal(err)
 	}
 	var out []string
-	for _, kv := range objAt(rep, "sections").O {
+	for _, kv := range validation.ObjAt(rep, "sections").O {
 		out = append(out, kv.K)
 	}
 	if len(out) < 14 {
@@ -279,14 +279,14 @@ func TestFloorPolicyScenariosMatchPython(t *testing.T) {
 				sc.Sections["floor_policy"])
 			sec := sectionVal(t, report, "floor_policy")
 			probs := arrStr(sec, "problems")
-			if got := objAt(sec, "ok").B; got != (len(probs) == 0) {
+			if got := validation.ObjAt(sec, "ok").B; got != (len(probs) == 0) {
 				t.Errorf("ok=%v with %d problems", got, len(probs))
 			}
 			if name == "floor_hand_edited" && len(probs) != 2 {
 				t.Errorf("hand-edited policy yields %d problems, want 2", len(probs))
 			}
-			if name == "floor_clear_only" && objAt(sec, "checked").I != 2 {
-				t.Errorf("clear-only checked = %v, want 2", objAt(sec, "checked").I)
+			if name == "floor_clear_only" && validation.ObjAt(sec, "checked").I != 2 {
+				t.Errorf("clear-only checked = %v, want 2", validation.ObjAt(sec, "checked").I)
 			}
 		})
 	}
@@ -315,7 +315,7 @@ func TestFloorPolicyPopulatedViaAPI(t *testing.T) {
 	if probs := sectionProblems(t, report, "floor_policy"); len(probs) != 0 {
 		t.Errorf("clean policy flagged: %v", probs)
 	}
-	if got := objAt(sectionVal(t, report, "floor_policy"), "checked").I; got != 4 {
+	if got := validation.ObjAt(sectionVal(t, report, "floor_policy"), "checked").I; got != 4 {
 		t.Errorf("checked = %d, want 4 (1 row + 3 events)", got)
 	}
 }
@@ -331,12 +331,12 @@ func TestStageCompletionsScenariosMatchPython(t *testing.T) {
 			assertSectionOracle(t, report, "stage_completions",
 				sc.Sections["stage_completions"])
 			sec := sectionVal(t, report, "stage_completions")
-			if got := objAt(sec, "checked").I; got != 13 {
+			if got := validation.ObjAt(sec, "checked").I; got != 13 {
 				t.Errorf("checked = %d, want 13 (len(CP.PROOFS))", got)
 			}
 			probs := arrStr(sec, "problems")
 			advisory := arrStr(sec, "advisory")
-			if got := objAt(sec, "ok").B; got != (len(probs) == 0) {
+			if got := validation.ObjAt(sec, "ok").B; got != (len(probs) == 0) {
 				t.Errorf("ok=%v with %d problems", got, len(probs))
 			}
 			if name == "stage_advisory" && (len(advisory) != 1 || len(probs) != 0) {
@@ -409,12 +409,12 @@ func TestBaselinesScenariosMatchPython(t *testing.T) {
 				sc.Sections["baselines"])
 			sec := sectionVal(t, report, "baselines")
 			probs := arrStr(sec, "problems")
-			if got := objAt(sec, "ok").B; got != (len(probs) == 0) {
+			if got := validation.ObjAt(sec, "ok").B; got != (len(probs) == 0) {
 				t.Errorf("ok=%v with %d problems", got, len(probs))
 			}
-			if name == "baselines_clean" && objAt(sec, "checked").I != 1 {
+			if name == "baselines_clean" && validation.ObjAt(sec, "checked").I != 1 {
 				t.Errorf("clean baseline checked = %v, want 1",
-					objAt(sec, "checked").I)
+					validation.ObjAt(sec, "checked").I)
 			}
 		})
 	}
@@ -463,10 +463,10 @@ func TestInvariantVerificationScenariosMatchPython(t *testing.T) {
 				sc.Sections["invariant_verification"])
 			sec := sectionVal(t, report, "invariant_verification")
 			probs := arrStr(sec, "problems")
-			if got := objAt(sec, "checked").I; got != 1 {
+			if got := validation.ObjAt(sec, "checked").I; got != 1 {
 				t.Errorf("checked = %d, want 1 registry entry", got)
 			}
-			if got := objAt(sec, "ok").B; got != (len(probs) == 0) {
+			if got := validation.ObjAt(sec, "ok").B; got != (len(probs) == 0) {
 				t.Errorf("ok=%v with %d problems", got, len(probs))
 			}
 		})
@@ -587,11 +587,11 @@ func TestProbeSurfaceSeam(t *testing.T) {
 	assertSectionOracle(t, report, "probe_surface",
 		failed.Sections["probe_surface"])
 	sec := sectionVal(t, report, "probe_surface")
-	if objAt(sec, "ok").B {
+	if validation.ObjAt(sec, "ok").B {
 		t.Errorf("degraded probe surface section must be ok=false")
 	}
-	if objAt(sec, "checked").Kind != validation.Null {
-		t.Errorf("degraded checked = %v, want null", objAt(sec, "checked"))
+	if validation.ObjAt(sec, "checked").Kind != validation.Null {
+		t.Errorf("degraded checked = %v, want null", validation.ObjAt(sec, "checked"))
 	}
 }
 
@@ -609,19 +609,19 @@ func TestP1FullReportParity(t *testing.T) {
 			useBaselines(t, sc)
 			report := auditScenario(t, materializeP1(t, vec, sc))
 			py := parseOracle(t, sc.FullReport)
-			if got := objStr(report, "campaign_id"); got != objStr(py, "campaign_id") {
-				t.Fatalf("campaign_id = %q, want %q", got, objStr(py, "campaign_id"))
+			if got := validation.ObjStr(report, "campaign_id"); got != validation.ObjStr(py, "campaign_id") {
+				t.Fatalf("campaign_id = %q, want %q", got, validation.ObjStr(py, "campaign_id"))
 			}
 			shared := 0
-			for _, kv := range objAt(py, "sections").O {
+			for _, kv := range validation.ObjAt(py, "sections").O {
 				shared++
 				assertSectionOracle(t, report, kv.K, validation.DumpIndented(kv.V))
 			}
 			if shared != 14 {
 				t.Errorf("shared sections = %d, want 14", shared)
 			}
-			if reportOK(report) != (objAt(py, "ok").Kind == validation.Bool &&
-				objAt(py, "ok").B) {
+			if reportOK(report) != (validation.ObjAt(py, "ok").Kind == validation.Bool &&
+				validation.ObjAt(py, "ok").B) {
 				t.Errorf("overall ok disagrees with the Python twin")
 			}
 			assertSummaryOracle(t, report, sc.SummaryLine)

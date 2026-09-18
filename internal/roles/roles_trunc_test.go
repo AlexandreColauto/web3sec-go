@@ -30,11 +30,11 @@ func TestBoundedJSONTruncatesByRunes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objAt(v, "_truncated").Kind != validation.Bool ||
-		!objAt(v, "_truncated").B {
+	if validation.ObjAt(v, "_truncated").Kind != validation.Bool ||
+		!validation.ObjAt(v, "_truncated").B {
 		t.Fatalf("v = %v", v)
 	}
-	if got := objStr(v, "text"); got != "abcd\u2014" {
+	if got := validation.ObjStr(v, "text"); got != "abcd\u2014" {
 		t.Fatalf("text = %q", got)
 	}
 }
@@ -48,7 +48,7 @@ func TestBoundedJSONByteHeavyPayloadStillParses(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if v.Kind != validation.Obj || objStr(v, "a") != "\u2014\u2014\u2014\u2014" {
+	if v.Kind != validation.Obj || validation.ObjStr(v, "a") != "\u2014\u2014\u2014\u2014" {
 		t.Fatalf("v = %v", v)
 	}
 }

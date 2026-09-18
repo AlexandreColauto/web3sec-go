@@ -21,6 +21,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"websec/internal/validation"
 
 	"websec/internal/state"
 )
@@ -92,7 +93,7 @@ func p22CostEvents(t *testing.T, c *state.Campaign) int {
 	}
 	n := 0
 	for _, e := range evs {
-		if objStr(e, "type") == "cost.recorded" {
+		if validation.ObjStr(e, "type") == "cost.recorded" {
 			n++
 		}
 	}
@@ -253,7 +254,7 @@ func TestP22CostSuccessLandsOnceWithItsEvent(t *testing.T) {
 	if len(rows) != 2 {
 		t.Fatalf("costs.jsonl holds %d row(s), want 2", len(rows))
 	}
-	if got, want := objStr(rows[0], "cost_id"), objStr(first, "cost_id"); got != want {
+	if got, want := validation.ObjStr(rows[0], "cost_id"), validation.ObjStr(first, "cost_id"); got != want {
 		t.Fatalf("first row cost_id = %s, want %s", got, want)
 	}
 	if n := p22CostEvents(t, c); n != 2 {

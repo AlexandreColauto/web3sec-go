@@ -66,7 +66,7 @@ func ingest(t *testing.T, c *state.Campaign, payload validation.Value,
 	if err != nil {
 		t.Fatalf("ingest: %v", err)
 	}
-	return objStr(f, "finding_id")
+	return validation.ObjStr(f, "finding_id")
 }
 
 // toPossible is to_possible: ingest + transition to POSSIBLE.
@@ -139,7 +139,7 @@ func TestE4EvidenceRejectsHostProfile(t *testing.T) {
 			kv("profile", validation.VStr("EOA")),
 			kv("capabilities", validation.VArr())))),
 		"code", "")
-	_, err = MintReproEvidence(c, fid, objStr(rec, "exec_id"), "unit repro",
+	_, err = MintReproEvidence(c, fid, validation.ObjStr(rec, "exec_id"), "unit repro",
 		nil, nil)
 	if err == nil || !strings.Contains(err.Error(), "sandbox") {
 		t.Fatalf("err = %v, want a sandbox-profile refusal", err)
@@ -192,11 +192,11 @@ func TestT0StaticReachability(t *testing.T) {
 	SetStructuralIndex(StructuralIndexAPI{
 		UnguardedEntryPoints: func(idx validation.Value) []validation.Value {
 			var out []validation.Value
-			for _, n := range objAt(idx, "nodes").A {
-				if !boolOf(objAt(n, "is_entry_point")) {
+			for _, n := range validation.ObjAt(idx, "nodes").A {
+				if !boolOf(validation.ObjAt(n, "is_entry_point")) {
 					continue
 				}
-				if objAt(n, "guarded_by").Kind == validation.Null {
+				if validation.ObjAt(n, "guarded_by").Kind == validation.Null {
 					out = append(out, n)
 				}
 			}
@@ -227,10 +227,10 @@ func TestT0StaticReachability(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !boolOf(objAt(res, "reachable")) {
+	if !boolOf(validation.ObjAt(res, "reachable")) {
 		t.Fatalf("reachable = false: %s", validation.CanonCompact(res))
 	}
-	if len(objAt(res, "witness").A) == 0 {
+	if len(validation.ObjAt(res, "witness").A) == 0 {
 		t.Error("witness must be non-empty")
 	}
 	updated, err := findings.LoadFinding(c, fid)
@@ -238,8 +238,8 @@ func TestT0StaticReachability(t *testing.T) {
 		t.Fatal(err)
 	}
 	levels := map[string]bool{}
-	for _, e := range objAt(updated, "evidence").A {
-		levels[objStr(e, "level")] = true
+	for _, e := range validation.ObjAt(updated, "evidence").A {
+		levels[validation.ObjStr(e, "level")] = true
 	}
 	if !levels["E2"] {
 		t.Errorf("evidence levels = %v, want E2 (T0 mints E2)", levels)
@@ -266,8 +266,8 @@ func TestStaticReachabilityGuardBranches(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if boolOf(objAt(res, "reachable")) ||
-		objStr(res, "reason") != "no function recorded on finding" {
+	if boolOf(validation.ObjAt(res, "reachable")) ||
+		validation.ObjStr(res, "reason") != "no function recorded on finding" {
 		t.Fatalf("res = %s", validation.CanonCompact(res))
 	}
 	// function not in the index
@@ -288,8 +288,8 @@ func TestStaticReachabilityGuardBranches(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if boolOf(objAt(res2, "reachable")) ||
-		objStr(res2, "reason") != "function 'ghost' not in index" {
+	if boolOf(validation.ObjAt(res2, "reachable")) ||
+		validation.ObjStr(res2, "reason") != "function 'ghost' not in index" {
 		t.Fatalf("res2 = %s", validation.CanonCompact(res2))
 	}
 }
@@ -318,7 +318,7 @@ func TestMintReproEvidenceIsIdempotent(t *testing.T) {
 	c := newCampaign(t, "integrity")
 	fid := integrityHypo(t, c, "reentrancy")
 	rec := sandboxedExec(t, c, fid, "docker-networkless", "pytest-harness")
-	execID := objStr(rec, "exec_id")
+	execID := validation.ObjStr(rec, "exec_id")
 	tier := "T2"
 	if _, err := RecordAttempt(c, fid, "reproduced",
 		RecordOpts{ExecID: &execID, Tier: &tier}); err != nil {
@@ -332,12 +332,12 @@ func TestMintReproEvidenceIsIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(out1, "finding_id") != objStr(out2, "finding_id") {
+	if validation.ObjStr(out1, "finding_id") != validation.ObjStr(out2, "finding_id") {
 		t.Error("idempotent mint must return the same finding")
 	}
 	same := 0
-	for _, e := range objAt(out1, "evidence").A {
-		if objStr(e, "artifact_id") == execID {
+	for _, e := range validation.ObjAt(out1, "evidence").A {
+		if validation.ObjStr(e, "artifact_id") == execID {
 			same++
 		}
 	}
@@ -355,7 +355,7 @@ func TestMintReproEvidenceSameExecDifferentType(t *testing.T) {
 	c := newCampaign(t, "integrity2")
 	fid := integrityHypo(t, c, "reentrancy")
 	rec := sandboxedExec(t, c, fid, "docker-networkless", "pytest-harness")
-	execID := objStr(rec, "exec_id")
+	execID := validation.ObjStr(rec, "exec_id")
 	tier := "T2"
 	if _, err := RecordAttempt(c, fid, "reproduced",
 		RecordOpts{ExecID: &execID, Tier: &tier}); err != nil {
@@ -375,9 +375,9 @@ func TestMintReproEvidenceSameExecDifferentType(t *testing.T) {
 		t.Fatalf("second-type mint refused: %v", err)
 	}
 	count := map[string]int{}
-	for _, e := range objAt(out2, "evidence").A {
-		if objStr(e, "artifact_id") == execID {
-			count[objStr(e, "type")]++
+	for _, e := range validation.ObjAt(out2, "evidence").A {
+		if validation.ObjStr(e, "artifact_id") == execID {
+			count[validation.ObjStr(e, "type")]++
 		}
 	}
 	if count["foundry-test"] != 1 || count["differential"] != 1 {
@@ -389,8 +389,8 @@ func TestMintReproEvidenceSameExecDifferentType(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(out3, "finding_id") != objStr(out1, "finding_id") ||
-		len(objAt(out3, "evidence").A) != len(objAt(out2, "evidence").A) {
+	if validation.ObjStr(out3, "finding_id") != validation.ObjStr(out1, "finding_id") ||
+		len(validation.ObjAt(out3, "evidence").A) != len(validation.ObjAt(out2, "evidence").A) {
 		t.Fatal("same-(exec,type) mint must be an idempotent no-op")
 	}
 }
@@ -403,7 +403,7 @@ func TestMintRejectForgeNoTests(t *testing.T) {
 		"forge test --match-test none",
 		"No tests found in test\nRan 0 tests\n", "operator", 0, fid)
 	tier := "T2"
-	_, err := MintReproEvidence(c, fid, objStr(rec, "exec_id"), "nothing ran",
+	_, err := MintReproEvidence(c, fid, validation.ObjStr(rec, "exec_id"), "nothing ran",
 		&tier, nil)
 	if err == nil || !strings.Contains(err.Error(), "No tests found") {
 		t.Fatalf("err = %v", err)
@@ -418,7 +418,7 @@ func TestMintRejectFailingForge(t *testing.T) {
 		"forge test --match-test poc",
 		"Ran 1 test for test/poc.t.sol\n[FAIL] poc\n", "operator", 0, fid)
 	tier := "T2"
-	_, err := MintReproEvidence(c, fid, objStr(rec, "exec_id"), "suite failed",
+	_, err := MintReproEvidence(c, fid, validation.ObjStr(rec, "exec_id"), "suite failed",
 		&tier, nil)
 	if err == nil || !strings.Contains(err.Error(), "failing") {
 		t.Fatalf("err = %v", err)
@@ -430,7 +430,7 @@ func TestRecordAttemptRejectsReusedExec(t *testing.T) {
 	c := newCampaign(t, "integrity")
 	fid := integrityHypo(t, c, "reentrancy")
 	rec := sandboxedExec(t, c, fid, "docker-networkless", "pytest-harness")
-	execID := objStr(rec, "exec_id")
+	execID := validation.ObjStr(rec, "exec_id")
 	tier := "T2"
 	if _, err := RecordAttempt(c, fid, "reproduced",
 		RecordOpts{ExecID: &execID, Tier: &tier}); err != nil {
@@ -448,13 +448,13 @@ func TestAttemptAndMintOneCallForPassingRepro(t *testing.T) {
 	c := newCampaign(t, "integrity")
 	fid := integrityHypo(t, c, "reentrancy")
 	rec := sandboxedExec(t, c, fid, "docker-networkless", "pytest-harness")
-	execID := objStr(rec, "exec_id")
+	execID := validation.ObjStr(rec, "exec_id")
 	tier, etype := "T2", "foundry-test"
 	out, err := AttemptAndMint(c, fid, execID, "unit PoC drains", &tier, &etype)
 	if err != nil {
 		t.Fatal(err)
 	}
-	repro := objAt(objAt(objAt(out, "verification"), "reproduction"), "status")
+	repro := validation.ObjAt(validation.ObjAt(validation.ObjAt(out, "verification"), "reproduction"), "status")
 	if repro.S != "reproduced" {
 		t.Errorf("repro.status = %q", repro.S)
 	}
@@ -468,13 +468,13 @@ func TestAttemptAndMintOneCallForPassingRepro(t *testing.T) {
 	if level != "E4" {
 		t.Errorf("level = %q, want E4", level)
 	}
-	if n := len(objAt(objAt(objAt(out, "verification"), "reproduction"),
+	if n := len(validation.ObjAt(validation.ObjAt(validation.ObjAt(out, "verification"), "reproduction"),
 		"attempts").A); n != 1 {
 		t.Errorf("attempts = %d, want 1", n)
 	}
 	found := false
-	for _, e := range objAt(out, "evidence").A {
-		if objStr(e, "artifact_id") == execID {
+	for _, e := range validation.ObjAt(out, "evidence").A {
+		if validation.ObjStr(e, "artifact_id") == execID {
 			found = true
 		}
 	}
@@ -490,7 +490,7 @@ func TestMintValidatesEvidenceType(t *testing.T) {
 	rec := sandboxedExec(t, c, fid, "docker-networkless", "pytest-harness")
 	tier := "T2"
 	bad := "not-a-real-type"
-	_, err := MintReproEvidence(c, fid, objStr(rec, "exec_id"), "mislabelled",
+	_, err := MintReproEvidence(c, fid, validation.ObjStr(rec, "exec_id"), "mislabelled",
 		&tier, &bad)
 	if err == nil || !strings.Contains(err.Error(), "evidence type") {
 		t.Fatalf("err = %v", err)
@@ -586,7 +586,7 @@ func TestGuardrailRejectionPreservesCitation(t *testing.T) {
 	c, fid := citationCamp(t)
 	installInvariantGuard()
 	rec := sandboxedExec(t, c, fid, "docker-networkless", "pytest-harness")
-	execID := objStr(rec, "exec_id")
+	execID := validation.ObjStr(rec, "exec_id")
 	tier := "T2"
 	if _, err := AttemptAndMint(c, fid, execID, "PoC inflates price",
 		&tier, nil); err == nil || !strings.Contains(err.Error(), "level rise blocked") {
@@ -596,12 +596,12 @@ func TestGuardrailRejectionPreservesCitation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	repro := objAt(objAt(objAt(f, "verification"), "reproduction"), "attempts")
+	repro := validation.ObjAt(validation.ObjAt(validation.ObjAt(f, "verification"), "reproduction"), "attempts")
 	if len(repro.A) != 0 {
 		t.Errorf("attempts = %s, want none (a failed mint must not record one)",
 			validation.CanonCompact(repro))
 	}
-	if ev := objAt(f, "evidence"); len(ev.A) != 0 {
+	if ev := validation.ObjAt(f, "evidence"); len(ev.A) != 0 {
 		t.Errorf("evidence = %s, want none", validation.CanonCompact(ev))
 	}
 	// fix the guardrail the sanctioned way
@@ -632,9 +632,9 @@ func TestGuardrailRejectionPreservesCitation(t *testing.T) {
 		t.Errorf("level = %q, want E4", level)
 	}
 	arts := []string{}
-	for _, a := range objAt(objAt(objAt(out, "verification"), "reproduction"),
+	for _, a := range validation.ObjAt(validation.ObjAt(validation.ObjAt(out, "verification"), "reproduction"),
 		"attempts").A {
-		arts = append(arts, objStr(a, "artifact_id"))
+		arts = append(arts, validation.ObjStr(a, "artifact_id"))
 	}
 	if len(arts) != 1 || arts[0] != execID {
 		t.Errorf("attempt artifact_ids = %v, want [%s]", arts, execID)
@@ -665,13 +665,13 @@ func TestRollbackRestoresPriorAttemptState(t *testing.T) {
 		t.Fatal(err)
 	}
 	tier := "T2"
-	if _, err := AttemptAndMint(c, fid, objStr(rec1, "exec_id"), "PoC #1",
+	if _, err := AttemptAndMint(c, fid, validation.ObjStr(rec1, "exec_id"), "PoC #1",
 		&tier, nil); err != nil {
 		t.Fatal(err)
 	}
 	rec2 := sandboxedExec(t, c, fid, "docker-networkless", "pytest-harness")
 	bad := "not-a-type"
-	if _, err := AttemptAndMint(c, fid, objStr(rec2, "exec_id"), "PoC #2",
+	if _, err := AttemptAndMint(c, fid, validation.ObjStr(rec2, "exec_id"), "PoC #2",
 		&tier, &bad); err == nil ||
 		!strings.Contains(err.Error(), "unknown evidence type") {
 		t.Fatalf("err = %v", err)
@@ -681,13 +681,13 @@ func TestRollbackRestoresPriorAttemptState(t *testing.T) {
 		t.Fatal(err)
 	}
 	arts := []string{}
-	for _, a := range objAt(objAt(objAt(f, "verification"), "reproduction"),
+	for _, a := range validation.ObjAt(validation.ObjAt(validation.ObjAt(f, "verification"), "reproduction"),
 		"attempts").A {
-		arts = append(arts, objStr(a, "artifact_id"))
+		arts = append(arts, validation.ObjStr(a, "artifact_id"))
 	}
-	if len(arts) != 1 || arts[0] != objStr(rec1, "exec_id") {
+	if len(arts) != 1 || arts[0] != validation.ObjStr(rec1, "exec_id") {
 		t.Errorf("attempt artifact_ids = %v, want [%s]", arts,
-			objStr(rec1, "exec_id"))
+			validation.ObjStr(rec1, "exec_id"))
 	}
 }
 
@@ -705,7 +705,7 @@ func attachReproBundle(t *testing.T, c *state.Campaign, fid, level,
 		kv("type", validation.VStr("fork-test")),
 		kv("description", validation.VStr("fork repro replays the message")),
 		kv("sandbox_profile", validation.VStr("docker-networkless")),
-		kv("artifact_id", validation.VStr(objStr(rec, "exec_id"))),
+		kv("artifact_id", validation.VStr(validation.ObjStr(rec, "exec_id"))),
 	)
 	if _, err := findings.AddEvidence(c, fid, item); err != nil {
 		t.Fatalf("add evidence: %v", err)
@@ -725,7 +725,7 @@ func attachReproBundle(t *testing.T, c *state.Campaign, fid, level,
 	if err != nil {
 		t.Fatal(err)
 	}
-	ver := objAt(f, "verification")
+	ver := validation.ObjAt(f, "verification")
 	ver = setKey(ver, "reproduction", validation.VObj(
 		kv("tier_reached", validation.VStr("T3")),
 		kv("status", validation.VStr("reproduced")),
@@ -788,7 +788,7 @@ func TestMintE6RequiresDifferentExecution(t *testing.T) {
 	c := newCampaign(t, "Acme Program")
 	fid := toPossible(t, c, hypoPayload("bridge-message"))
 	rec := attachReproBundle(t, c, fid, "E5", "reproducer-a")
-	_, err := MintIndependentEvidence(c, fid, objStr(rec, "exec_id"),
+	_, err := MintIndependentEvidence(c, fid, validation.ObjStr(rec, "exec_id"),
 		"re-running the same artifact", "reproducer-a")
 	if err == nil || !strings.Contains(err.Error(), "already backs evidence") {
 		t.Fatalf("err = %v", err)
@@ -802,7 +802,7 @@ func TestMintE6RequiresDifferentReporter(t *testing.T) {
 	attachReproBundle(t, c, fid, "E5", "reproducer-a")
 	rec := registerExec(t, c, "fork-runner", "forge test --mt replay",
 		"Ran 1 test\n[PASS] replay\n", "reproducer-a", 0, fid)
-	_, err := MintIndependentEvidence(c, fid, objStr(rec, "exec_id"),
+	_, err := MintIndependentEvidence(c, fid, validation.ObjStr(rec, "exec_id"),
 		"same hands, new run", "reproducer-a")
 	if err == nil || !strings.Contains(err.Error(), "already produced the original") {
 		t.Fatalf("err = %v", err)
@@ -816,7 +816,7 @@ func TestMintE6NeedsNamedVerifier(t *testing.T) {
 	attachReproBundle(t, c, fid, "E5", "reproducer-a")
 	rec := registerExec(t, c, "fork-runner", "forge test",
 		"Ran 1 test\n[PASS] replay\n", "verifier-b", 0, fid)
-	_, err := MintIndependentEvidence(c, fid, objStr(rec, "exec_id"), "x", "")
+	_, err := MintIndependentEvidence(c, fid, validation.ObjStr(rec, "exec_id"), "x", "")
 	if err == nil || !strings.Contains(err.Error(), "verifier") {
 		t.Fatalf("err = %v", err)
 	}
@@ -829,17 +829,17 @@ func TestE6UnblocksBridgeConfirmation(t *testing.T) {
 	attachReproBundle(t, c, fid, "E5", "reproducer-a")
 	rec := registerExec(t, c, "fork-runner", "forge test --mt independent_replay",
 		"Ran 1 test\n[PASS] replay\n", "verifier-b", 0, fid)
-	out, err := MintIndependentEvidence(c, fid, objStr(rec, "exec_id"),
+	out, err := MintIndependentEvidence(c, fid, validation.ObjStr(rec, "exec_id"),
 		"independent rerun at the same block", "verifier-b")
 	if err != nil {
 		t.Fatal(err)
 	}
-	ev := objAt(out, "evidence")
-	if len(ev.A) == 0 || objStr(ev.A[len(ev.A)-1], "level") != "E6" {
+	ev := validation.ObjAt(out, "evidence")
+	if len(ev.A) == 0 || validation.ObjStr(ev.A[len(ev.A)-1], "level") != "E6" {
 		t.Errorf("last evidence = %s", validation.CanonCompact(ev))
 	}
-	ind := objAt(objAt(out, "verification"), "independent_reproduction")
-	if objStr(ind, "status") != "matches" || objStr(ind, "verifier") != "verifier-b" {
+	ind := validation.ObjAt(validation.ObjAt(out, "verification"), "independent_reproduction")
+	if validation.ObjStr(ind, "status") != "matches" || validation.ObjStr(ind, "verifier") != "verifier-b" {
 		t.Errorf("independent_reproduction = %s", validation.CanonCompact(ind))
 	}
 	if _, err := findings.Transition(c, fid, "CONFIRMED",
@@ -850,8 +850,8 @@ func TestE6UnblocksBridgeConfirmation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(f, "status") != "CONFIRMED" {
-		t.Errorf("status = %q", objStr(f, "status"))
+	if validation.ObjStr(f, "status") != "CONFIRMED" {
+		t.Errorf("status = %q", validation.ObjStr(f, "status"))
 	}
 }
 
@@ -862,7 +862,7 @@ func TestE6RejectsHostProfileExec(t *testing.T) {
 	attachReproBundle(t, c, fid, "E5", "reproducer-a")
 	rec := registerExec(t, c, "host-readonly", "forge test", "PASS: x\n",
 		"verifier-b", 0, fid)
-	_, err := MintIndependentEvidence(c, fid, objStr(rec, "exec_id"), "x", "b")
+	_, err := MintIndependentEvidence(c, fid, validation.ObjStr(rec, "exec_id"), "x", "b")
 	if err == nil || !strings.Contains(err.Error(), "container/VM/fork") {
 		t.Fatalf("err = %v", err)
 	}
@@ -918,10 +918,10 @@ func TestRunbookConfirmFlow(t *testing.T) {
 		"PASS: poc\n", "operator", 0, fid)
 	tier := "T2"
 	if _, err := RecordAttempt(c, fid, "reproduced",
-		RecordOpts{ExecID: ptrStr(objStr(rec, "exec_id")), Tier: &tier}); err != nil {
+		RecordOpts{ExecID: ptrStr(validation.ObjStr(rec, "exec_id")), Tier: &tier}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := MintReproEvidence(c, fid, objStr(rec, "exec_id"),
+	if _, err := MintReproEvidence(c, fid, validation.ObjStr(rec, "exec_id"),
 		"unit PoC drains", &tier, nil); err != nil {
 		t.Fatal(err)
 	}
@@ -944,8 +944,8 @@ func TestRunbookConfirmFlow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(f, "status") != "CONFIRMED" {
-		t.Errorf("status = %q", objStr(f, "status"))
+	if validation.ObjStr(f, "status") != "CONFIRMED" {
+		t.Errorf("status = %q", validation.ObjStr(f, "status"))
 	}
 	level, err := findings.FindingLevel(f)
 	if err != nil {
@@ -954,9 +954,9 @@ func TestRunbookConfirmFlow(t *testing.T) {
 	if level != "E4" {
 		t.Errorf("level = %q, want E4", level)
 	}
-	repro := objAt(objAt(f, "verification"), "reproduction")
-	if objStr(repro, "status") != "reproduced" ||
-		objStr(repro, "tier_reached") != "T2" {
+	repro := validation.ObjAt(validation.ObjAt(f, "verification"), "reproduction")
+	if validation.ObjStr(repro, "status") != "reproduced" ||
+		validation.ObjStr(repro, "tier_reached") != "T2" {
 		t.Errorf("reproduction = %s", validation.CanonCompact(repro))
 	}
 }
@@ -973,10 +973,10 @@ func TestRunbookIndependentVerificationFlow(t *testing.T) {
 		"Ran 1 test for test/poc.t.sol\n[PASS] poc\n", "reproducer", 0, fid)
 	tier := "T2"
 	if _, err := RecordAttempt(c, fid, "reproduced",
-		RecordOpts{ExecID: ptrStr(objStr(rec, "exec_id")), Tier: &tier}); err != nil {
+		RecordOpts{ExecID: ptrStr(validation.ObjStr(rec, "exec_id")), Tier: &tier}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := MintReproEvidence(c, fid, objStr(rec, "exec_id"), "PoC drains",
+	if _, err := MintReproEvidence(c, fid, validation.ObjStr(rec, "exec_id"), "PoC drains",
 		&tier, nil); err != nil {
 		t.Fatal(err)
 	}
@@ -997,7 +997,7 @@ func TestRunbookIndependentVerificationFlow(t *testing.T) {
 	}
 	other := registerExec(t, c, "fork-runner", "forge test --mt independent",
 		"Ran 1 test for test/ind.t.sol\n[PASS] ind\n", "verifier-b", 0, fid)
-	out, err := MintIndependentEvidence(c, fid, objStr(other, "exec_id"),
+	out, err := MintIndependentEvidence(c, fid, validation.ObjStr(other, "exec_id"),
 		"same block, same drain", "verifier-b")
 	if err != nil {
 		t.Fatal(err)
@@ -1019,18 +1019,18 @@ func TestRecordAttemptGuidance(t *testing.T) {
 	fid := integrityHypo(t, c, "reentrancy")
 	rec := sandboxedExec(t, c, fid, "docker-networkless", "h")
 	g, err := RecordAttempt(c, fid, "reproduced",
-		RecordOpts{ExecID: ptrStr(objStr(rec, "exec_id"))})
+		RecordOpts{ExecID: ptrStr(validation.ObjStr(rec, "exec_id"))})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(g, "action") != "mint-evidence" || objStr(g, "level") != "E4" {
+	if validation.ObjStr(g, "action") != "mint-evidence" || validation.ObjStr(g, "level") != "E4" {
 		t.Errorf("guidance = %s", validation.CanonCompact(g))
 	}
 	falsified, err := RecordAttempt(c, fid, "falsified", RecordOpts{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(falsified, "action") != "hypothesis-dead" {
+	if validation.ObjStr(falsified, "action") != "hypothesis-dead" {
 		t.Errorf("falsified guidance = %s", validation.CanonCompact(falsified))
 	}
 	env := "environment"
@@ -1039,7 +1039,7 @@ func TestRecordAttemptGuidance(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(retry, "action") != "retry" || !boolOf(objAt(retry, "fresh_context")) {
+	if validation.ObjStr(retry, "action") != "retry" || !boolOf(validation.ObjAt(retry, "fresh_context")) {
 		t.Errorf("environment guidance = %s", validation.CanonCompact(retry))
 	}
 }
@@ -1080,7 +1080,7 @@ func TestRecordAttemptBudgetExhausted(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	max := intOf(objAt(budget, "max_repro_attempts_per_finding"))
+	max := intOf(validation.ObjAt(budget, "max_repro_attempts_per_finding"))
 	for i := 0; i < max; i++ {
 		if _, err := RecordAttempt(c, fid, "failed", RecordOpts{}); err != nil {
 			t.Fatalf("attempt %d: %v", i, err)
@@ -1110,6 +1110,6 @@ func installInvariantGuard() {
 func boolOf(v validation.Value) bool { return v.Kind == validation.Bool && v.B }
 
 func tierReached(f validation.Value) string {
-	repro := objAt(objAt(f, "verification"), "reproduction")
-	return objStr(repro, "tier_reached")
+	repro := validation.ObjAt(validation.ObjAt(f, "verification"), "reproduction")
+	return validation.ObjStr(repro, "tier_reached")
 }

@@ -126,7 +126,7 @@ func TestSFTBackfillHashVerified(t *testing.T) {
 		t.Fatal(err)
 	}
 	f := ingestHyp(t, camp)
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	if _, err := trajectory.RecordModelEvent(camp, "model.response",
 		backfillResponse(fid), &fid); err != nil {
 		t.Fatal(err)
@@ -135,24 +135,24 @@ func TestSFTBackfillHashVerified(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(draft, "status") != "draft" {
-		t.Fatalf("status = %q", objStr(draft, "status"))
+	if validation.ObjStr(draft, "status") != "draft" {
+		t.Fatalf("status = %q", validation.ObjStr(draft, "status"))
 	}
-	if objAt(draft, "taxonomy").Kind != validation.Null {
-		t.Fatalf("taxonomy = %v", objAt(draft, "taxonomy"))
+	if validation.ObjAt(draft, "taxonomy").Kind != validation.Null {
+		t.Fatalf("taxonomy = %v", validation.ObjAt(draft, "taxonomy"))
 	}
-	if got := validation.CanonCompact(objAt(draft, "source")); got !=
+	if got := validation.CanonCompact(validation.ObjAt(draft, "source")); got !=
 		`{"cluster":"`+fid+`","kind":"backfill","ref":"`+fid+`"}` {
 		t.Fatalf("source = %s", got)
 	}
-	prov := objAt(draft, "provenance")
-	if got := objStr(prov, "bundle_provenance"); got != "hash-verified" {
+	prov := validation.ObjAt(draft, "provenance")
+	if got := validation.ObjStr(prov, "bundle_provenance"); got != "hash-verified" {
 		t.Fatalf("bundle_provenance = %q", got)
 	}
-	if got := objStr(prov, "context_hash"); got != ch0 {
+	if got := validation.ObjStr(prov, "context_hash"); got != ch0 {
 		t.Fatalf("context_hash = %q want %q", got, ch0)
 	}
-	refs := objAt(prov, "trajectory_refs").A
+	refs := validation.ObjAt(prov, "trajectory_refs").A
 	if len(refs) != 2 {
 		t.Fatalf("trajectory_refs = %v", refs)
 	}
@@ -168,20 +168,20 @@ func TestSFTBackfillHashVerified(t *testing.T) {
 	if first <= second {
 		t.Fatalf("refs = %v", refs)
 	}
-	msgs := objAt(draft, "messages").A
-	if got := objStr(msgs[0], "content"); got != promptText(t) {
+	msgs := validation.ObjAt(draft, "messages").A
+	if got := validation.ObjStr(msgs[0], "content"); got != promptText(t) {
 		t.Fatal("system turn is not byte-identical to production")
 	}
-	user, err := validation.ParseOrdered([]byte(objStr(msgs[1], "content")))
+	user, err := validation.ParseOrdered([]byte(validation.ObjStr(msgs[1], "content")))
 	if err != nil {
 		t.Fatal(err)
 	}
 	seenPre := false
-	for _, s := range objAt(user, "existing_findings").A {
-		if objStr(s, "finding_id") == fid {
+	for _, s := range validation.ObjAt(user, "existing_findings").A {
+		if validation.ObjStr(s, "finding_id") == fid {
 			t.Fatal("backfilled finding leaked into the user turn")
 		}
-		if objStr(s, "finding_id") == objStr(fPre, "finding_id") {
+		if validation.ObjStr(s, "finding_id") == validation.ObjStr(fPre, "finding_id") {
 			seenPre = true
 		}
 	}
@@ -197,7 +197,7 @@ func TestSFTBackfillReconstructedOnDrift(t *testing.T) {
 		t.Fatal(err)
 	}
 	f := ingestHyp(t, camp)
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	if _, err := trajectory.RecordModelEvent(camp, "model.response",
 		backfillResponse(fid), &fid); err != nil {
 		t.Fatal(err)
@@ -206,39 +206,39 @@ func TestSFTBackfillReconstructedOnDrift(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	prov := objAt(draft, "provenance")
-	if got := objStr(prov, "bundle_provenance"); got != "reconstructed" {
+	prov := validation.ObjAt(draft, "provenance")
+	if got := validation.ObjStr(prov, "bundle_provenance"); got != "reconstructed" {
 		t.Fatalf("bundle_provenance = %q", got)
 	}
-	if objAt(prov, "context_hash").Kind != validation.Null {
-		t.Fatalf("context_hash = %v", objAt(prov, "context_hash"))
+	if validation.ObjAt(prov, "context_hash").Kind != validation.Null {
+		t.Fatalf("context_hash = %v", validation.ObjAt(prov, "context_hash"))
 	}
 }
 
 func TestSFTBackfillNoEventsHandWritten(t *testing.T) {
 	camp := backfillCamp(t)
 	f := ingestHyp(t, camp)
-	draft, err := BackfillFinding(camp, objStr(f, "finding_id"))
+	draft, err := BackfillFinding(camp, validation.ObjStr(f, "finding_id"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	prov := objAt(draft, "provenance")
-	if got := objStr(prov, "bundle_provenance"); got != "hand-written" {
+	prov := validation.ObjAt(draft, "provenance")
+	if got := validation.ObjStr(prov, "bundle_provenance"); got != "hand-written" {
 		t.Fatalf("bundle_provenance = %q", got)
 	}
-	if got := objAt(prov, "trajectory_refs"); got.Kind != validation.Arr ||
+	if got := validation.ObjAt(prov, "trajectory_refs"); got.Kind != validation.Arr ||
 		len(got.A) != 0 {
 		t.Fatalf("trajectory_refs = %v", got)
 	}
-	if objAt(prov, "context_hash").Kind != validation.Null {
-		t.Fatalf("context_hash = %v", objAt(prov, "context_hash"))
+	if validation.ObjAt(prov, "context_hash").Kind != validation.Null {
+		t.Fatalf("context_hash = %v", validation.ObjAt(prov, "context_hash"))
 	}
 }
 
 func TestSFTBackfillStructuredPrefillAndTranslation(t *testing.T) {
 	camp := backfillCamp(t)
 	f := ingestHyp(t, camp)
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	// Plant head + list invariants (with a duplicate statement) so the
 	// head/security_invariants prefill + dedup path is exercised.
 	head := "shares priced at or above net asset value at redemption time always"
@@ -272,30 +272,30 @@ func TestSFTBackfillStructuredPrefillAndTranslation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	st := objAt(draft, "structured")
-	if got := objStr(st, "bug_class"); got != "oracle-manipulation" {
+	st := validation.ObjAt(draft, "structured")
+	if got := validation.ObjStr(st, "bug_class"); got != "oracle-manipulation" {
 		t.Fatalf("bug_class = %q", got)
 	}
 	var a1 validation.Value
-	for _, a := range objAt(st, "assumptions").A {
-		if objStr(a, "id") == "A1" {
+	for _, a := range validation.ObjAt(st, "assumptions").A {
+		if validation.ObjStr(a, "id") == "A1" {
 			a1 = a
 		}
 	}
-	if got := objStr(a1, "status"); got != "CONFIRMED" {
+	if got := validation.ObjStr(a1, "status"); got != "CONFIRMED" {
 		t.Fatalf("A1 status = %q", got)
 	}
-	if !strings.Contains(objStr(a1, "reason"), "EV-1") {
-		t.Fatalf("A1 reason = %q", objStr(a1, "reason"))
+	if !strings.Contains(validation.ObjStr(a1, "reason"), "EV-1") {
+		t.Fatalf("A1 reason = %q", validation.ObjStr(a1, "reason"))
 	}
-	invs := objAt(st, "invariants").A
-	if len(invs) != 2 || objStr(invs[0], "statement") != head ||
-		objStr(invs[1], "statement") != second {
+	invs := validation.ObjAt(st, "invariants").A
+	if len(invs) != 2 || validation.ObjStr(invs[0], "statement") != head ||
+		validation.ObjStr(invs[1], "statement") != second {
 		t.Fatalf("invariants = %v", invs)
 	}
 	for _, i := range invs {
-		if objStr(i, "status") != "UNCHECKED" {
-			t.Fatalf("invariant status = %q", objStr(i, "status"))
+		if validation.ObjStr(i, "status") != "UNCHECKED" {
+			t.Fatalf("invariant status = %q", validation.ObjStr(i, "status"))
 		}
 	}
 }
@@ -303,7 +303,7 @@ func TestSFTBackfillStructuredPrefillAndTranslation(t *testing.T) {
 func TestSFTBackfillDraftFailsLintUntilCompleted(t *testing.T) {
 	camp := backfillCamp(t)
 	f := ingestHyp(t, camp)
-	draft, err := BackfillFinding(camp, objStr(f, "finding_id"))
+	draft, err := BackfillFinding(camp, validation.ObjStr(f, "finding_id"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -355,7 +355,7 @@ func TestSFTTodoGuardBlocksCuration(t *testing.T) {
 	useStore(t)
 	camp := backfillCamp(t)
 	f := ingestHyp(t, camp)
-	draft, err := BackfillFinding(camp, objStr(f, "finding_id"))
+	draft, err := BackfillFinding(camp, validation.ObjStr(f, "finding_id"))
 	if err != nil {
 		t.Fatal(err)
 	}

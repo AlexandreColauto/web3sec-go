@@ -17,7 +17,7 @@ import (
 // the credit-scope tests use).
 func reclassForAlias(t *testing.T, camp *state.Campaign, f validation.Value, class string) {
 	t.Helper()
-	rc := objAt(f, "root_cause")
+	rc := validation.ObjAt(f, "root_cause")
 	rc.O = validation.SetOrAppend(rc.O, "class", validation.VStr(class))
 	f.O = validation.SetOrAppend(f.O, "root_cause", rc)
 	if err := findings.SaveFinding(camp, &f); err != nil {
@@ -60,12 +60,12 @@ func TestFindingBlockRendersAliasSuffix(t *testing.T) {
 	fs := fourSurfaces(t, camp)
 	reclassForAlias(t, camp, fs[0], "reentrancy")
 	text := mustGenerate(t, camp)
-	sec := reportFindingSection(t, text, objStr(fs[0], "finding_id"))
+	sec := reportFindingSection(t, text, validation.ObjStr(fs[0], "finding_id"))
 	if !strings.Contains(sec,
 		"- bug class: `reentrancy` [OWASP SC05; SWC-107]") {
 		t.Errorf("finding block lacks the alias suffix: %q", sec)
 	}
-	secUnmapped := reportFindingSection(t, text, objStr(fs[2], "finding_id"))
+	secUnmapped := reportFindingSection(t, text, validation.ObjStr(fs[2], "finding_id"))
 	if !strings.Contains(secUnmapped, "- bug class: `share-price-inflation`") {
 		t.Errorf("finding block lost the bare class line: %q", secUnmapped)
 	}

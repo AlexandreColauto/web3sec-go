@@ -52,7 +52,7 @@ func StampMitigationCitation(f validation.Value, file, record string) validation
 	}
 	idx := 0
 	for i, e := range aff.A {
-		if e.Kind == validation.Obj && objStr(e, "path") == file {
+		if e.Kind == validation.Obj && validation.ObjStr(e, "path") == file {
 			idx = i
 			break
 		}
@@ -61,7 +61,7 @@ func StampMitigationCitation(f validation.Value, file, record string) validation
 		return f
 	}
 	entry := aff.A[idx]
-	cits := objAt(entry, CitationsKey)
+	cits := validation.ObjAt(entry, CitationsKey)
 	if cits.Kind != validation.Obj {
 		cits = validation.VObj()
 	}
@@ -92,7 +92,7 @@ func ClearMitigationCitation(f validation.Value) validation.Value {
 		if e.Kind != validation.Obj {
 			continue
 		}
-		cits := objAt(e, CitationsKey)
+		cits := validation.ObjAt(e, CitationsKey)
 		if cits.Kind != validation.Obj {
 			continue
 		}
@@ -132,7 +132,7 @@ func ClearMitigationCitation(f validation.Value) validation.Value {
 // affectedList is the finding's affected array, ok=false when it is absent,
 // empty or not an array (nothing to stamp onto — never invented).
 func affectedList(f validation.Value) (validation.Value, bool) {
-	aff := objAt(f, "affected")
+	aff := validation.ObjAt(f, "affected")
 	if aff.Kind != validation.Arr || len(aff.A) == 0 {
 		return aff, false
 	}

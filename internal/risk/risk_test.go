@@ -65,7 +65,7 @@ func ingest(t *testing.T, c *state.Campaign, over ...validation.KV) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return objAt(f, "finding_id").S
+	return validation.ObjAt(f, "finding_id").S
 }
 
 func floatPtr(f float64) *float64 { return &f }
@@ -75,16 +75,6 @@ func strPtr(s string) *string { return &s }
 func canon(t *testing.T, v validation.Value) string {
 	t.Helper()
 	return validation.CanonSpaced(v)
-}
-
-// objStr is a string field's value ("" when absent/non-string).
-func objStr(v validation.Value, key string) string {
-	for _, kv := range v.O {
-		if kv.K == key {
-			return kv.V.S
-		}
-	}
-	return ""
 }
 
 // ---- prior_risk / validation_cost / amplifier_bonus -----------------------
@@ -271,10 +261,10 @@ func TestValidatedRiskBands(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if band := objAt(hi, "band").S; band != "critical" && band != "high" {
+	if band := validation.ObjAt(hi, "band").S; band != "critical" && band != "high" {
 		t.Errorf("band = %q; want critical|high", band)
 	}
-	if score := objAt(hi, "score").F; score < 6.5 {
+	if score := validation.ObjAt(hi, "score").F; score < 6.5 {
 		t.Errorf("score = %v; want >= 6.5", score)
 	}
 	lo := validation.Value{Kind: validation.Obj, O: append([]validation.KV(nil), f.O...)}
@@ -289,9 +279,9 @@ func TestValidatedRiskBands(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objAt(loOut, "score").F >= objAt(hi, "score").F {
-		t.Errorf("single-user score %v must be < %v", objAt(loOut, "score").F,
-			objAt(hi, "score").F)
+	if validation.ObjAt(loOut, "score").F >= validation.ObjAt(hi, "score").F {
+		t.Errorf("single-user score %v must be < %v", validation.ObjAt(loOut, "score").F,
+			validation.ObjAt(hi, "score").F)
 	}
 }
 
@@ -302,11 +292,11 @@ func TestEconomicRiskVectors(t *testing.T) {
 		"by on-chain liquidity, not by the theoretical exposure"
 	got := EconomicRisk(validation.VInt(1000), validation.VInt(1_000_000),
 		validation.VInt(3))
-	if objAt(got, "leverage_ratio").F != 333333.333 {
-		t.Errorf("leverage = %v; want 333333.333", objAt(got, "leverage_ratio").F)
+	if validation.ObjAt(got, "leverage_ratio").F != 333333.333 {
+		t.Errorf("leverage = %v; want 333333.333", validation.ObjAt(got, "leverage_ratio").F)
 	}
-	if objAt(got, "notes").S != notes {
-		t.Errorf("notes = %q", objAt(got, "notes").S)
+	if validation.ObjAt(got, "notes").S != notes {
+		t.Errorf("notes = %q", validation.ObjAt(got, "notes").S)
 	}
 	// ints stay ints (Python passes the caller's values straight through).
 	if canon(t, got) != `{"capital_required_usd": 3, "extractable_usd": 1000000, `+
@@ -319,11 +309,11 @@ func TestEconomicRiskVectors(t *testing.T) {
 		t.Errorf("all-None = %s", canon(t, got))
 	}
 	got = EconomicRisk(validation.VNull(), validation.VInt(1000), validation.VInt(0))
-	if objAt(got, "leverage_ratio").Kind != validation.Null {
+	if validation.ObjAt(got, "leverage_ratio").Kind != validation.Null {
 		t.Errorf("zero capital must not divide: %s", canon(t, got))
 	}
-	if canon(t, objAt(got, "extractable_usd")) != "1000" {
-		t.Errorf("extractable = %s", canon(t, objAt(got, "extractable_usd")))
+	if canon(t, validation.ObjAt(got, "extractable_usd")) != "1000" {
+		t.Errorf("extractable = %s", canon(t, validation.ObjAt(got, "extractable_usd")))
 	}
 	got = EconomicRiskFloat(floatPtr(1000), floatPtr(1_000_000), floatPtr(3))
 	if canon(t, got) != `{"capital_required_usd": 3.0, "extractable_usd": 1000000.0, `+
@@ -502,7 +492,7 @@ func TestAssetExposureBands(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		return objAt(iv, "asset_exposure").S
+		return validation.ObjAt(iv, "asset_exposure").S
 	}
 	if got := v(validation.VNull()); got != "none" {
 		t.Errorf("None -> %q; want none", got)
@@ -530,7 +520,7 @@ func TestPrivilegeClassMapping(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		return objAt(iv, "privilege_class").S
+		return validation.ObjAt(iv, "privilege_class").S
 	}
 	for _, c := range []struct {
 		privs []string
@@ -555,7 +545,7 @@ func TestPrivilegeClassMapping(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objAt(iv, "privilege_class").S != "owner" {
+	if validation.ObjAt(iv, "privilege_class").S != "owner" {
 		t.Error("null elements inside the privilege list must be skipped")
 	}
 }
@@ -570,7 +560,7 @@ func TestRecoverabilityAndInsolvency(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objAt(iv, "recoverability").S; got != "high" {
+	if got := validation.ObjAt(iv, "recoverability").S; got != "high" {
 		t.Errorf("recoverability = %q; want high", got)
 	}
 	mid := validation.VObj(kv("attacker", validation.VObj(
@@ -581,7 +571,7 @@ func TestRecoverabilityAndInsolvency(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objAt(iv, "recoverability").S; got != "medium" {
+	if got := validation.ObjAt(iv, "recoverability").S; got != "medium" {
 		t.Errorf("recoverability = %q; want medium", got)
 	}
 	iv, err = ImpactVector(validation.VObj(kv("root_cause", validation.VObj(
@@ -589,7 +579,7 @@ func TestRecoverabilityAndInsolvency(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objAt(iv, "insolvency_risk").S; got != "high" {
+	if got := validation.ObjAt(iv, "insolvency_risk").S; got != "high" {
 		t.Errorf("insolvency = %q; want high", got)
 	}
 	iv, err = ImpactVector(validation.VObj(kv("economic_impact",
@@ -598,7 +588,7 @@ func TestRecoverabilityAndInsolvency(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objAt(iv, "insolvency_risk").S; got != "medium" {
+	if got := validation.ObjAt(iv, "insolvency_risk").S; got != "medium" {
 		t.Errorf("insolvency = %q; want medium", got)
 	}
 }
@@ -614,10 +604,10 @@ func TestImpactVectorScoreIsBandWeightSum(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objAt(iv, "score").F; got != validation.PythonRound(4.5+3.0+1.0+0.5, 2) {
+	if got := validation.ObjAt(iv, "score").F; got != validation.PythonRound(4.5+3.0+1.0+0.5, 2) {
 		t.Errorf("score = %v; want the band-weight sum", got)
 	}
-	if got := objAt(iv, "score").F; got != 9.0 {
+	if got := validation.ObjAt(iv, "score").F; got != 9.0 {
 		t.Errorf("score = %v; want 9.0", got)
 	}
 }
@@ -635,17 +625,17 @@ func TestImpactVectorNullFieldsFallBackToDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objAt(iv, "asset_exposure").S != "none" {
-		t.Errorf("asset_exposure = %q", objAt(iv, "asset_exposure").S)
+	if validation.ObjAt(iv, "asset_exposure").S != "none" {
+		t.Errorf("asset_exposure = %q", validation.ObjAt(iv, "asset_exposure").S)
 	}
-	if objAt(iv, "privilege_class").S != "unprivileged" {
-		t.Errorf("privilege_class = %q", objAt(iv, "privilege_class").S)
+	if validation.ObjAt(iv, "privilege_class").S != "unprivileged" {
+		t.Errorf("privilege_class = %q", validation.ObjAt(iv, "privilege_class").S)
 	}
-	if objAt(iv, "recoverability").S != "unknown" {
-		t.Errorf("recoverability = %q", objAt(iv, "recoverability").S)
+	if validation.ObjAt(iv, "recoverability").S != "unknown" {
+		t.Errorf("recoverability = %q", validation.ObjAt(iv, "recoverability").S)
 	}
-	if objAt(iv, "insolvency_risk").S != "low" {
-		t.Errorf("insolvency_risk = %q", objAt(iv, "insolvency_risk").S)
+	if validation.ObjAt(iv, "insolvency_risk").S != "low" {
+		t.Errorf("insolvency_risk = %q", validation.ObjAt(iv, "insolvency_risk").S)
 	}
 }
 
@@ -669,7 +659,7 @@ func TestInsolvencyBoundaryParity(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%q: %v", c.text, err)
 		}
-		if got := objAt(iv, "insolvency_risk").S; got != c.want {
+		if got := validation.ObjAt(iv, "insolvency_risk").S; got != c.want {
 			t.Errorf("%q -> %q; want %q", c.text, got, c.want)
 		}
 	}
@@ -687,7 +677,7 @@ func TestPrivilegeRegexParity(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if got := objAt(iv, "privilege_class").S; got != c.want {
+		if got := validation.ObjAt(iv, "privilege_class").S; got != c.want {
 			t.Errorf("%q -> %q; want %q", c.priv, got, c.want)
 		}
 	}
@@ -805,13 +795,13 @@ func TestCalibrateWritesImpactVector(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := fieldAt(objAt(out, "risk"), "impact_vector"); !ok {
+	if _, ok := fieldAt(validation.ObjAt(out, "risk"), "impact_vector"); !ok {
 		t.Fatal("calibrate must write risk.impact_vector")
 	}
 	if got := validation.DumpIndented(riskV); got != riskBlockA {
 		t.Errorf("risk block:\n%s\nwant:\n%s", got, riskBlockA)
 	}
-	if got := validation.DumpIndented(objAt(out, "risk")); got != riskBlockA {
+	if got := validation.DumpIndented(validation.ObjAt(out, "risk")); got != riskBlockA {
 		t.Errorf("stored risk block differs:\n%s", got)
 	}
 }
@@ -830,16 +820,16 @@ func TestCalibrateLogsBand(t *testing.T) {
 	}
 	var found int
 	for _, e := range evs {
-		if objStr(e, "type") != "finding.calibrated" {
+		if validation.ObjStr(e, "type") != "finding.calibrated" {
 			continue
 		}
 		found++
-		if got := validation.DumpIndented(objAt(e, "data")); got !=
+		if got := validation.DumpIndented(validation.ObjAt(e, "data")); got !=
 			"{\n  \"band\": \"medium\"\n}" {
 			t.Errorf("event data = %s", got)
 		}
-		if objStr(e, "ref") != fid {
-			t.Errorf("ref = %q; want %q", objStr(e, "ref"), fid)
+		if validation.ObjStr(e, "ref") != fid {
+			t.Errorf("ref = %q; want %q", validation.ObjStr(e, "ref"), fid)
 		}
 	}
 	if found != 1 {
@@ -859,11 +849,11 @@ func TestRecordEconomicImpactKeepsKwargType(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := validation.DumpIndented(objAt(out, "economic_impact")); got !=
+	if got := validation.DumpIndented(validation.ObjAt(out, "economic_impact")); got !=
 		"{\n  \"extractable_usd\": 800000.0,\n  \"max_loss_usd\": 800000.0\n}" {
 		t.Errorf("impact = %s", got)
 	}
-	if got := validation.DumpIndented(objAt(out, "risk")); got != riskBlockB {
+	if got := validation.DumpIndented(validation.ObjAt(out, "risk")); got != riskBlockB {
 		t.Errorf("risk = %s\nwant:\n%s", got, riskBlockB)
 	}
 	evs, err := c.Events()
@@ -872,11 +862,11 @@ func TestRecordEconomicImpactKeepsKwargType(t *testing.T) {
 	}
 	var logged int
 	for _, e := range evs {
-		if objStr(e, "type") != "finding.impact_recorded" {
+		if validation.ObjStr(e, "type") != "finding.impact_recorded" {
 			continue
 		}
 		logged++
-		if got := validation.CanonCompact(objAt(e, "data")); got !=
+		if got := validation.CanonCompact(validation.ObjAt(e, "data")); got !=
 			`{"extractable_usd":800000,"max_loss_usd":800000}` {
 			t.Errorf("log data = %s; ints must survive", got)
 		}
@@ -897,16 +887,16 @@ func TestRecordEconomicImpactFloatAndCapital(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	att := objAt(out, "attacker")
-	if got := validation.DumpIndented(objAt(att, "required_capital_usd")); got != "3.0" {
+	att := validation.ObjAt(out, "attacker")
+	if got := validation.DumpIndented(validation.ObjAt(att, "required_capital_usd")); got != "3.0" {
 		t.Errorf("required_capital_usd = %s; want 3.0", got)
 	}
-	if got := validation.CanonCompact(objAt(objAt(out, "risk"), "economic")); got !=
+	if got := validation.CanonCompact(validation.ObjAt(validation.ObjAt(out, "risk"), "economic")); got !=
 		`{"capital_required_usd":3.0,"extractable_usd":1000000.0,`+
 			`"leverage_ratio":333333.333,"notes":"`+notesGolden+`"}` {
 		t.Errorf("economic risk = %s", got)
 	}
-	if got := objAt(objAt(out, "economic_impact"), "max_loss_usd"); got.Kind != validation.Null {
+	if got := validation.ObjAt(validation.ObjAt(out, "economic_impact"), "max_loss_usd"); got.Kind != validation.Null {
 		t.Errorf("max_loss_usd must stay null: %v", got)
 	}
 }
@@ -922,7 +912,7 @@ func TestRecordEconomicImpactNoNumbers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objAt(out, "economic_impact"); got.Kind != validation.Obj ||
+	if got := validation.ObjAt(out, "economic_impact"); got.Kind != validation.Obj ||
 		len(got.O) != 0 {
 		t.Errorf("economic_impact = %s; want {}", validation.DumpIndented(got))
 	}
@@ -998,15 +988,15 @@ func TestMintImpactEvidence(t *testing.T) {
 		t.Fatal(err)
 	}
 	var e7 validation.Value
-	for _, e := range objAt(out, "evidence").A {
-		if objStr(e, "level") == "E7" {
+	for _, e := range validation.ObjAt(out, "evidence").A {
+		if validation.ObjStr(e, "level") == "E7" {
 			e7 = e
 		}
 	}
 	if e7.Kind != validation.Obj {
 		t.Fatal("no E7 evidence item minted")
 	}
-	id := objStr(e7, "evidence_id")
+	id := validation.ObjStr(e7, "evidence_id")
 	if !strings.HasPrefix(id, "EV-") || len(id) != 11 {
 		t.Errorf("evidence_id = %q; want EV-<8 hex>", id)
 	}
@@ -1021,10 +1011,10 @@ func TestMintImpactEvidence(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, e := range evs {
-		if objStr(e, "type") != "finding.impact_quantified" {
+		if validation.ObjStr(e, "type") != "finding.impact_quantified" {
 			continue
 		}
-		if got := validation.CanonCompact(objAt(e, "data")); got !=
+		if got := validation.CanonCompact(validation.ObjAt(e, "data")); got !=
 			`{"artifact_id":"`+art+`","from_level":"E0"}` {
 			t.Errorf("impact_quantified data = %s", got)
 		}
@@ -1077,10 +1067,10 @@ func TestNullFieldsStillFailAtValidation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rc := objAt(stored, "root_cause")
+	rc := validation.ObjAt(stored, "root_cause")
 	rc.O = validation.SetOrAppend(rc.O, "description", validation.VNull())
 	stored.O = validation.SetOrAppend(stored.O, "root_cause", rc)
-	att := objAt(stored, "attacker")
+	att := validation.ObjAt(stored, "attacker")
 	att.O = validation.SetOrAppend(att.O, "required_privileges", validation.VNull())
 	stored.O = validation.SetOrAppend(stored.O, "attacker", att)
 	if err := validation.WriteJson(findings.FindingPath(c, fid), stored, ""); err != nil {

@@ -130,16 +130,16 @@ func TestEnforceTableJSON(t *testing.T) {
 		t.Fatalf("exit %d err %q", code, errS)
 	}
 	tbl := mustJSON(t, out)
-	if got := objStr(tbl, "name"); got != "prevStateRoot" {
+	if got := validation.ObjStr(tbl, "name"); got != "prevStateRoot" {
 		t.Errorf("name = %q", got)
 	}
-	if got := objStr(tbl, "match"); got != "storage" {
+	if got := validation.ObjStr(tbl, "match"); got != "storage" {
 		t.Errorf("match = %q", got)
 	}
-	if got := objStr(tbl, "concept_key"); got != "prev:state:root" {
+	if got := validation.ObjStr(tbl, "concept_key"); got != "prev:state:root" {
 		t.Errorf("concept_key = %q", got)
 	}
-	if got := objStr(tbl, "ordering"); got != "call-graph" {
+	if got := validation.ObjStr(tbl, "ordering"); got != "call-graph" {
 		t.Errorf("ordering = %q", got)
 	}
 	if got := len(objListAt(tbl, "sites")); got != 4 {
@@ -200,7 +200,7 @@ func intAtForTest(t *testing.T, v validation.Value, keys ...string) int64 {
 	t.Helper()
 	cur := v
 	for _, k := range keys {
-		cur = objAt(cur, k)
+		cur = validation.ObjAt(cur, k)
 	}
 	if cur.Kind != validation.Int {
 		t.Fatalf("field %v: not an int (%v)", keys, cur)

@@ -38,8 +38,8 @@ func chargeSlot(campaign *state.Campaign, finding *validation.Value,
 	if err != nil {
 		return err
 	}
-	if objAt(budget, "discovery_findings_so_far").I >=
-		objAt(budget, "max_discovery_findings").I {
+	if validation.ObjAt(budget, "discovery_findings_so_far").I >=
+		validation.ObjAt(budget, "max_discovery_findings").I {
 		return fmt.Errorf("%s",
 			"discovery budget exhausted — raise the ceiling (webv2 budget "+
 				campaign.CampaignID+" --set-discovery N --actor NAME) or plan a new pass")
@@ -65,8 +65,8 @@ func risesAboveBaseline(finding validation.Value, level string) bool {
 	if li <= e0 {
 		return false
 	}
-	for _, it := range objAt(finding, "evidence").A {
-		prev, err := LevelIndex(objStr(it, "level"))
+	for _, it := range validation.ObjAt(finding, "evidence").A {
+		prev, err := LevelIndex(validation.ObjStr(it, "level"))
 		if err == nil && prev > e0 {
 			return false // already rose before
 		}

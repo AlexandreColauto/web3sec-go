@@ -58,7 +58,7 @@ func r34Mirror(t *testing.T, c *Campaign) []validation.Value {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return objAt(st, "events").A
+	return validation.ObjAt(st, "events").A
 }
 
 func r34Bytes(t *testing.T, path string) string {
@@ -101,12 +101,12 @@ func r34AssertHealedGenesis(t *testing.T, c *Campaign, shape string,
 		t.Fatalf("%s: the ledger must hold exactly the new event, got %d",
 			shape, len(evts))
 	}
-	lr := objAt(objAt(evts[0], "data"), "ledger_rewound")
+	lr := validation.ObjAt(validation.ObjAt(evts[0], "data"), "ledger_rewound")
 	if lr.Kind != validation.Obj {
 		t.Fatalf("%s: the first event must DISCLOSE the rewind, got %s",
 			shape, validation.DumpsOrdered(evts[0], false))
 	}
-	if got := objAt(lr, "dropped_tail"); got.Kind != validation.Int ||
+	if got := validation.ObjAt(lr, "dropped_tail"); got.Kind != validation.Int ||
 		got.I != wantDropped {
 		t.Fatalf("%s: dropped_tail must be %d, got %s", shape, wantDropped,
 			validation.DumpsOrdered(evts[0], false))
@@ -189,7 +189,7 @@ func TestR34GenesisWithEmptyMirrorDisclosesNothing(t *testing.T) {
 	if len(evts) != 1 {
 		t.Fatalf("ledger must hold the new event only, got %d", len(evts))
 	}
-	if lr := objAt(objAt(evts[0], "data"), "ledger_rewound"); lr.Kind != validation.Null {
+	if lr := validation.ObjAt(validation.ObjAt(evts[0], "data"), "ledger_rewound"); lr.Kind != validation.Null {
 		t.Fatalf("nothing was dropped, so nothing may be disclosed: %s",
 			validation.DumpsOrdered(evts[0], false))
 	}
@@ -233,7 +233,7 @@ func TestR34CutChainRefusalUnwindsTheWrite(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ceil := objAt(objAt(st, "budget"), "max_total_cost_usd")
+	ceil := validation.ObjAt(validation.ObjAt(st, "budget"), "max_total_cost_usd")
 	if ceil.Kind != validation.Flt || ceil.F != 42.0 {
 		t.Fatalf("refused set left the ceiling half-landed at %v — the "+
 			"unwind must restore 42.0", ceil)

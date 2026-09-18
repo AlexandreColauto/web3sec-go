@@ -184,7 +184,7 @@ func seqCLIFinding(t *testing.T, root, cid string, seq validation.Value) string 
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	f, err = findings.LoadFinding(c, fid)
 	if err != nil {
 		t.Fatal(err)

@@ -210,7 +210,7 @@ func verifyAutoprove(c *state.Campaign, a *verifyArgs, r *Runner) error {
 	}
 	regDig := ""
 	if row, aerr := c.Artifact(artID); aerr == nil {
-		regDig = objStr(row, "sha256")
+		regDig = validation.ObjStr(row, "sha256")
 	}
 	if regDig != digest {
 		_, _ = c.PruneArtifact(artID,
@@ -261,7 +261,7 @@ func verifyAutoprove(c *state.Campaign, a *verifyArgs, r *Runner) error {
 		fmt.Fprintln(r.Out, "  note: review was NOT independent (same or "+
 			"no reviewer model) — the rollup rides one model's opinion")
 	}
-	if cm := objAt(rep, "capabilities_missing"); len(objKVs(cm)) > 0 {
+	if cm := validation.ObjAt(rep, "capabilities_missing"); len(objKVs(cm)) > 0 {
 		fmt.Fprintf(r.Out, "  verifier gaps at run time: %d capabilities "+
 			"missing (degraded run; see tools/minicertora_conformance.py)\n",
 			len(objKVs(cm)))
@@ -284,7 +284,7 @@ func objKVs(o validation.Value) []validation.KV {
 }
 
 func intFrom(o validation.Value, key string) int {
-	v := objAt(o, key)
+	v := validation.ObjAt(o, key)
 	switch v.Kind {
 	case validation.Int:
 		return int(v.I)
@@ -358,15 +358,15 @@ func autoprovePropertyHolder(c *state.Campaign, property string) (string, string
 		return "", ""
 	}
 	for _, e := range events {
-		if objStr(e, "type") != "harness_run" {
+		if validation.ObjStr(e, "type") != "harness_run" {
 			continue
 		}
-		d := objAt(e, "data")
-		if !autoproveSameName(objStr(d, "property"), property) {
+		d := validation.ObjAt(e, "data")
+		if !autoproveSameName(validation.ObjStr(d, "property"), property) {
 			continue
 		}
-		if inv := objStr(d, "invariant"); inv != "" {
-			return inv, objStr(d, "exec")
+		if inv := validation.ObjStr(d, "invariant"); inv != "" {
+			return inv, validation.ObjStr(d, "exec")
 		}
 	}
 	return "", ""
@@ -381,13 +381,13 @@ func autoprovePriorDigest(c *state.Campaign, invID string) string {
 	}
 	last := ""
 	for _, e := range events {
-		if objStr(e, "type") != "harness_run" {
+		if validation.ObjStr(e, "type") != "harness_run" {
 			continue
 		}
-		d := objAt(e, "data")
-		if objStr(d, "invariant") == invID &&
-			objStr(d, "report_sha256") != "" {
-			last = objStr(d, "report_sha256")
+		d := validation.ObjAt(e, "data")
+		if validation.ObjStr(d, "invariant") == invID &&
+			validation.ObjStr(d, "report_sha256") != "" {
+			last = validation.ObjStr(d, "report_sha256")
 		}
 	}
 	return last
@@ -431,8 +431,8 @@ func harnessRowForPath(c *state.Campaign, path string) (validation.Value,
 		return validation.VNull(), false
 	}
 	want := state.ResolveArtifactPathFor(c, path)
-	for _, arow := range objAt(st, "artifacts").A {
-		if state.ResolveArtifactPathFor(c, objStr(arow, "path")) == want {
+	for _, arow := range validation.ObjAt(st, "artifacts").A {
+		if state.ResolveArtifactPathFor(c, validation.ObjStr(arow, "path")) == want {
 			return arow, true
 		}
 	}

@@ -152,10 +152,10 @@ func SetFoldIntoLineage(fn dedupHelperFn) {
 // recording one is inert bookkeeping that LOOKS like coverage (critic r3).
 // The predicate mirrors the sweep's liveness law exactly.
 func sigLiveGuard(f validation.Value, findingID string) error {
-	if findings.IsTerminal(objStr(f, "status")) {
+	if findings.IsTerminal(validation.ObjStr(f, "status")) {
 		return fmt.Errorf("cannot record a dedup signature on %s (%s): the "+
 			"sweep only ever compares live rows — this would satisfy "+
-			"nothing", findingID, objStr(f, "status"))
+			"nothing", findingID, validation.ObjStr(f, "status"))
 	}
 	return nil
 }
@@ -263,17 +263,17 @@ func RunDedup(campaign *state.Campaign, autoMerge bool) (validation.Value, error
 	}
 	live := make([]validation.Value, 0, len(all))
 	for _, f := range all {
-		if nonDuplicatable[objStr(f, "status")] {
+		if nonDuplicatable[validation.ObjStr(f, "status")] {
 			continue
 		}
 		live = append(live, f)
 	}
 	sort.SliceStable(live, func(i, j int) bool {
-		ci, cj := objStr(live[i], "created_at"), objStr(live[j], "created_at")
+		ci, cj := validation.ObjStr(live[i], "created_at"), validation.ObjStr(live[j], "created_at")
 		if ci != cj {
 			return ci < cj
 		}
-		return objStr(live[i], "finding_id") < objStr(live[j], "finding_id")
+		return validation.ObjStr(live[i], "finding_id") < validation.ObjStr(live[j], "finding_id")
 	})
 
 	merged := map[string]bool{}
@@ -291,7 +291,7 @@ func RunDedup(campaign *state.Campaign, autoMerge bool) (validation.Value, error
 	}
 	untouched := 0
 	for _, f := range live {
-		if !merged[objStr(f, "finding_id")] {
+		if !merged[validation.ObjStr(f, "finding_id")] {
 			untouched++
 		}
 	}
@@ -319,9 +319,9 @@ func tier1Sweep(campaign *state.Campaign, live []validation.Value, merged map[st
 			continue
 		}
 		keep := g.members[0]
-		keepID := objStr(keep, "finding_id")
+		keepID := validation.ObjStr(keep, "finding_id")
 		for _, dup := range g.members[1:] {
-			dupID := objStr(dup, "finding_id")
+			dupID := validation.ObjStr(dup, "finding_id")
 			if merged[dupID] || !autoMerge {
 				continue
 			}
@@ -358,12 +358,12 @@ func tier2Sweep(campaign *state.Campaign, live []validation.Value, merged map[st
 		}
 		memberIDs := make([]string, 0, len(g.members))
 		for _, f := range g.members {
-			memberIDs = append(memberIDs, objStr(f, "finding_id"))
+			memberIDs = append(memberIDs, validation.ObjStr(f, "finding_id"))
 		}
 		lineage := LineageIDFor(g.sig, memberIDs)
 		keep := g.members[0]
 		for _, f := range g.members {
-			if _, err := foldIntoLineageFunc(campaign, objStr(f, "finding_id"), lineage); err != nil {
+			if _, err := foldIntoLineageFunc(campaign, validation.ObjStr(f, "finding_id"), lineage); err != nil {
 				return nil, err
 			}
 		}
@@ -380,7 +380,7 @@ func tier2Sweep(campaign *state.Campaign, live []validation.Value, merged map[st
 				}
 				// Merged or cross-snapshot-flagged: the pair is already
 				// adjudicable either way.
-				dupID := objStr(dup, "finding_id")
+				dupID := validation.ObjStr(dup, "finding_id")
 				handled[dupID] = true
 				if didMerge {
 					cluster.autoMerged = append(cluster.autoMerged, dupID)
@@ -399,12 +399,12 @@ func tier2Sweep(campaign *state.Campaign, live []validation.Value, merged map[st
 		// adjudicated) for a human or model verdict. Flag-only: nothing here
 		// merges, and a resolved verdict still comes from resolve-candidate.
 		for i, a := range g.members {
-			aID := objStr(a, "finding_id")
+			aID := validation.ObjStr(a, "finding_id")
 			if handled[aID] {
 				continue
 			}
 			for _, b := range g.members[i+1:] {
-				bID := objStr(b, "finding_id")
+				bID := validation.ObjStr(b, "finding_id")
 				if aID == bID || handled[bID] {
 					continue
 				}
@@ -433,8 +433,8 @@ func tier3Sweep(campaign *state.Campaign, live []validation.Value,
 		}
 		for i, a := range g.members {
 			for _, b := range g.members[i+1:] {
-				classA := objStr(objAt(a, "root_cause"), "class")
-				classB := objStr(objAt(b, "root_cause"), "class")
+				classA := validation.ObjStr(validation.ObjAt(a, "root_cause"), "class")
+				classB := validation.ObjStr(validation.ObjAt(b, "root_cause"), "class")
 				if !ClassesCompatible(classA, classB) {
 					continue // incompatible classes: text similarity is noise
 				}
@@ -448,7 +448,7 @@ func tier3Sweep(campaign *state.Campaign, live []validation.Value,
 				if snapshot.ReverifyRequired(a, active) || snapshot.ReverifyRequired(b, active) {
 					continue // cross-snapshot economic matches need re-verification
 				}
-				aID, bID := objStr(a, "finding_id"), objStr(b, "finding_id")
+				aID, bID := validation.ObjStr(a, "finding_id"), validation.ObjStr(b, "finding_id")
 				if _, err := flagPossibleDuplicateFunc(campaign, aID, bID); err != nil {
 					return nil, err
 				}
@@ -477,7 +477,7 @@ func autoMergePair(campaign *state.Campaign, keep, dup validation.Value) (bool, 
 	// flagged, never auto-merged.
 	if snapshot.ReverifyRequired(dup, active) ||
 		snapshot.ReverifyRequired(keep, active) {
-		dupID, keepID := objStr(dup, "finding_id"), objStr(keep, "finding_id")
+		dupID, keepID := validation.ObjStr(dup, "finding_id"), validation.ObjStr(keep, "finding_id")
 		ids := valueStrings(getDeep(dup, "dedup", "possible_duplicate_of"))
 		if !containsStr(ids, keepID) {
 			ids = append(ids, keepID)
@@ -493,8 +493,8 @@ func autoMergePair(campaign *state.Campaign, keep, dup validation.Value) (bool, 
 		}
 		return false, nil
 	}
-	if _, err := markDuplicateFunc(campaign, objStr(dup, "finding_id"),
-		objStr(keep, "finding_id")); err != nil {
+	if _, err := markDuplicateFunc(campaign, validation.ObjStr(dup, "finding_id"),
+		validation.ObjStr(keep, "finding_id")); err != nil {
 		return false, err
 	}
 	return true, nil
@@ -653,11 +653,11 @@ func ResolveCandidate(campaign *state.Campaign, findingID, ofFindingID, verdict,
 			len(valueStrings(getDeep(survivor, "provenance", "sast_tools"))) > 0
 		if oneTooled != twoTooled && !survivorTooled {
 			other := one
-			if objStr(survivor, "finding_id") == objStr(one, "finding_id") {
+			if validation.ObjStr(survivor, "finding_id") == validation.ObjStr(one, "finding_id") {
 				other = two
 			}
-			otherID := objStr(other, "finding_id")
-			sid := objStr(survivor, "finding_id")
+			otherID := validation.ObjStr(other, "finding_id")
+			sid := validation.ObjStr(survivor, "finding_id")
 			corroborated := setDeep(survivor, validation.VStr(otherID),
 				"dedup_meta", "corroborated_by")
 			data := validation.VObj(kv("of", validation.VStr(otherID)))
@@ -680,14 +680,14 @@ func ResolveCandidate(campaign *state.Campaign, findingID, ofFindingID, verdict,
 // (younger, older). resolve_candidate's merge and its corroboration link both
 // consume it, so there is only one ordering rule.
 func pickYoungerOlder(a, b validation.Value) (validation.Value, validation.Value) {
-	ca, cb := objStr(a, "created_at"), objStr(b, "created_at")
+	ca, cb := validation.ObjStr(a, "created_at"), validation.ObjStr(b, "created_at")
 	if ca < cb {
 		return b, a
 	}
 	if ca > cb {
 		return a, b
 	}
-	if objStr(a, "finding_id") < objStr(b, "finding_id") {
+	if validation.ObjStr(a, "finding_id") < validation.ObjStr(b, "finding_id") {
 		return b, a
 	}
 	return a, b
@@ -703,33 +703,14 @@ func mergeYounger(campaign *state.Campaign, f validation.Value, ofFindingID stri
 		return err
 	}
 	younger, older := pickYoungerOlder(f, other)
-	if objStr(younger, "status") == "DUPLICATE" {
+	if validation.ObjStr(younger, "status") == "DUPLICATE" {
 		return nil
 	}
-	_, err = markDuplicateFunc(campaign, objStr(younger, "finding_id"), objStr(older, "finding_id"))
+	_, err = markDuplicateFunc(campaign, validation.ObjStr(younger, "finding_id"), validation.ObjStr(older, "finding_id"))
 	return err
 }
 
 // ---- local Value helpers (findings' equivalents are unexported) -------------
-
-// objAt is the findings-local dict lookup: the value for key, or Null when
-// the key is absent (or the receiver is not an object).
-func objAt(v validation.Value, key string) validation.Value {
-	if v.Kind != validation.Obj {
-		return validation.VNull()
-	}
-	for _, kv := range v.O {
-		if kv.K == key {
-			return kv.V
-		}
-	}
-	return validation.VNull()
-}
-
-// objStr is the string flavor of objAt ("" when absent or not a string).
-func objStr(v validation.Value, key string) string {
-	return objAt(v, key).S
-}
 
 // getDeep is a chain of dict.get: Null as soon as a step is missing or is not
 // an object (Python's (d.get(k1) or {}).get(k2)).
@@ -739,7 +720,7 @@ func getDeep(root validation.Value, keys ...string) validation.Value {
 		if cur.Kind != validation.Obj {
 			return validation.VNull()
 		}
-		cur = objAt(cur, k)
+		cur = validation.ObjAt(cur, k)
 	}
 	return cur
 }
@@ -781,7 +762,7 @@ func groupBySig(live []validation.Value, key string, exclude map[string]bool) []
 		if sig == "" {
 			continue
 		}
-		if exclude != nil && exclude[objStr(f, "finding_id")] {
+		if exclude != nil && exclude[validation.ObjStr(f, "finding_id")] {
 			continue
 		}
 		i, ok := index[sig]
@@ -833,15 +814,15 @@ func containsStr(items []string, want string) bool {
 // match ((f.get("affected") or [{}])[0] on both sides).
 func sameSpot(dup, keep validation.Value) bool {
 	dupFirst, keepFirst := firstAffected(dup), firstAffected(keep)
-	return pyEqual(objAt(dupFirst, "path"), objAt(keepFirst, "path")) &&
-		pyEqual(objAt(dupFirst, "function"), objAt(keepFirst, "function"))
+	return pyEqual(validation.ObjAt(dupFirst, "path"), validation.ObjAt(keepFirst, "path")) &&
+		pyEqual(validation.ObjAt(dupFirst, "function"), validation.ObjAt(keepFirst, "function"))
 }
 
 // firstAffected is (f.get("affected") or [{}])[0]: the first affected entry,
 // or an empty object when affected is missing or empty (both fields then
 // compare as Python None).
 func firstAffected(f validation.Value) validation.Value {
-	arr := objAt(f, "affected")
+	arr := validation.ObjAt(f, "affected")
 	if arr.Kind == validation.Arr && len(arr.A) > 0 {
 		return arr.A[0]
 	}
@@ -879,7 +860,7 @@ func pyEqual(a, b validation.Value) bool {
 			return false
 		}
 		for _, kv := range a.O {
-			if !pyEqual(kv.V, objAt(b, kv.K)) {
+			if !pyEqual(kv.V, validation.ObjAt(b, kv.K)) {
 				return false
 			}
 		}

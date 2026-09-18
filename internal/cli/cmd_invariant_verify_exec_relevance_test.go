@@ -22,7 +22,7 @@ func relExec(t *testing.T, c *state.Campaign, execID, command,
 	stdout string) validation.Value {
 	t.Helper()
 	rec := invExecRecord(t, c, execID, command)
-	if err := os.WriteFile(objStr(rec, "stdout_path"), []byte(stdout),
+	if err := os.WriteFile(validation.ObjStr(rec, "stdout_path"), []byte(stdout),
 		0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -37,9 +37,9 @@ func relCamp(t *testing.T) (c *state.Campaign, root, hit, suite string) {
 	c, root = t15Campaign(t, "inv-exec-rel")
 	t15SeedInvariant(t, c, "INV-3", "staking liveness", "Staking")
 	log := "INV-3: staking liveness\nPASS: test_liveness\n"
-	hit = objStr(relExec(t, c, "EXEC-0000000001",
+	hit = validation.ObjStr(relExec(t, c, "EXEC-0000000001",
 		"forge test --match-contract Staking", log), "exec_id")
-	suite = objStr(relExec(t, c, "EXEC-0000000002", "forge test", log),
+	suite = validation.ObjStr(relExec(t, c, "EXEC-0000000002", "forge test", log),
 		"exec_id")
 	return c, root, hit, suite
 }
@@ -61,13 +61,13 @@ func TestInvariantVerifyRefusesUntargetedExec(t *testing.T) {
 		t.Fatalf("stderr missing the refusal text: %q", errS)
 	}
 	entry := invEntry(t, c, "INV-3")
-	if got := objStr(entry, "status"); got != "UNVERIFIED" {
+	if got := validation.ObjStr(entry, "status"); got != "UNVERIFIED" {
 		t.Fatalf("status = %q, want UNVERIFIED", got)
 	}
-	if got := objStr(entry, "verified_by"); got != "" {
+	if got := validation.ObjStr(entry, "verified_by"); got != "" {
 		t.Fatalf("verified_by = %q, want empty on a refusal", got)
 	}
-	if got := objStr(entry, "verification_method"); got != "" {
+	if got := validation.ObjStr(entry, "verification_method"); got != "" {
 		t.Fatalf("verification_method = %q, want no attestation label", got)
 	}
 	events, err := c.Events()
@@ -75,7 +75,7 @@ func TestInvariantVerifyRefusesUntargetedExec(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, ev := range events {
-		if objStr(ev, "type") == "invariant.verified" {
+		if validation.ObjStr(ev, "type") == "invariant.verified" {
 			t.Fatal("a refusal must emit no invariant.verified event")
 		}
 	}
@@ -87,9 +87,9 @@ func TestInvariantVerifyRefusesUntargetedExec(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, a := range objListAt(st, "artifacts") {
-		if strings.Contains(objStr(a, "note"), "INV-3") {
+		if strings.Contains(validation.ObjStr(a, "note"), "INV-3") {
 			t.Fatalf("refused citation minted artifact row %s: note %q",
-				objStr(a, "artifact_id"), objStr(a, "note"))
+				validation.ObjStr(a, "artifact_id"), validation.ObjStr(a, "note"))
 		}
 	}
 }
@@ -106,7 +106,7 @@ func TestInvariantVerifyAcceptsTargetedExec(t *testing.T) {
 	if !strings.Contains(out, "INV-3: CHECKED_AGAINST_CODE") {
 		t.Fatalf("output %q", out)
 	}
-	if got := objStr(invEntry(t, c, "INV-3"), "status"); got !=
+	if got := validation.ObjStr(invEntry(t, c, "INV-3"), "status"); got !=
 		"CHECKED_AGAINST_CODE" {
 		t.Fatalf("status = %q, want CHECKED_AGAINST_CODE", got)
 	}

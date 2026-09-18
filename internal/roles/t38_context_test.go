@@ -34,19 +34,19 @@ func TestSummarizeNonIssueDecidingPropositionsVerbatim(t *testing.T) {
 
 	// v2 with the field ABSENT -> null (Python's dict.get default).
 	got := summarizeNonIssue(base(), "")
-	if dp := objAt(got, "deciding_propositions"); dp.Kind != validation.Null {
+	if dp := validation.ObjAt(got, "deciding_propositions"); dp.Kind != validation.Null {
 		t.Fatalf("absent deciding_propositions = %v, want null", dp)
 	}
 	// v2 with an explicit null -> null.
 	got = summarizeNonIssue(base(validation.KV{K: "deciding_propositions",
 		V: validation.VNull()}), "")
-	if dp := objAt(got, "deciding_propositions"); dp.Kind != validation.Null {
+	if dp := validation.ObjAt(got, "deciding_propositions"); dp.Kind != validation.Null {
 		t.Fatalf("null deciding_propositions = %v, want null", dp)
 	}
 	// v2 with a list -> the list.
 	got = summarizeNonIssue(base(validation.KV{K: "deciding_propositions",
 		V: validation.VArr(validation.VStr("p1"), validation.VStr("p2"))}), "")
-	if dp := objAt(got, "deciding_propositions"); dp.Kind != validation.Arr ||
+	if dp := validation.ObjAt(got, "deciding_propositions"); dp.Kind != validation.Arr ||
 		len(dp.A) != 2 || dp.A[1].S != "p2" {
 		t.Fatalf("list deciding_propositions = %v, want 2 items", dp)
 	}
@@ -55,7 +55,7 @@ func TestSummarizeNonIssueDecidingPropositionsVerbatim(t *testing.T) {
 		validation.KV{K: "memory_id", V: validation.VStr("MEM-old")},
 		validation.KV{K: "schema_version", V: validation.VInt(1)},
 	), "")
-	if dp := objAt(got, "deciding_propositions"); dp.Kind != validation.Arr ||
+	if dp := validation.ObjAt(got, "deciding_propositions"); dp.Kind != validation.Arr ||
 		len(dp.A) != 0 {
 		t.Fatalf("v1 deciding_propositions = %v, want []", dp)
 	}
@@ -73,14 +73,14 @@ func TestSummarizeNonIssueClipsByRunes(t *testing.T) {
 		validation.KV{K: "evidence_summary", V: validation.VStr(long)},
 	)
 	got := summarizeNonIssue(row, "")
-	if n := len([]rune(objStr(got, "evidence_summary"))); n != 200 {
+	if n := len([]rune(validation.ObjStr(got, "evidence_summary"))); n != 200 {
 		t.Fatalf("evidence_summary runes = %d, want 200", n)
 	}
-	if n := len([]rune(objStr(got, "pattern"))); n != 300 {
+	if n := len([]rune(validation.ObjStr(got, "pattern"))); n != 300 {
 		t.Fatalf("pattern runes = %d, want 300", n)
 	}
-	if !strings.HasSuffix(objStr(got, "evidence_summary"), "\u2014") {
+	if !strings.HasSuffix(validation.ObjStr(got, "evidence_summary"), "\u2014") {
 		t.Fatalf("evidence_summary cut mid-rune: %q",
-			objStr(got, "evidence_summary"))
+			validation.ObjStr(got, "evidence_summary"))
 	}
 }

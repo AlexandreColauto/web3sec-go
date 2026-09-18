@@ -64,7 +64,7 @@ func adjudicateFinding(t *testing.T, c *state.Campaign, class, path string) stri
 	if err != nil {
 		t.Fatalf("ingest: %v", err)
 	}
-	return objStr(f, "finding_id")
+	return validation.ObjStr(f, "finding_id")
 }
 
 // adjCmd is one record-mode command line, so a test can mutate one field at
@@ -409,19 +409,19 @@ func TestAdjudicateJSONShape(t *testing.T) {
 		t.Fatalf("empty key order = %v, want %v", got, topKeys)
 	}
 	empty := mustJSON(t, out)
-	if rows := objAt(empty, "adjudications"); rows.Kind != validation.Arr ||
+	if rows := validation.ObjAt(empty, "adjudications"); rows.Kind != validation.Arr ||
 		len(rows.A) != 0 {
 		t.Fatalf("empty adjudications = %s, want []",
 			validation.CanonCompact(rows))
 	}
-	if v := objAt(empty, "stale_adjudications"); v.Kind != validation.Null {
+	if v := validation.ObjAt(empty, "stale_adjudications"); v.Kind != validation.Null {
 		t.Fatalf("stale_adjudications = %s, want absent when zero",
 			validation.CanonCompact(v))
 	}
 	// With no rows the single unanchored finding is still unadjudicated, so
 	// the adjusted denominator is the raw one — the penalty is not lifted
 	// by silence.
-	if got := objStr(empty, "adjusted_precision"); got !=
+	if got := validation.ObjStr(empty, "adjusted_precision"); got !=
 		"precision: 0/1 (95% CI 0.0–79.3%)" {
 		t.Fatalf("empty adjusted_precision = %q", got)
 	}
@@ -464,17 +464,17 @@ func TestAdjudicateJSONShape(t *testing.T) {
 		}
 		prev = i
 	}
-	if got := objStr(rows[0], "assumption"); got !=
+	if got := validation.ObjStr(rows[0], "assumption"); got !=
 		"the sequencer never reorders the deposit" {
 		t.Fatalf("assumption = %q", got)
 	}
-	if got := objStr(rows[0], "exec"); got != "EXEC-0000000001" {
+	if got := validation.ObjStr(rows[0], "exec"); got != "EXEC-0000000001" {
 		t.Fatalf("exec = %q", got)
 	}
-	if got := objStr(rows[0], "verdict"); got != "assumption-gated" {
+	if got := validation.ObjStr(rows[0], "verdict"); got != "assumption-gated" {
 		t.Fatalf("verdict = %q", got)
 	}
-	if got := objStr(rows[0], "severity"); got != "tbd" {
+	if got := validation.ObjStr(rows[0], "severity"); got != "tbd" {
 		t.Fatalf("severity = %q, want the tbd default", got)
 	}
 	if n := objInt(doc, "assumption_gated"); n != 1 {
@@ -634,13 +634,13 @@ func TestAdjudicateBrokenStateWithholdsTally(t *testing.T) {
 		t.Fatalf("key order = %v, want the note shape with no counters", got)
 	}
 	doc := mustJSON(t, out)
-	if got := objStr(doc, "note"); got != adjudicateJoinUnavailable {
+	if got := validation.ObjStr(doc, "note"); got != adjudicateJoinUnavailable {
 		t.Fatalf("note = %q", got)
 	}
 	for _, k := range []string{"adjusted_precision", "unanchored",
 		"additional_true_positive", "false_positive", "assumption_gated",
 		"unadjudicated", "stale_adjudications", "invalid_adjudications"} {
-		if v := objAt(doc, k); v.Kind != validation.Null {
+		if v := validation.ObjAt(doc, k); v.Kind != validation.Null {
 			t.Fatalf("%s = %s, want the key absent",
 				k, validation.CanonCompact(v))
 		}
@@ -679,7 +679,7 @@ func TestAdjudicateHandRowWithoutSeverityIsTbd(t *testing.T) {
 		t.Fatalf("--json exit %d err %q", code, errS)
 	}
 	rows := objListAt(mustJSON(t, out), "adjudications")
-	if len(rows) != 1 || objStr(rows[0], "severity") != "tbd" {
+	if len(rows) != 1 || validation.ObjStr(rows[0], "severity") != "tbd" {
 		t.Fatalf("json severity = %v, want tbd", rows)
 	}
 }
@@ -734,7 +734,7 @@ func TestAdjudicateInvalidRowsReported(t *testing.T) {
 	if code != 0 || errS != "" {
 		t.Fatalf("clean --json exit %d err %q", code, errS)
 	}
-	if v := objAt(mustJSON(t, out), "invalid_adjudications"); v.Kind != validation.Null {
+	if v := validation.ObjAt(mustJSON(t, out), "invalid_adjudications"); v.Kind != validation.Null {
 		t.Fatalf("invalid_adjudications = %s, want the key absent",
 			validation.CanonCompact(v))
 	}

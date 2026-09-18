@@ -68,7 +68,7 @@ func TestReconGatePassesWithBothStamps(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(sinks, "src") != "src" || objStr(sinks, "at") == "" {
+	if validation.ObjStr(sinks, "src") != "src" || validation.ObjStr(sinks, "at") == "" {
 		t.Fatalf("sinks stamp = %s", validation.CanonCompact(sinks))
 	}
 }

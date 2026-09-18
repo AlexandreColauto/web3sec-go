@@ -37,7 +37,7 @@ func g15Pin(t *testing.T, c *state.Campaign) (string, string) {
 	if err != nil {
 		t.Fatalf("pin: %v", err)
 	}
-	return objStr(snap, "snapshot_id"), objStr(snap, "created_at")
+	return validation.ObjStr(snap, "snapshot_id"), validation.ObjStr(snap, "created_at")
 }
 
 // g15Chain attaches a chain pin carrying fork_block + fork_timestamp.
@@ -79,7 +79,7 @@ func g15Mint(t *testing.T, c *state.Campaign, startedAt string) validation.Value
 	if err != nil {
 		t.Fatalf("register exec: %v", err)
 	}
-	execID := objStr(rec, "exec_id")
+	execID := validation.ObjStr(rec, "exec_id")
 	tier := "T2"
 	if _, err := RecordAttempt(c, fid, "reproduced",
 		RecordOpts{ExecID: &execID, Tier: &tier}); err != nil {
@@ -90,8 +90,8 @@ func g15Mint(t *testing.T, c *state.Campaign, startedAt string) validation.Value
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, e := range objAt(out, "evidence").A {
-		if objStr(e, "artifact_id") == execID {
+	for _, e := range validation.ObjAt(out, "evidence").A {
+		if validation.ObjStr(e, "artifact_id") == execID {
 			return e
 		}
 	}
@@ -170,7 +170,7 @@ func TestG15RerunsDeterministic(t *testing.T) {
 		})
 	item := g15Mint(t, c, "")
 	want := "3/3 (execs EXEC-rerun-1,EXEC-rerun-2,EXEC-rerun-3)"
-	if got := objStr(item, "reruns"); got != want {
+	if got := validation.ObjStr(item, "reruns"); got != want {
 		t.Fatalf("reruns = %q, want %q", got, want)
 	}
 	if *calls != rerunAttempts {
@@ -200,7 +200,7 @@ func TestG15RerunsFlaky(t *testing.T) {
 		})
 	item := g15Mint(t, c, "")
 	want := "flaky 2/3 (execs EXEC-rerun-1,EXEC-rerun-2,EXEC-rerun-3)"
-	if got := objStr(item, "reruns"); got != want {
+	if got := validation.ObjStr(item, "reruns"); got != want {
 		t.Fatalf("reruns = %q, want %q", got, want)
 	}
 	if n != rerunAttempts {
@@ -219,7 +219,7 @@ func TestG15RerunsNotApplicable(t *testing.T) {
 			return "", 0, nil, ErrRerunUnavailable
 		})
 	item := g15Mint(t, c, "")
-	if got := objStr(item, "reruns"); got != "not-applicable" {
+	if got := validation.ObjStr(item, "reruns"); got != "not-applicable" {
 		t.Fatalf("reruns = %q, want not-applicable", got)
 	}
 	if n := TakeMintNotice(); n == "" {
@@ -239,7 +239,7 @@ func TestG15RerunsUnavailableWrapped(t *testing.T) {
 					ErrRerunUnavailable)
 		})
 	item := g15Mint(t, c, "")
-	if got := objStr(item, "reruns"); got != "not-applicable" {
+	if got := validation.ObjStr(item, "reruns"); got != "not-applicable" {
 		t.Fatalf("reruns = %q, want not-applicable", got)
 	}
 	_ = TakeMintNotice()
@@ -285,10 +285,10 @@ func TestG15DefaultOffByteIdentity(t *testing.T) {
 	if got := g15ItemKeys(item); !g15KeysEqual(got, want) {
 		t.Fatalf("item keys\n%q\nwant\n%q", got, want)
 	}
-	if got := objStr(item, "level"); got != "E4" {
+	if got := validation.ObjStr(item, "level"); got != "E4" {
 		t.Fatalf("level = %q", got)
 	}
-	if got := objStr(item, "type"); got != "foundry-test" {
+	if got := validation.ObjStr(item, "type"); got != "foundry-test" {
 		t.Fatalf("type = %q", got)
 	}
 }
@@ -304,7 +304,7 @@ func TestG15ForkStale(t *testing.T) {
 	want := "stale: pinned 8 days ago \u2014 snapshot pinned " +
 		"2026-08-31T12:00:00.000000+00:00 fork_block 23456789 \u2014 " +
 		"re-pin with snap + re-mint"
-	if got := objStr(item, "fork_stale"); got != want {
+	if got := validation.ObjStr(item, "fork_stale"); got != want {
 		t.Fatalf("fork_stale\n%q\nwant\n%q", got, want)
 	}
 }
@@ -346,7 +346,7 @@ func TestG15ForkNullTimestampStale(t *testing.T) {
 	item := g15Mint(t, c, "2026-09-08T12:00:05.000000+00:00")
 	want := "stale: fork timestamp missing \u2014 snapshot pinned " +
 		created + " fork_block 23456789 \u2014 re-pin with snap + re-mint"
-	if got := objStr(item, "fork_stale"); got != want {
+	if got := validation.ObjStr(item, "fork_stale"); got != want {
 		t.Fatalf("fork_stale\n%q\nwant\n%q", got, want)
 	}
 }
@@ -360,7 +360,7 @@ func TestG15ForkNullChainStale(t *testing.T) {
 	item := g15Mint(t, c, "2026-09-08T12:00:05.000000+00:00")
 	want := "stale: no snapshot data recorded \u2014 snapshot pinned " +
 		created + " fork_block unknown \u2014 re-pin with snap + re-mint"
-	if got := objStr(item, "fork_stale"); got != want {
+	if got := validation.ObjStr(item, "fork_stale"); got != want {
 		t.Fatalf("fork_stale\n%q\nwant\n%q", got, want)
 	}
 }
@@ -419,12 +419,12 @@ func TestG15SchemaRoundTrip(t *testing.T) {
 		})
 	live := g15Mint(t, c, "2026-09-08T12:00:05.000000+00:00")
 	wantLive := "3/3 (execs EXEC-rerun-1,EXEC-rerun-2,EXEC-rerun-3)"
-	if objStr(live, "reruns") != wantLive {
-		t.Fatalf("live reruns = %q, want %q", objStr(live, "reruns"),
+	if validation.ObjStr(live, "reruns") != wantLive {
+		t.Fatalf("live reruns = %q, want %q", validation.ObjStr(live, "reruns"),
 			wantLive)
 	}
-	if !strings.Contains(objStr(live, "fork_stale"), "fork_block 23456789") {
-		t.Fatalf("live fork_stale = %q", objStr(live, "fork_stale"))
+	if !strings.Contains(validation.ObjStr(live, "fork_stale"), "fork_block 23456789") {
+		t.Fatalf("live fork_stale = %q", validation.ObjStr(live, "fork_stale"))
 	}
 	if bad, err := validation.ValidateDefinition(live, "finding",
 		"evidence_item"); err != nil || bad != nil {
@@ -446,7 +446,7 @@ func TestG15HashIsLedgerHash(t *testing.T) {
 		})
 	item := g15Mint(t, c, "")
 	want := "3/3 (execs EXEC-rerun-1,EXEC-rerun-2,EXEC-rerun-3)"
-	if got := objStr(item, "reruns"); got != want {
+	if got := validation.ObjStr(item, "reruns"); got != want {
 		t.Fatalf("identical bytes must match the ledger hash: %q", got)
 	}
 	_ = TakeMintNotice()
@@ -463,7 +463,7 @@ func TestG15ForkStaleReasonsDistinct(t *testing.T) {
 		sid, _ := g15Pin(t, c)
 		g15Chain(t, c, sid, forkTS, attach)
 		g15Flag(t, false)
-		return objStr(g15Mint(t, c,
+		return validation.ObjStr(g15Mint(t, c,
 			"2026-09-08T12:00:05.000000+00:00"), "fork_stale")
 	}
 	noData := staleOf(false, "") // null chain
@@ -519,7 +519,7 @@ func TestG15RerunJoinLeavesOriginalUntouched(t *testing.T) {
 	if err != nil {
 		t.Fatalf("register exec: %v", err)
 	}
-	execID := objStr(rec, "exec_id")
+	execID := validation.ObjStr(rec, "exec_id")
 	recPath := filepath.Join(c.ExecsDir, execID, "exec_record.json")
 	before, err := os.ReadFile(recPath)
 	if err != nil {
@@ -543,13 +543,13 @@ func TestG15RerunJoinLeavesOriginalUntouched(t *testing.T) {
 		t.Fatal("original exec record changed by a flag-ON mint")
 	}
 	var item validation.Value
-	for _, e := range objAt(out, "evidence").A {
-		if objStr(e, "artifact_id") == execID {
+	for _, e := range validation.ObjAt(out, "evidence").A {
+		if validation.ObjStr(e, "artifact_id") == execID {
 			item = e
 		}
 	}
 	want := "3/3 (execs EXEC-rerun-1,EXEC-rerun-2,EXEC-rerun-3)"
-	if got := objStr(item, "reruns"); got != want {
+	if got := validation.ObjStr(item, "reruns"); got != want {
 		t.Fatalf("reruns = %q, want %q", got, want)
 	}
 	entries, err := os.ReadDir(c.ExecsDir)
@@ -573,7 +573,7 @@ func TestG15RerunsErrorOmitsJoin(t *testing.T) {
 			return "", 0, nil, errors.New("container died mid-run")
 		})
 	item := g15Mint(t, c, "")
-	if got := objStr(item, "reruns"); got != "flaky 0/3" {
+	if got := validation.ObjStr(item, "reruns"); got != "flaky 0/3" {
 		t.Fatalf("reruns = %q, want flaky 0/3", got)
 	}
 	_ = TakeMintNotice()

@@ -43,7 +43,7 @@ func t31OneGateFromConfirmed(t *testing.T, c *state.Campaign) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	if _, err := findings.Transition(c, fid, "POSSIBLE", "triage", "triage",
 		"", false); err != nil {
 		t.Fatal(err)
@@ -60,8 +60,8 @@ func t31OneGateFromConfirmed(t *testing.T, c *state.Campaign) string {
 		kv("level", validation.VStr("E4")),
 		kv("type", validation.VStr("foundry-test")),
 		kv("description", validation.VStr("repro under sandbox")),
-		kv("sandbox_profile", objAt(rec, "profile")),
-		kv("artifact_id", objAt(rec, "exec_id")))
+		kv("sandbox_profile", validation.ObjAt(rec, "profile")),
+		kv("artifact_id", validation.ObjAt(rec, "exec_id")))
 	if _, err := findings.AddEvidence(c, fid, item); err != nil {
 		t.Fatal(err)
 	}
@@ -72,7 +72,7 @@ func t31OneGateFromConfirmed(t *testing.T, c *state.Campaign) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ver := objAt(vf, "verification")
+	ver := validation.ObjAt(vf, "verification")
 	if ver.Kind != validation.Obj {
 		ver = validation.VObj()
 	}
@@ -127,7 +127,7 @@ func TestEveryPrintedRecallRemedyIsExecutable(t *testing.T) {
 		t.Fatal(err)
 	}
 	action := ""
-	for _, a := range objAt(brief, "next_actions").A {
+	for _, a := range validation.ObjAt(brief, "next_actions").A {
 		if a.Kind == validation.Str && strings.Contains(a.S, fid) &&
 			strings.Contains(a.S, "memory recall pending") {
 			action = a.S
@@ -262,7 +262,7 @@ func TestCLIBriefPrintsTheDebtBlock(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	reg := objAt(links, "invariants")
+	reg := validation.ObjAt(links, "invariants")
 	reg.O = validation.SetOrAppend(reg.O, "INV-008", validation.VObj(
 		kv("statement", validation.VStr("INV-008 statement")),
 		kv("kind", validation.VStr("liveness")),
@@ -320,7 +320,7 @@ func TestCLIComplete(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(st, "phase"); got != "COMPLETE" {
+	if got := validation.ObjStr(st, "phase"); got != "COMPLETE" {
 		t.Errorf("phase = %q, want COMPLETE", got)
 	}
 }
@@ -367,7 +367,7 @@ func TestStatusShowsCompletePhase(t *testing.T) {
 	if err != nil {
 		t.Fatalf("status is not JSON: %v", err)
 	}
-	if got := objStr(doc, "phase"); got != "COMPLETE" {
+	if got := validation.ObjStr(doc, "phase"); got != "COMPLETE" {
 		t.Errorf("phase = %q, want COMPLETE", got)
 	}
 }
@@ -412,7 +412,7 @@ func TestReopeningByRunningAStageMovesThePhase(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(st, "phase"); got != "COMPLETE" {
+	if got := validation.ObjStr(st, "phase"); got != "COMPLETE" {
 		t.Fatalf("phase = %q, want COMPLETE", got)
 	}
 	code, out, errS := run(t, "--root", root, "run", cid)
@@ -425,7 +425,7 @@ func TestReopeningByRunningAStageMovesThePhase(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(st, "phase"); got == "COMPLETE" {
+	if got := validation.ObjStr(st, "phase"); got == "COMPLETE" {
 		t.Errorf("phase is still COMPLETE after a stage run")
 	}
 }

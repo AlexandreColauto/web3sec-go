@@ -202,7 +202,7 @@ func transition(campaign *state.Campaign, findingID, toStatus, reason string,
 	if err != nil {
 		return validation.VNull(), err
 	}
-	fromStatus := objStr(finding, "status")
+	fromStatus := validation.ObjStr(finding, "status")
 	// A same-status move is a no-op — EXCEPT a targeted re-merge: a DUPLICATE
 	// moved to DUPLICATE with a DIFFERENT --of must not exit 0 having
 	// silently rewritten (or, worse, here: not rewritten) the recorded merge
@@ -212,7 +212,7 @@ func transition(campaign *state.Campaign, findingID, toStatus, reason string,
 		if toStatus != "DUPLICATE" {
 			return finding, nil
 		}
-		recorded := objStr(objAt(finding, "dedup"), "duplicate_of")
+		recorded := validation.ObjStr(validation.ObjAt(finding, "dedup"), "duplicate_of")
 		if strings.TrimSpace(opts.duplicateOf) == "" {
 			// A bare same-status move keeps the recorded target untouched:
 			// the operator asked for exactly the state on disk.
@@ -362,7 +362,7 @@ func transition(campaign *state.Campaign, findingID, toStatus, reason string,
 // id. It runs before anything is written.
 func validateDuplicateTarget(campaign *state.Campaign, finding validation.Value,
 	target string) error {
-	fid := objStr(finding, "finding_id")
+	fid := validation.ObjStr(finding, "finding_id")
 	if target == fid {
 		return &DuplicateTargetInvalid{Msg: fmt.Sprintf(
 			"a finding cannot be merged into itself (--of %s names the "+
@@ -382,12 +382,12 @@ func validateDuplicateTarget(campaign *state.Campaign, finding validation.Value,
 func mutateStatus(finding *validation.Value, fromStatus, toStatus, reason,
 	actor string) {
 	finding.O = validation.SetOrAppend(finding.O, "status", validation.VStr(toStatus))
-	hist := objAt(*finding, "history")
+	hist := validation.ObjAt(*finding, "history")
 	if hist.Kind != validation.Arr {
 		hist = validation.VArr()
 	}
 	hist.A = append(hist.A, validation.VObj(
-		validation.KV{K: "at", V: validation.VStr(nowIso())},
+		validation.KV{K: "at", V: validation.VStr(state.NowIso())},
 		validation.KV{K: "from", V: validation.VStr(fromStatus)},
 		validation.KV{K: "to", V: validation.VStr(toStatus)},
 		validation.KV{K: "reason", V: validation.VStr(reason)},
@@ -406,7 +406,7 @@ func logStatus(campaign *state.Campaign, finding *validation.Value,
 		validation.KV{K: "reason", V: validation.VStr(reason)},
 		validation.KV{K: "actor", V: validation.VStr(actor)},
 	)
-	fid := objStr(*finding, "finding_id")
+	fid := validation.ObjStr(*finding, "finding_id")
 	_, err := campaign.Log("finding.status", &fid, &data)
 	return err
 }
@@ -415,7 +415,7 @@ func logStatus(campaign *state.Campaign, finding *validation.Value,
 // ANCHOR — add one re-scan priority (idempotent per finding) so the discovery
 // queue carries it.
 func anchorRescan(campaign *state.Campaign, finding validation.Value) error {
-	sev := objStr(finding, "reported_severity")
+	sev := validation.ObjStr(finding, "reported_severity")
 	if sev != "high" && sev != "critical" {
 		return nil
 	}
@@ -424,7 +424,7 @@ func anchorRescan(campaign *state.Campaign, finding validation.Value) error {
 		return nil // the discovery proof already reports the missing plan
 	}
 	if err := reopenExhaustedLenses(campaign, finding); err != nil {
-		fid := objStr(finding, "finding_id")
+		fid := validation.ObjStr(finding, "finding_id")
 		data := validation.VObj(validation.KV{K: "error",
 			V: validation.VStr(err.Error())})
 		if _, lerr := campaign.Log("plan.lens_reopen_failed", &fid,
@@ -436,7 +436,7 @@ func anchorRescan(campaign *state.Campaign, finding validation.Value) error {
 	if err != nil {
 		return err
 	}
-	fid := objStr(finding, "finding_id")
+	fid := validation.ObjStr(finding, "finding_id")
 	if hasAnchorPriority(plan, fid) {
 		return nil
 	}
@@ -444,7 +444,7 @@ func anchorRescan(campaign *state.Campaign, finding validation.Value) error {
 	if err != nil {
 		return err
 	}
-	priorities := objAt(plan, "priorities")
+	priorities := validation.ObjAt(plan, "priorities")
 	if priorities.Kind != validation.Arr {
 		return fmt.Errorf("%s", validation.PyReprStr("priorities"))
 	}
@@ -454,8 +454,8 @@ func anchorRescan(campaign *state.Campaign, finding validation.Value) error {
 		return err
 	}
 	data := validation.VObj(
-		validation.KV{K: "priority_id", V: objAt(priority, "id")},
-		validation.KV{K: "severity", V: objAt(finding, "reported_severity")},
+		validation.KV{K: "priority_id", V: validation.ObjAt(priority, "id")},
+		validation.KV{K: "severity", V: validation.ObjAt(finding, "reported_severity")},
 	)
 	_, err = campaign.Log("plan.anchor_priority", &fid, &data)
 	return err
@@ -474,7 +474,7 @@ func reopenExhaustedLenses(campaign *state.Campaign, finding validation.Value) e
 	if err != nil {
 		return err
 	}
-	lenses := objAt(plan, "lenses")
+	lenses := validation.ObjAt(plan, "lenses")
 	if lenses.Kind != validation.Arr {
 		return nil
 	}
@@ -483,11 +483,11 @@ func reopenExhaustedLenses(campaign *state.Campaign, finding validation.Value) e
 		if l.Kind != validation.Obj {
 			continue
 		}
-		st := objStr(l, "status")
+		st := validation.ObjStr(l, "status")
 		if st != "answered" && st != "not-applicable" {
 			continue
 		}
-		hit := intersectSorted(objAt(l, "families"), toks)
+		hit := intersectSorted(validation.ObjAt(l, "families"), toks)
 		if len(hit) == 0 {
 			continue
 		}
@@ -505,19 +505,19 @@ func reopenExhaustedLenses(campaign *state.Campaign, finding validation.Value) e
 // reopenLens applies one lens re-open and logs it.
 func reopenLens(campaign *state.Campaign, finding, lens validation.Value,
 	hit []string) validation.Value {
-	fid := objStr(finding, "finding_id")
+	fid := validation.ObjStr(finding, "finding_id")
 	lens.O = validation.SetOrAppend(lens.O, "status", validation.VStr("open"))
 	lens.O = validation.SetOrAppend(lens.O, "reopen_reason", validation.VStr(
 		fmt.Sprintf("CONFIRMED %s in family %s after %s was closed — re-scan "+
-			"the family", fid, strings.Join(hit, ", "), objStr(lens, "lens"))))
-	lens.O = validation.SetOrAppend(lens.O, "reopened_at", validation.VStr(nowIso()))
+			"the family", fid, strings.Join(hit, ", "), validation.ObjStr(lens, "lens"))))
+	lens.O = validation.SetOrAppend(lens.O, "reopened_at", validation.VStr(state.NowIso()))
 	for _, k := range []string{"closed_reason", "closed_ref", "closed_at",
 		"closed_by", "families_checked", "symmetry"} {
 		lens.O = dropKey(lens.O, k)
 	}
 	data := validation.VObj(
-		validation.KV{K: "lens_id", V: objAt(lens, "id")},
-		validation.KV{K: "families", V: strArr(hit)},
+		validation.KV{K: "lens_id", V: validation.ObjAt(lens, "id")},
+		validation.KV{K: "families", V: validation.StrArr(hit)},
 	)
 	_, _ = campaign.Log("plan.lens_reopened", &fid, &data)
 	return lens
@@ -525,9 +525,9 @@ func reopenLens(campaign *state.Campaign, finding, lens validation.Value,
 
 // hasAnchorPriority is any(q.get("anchor_of") == finding_id ...).
 func hasAnchorPriority(plan validation.Value, findingID string) bool {
-	for _, q := range objAt(plan, "priorities").A {
-		if objAt(q, "anchor_of").Kind == validation.Str &&
-			objStr(q, "anchor_of") == findingID {
+	for _, q := range validation.ObjAt(plan, "priorities").A {
+		if validation.ObjAt(q, "anchor_of").Kind == validation.Str &&
+			validation.ObjStr(q, "anchor_of") == findingID {
 			return true
 		}
 	}
@@ -544,8 +544,8 @@ func anchorPriority(finding, plan validation.Value) (validation.Value, error) {
 	if err != nil {
 		return validation.VNull(), err
 	}
-	fid := objStr(finding, "finding_id")
-	cls := objStr(asDict(objAt(finding, "root_cause")), "class")
+	fid := validation.ObjStr(finding, "finding_id")
+	cls := validation.ObjStr(asDict(validation.ObjAt(finding, "root_cause")), "class")
 	clsText := cls
 	if clsText == "" {
 		clsText = "unclassified"
@@ -553,13 +553,13 @@ func anchorPriority(finding, plan validation.Value) (validation.Value, error) {
 	question := fmt.Sprintf("ANCHOR: %s (%s, %s) is CONFIRMED at %s — re-scan "+
 		"the SAME lifecycle for a non-obvious coordination bug before "+
 		"converging (the loud bug usually hides the subtle one)", fid,
-		pyStr(objAt(finding, "reported_severity")), clsText,
+		pyStr(validation.ObjAt(finding, "reported_severity")), clsText,
 		strings.Join(surfaces, ", "))
 	priority := validation.VObj(
 		validation.KV{K: "id", V: validation.VStr(fmt.Sprintf("Q-%03d", n))},
 		validation.KV{K: "question", V: validation.VStr(question)},
 		validation.KV{K: "risk", V: validation.VFloat(0.8)},
-		validation.KV{K: "components", V: strArr(surfaces)},
+		validation.KV{K: "components", V: validation.StrArr(surfaces)},
 		validation.KV{K: "trajectories", V: validation.VArr(validation.VStr("code"))},
 		validation.KV{K: "status", V: validation.VStr("open")},
 		validation.KV{K: "anchor_of", V: validation.VStr(fid)},
@@ -578,11 +578,11 @@ func anchorPriority(finding, plan validation.Value) (validation.Value, error) {
 // sortedContracts is sorted({a["contract"] for a in affected if a.contract}).
 func sortedContracts(finding validation.Value) []string {
 	seen := map[string]struct{}{}
-	for _, a := range objAt(finding, "affected").A {
+	for _, a := range validation.ObjAt(finding, "affected").A {
 		if a.Kind != validation.Obj {
 			continue
 		}
-		if c := objStr(a, "contract"); c != "" {
+		if c := validation.ObjStr(a, "contract"); c != "" {
 			seen[c] = struct{}{}
 		}
 	}
@@ -592,8 +592,8 @@ func sortedContracts(finding validation.Value) []string {
 // nextPriorityNumber is max([int(q["id"][2:]) for Q- ids] or [0]) + 1.
 func nextPriorityNumber(plan validation.Value) (int, error) {
 	var nums []int
-	for _, q := range objAt(plan, "priorities").A {
-		id := objStr(q, "id")
+	for _, q := range validation.ObjAt(plan, "priorities").A {
+		id := validation.ObjStr(q, "id")
 		if !strings.HasPrefix(id, "Q-") {
 			continue
 		}
@@ -669,14 +669,6 @@ func intersectSorted(families validation.Value, toks map[string]struct{}) []stri
 	return sortedSetKeys(seen)
 }
 
-func strArr(items []string) validation.Value {
-	out := make([]validation.Value, len(items))
-	for i, s := range items {
-		out[i] = validation.VStr(s)
-	}
-	return validation.VArr(out...)
-}
-
 // dropKey is dict.pop(k, None): the object without that key.
 func dropKey(o []validation.KV, key string) []validation.KV {
 	out := make([]validation.KV, 0, len(o))
@@ -707,17 +699,17 @@ func SetCriticVerdict(campaign *state.Campaign, findingID, verdict,
 	// adjudicate already refuses dead rows for exactly this reason, and
 	// verdict must not be the exception that pollutes a SUPERSEDED or
 	// DUPLICATE row's verification block with fresh opinions.
-	if IsTerminal(objStr(finding, "status")) { // r5: one law, one predicate
+	if IsTerminal(validation.ObjStr(finding, "status")) { // r5: one law, one predicate
 		return validation.VNull(), fmt.Errorf(
 			"cannot record a critic verdict on terminal finding %s (%s) — "+
 				"a verdict is a claim about a finding that exists; the "+
 				"successor row carries its own verdict",
-			findingID, objStr(finding, "status"))
+			findingID, validation.ObjStr(finding, "status"))
 	}
-	ver := asDict(objAt(finding, "verification"))
+	ver := asDict(validation.ObjAt(finding, "verification"))
 	ver.O = validation.SetOrAppend(ver.O, "critic_verdict", validation.VStr(verdict))
 	finding.O = validation.SetOrAppend(finding.O, "verification", ver)
-	meta := asDict(objAt(finding, "dedup_meta"))
+	meta := asDict(validation.ObjAt(finding, "dedup_meta"))
 	meta.O = validation.SetOrAppend(meta.O, "critic_reasoning", validation.VStr(reasoning))
 	finding.O = validation.SetOrAppend(finding.O, "dedup_meta", meta)
 	if err := SaveThenLog(campaign, &finding, func() error {
@@ -771,7 +763,7 @@ func SetTriagerOutlook(campaign *state.Campaign, findingID, outcome,
 	if err != nil {
 		return validation.VNull(), err
 	}
-	ver := asDict(objAt(finding, "verification"))
+	ver := asDict(validation.ObjAt(finding, "verification"))
 	ver.O = validation.SetOrAppend(ver.O, "triager_outlook", validation.VObj(
 		validation.KV{K: "outcome", V: validation.VStr(outcome)},
 		validation.KV{K: "reason", V: validation.VStr(stripped)},
@@ -803,7 +795,7 @@ func SetShieldAdjudication(campaign *state.Campaign, findingID string,
 	if err != nil {
 		return validation.VNull(), err
 	}
-	ver := asDict(objAt(finding, "verification"))
+	ver := asDict(validation.ObjAt(finding, "verification"))
 	if len([]rune(reasoning)) < 15 {
 		return validation.VNull(), fmt.Errorf("shield adjudication reasoning " +
 			"must be substantive (>= 15 chars) — 'it extracts' is not an " +
@@ -812,7 +804,7 @@ func SetShieldAdjudication(campaign *state.Campaign, findingID string,
 	ver.O = validation.SetOrAppend(ver.O, "shield_adjudication", validation.VObj(
 		validation.KV{K: "extraction_despite_intent", V: validation.VBool(extracts)},
 		validation.KV{K: "reasoning", V: validation.VStr(reasoning)},
-		validation.KV{K: "at", V: validation.VStr(nowIso())},
+		validation.KV{K: "at", V: validation.VStr(state.NowIso())},
 		validation.KV{K: "actor", V: validation.VStr(actor)},
 	))
 	finding.O = validation.SetOrAppend(finding.O, "verification", ver)
@@ -847,12 +839,12 @@ func MarkPrecondition(campaign *state.Campaign, findingID, description string,
 	if enforced {
 		value = "true"
 	}
-	pre := objAt(finding, "preconditions")
+	pre := validation.ObjAt(finding, "preconditions")
 	for i, p := range pre.A {
 		if p.Kind != validation.Obj {
 			continue
 		}
-		if objStr(p, "description") == description {
+		if validation.ObjStr(p, "description") == description {
 			return auditPrecondition(campaign, &finding, i, p, description, value)
 		}
 	}
@@ -861,10 +853,10 @@ func MarkPrecondition(campaign *state.Campaign, findingID, description string,
 		if p.Kind != validation.Obj {
 			continue
 		}
-		desc := strings.ToLower(objStr(p, "description"))
+		desc := strings.ToLower(validation.ObjStr(p, "description"))
 		if strings.Contains(desc, low) || strings.Contains(low, desc) {
 			return auditPrecondition(campaign, &finding, i, p,
-				objStr(p, "description"), value)
+				validation.ObjStr(p, "description"), value)
 		}
 	}
 	return validation.VNull(), fmt.Errorf("%s", validation.PyReprStr(
@@ -875,10 +867,10 @@ func MarkPrecondition(campaign *state.Campaign, findingID, description string,
 func auditPrecondition(campaign *state.Campaign, finding *validation.Value,
 	i int, p validation.Value, loggedDesc, value string) (validation.Value, error) {
 	p.O = validation.SetOrAppend(p.O, "enforced_by_poc", validation.VStr(value))
-	pre := objAt(*finding, "preconditions")
+	pre := validation.ObjAt(*finding, "preconditions")
 	pre.A[i] = p
 	finding.O = validation.SetOrAppend(finding.O, "preconditions", pre)
-	fid := objStr(*finding, "finding_id")
+	fid := validation.ObjStr(*finding, "finding_id")
 	if err := SaveThenLog(campaign, finding, func() error {
 		// r17: unwind law (see move).
 		data := validation.VObj(
@@ -903,7 +895,7 @@ func FoldIntoLineage(campaign *state.Campaign, findingID,
 	if err != nil {
 		return validation.VNull(), err
 	}
-	dedup := asDict(objAt(finding, "dedup"))
+	dedup := asDict(validation.ObjAt(finding, "dedup"))
 	dedup.O = validation.SetOrAppend(dedup.O, "lineage_id", validation.VStr(lineageID))
 	finding.O = validation.SetOrAppend(finding.O, "dedup", dedup)
 	if err := SaveFinding(campaign, &finding); err != nil {
@@ -927,7 +919,7 @@ func MarkDuplicate(campaign *state.Campaign, findingID,
 // the transition's single SaveFinding (mutate here, save in transition) — a
 // merge can never land as a durable status without its target.
 func recordDuplicateOf(finding *validation.Value, ofFindingID string) {
-	dedup := asDict(objAt(*finding, "dedup"))
+	dedup := asDict(validation.ObjAt(*finding, "dedup"))
 	dedup.O = validation.SetOrAppend(dedup.O, "duplicate_of",
 		validation.VStr(ofFindingID))
 	finding.O = validation.SetOrAppend(finding.O, "dedup", dedup)
@@ -939,7 +931,7 @@ func recordDuplicateOf(finding *validation.Value, ofFindingID string) {
 // recorded is left untouched — not even an updated_at stamp beyond the
 // transition's own single save. Mutation only; the caller saves once.
 func clearDuplicateOf(finding *validation.Value) {
-	dedup := asDict(objAt(*finding, "dedup"))
+	dedup := asDict(validation.ObjAt(*finding, "dedup"))
 	kept := make([]validation.KV, 0, len(dedup.O))
 	for _, kv := range dedup.O {
 		if kv.K != "duplicate_of" {
@@ -961,8 +953,8 @@ func FlagPossibleDuplicate(campaign *state.Campaign, findingID,
 	if err != nil {
 		return validation.VNull(), err
 	}
-	dedup := asDict(objAt(finding, "dedup"))
-	lst := objAt(dedup, "possible_duplicate_of")
+	dedup := asDict(validation.ObjAt(finding, "dedup"))
+	lst := validation.ObjAt(dedup, "possible_duplicate_of")
 	if lst.Kind != validation.Arr {
 		lst = validation.VArr()
 	}

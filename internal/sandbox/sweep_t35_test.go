@@ -19,9 +19,9 @@ func TestTripwireDeniesRmRfHome(t *testing.T) {
 	if boolAt(v, "allowed") {
 		t.Error("rm -rf /home/victim must be denied")
 	}
-	if !containsStrValue(objAt(v, "violations"), "destructive-path") {
+	if !containsStrValue(validation.ObjAt(v, "violations"), "destructive-path") {
 		t.Errorf("violations = %s, want destructive-path",
-			validation.CanonCompact(objAt(v, "violations")))
+			validation.CanonCompact(validation.ObjAt(v, "violations")))
 	}
 	ok, err := PolicyCheck("rm -rf /tmp/scratch", "host-readonly")
 	if err != nil {
@@ -64,27 +64,27 @@ func TestDockerProfileRunsInsideAContainer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objAt(rec, "exit_status").I != 0 {
-		t.Fatalf("exit_status = %v", objAt(rec, "exit_status"))
+	if validation.ObjAt(rec, "exit_status").I != 0 {
+		t.Fatalf("exit_status = %v", validation.ObjAt(rec, "exit_status"))
 	}
-	raw, err := os.ReadFile(objStr(rec, "stdout_path"))
+	raw, err := os.ReadFile(validation.ObjStr(rec, "stdout_path"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(string(raw), "docker-init") {
 		t.Errorf("/proc/1/comm = %q, want docker-init (ran on the host?)", raw)
 	}
-	container := objAt(rec, "container")
+	container := validation.ObjAt(rec, "container")
 	if container.Kind != validation.Obj {
 		t.Fatalf("container = %v, want the isolation metadata", container)
 	}
-	if got := objStr(container, "image"); got != image {
+	if got := validation.ObjStr(container, "image"); got != image {
 		t.Errorf("container.image = %q, want %q", got, image)
 	}
-	if got := objStr(container, "network"); got != "none" {
+	if got := validation.ObjStr(container, "network"); got != "none" {
 		t.Errorf("container.network = %q, want none", got)
 	}
-	if got := objStr(objAt(rec, "environment"), "network_access"); got != "none" {
+	if got := validation.ObjStr(validation.ObjAt(rec, "environment"), "network_access"); got != "none" {
 		t.Errorf("environment.network_access = %q, want none", got)
 	}
 }
@@ -106,7 +106,7 @@ func TestDockerNetworkNoneBlocksEgress(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	raw, err := os.ReadFile(objStr(rec, "stdout_path"))
+	raw, err := os.ReadFile(validation.ObjStr(rec, "stdout_path"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -134,7 +134,7 @@ func TestContainerEnvIsolatedFromHost(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	raw, err := os.ReadFile(objStr(rec, "stdout_path"))
+	raw, err := os.ReadFile(validation.ObjStr(rec, "stdout_path"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -146,7 +146,7 @@ func TestContainerEnvIsolatedFromHost(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	raw2, err := os.ReadFile(objStr(rec2, "stdout_path"))
+	raw2, err := os.ReadFile(validation.ObjStr(rec2, "stdout_path"))
 	if err != nil {
 		t.Fatal(err)
 	}

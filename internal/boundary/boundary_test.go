@@ -74,7 +74,7 @@ func delKV(v validation.Value, k string) validation.Value {
 // setPath sets obj[path0][idx][path1] = val (test-only nested edit).
 func setPath(v validation.Value, path0 string, idx int, path1 string,
 	val validation.Value) validation.Value {
-	arr := objAt(v, path0)
+	arr := validation.ObjAt(v, path0)
 	items := append([]validation.Value(nil), arr.A...)
 	items[idx] = setKV(items[idx], path1, val)
 	return setKV(v, path0, validation.VArr(items...))
@@ -192,7 +192,7 @@ func rejectedEvents(t *testing.T, c *state.Campaign) []validation.Value {
 	}
 	out := []validation.Value{}
 	for _, e := range events {
-		if objStr(e, "type") == "model.rejected" {
+		if validation.ObjStr(e, "type") == "model.rejected" {
 			out = append(out, e)
 		}
 	}
@@ -207,7 +207,7 @@ func eventTypes(t *testing.T, c *state.Campaign) []string {
 	}
 	out := []string{}
 	for _, e := range events {
-		out = append(out, objStr(e, "type"))
+		out = append(out, validation.ObjStr(e, "type"))
 	}
 	return out
 }
@@ -245,9 +245,9 @@ func assumptionStatus(t *testing.T, c *state.Campaign, fid, aid string) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, a := range objAt(f, "assumptions").A {
-		if objStr(a, "id") == aid {
-			return objStr(a, "status")
+	for _, a := range validation.ObjAt(f, "assumptions").A {
+		if validation.ObjStr(a, "id") == aid {
+			return validation.ObjStr(a, "status")
 		}
 	}
 	t.Fatalf("assumption %s not found", aid)
@@ -266,16 +266,16 @@ func TestValidHypothesisIngests(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(f, "status"); got != "HYPOTHESIS" {
+	if got := validation.ObjStr(f, "status"); got != "HYPOTHESIS" {
 		t.Errorf("status = %s", got)
 	}
-	if got := objStr(objAt(f, "root_cause"), "class"); got != "oracle-manipulation" {
+	if got := validation.ObjStr(validation.ObjAt(f, "root_cause"), "class"); got != "oracle-manipulation" {
 		t.Errorf("root_cause.class = %s", got)
 	}
 	ids := []string{}
-	for _, a := range objAt(f, "assumptions").A {
-		ids = append(ids, objStr(a, "id"))
-		if got := objStr(a, "status"); got != "UNKNOWN" {
+	for _, a := range validation.ObjAt(f, "assumptions").A {
+		ids = append(ids, validation.ObjStr(a, "id"))
+		if got := validation.ObjStr(a, "status"); got != "UNKNOWN" {
 			t.Errorf("assumption status = %s, want UNKNOWN", got)
 		}
 	}
@@ -313,14 +313,14 @@ func TestMalformedHypothesisRejectedAndStateUntouched(t *testing.T) {
 	if len(rej) != 1 {
 		t.Fatalf("rejected events = %d, want 1", len(rej))
 	}
-	data := objAt(rej[0], "data")
-	if got := objStr(data, "role"); got != "proposer" {
+	data := validation.ObjAt(rej[0], "data")
+	if got := validation.ObjStr(data, "role"); got != "proposer" {
 		t.Errorf("role = %s", got)
 	}
-	if got := objStr(data, "kind"); got != "hypothesis" {
+	if got := validation.ObjStr(data, "kind"); got != "hypothesis" {
 		t.Errorf("kind = %s", got)
 	}
-	if objAt(data, "payload_sha256").Kind != validation.Str {
+	if validation.ObjAt(data, "payload_sha256").Kind != validation.Str {
 		t.Error("payload_sha256 missing")
 	}
 	if v, err := c.VerifyLog(); err != nil || !v.OK {
@@ -401,7 +401,7 @@ func TestHypothesisWithExploitSequenceCarriesIntoFinding(t *testing.T) {
 		t.Fatal(err)
 	}
 	f := mustIngest(t, c, h)
-	if got := validation.CanonCompact(objAt(f, "exploit_sequence")); got !=
+	if got := validation.CanonCompact(validation.ObjAt(f, "exploit_sequence")); got !=
 		validation.CanonCompact(seq) {
 		t.Errorf("exploit_sequence = %s", got)
 	}
@@ -414,7 +414,7 @@ func TestHypothesisWithoutExploitSequenceHasNoKey(t *testing.T) {
 	c := newCamp(t)
 	pin(t, c)
 	f := mustIngest(t, c, validHypothesis())
-	if objAt(f, "exploit_sequence").Kind != validation.Null {
+	if validation.ObjAt(f, "exploit_sequence").Kind != validation.Null {
 		t.Error("exploit_sequence present")
 	}
 }
@@ -427,7 +427,7 @@ func criticSetup(t *testing.T, c *state.Campaign) string {
 	t.Helper()
 	pin(t, c)
 	f := mustIngest(t, c, validHypothesis())
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	ev1(t, c, fid)
 	return fid
 }
@@ -445,12 +445,12 @@ func TestCriticVerdictWithoutEvidenceRejected(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, a := range objAt(f, "assumptions").A {
-		if objStr(a, "status") != "UNKNOWN" {
-			t.Errorf("assumption moved: %s", objStr(a, "status"))
+	for _, a := range validation.ObjAt(f, "assumptions").A {
+		if validation.ObjStr(a, "status") != "UNKNOWN" {
+			t.Errorf("assumption moved: %s", validation.ObjStr(a, "status"))
 		}
 	}
-	if objAt(objAt(f, "verification"), "critic_verdict").Kind != validation.Null {
+	if validation.ObjAt(validation.ObjAt(f, "verification"), "critic_verdict").Kind != validation.Null {
 		t.Error("critic_verdict present")
 	}
 	if len(rejectedEvents(t, c)) != 1 {
@@ -545,24 +545,24 @@ func TestValidCriticVerdictApplies(t *testing.T) {
 		t.Fatal(err)
 	}
 	byID := map[string]validation.Value{}
-	for _, a := range objAt(f, "assumptions").A {
-		byID[objStr(a, "id")] = a
+	for _, a := range validation.ObjAt(f, "assumptions").A {
+		byID[validation.ObjStr(a, "id")] = a
 	}
-	if got := objStr(byID["A1"], "status"); got != "SUPPORTED" {
+	if got := validation.ObjStr(byID["A1"], "status"); got != "SUPPORTED" {
 		t.Errorf("A1 = %s", got)
 	}
-	if got := objStr(byID["A2"], "status"); got != "REFUTED" {
+	if got := validation.ObjStr(byID["A2"], "status"); got != "REFUTED" {
 		t.Errorf("A2 = %s", got)
 	}
-	if got := validation.CanonCompact(objAt(byID["A1"], "support")); got !=
+	if got := validation.CanonCompact(validation.ObjAt(byID["A1"], "support")); got !=
 		`["EV-1"]` {
 		t.Errorf("A1 support = %s", got)
 	}
-	if got := validation.CanonCompact(objAt(byID["A2"], "contradictions")); got !=
+	if got := validation.CanonCompact(validation.ObjAt(byID["A2"], "contradictions")); got !=
 		`["EV-1"]` {
 		t.Errorf("A2 contradictions = %s", got)
 	}
-	if got := objStr(objAt(f, "verification"), "critic_verdict"); got != "disproved" {
+	if got := validation.ObjStr(validation.ObjAt(f, "verification"), "critic_verdict"); got != "disproved" {
 		t.Errorf("critic_verdict = %s", got)
 	}
 	if len(rejectedEvents(t, c)) != 0 {
@@ -612,7 +612,7 @@ func reproSetup(t *testing.T, c *state.Campaign) string {
 	t.Helper()
 	pin(t, c)
 	f := mustIngest(t, c, validHypothesis())
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	if _, err := findings.Transition(c, fid, "POSSIBLE", "triage", "", "", false); err != nil {
 		t.Fatal(err)
 	}
@@ -632,11 +632,11 @@ func TestReproducerRequestPinDriftRejected(t *testing.T) {
 	if len(rej) == 0 {
 		t.Fatal("no rejection event")
 	}
-	last := objAt(rej[len(rej)-1], "data")
-	if got := objStr(last, "kind"); got != "reproducer_request" {
+	last := validation.ObjAt(rej[len(rej)-1], "data")
+	if got := validation.ObjStr(last, "kind"); got != "reproducer_request" {
 		t.Errorf("kind = %s", got)
 	}
-	if got := objStr(last, "role"); got != "reproducer" {
+	if got := validation.ObjStr(last, "role"); got != "reproducer" {
 		t.Errorf("role = %s", got)
 	}
 }
@@ -648,14 +648,14 @@ func TestReproducerRequestValidAccepted(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(out, "execution_profile"); got != "fork-runner" {
+	if got := validation.ObjStr(out, "execution_profile"); got != "fork-runner" {
 		t.Errorf("execution_profile = %s", got)
 	}
 	events, err := c.Events()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(events[len(events)-1], "type"); got != "model.reproducer_request" {
+	if got := validation.ObjStr(events[len(events)-1], "type"); got != "model.reproducer_request" {
 		t.Errorf("last event = %s", got)
 	}
 }
@@ -669,8 +669,8 @@ func TestReproducerRequestUnknownProfileRejected(t *testing.T) {
 		t.Fatal("want rejection")
 	}
 	rej := rejectedEvents(t, c)
-	last := objAt(rej[len(rej)-1], "data")
-	if got := objStr(last, "kind"); got != "reproducer_request" {
+	last := validation.ObjAt(rej[len(rej)-1], "data")
+	if got := validation.ObjStr(last, "kind"); got != "reproducer_request" {
 		t.Errorf("kind = %s", got)
 	}
 }
@@ -694,7 +694,7 @@ func TestReproducerRequestProfileRegistryParity(t *testing.T) {
 			if err != nil {
 				t.Fatalf("execution_profile %s rejected: %v", profile, err)
 			}
-			if got := objStr(out, "execution_profile"); got != profile {
+			if got := validation.ObjStr(out, "execution_profile"); got != profile {
 				t.Errorf("execution_profile = %s, want %s", got, profile)
 			}
 		})
@@ -769,7 +769,7 @@ func utilityFixture(t *testing.T, c *state.Campaign) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return objStr(mem, "memory_id")
+	return validation.ObjStr(mem, "memory_id")
 }
 
 func utilityEvent(t *testing.T, c *state.Campaign) validation.Value {
@@ -779,8 +779,8 @@ func utilityEvent(t *testing.T, c *state.Campaign) validation.Value {
 		t.Fatal(err)
 	}
 	for i := len(events) - 1; i >= 0; i-- {
-		if objStr(events[i], "type") == "memory.utility" {
-			return objAt(events[i], "data")
+		if validation.ObjStr(events[i], "type") == "memory.utility" {
+			return validation.ObjAt(events[i], "data")
 		}
 	}
 	t.Fatal("no memory.utility event")
@@ -805,29 +805,29 @@ func TestUtilityReRaisedWhenHypothesisMatchesPrior(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	priors := objAt(objAt(bundle, "negative_memory"), "known_non_issues")
+	priors := validation.ObjAt(validation.ObjAt(bundle, "negative_memory"), "known_non_issues")
 	if len(priors.A) == 0 {
 		t.Fatal("no prior surfaced")
 	}
 	prior := priors.A[0]
-	if got := objStr(prior, "memory_id"); got != mid {
+	if got := validation.ObjStr(prior, "memory_id"); got != mid {
 		t.Errorf("memory_id = %s, want %s", got, mid)
 	}
-	if got := objStr(prior, "rejection_class"); got != "invalid-hypothesis" {
+	if got := validation.ObjStr(prior, "rejection_class"); got != "invalid-hypothesis" {
 		t.Errorf("rejection_class = %s", got)
 	}
-	if got := objStr(objAt(prior, "deciding_propositions").A[0], "type"); got != "temporal" {
+	if got := validation.ObjStr(validation.ObjAt(prior, "deciding_propositions").A[0], "type"); got != "temporal" {
 		t.Errorf("proposition type = %s", got)
 	}
-	if got := objAt(prior, "pin_diverged"); got.Kind != validation.Bool || got.B {
+	if got := validation.ObjAt(prior, "pin_diverged"); got.Kind != validation.Bool || got.B {
 		t.Errorf("pin_diverged = %v", got)
 	}
 	mustIngest(t, c, validHypothesis())
 	data := utilityEvent(t, c)
-	if got := strList(objAt(data, "re_raised")); len(got) != 1 || got[0] != mid {
+	if got := strList(validation.ObjAt(data, "re_raised")); len(got) != 1 || got[0] != mid {
 		t.Errorf("re_raised = %v", got)
 	}
-	if got := strList(objAt(data, "override_declared")); len(got) != 0 {
+	if got := strList(validation.ObjAt(data, "override_declared")); len(got) != 0 {
 		t.Errorf("override_declared = %v", got)
 	}
 }
@@ -844,10 +844,10 @@ func TestUtilityOverrideDeclared(t *testing.T) {
 				"unlike the prior's sub-block window")))))
 	mustIngest(t, c, h)
 	data := utilityEvent(t, c)
-	if got := strList(objAt(data, "override_declared")); len(got) != 1 || got[0] != mid {
+	if got := strList(validation.ObjAt(data, "override_declared")); len(got) != 1 || got[0] != mid {
 		t.Errorf("override_declared = %v", got)
 	}
-	if got := strList(objAt(data, "re_raised")); len(got) != 0 {
+	if got := strList(validation.ObjAt(data, "re_raised")); len(got) != 0 {
 		t.Errorf("re_raised = %v", got)
 	}
 }
@@ -874,10 +874,10 @@ func TestUtilityNotMatchedForDifferentHypothesis(t *testing.T) {
 			"mint() has only an admin modifier")))))
 	mustIngest(t, c, h)
 	data := utilityEvent(t, c)
-	if got := strList(objAt(data, "not_matched")); len(got) != 1 || got[0] != mid {
+	if got := strList(validation.ObjAt(data, "not_matched")); len(got) != 1 || got[0] != mid {
 		t.Errorf("not_matched = %v", got)
 	}
-	if got := strList(objAt(data, "re_raised")); len(got) != 0 {
+	if got := strList(validation.ObjAt(data, "re_raised")); len(got) != 0 {
 		t.Errorf("re_raised = %v", got)
 	}
 }
@@ -894,7 +894,7 @@ func TestUtilityV1RowFallsBackToClassMatch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mid := objStr(v1, "memory_id")
+	mid := validation.ObjStr(v1, "memory_id")
 	p := filepath.Join(c.MemoryDir, mid+".json")
 	raw, err := validation.ReadJson(p)
 	if err != nil {
@@ -907,18 +907,18 @@ func TestUtilityV1RowFallsBackToClassMatch(t *testing.T) {
 	}
 	mustIngest(t, c, validHypothesis())
 	data := utilityEvent(t, c)
-	if got := strList(objAt(data, "re_raised")); !containsStr(got, mid) {
+	if got := strList(validation.ObjAt(data, "re_raised")); !containsStr(got, mid) {
 		t.Errorf("re_raised = %v, want %s", got, mid)
 	}
 	bundle, err := roles.BuildProposerContext(c, &bc)
 	if err != nil {
 		t.Fatal(err)
 	}
-	prior := objAt(objAt(bundle, "negative_memory"), "known_non_issues").A[0]
+	prior := validation.ObjAt(validation.ObjAt(bundle, "negative_memory"), "known_non_issues").A[0]
 	if got := objInt(prior, "schema_version"); got != 1 {
 		t.Errorf("schema_version = %d, want 1", got)
 	}
-	if got := objAt(prior, "deciding_propositions"); got.Kind != validation.Arr ||
+	if got := validation.ObjAt(prior, "deciding_propositions"); got.Kind != validation.Arr ||
 		len(got.A) != 0 {
 		t.Errorf("deciding_propositions = %v", got)
 	}
@@ -926,7 +926,7 @@ func TestUtilityV1RowFallsBackToClassMatch(t *testing.T) {
 
 // objInt is a test-local int accessor (the package's objStr covers strings).
 func objInt(v validation.Value, key string) int64 {
-	if x := objAt(v, key); x.Kind == validation.Int {
+	if x := validation.ObjAt(v, key); x.Kind == validation.Int {
 		return x.I
 	}
 	return 0

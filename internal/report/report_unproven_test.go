@@ -47,7 +47,7 @@ func uph(t *testing.T, camp *state.Campaign, title, class string,
 	if err != nil {
 		t.Fatal(err)
 	}
-	return objStr(f, "finding_id")
+	return validation.ObjStr(f, "finding_id")
 }
 
 // unprovenCampaign is the B3 fixture: the two-member freeze chain at
@@ -75,14 +75,14 @@ func unprovenCampaign(t *testing.T) (*state.Campaign, validation.Value, string) 
 func TestReportRendersUnprovenChainSection(t *testing.T) {
 	camp, ch, f1 := unprovenCampaign(t)
 	gen := mustGenerate(t, camp)
-	ids := strList(objAt(ch, "members"))
+	ids := strList(validation.ObjAt(ch, "members"))
 	f2 := ids[1]
 	if !strings.Contains(gen, "## Unproven chains (hypothesis-level)") {
 		t.Fatalf("no unproven section:\n%s", gen)
 	}
 	for _, want := range []string{
 		"### UNPROVEN CHAIN: Freeze chain without a recovery path",
-		"- id: `" + objStr(ch, "chain_id") +
+		"- id: `" + validation.ObjStr(ch, "chain_id") +
 			"` — provenance unproven, evidence floor E0",
 		"- members: `" + f1 + "`, `" + f2 + "`",
 		"- narrative: EOA pauses; nobody can unpause; every withdrawal stops",
@@ -102,7 +102,7 @@ func TestReportRendersUnprovenChainSection(t *testing.T) {
 	if strings.Contains(gen, "### CHAIN: Freeze chain") {
 		t.Error("unproven chain rendered under a CHAIN: heading")
 	}
-	if n := strings.Count(gen, objStr(ch, "chain_id")); n != 1 {
+	if n := strings.Count(gen, validation.ObjStr(ch, "chain_id")); n != 1 {
 		t.Errorf("chain id appears %d times, want exactly once (its own "+
 			"section)", n)
 	}

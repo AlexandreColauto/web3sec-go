@@ -108,7 +108,7 @@ func t29Has(v validation.Value, key string) bool {
 
 // t29List is d.get(key) as a list (nil when absent/not a list).
 func t29List(v validation.Value, key string) []validation.Value {
-	x := objAt(v, key)
+	x := validation.ObjAt(v, key)
 	if x.Kind != validation.Arr {
 		return nil
 	}
@@ -224,7 +224,7 @@ func t29Emit(t *testing.T, ws string) string {
 func t29Row(t *testing.T, surface validation.Value, rowID string) validation.Value {
 	t.Helper()
 	for _, r := range t29ObjList(surface, "rows") {
-		if rowID == "" || objStr(r, "row_id") == rowID {
+		if rowID == "" || validation.ObjStr(r, "row_id") == rowID {
 			return r
 		}
 	}
@@ -247,11 +247,11 @@ func t29PlanJSON(t *testing.T, c *state.Campaign) validation.Value {
 func t29ProbePriority(t *testing.T, c *state.Campaign, rowID string) validation.Value {
 	t.Helper()
 	for _, p := range t29ObjList(t29PlanJSON(t, c), "priorities") {
-		prov := objAt(p, "probe")
-		if prov.Kind != validation.Obj || objStr(prov, "row_id") == "" {
+		prov := validation.ObjAt(p, "probe")
+		if prov.Kind != validation.Obj || validation.ObjStr(prov, "row_id") == "" {
 			continue
 		}
-		if rowID == "" || objStr(prov, "row_id") == rowID {
+		if rowID == "" || validation.ObjStr(prov, "row_id") == rowID {
 			return p
 		}
 	}
@@ -264,7 +264,7 @@ func t29ProbePriorities(t *testing.T, c *state.Campaign) []validation.Value {
 	t.Helper()
 	out := []validation.Value{}
 	for _, p := range t29ObjList(t29PlanJSON(t, c), "priorities") {
-		if objAt(p, "probe").Kind == validation.Obj {
+		if validation.ObjAt(p, "probe").Kind == validation.Obj {
 			out = append(out, p)
 		}
 	}
@@ -281,8 +281,8 @@ func t29LensProbe(t *testing.T, c *state.Campaign, plan validation.Value,
 		t.Fatal(err)
 	}
 	for _, e := range t29ObjList(div, "lenses") {
-		if objStr(e, "lens") == lens {
-			return objAt(e, "probe")
+		if validation.ObjStr(e, "lens") == lens {
+			return validation.ObjAt(e, "probe")
 		}
 	}
 	t.Fatalf("no lens entry %q in divergence_status_for: %s", lens,
@@ -335,10 +335,10 @@ func t29CloseEverything(t *testing.T, c *state.Campaign) validation.Value {
 	reconOnRecord(t, c)
 	plan := t29PlanJSON(t, c)
 	for _, lens := range t29ObjList(plan, "lenses") {
-		reason := objStr(lens, "lens") + " resolved for the fixture tree"
+		reason := validation.ObjStr(lens, "lens") + " resolved for the fixture tree"
 		ref := "Rollup.sol#L45"
 		fams := t29StrList(lens, "families")
-		next, err := planner.MarkLens(c, plan, objStr(lens, "id"), "answered",
+		next, err := planner.MarkLens(c, plan, validation.ObjStr(lens, "id"), "answered",
 			planner.LensOpts{Reason: &reason, Ref: &ref, Actor: "pytest",
 				FamiliesChecked: &fams})
 		if err != nil {
@@ -349,7 +349,7 @@ func t29CloseEverything(t *testing.T, c *state.Campaign) validation.Value {
 	for _, p := range t29ObjList(plan, "priorities") {
 		reason := "fixture closure with a written reason"
 		ref := "Rollup.sol#L45"
-		next, err := planner.MarkAnswered(c, plan, objStr(p, "id"),
+		next, err := planner.MarkAnswered(c, plan, validation.ObjStr(p, "id"),
 			"answered", planner.AnsweredOpts{Reason: &reason, Ref: &ref,
 				Actor: "pytest"})
 		if err != nil {
@@ -367,7 +367,7 @@ func t29AuditSection(t *testing.T, c *state.Campaign) validation.Value {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return objAt(objAt(report, "sections"), "probe_surface")
+	return validation.ObjAt(validation.ObjAt(report, "sections"), "probe_surface")
 }
 
 // t29Problems is sec["problems"].
@@ -459,14 +459,14 @@ func t29BlankKeyOf(t *testing.T, surface validation.Value,
 	probe string) (validation.Value, string) {
 	t.Helper()
 	for _, a := range t29ObjList(surface, "axes") {
-		if objStr(a, "probe") != probe {
+		if validation.ObjStr(a, "probe") != probe {
 			continue
 		}
 		blind := t29ObjList(a, "blind")
 		if len(blind) == 0 {
 			t.Fatalf("axis %s published no blind keys", probe)
 		}
-		return a, objStr(blind[0], "key")
+		return a, validation.ObjStr(blind[0], "key")
 	}
 	t.Fatalf("no axis for probe %s", probe)
 	return validation.VNull(), ""
@@ -485,7 +485,7 @@ func t29AxisByAxis(t *testing.T, surface validation.Value,
 	name string) validation.Value {
 	t.Helper()
 	for _, a := range t29ObjList(surface, "axes") {
-		if objStr(a, "axis") == name {
+		if validation.ObjStr(a, "axis") == name {
 			return a
 		}
 	}
@@ -530,17 +530,17 @@ func TestProbesRunWritesTheSurfaceAndReportsEveryAxis(t *testing.T) {
 	if surface == nil {
 		t.Fatal("no surface written")
 	}
-	if objStr(*surface, "index_sha") != probes.IndexSha(idx) {
-		t.Fatalf("index_sha = %q, want %q", objStr(*surface, "index_sha"),
+	if validation.ObjStr(*surface, "index_sha") != probes.IndexSha(idx) {
+		t.Fatalf("index_sha = %q, want %q", validation.ObjStr(*surface, "index_sha"),
 			probes.IndexSha(idx))
 	}
 	if got := len(t29ObjList(*surface, "rows")); got != 10 {
 		t.Fatalf("rows = %d, want 10", got)
 	}
 	for _, a := range t29ObjList(*surface, "axes") {
-		if !strings.Contains(out, objStr(a, "probe")) {
+		if !strings.Contains(out, validation.ObjStr(a, "probe")) {
 			t.Errorf("run output does not report axis probe %q: %q",
-				objStr(a, "probe"), out)
+				validation.ObjStr(a, "probe"), out)
 		}
 	}
 	if !strings.Contains(out, "10 rows") && !strings.Contains(out, "rows=10") {
@@ -577,7 +577,7 @@ func TestProbesRunEmitMintsPrioritiesAndIsIdempotent(t *testing.T) {
 	plan := t29PlanJSON(t, c)
 	probePrios := []validation.Value{}
 	for _, p := range t29ObjList(plan, "priorities") {
-		if objAt(p, "probe").Kind == validation.Obj {
+		if validation.ObjAt(p, "probe").Kind == validation.Obj {
 			probePrios = append(probePrios, p)
 		}
 	}
@@ -585,14 +585,14 @@ func TestProbesRunEmitMintsPrioritiesAndIsIdempotent(t *testing.T) {
 		t.Fatalf("probe priorities = %d, want 10", len(probePrios))
 	}
 	for _, p := range probePrios {
-		if objStr(p, "status") != "open" {
-			t.Errorf("status = %q, want open", objStr(p, "status"))
+		if validation.ObjStr(p, "status") != "open" {
+			t.Errorf("status = %q, want open", validation.ObjStr(p, "status"))
 		}
-		if objStr(objAt(p, "probe"), "surface_sha") !=
-			objStr(surface, "index_sha") {
+		if validation.ObjStr(validation.ObjAt(p, "probe"), "surface_sha") !=
+			validation.ObjStr(surface, "index_sha") {
 			t.Errorf("probe.surface_sha = %q, want %q",
-				objStr(objAt(p, "probe"), "surface_sha"),
-				objStr(surface, "index_sha"))
+				validation.ObjStr(validation.ObjAt(p, "probe"), "surface_sha"),
+				validation.ObjStr(surface, "index_sha"))
 		}
 	}
 	if err := validation.Validate(plan, "campaign_plan", 1); err != nil {
@@ -1020,7 +1020,7 @@ func TestProbesRunAndListSurfaceTheFloorOverrunWarning(t *testing.T) {
 		t.Fatalf("surface = %v, %v", surface, err)
 	}
 	warnings := t29ObjList(*surface, "warnings")
-	if len(warnings) == 0 || objStr(warnings[0], "kind") !=
+	if len(warnings) == 0 || validation.ObjStr(warnings[0], "kind") !=
 		"floor-reserve-exceeds-total" {
 		t.Fatalf("warnings = %s", validation.DumpIndented(*surface))
 	}
@@ -1132,7 +1132,7 @@ func TestLensProbeClosureMessageCarriesTheCounts(t *testing.T) {
 	}
 	wantOpen := "L-03 open — 0/10 rows dispositioned, 0 in tail, 4 blind keys " +
 		"disclosed"
-	if got := objStr(probe, "message"); got != wantOpen {
+	if got := validation.ObjStr(probe, "message"); got != wantOpen {
 		t.Fatalf("message = %q, want %q", got, wantOpen)
 	}
 	code, out, errS := run(t, "--root", ws, "probes", t29CID, "list")
@@ -1144,9 +1144,9 @@ func TestLensProbeClosureMessageCarriesTheCounts(t *testing.T) {
 	}
 	last := ""
 	for _, row := range t29ObjList(surface, "rows") {
-		p := t29ProbePriority(t, c, objStr(row, "row_id"))
+		p := t29ProbePriority(t, c, validation.ObjStr(row, "row_id"))
 		code, out, errS = run(t, "--root", ws, "answered", t29CID,
-			objStr(p, "id"), "answered", "--anchor", "consumer",
+			validation.ObjStr(p, "id"), "answered", "--anchor", "consumer",
 			"--reason", "the batch:index join is anchored elsewhere",
 			"--actor", "pytest")
 		if code != 0 {
@@ -1206,9 +1206,9 @@ func TestAShrunkenQuotaCannotCloseALensOnItsTail(t *testing.T) {
 		t.Fatalf("rows = %d, want 2", len(rows))
 	}
 	for _, row := range rows {
-		p := t29ProbePriority(t, c, objStr(row, "row_id"))
+		p := t29ProbePriority(t, c, validation.ObjStr(row, "row_id"))
 		code, out, errS = run(t, "--root", ws, "answered", t29CID,
-			objStr(p, "id"), "answered", "--anchor", "consumer",
+			validation.ObjStr(p, "id"), "answered", "--anchor", "consumer",
 			"--reason", "the batch:index join is anchored elsewhere",
 			"--actor", "pytest")
 		if code != 0 {
@@ -1231,7 +1231,7 @@ func TestAShrunkenQuotaCannotCloseALensOnItsTail(t *testing.T) {
 	}
 	want := "L-03 closed — 2/10 rows dispositioned, 8 in tail, 4 blind keys " +
 		"disclosed"
-	if got := objStr(probe, "message"); got != want {
+	if got := validation.ObjStr(probe, "message"); got != want {
 		t.Fatalf("message = %q, want %q", got, want)
 	}
 }
@@ -1240,12 +1240,12 @@ func TestProbesListShowsRowsAnchorsAndDispositions(t *testing.T) {
 	ws, c, _, surface := t29Setup(t, t29Ranking, true)
 	t29Emit(t, ws)
 	row := t29Row(t, surface, "")
-	prio := t29ProbePriority(t, c, objStr(row, "row_id"))
+	prio := t29ProbePriority(t, c, validation.ObjStr(row, "row_id"))
 	code, out, errS := run(t, "--root", ws, "probes", t29CID, "list")
 	if code != 0 {
 		t.Fatalf("list exit %d: out=%q err=%q", code, out, errS)
 	}
-	for _, want := range []string{objStr(row, "row_id"), objStr(prio, "id"),
+	for _, want := range []string{validation.ObjStr(row, "row_id"), validation.ObjStr(prio, "id"),
 		"Rollup.sol#L45", "enforcement-timing", "L-03",
 		"(0 dispositioned, 10 open)"} {
 		if !strings.Contains(out, want) {
@@ -1269,9 +1269,9 @@ func TestProbesListJSONIsMachineReadableAndTracksStaleness(t *testing.T) {
 	if doc["stale"] != false {
 		t.Fatalf("stale = %v, want false", doc["stale"])
 	}
-	if doc["index_sha"] != objStr(surface, "index_sha") {
+	if doc["index_sha"] != validation.ObjStr(surface, "index_sha") {
 		t.Fatalf("index_sha = %v, want %q", doc["index_sha"],
-			objStr(surface, "index_sha"))
+			validation.ObjStr(surface, "index_sha"))
 	}
 	gotRows := map[string]bool{}
 	for _, r := range doc["surface_rows"].([]any) {
@@ -1279,7 +1279,7 @@ func TestProbesListJSONIsMachineReadableAndTracksStaleness(t *testing.T) {
 	}
 	wantRows := map[string]bool{}
 	for _, r := range t29ObjList(surface, "rows") {
-		wantRows[objStr(r, "row_id")] = true
+		wantRows[validation.ObjStr(r, "row_id")] = true
 	}
 	if len(gotRows) != len(wantRows) {
 		t.Fatalf("surface_rows = %d ids, want %d", len(gotRows), len(wantRows))
@@ -1341,9 +1341,9 @@ func TestProbesListAllShowsBlindKeysAndEmptyAxes(t *testing.T) {
 		t.Fatalf("axis published no blind keys: %s",
 			validation.DumpIndented(axis))
 	}
-	if !strings.Contains(out, objStr(blind[0], "key")) {
+	if !strings.Contains(out, validation.ObjStr(blind[0], "key")) {
 		t.Errorf("list --all missing blind key %q: %q",
-			objStr(blind[0], "key"), out)
+			validation.ObjStr(blind[0], "key"), out)
 	}
 	if !strings.Contains(out, "blind") {
 		t.Errorf("list --all missing 'blind': %q", out)
@@ -1371,7 +1371,7 @@ func TestProbesListWithoutASurfaceFailsLoudly(t *testing.T) {
 func TestAnsweredOnAProbeRowRequiresAnAnchor(t *testing.T) {
 	ws, c, _, _ := t29Setup(t, t29Ranking, true)
 	t29Emit(t, ws)
-	pid := objStr(t29ProbePriority(t, c, ""), "id")
+	pid := validation.ObjStr(t29ProbePriority(t, c, ""), "id")
 	code, _, errS := run(t, "--root", ws, "answered", t29CID, pid,
 		"not-applicable", "--reason", "the asserter is not authoritative for "+
 			"this concept")
@@ -1388,7 +1388,7 @@ func TestAnsweredOnAProbeRowRequiresAnAnchor(t *testing.T) {
 func TestAnsweredRejectsAnAnchorTheProbeNeverProduced(t *testing.T) {
 	ws, c, _, _ := t29Setup(t, t29Ranking, true)
 	t29Emit(t, ws)
-	pid := objStr(t29ProbePriority(t, c, ""), "id")
+	pid := validation.ObjStr(t29ProbePriority(t, c, ""), "id")
 	// `custody` belongs to custody-primitive, not to this assertion-strength row
 	code, _, errS := run(t, "--root", ws, "answered", t29CID, pid,
 		"not-applicable", "--anchor", "custody",
@@ -1406,8 +1406,8 @@ func TestAnsweredRejectsAnAnchorTheProbeNeverProduced(t *testing.T) {
 		t.Fatalf("nonsense anchor exit %d, want 2", code)
 	}
 	for _, p := range t29ObjList(t29PlanJSON(t, c), "priorities") {
-		if objStr(p, "id") == pid && objStr(p, "status") != "open" {
-			t.Fatalf("status = %q, want open", objStr(p, "status"))
+		if validation.ObjStr(p, "id") == pid && validation.ObjStr(p, "status") != "open" {
+			t.Fatalf("status = %q, want open", validation.ObjStr(p, "status"))
 		}
 	}
 }
@@ -1416,7 +1416,7 @@ func TestAnsweredRecordsTheRowsRealAnchorValue(t *testing.T) {
 	ws, c, idx, surface := t29Setup(t, t29Ranking, true)
 	t29Emit(t, ws)
 	row := t29Row(t, surface, "")
-	pid := objStr(t29ProbePriority(t, c, objStr(row, "row_id")), "id")
+	pid := validation.ObjStr(t29ProbePriority(t, c, validation.ObjStr(row, "row_id")), "id")
 	code, out, errS := run(t, "--root", ws, "answered", t29CID, pid,
 		"not-applicable", "--anchor", "asserter",
 		"--reason", "the asserter is not authoritative for batch:index here",
@@ -1429,14 +1429,14 @@ func TestAnsweredRecordsTheRowsRealAnchorValue(t *testing.T) {
 	}
 	var p validation.Value
 	for _, x := range t29ObjList(t29PlanJSON(t, c), "priorities") {
-		if objStr(x, "id") == pid {
+		if validation.ObjStr(x, "id") == pid {
 			p = x
 		}
 	}
-	if objStr(p, "status") != "not-applicable" {
-		t.Fatalf("status = %q", objStr(p, "status"))
+	if validation.ObjStr(p, "status") != "not-applicable" {
+		t.Fatalf("status = %q", validation.ObjStr(p, "status"))
 	}
-	anchor := objAt(objAt(p, "probe"), "anchor")
+	anchor := validation.ObjAt(validation.ObjAt(p, "probe"), "anchor")
 	wantValue, err := probes.RowAnchorValue(row, "asserter")
 	if err != nil {
 		t.Fatal(err)
@@ -1445,20 +1445,20 @@ func TestAnsweredRecordsTheRowsRealAnchorValue(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objStr(anchor, "field") != "asserter" {
-		t.Fatalf("anchor.field = %q", objStr(anchor, "field"))
+	if validation.ObjStr(anchor, "field") != "asserter" {
+		t.Fatalf("anchor.field = %q", validation.ObjStr(anchor, "field"))
 	}
-	if validation.CanonCompact(objAt(anchor, "value")) !=
+	if validation.CanonCompact(validation.ObjAt(anchor, "value")) !=
 		validation.CanonCompact(wantValue) {
 		t.Fatalf("anchor.value = %s, want %s",
-			validation.CanonCompact(objAt(anchor, "value")),
+			validation.CanonCompact(validation.ObjAt(anchor, "value")),
 			validation.CanonCompact(wantValue))
 	}
-	if objStr(anchor, "ref") != wantRef {
-		t.Fatalf("anchor.ref = %q, want %q", objStr(anchor, "ref"), wantRef)
+	if validation.ObjStr(anchor, "ref") != wantRef {
+		t.Fatalf("anchor.ref = %q, want %q", validation.ObjStr(anchor, "ref"), wantRef)
 	}
-	if objStr(p, "closed_ref") != wantRef {
-		t.Fatalf("closed_ref = %q, want %q", objStr(p, "closed_ref"), wantRef)
+	if validation.ObjStr(p, "closed_ref") != wantRef {
+		t.Fatalf("closed_ref = %q, want %q", validation.ObjStr(p, "closed_ref"), wantRef)
 	}
 	plan := t29PlanJSON(t, c)
 	if err := validation.Validate(plan, "campaign_plan", 1); err != nil {
@@ -1470,7 +1470,7 @@ func TestAnsweredRejectsARefThatIsNotTheAnchorItClaims(t *testing.T) {
 	ws, c, idx, surface := t29Setup(t, t29Ranking, true)
 	t29Emit(t, ws)
 	row := t29Row(t, surface, "")
-	pid := objStr(t29ProbePriority(t, c, objStr(row, "row_id")), "id")
+	pid := validation.ObjStr(t29ProbePriority(t, c, validation.ObjStr(row, "row_id")), "id")
 	// a well-formed ref that is neither this anchor's citation nor a
 	// refutation: the message must name the citation the anchor expects
 	code, _, errS := run(t, "--root", ws, "answered", t29CID, pid,
@@ -1497,7 +1497,7 @@ func TestAnsweredRejectsACitationThatDoesNotExist(t *testing.T) {
 	ws, c, idx, surface := t29Setup(t, t29Ranking, true)
 	t29Emit(t, ws)
 	row := t29Row(t, surface, "")
-	pid := objStr(t29ProbePriority(t, c, objStr(row, "row_id")), "id")
+	pid := validation.ObjStr(t29ProbePriority(t, c, validation.ObjStr(row, "row_id")), "id")
 	code, _, errS := run(t, "--root", ws, "answered", t29CID, pid,
 		"answered", "--anchor", "consumer", "--ref", "F-000000000000",
 		"--reason", "cites something else entirely about commitBatch")
@@ -1511,7 +1511,7 @@ func TestAnsweredRejectsACitationThatDoesNotExist(t *testing.T) {
 	}
 	// a finding that DOES exist is still not the anchor it claims: the anchor
 	// rule keeps its own, narrower refusal
-	fid := objStr(t15Finding(t, c, "a real finding", "logic-error"), "finding_id")
+	fid := validation.ObjStr(t15Finding(t, c, "a real finding", "logic-error"), "finding_id")
 	code, _, errS = run(t, "--root", ws, "answered", t29CID, pid,
 		"answered", "--anchor", "consumer", "--ref", fid,
 		"--reason", "cites something else entirely about commitBatch")
@@ -1531,7 +1531,7 @@ func TestAnsweredRejectsACitationThatDoesNotExist(t *testing.T) {
 func TestAnsweredRejectsAProbeRowTheSurfaceNoLongerCarries(t *testing.T) {
 	ws, c, _, _ := t29Setup(t, t29Ranking, true)
 	t29Emit(t, ws)
-	pid := objStr(t29ProbePriority(t, c, ""), "id")
+	pid := validation.ObjStr(t29ProbePriority(t, c, ""), "id")
 	if err := os.Remove(t29SurfacePath(c)); err != nil {
 		t.Fatal(err)
 	}
@@ -1545,8 +1545,8 @@ func TestAnsweredRejectsAProbeRowTheSurfaceNoLongerCarries(t *testing.T) {
 		t.Fatalf("err = %q", errS)
 	}
 	for _, p := range t29ObjList(t29PlanJSON(t, c), "priorities") {
-		if objStr(p, "id") == pid && objStr(p, "status") != "open" {
-			t.Fatalf("status = %q, want open", objStr(p, "status"))
+		if validation.ObjStr(p, "id") == pid && validation.ObjStr(p, "status") != "open" {
+			t.Fatalf("status = %q, want open", validation.ObjStr(p, "status"))
 		}
 	}
 }
@@ -1554,7 +1554,7 @@ func TestAnsweredRejectsAProbeRowTheSurfaceNoLongerCarries(t *testing.T) {
 func TestADirectLibraryClosureOfAProbeRowMustNameItsAnchor(t *testing.T) {
 	ws, c, _, _ := t29Setup(t, t29Ranking, true)
 	t29Emit(t, ws)
-	pid := objStr(t29ProbePriority(t, c, ""), "id")
+	pid := validation.ObjStr(t29ProbePriority(t, c, ""), "id")
 	plan := t29PlanJSON(t, c)
 	reason := "prose closure with no anchor at all"
 	ref := "F-000000000001"
@@ -1571,17 +1571,17 @@ func TestADirectLibraryClosureOfAProbeRowMustNameItsAnchor(t *testing.T) {
 	}
 	// the row is untouched: no status flip, no closure provenance
 	for _, p := range t29ObjList(t29PlanJSON(t, c), "priorities") {
-		if objStr(p, "id") != pid {
+		if validation.ObjStr(p, "id") != pid {
 			continue
 		}
-		if objStr(p, "status") != "open" {
-			t.Fatalf("status = %q, want open", objStr(p, "status"))
+		if validation.ObjStr(p, "status") != "open" {
+			t.Fatalf("status = %q, want open", validation.ObjStr(p, "status"))
 		}
 		if t29Has(p, "closed_ref") || t29Has(p, "closed_reason") {
 			t.Fatalf("closure provenance stamped: %s",
 				validation.DumpIndented(p))
 		}
-		if t29Has(objAt(p, "probe"), "anchor") {
+		if t29Has(validation.ObjAt(p, "probe"), "anchor") {
 			t.Fatalf("probe.anchor stamped: %s", validation.DumpIndented(p))
 		}
 	}
@@ -1590,7 +1590,7 @@ func TestADirectLibraryClosureOfAProbeRowMustNameItsAnchor(t *testing.T) {
 func TestIngestCannotCloseAProbeRowWithoutAnAnchor(t *testing.T) {
 	ws, c, _, _ := t29Setup(t, t29Ranking, true)
 	t29Emit(t, ws)
-	pid := objStr(t29ProbePriority(t, c, ""), "id")
+	pid := validation.ObjStr(t29ProbePriority(t, c, ""), "id")
 	payload, err := validation.ParseOrdered([]byte(`{"title":"A library ` +
 		`caller closes a probe row","root_cause":{"class":"logic-error",` +
 		`"description":"the closure is prose only, no anchor"},` +
@@ -1609,8 +1609,8 @@ func TestIngestCannotCloseAProbeRowWithoutAnAnchor(t *testing.T) {
 		t.Fatalf("err = %q", err.Error())
 	}
 	for _, p := range t29ObjList(t29PlanJSON(t, c), "priorities") {
-		if objStr(p, "id") == pid && objStr(p, "status") != "open" {
-			t.Fatalf("status = %q, want open", objStr(p, "status"))
+		if validation.ObjStr(p, "id") == pid && validation.ObjStr(p, "status") != "open" {
+			t.Fatalf("status = %q, want open", validation.ObjStr(p, "status"))
 		}
 	}
 }
@@ -1620,8 +1620,8 @@ func TestAnsweredStillWorksForNonProbePriorities(t *testing.T) {
 	t29Emit(t, ws)
 	pid := ""
 	for _, p := range t29ObjList(t29PlanJSON(t, c), "priorities") {
-		if objAt(p, "probe").Kind != validation.Obj {
-			pid = objStr(p, "id")
+		if validation.ObjAt(p, "probe").Kind != validation.Obj {
+			pid = validation.ObjStr(p, "id")
 			break
 		}
 	}
@@ -1635,13 +1635,13 @@ func TestAnsweredStillWorksForNonProbePriorities(t *testing.T) {
 		t.Fatalf("exit %d: out=%q err=%q", code, out, errS)
 	}
 	for _, p := range t29ObjList(t29PlanJSON(t, c), "priorities") {
-		if objStr(p, "id") != pid {
+		if validation.ObjStr(p, "id") != pid {
 			continue
 		}
-		if objStr(p, "status") != "deprioritized" ||
-			objStr(p, "closed_ref") != "Rollup.sol#L45" {
-			t.Fatalf("status/closed_ref = %q/%q", objStr(p, "status"),
-				objStr(p, "closed_ref"))
+		if validation.ObjStr(p, "status") != "deprioritized" ||
+			validation.ObjStr(p, "closed_ref") != "Rollup.sol#L45" {
+			t.Fatalf("status/closed_ref = %q/%q", validation.ObjStr(p, "status"),
+				validation.ObjStr(p, "closed_ref"))
 		}
 	}
 }
@@ -1651,11 +1651,11 @@ func TestAnsweredStillWorksForNonProbePriorities(t *testing.T) {
 func TestBlankAttestationClosesABlindAxis(t *testing.T) {
 	ws, c, _, surface := t29Setup(t, t29Blind, true)
 	axis := t29AxisByProbe(t, surface, "assertion-strength")
-	if objStr(axis, "status") != "blind" {
-		t.Fatalf("axis status = %q, want blind", objStr(axis, "status"))
+	if validation.ObjStr(axis, "status") != "blind" {
+		t.Fatalf("axis status = %q, want blind", validation.ObjStr(axis, "status"))
 	}
 	blind := t29ObjList(axis, "blind")
-	key := objStr(blind[0], "key")
+	key := validation.ObjStr(blind[0], "key")
 	plan := t29CloseEverything(t, c)
 	div := t29Divergence(t, c, plan)
 	if objBool(div, "closed") {
@@ -1663,13 +1663,13 @@ func TestBlankAttestationClosesABlindAxis(t *testing.T) {
 	}
 	found := false
 	for _, m := range t29ObjList(div, "missing") {
-		if objStr(m, "subject") == "L-03" {
+		if validation.ObjStr(m, "subject") == "L-03" {
 			found = true
-			if !strings.Contains(objStr(m, "what"), "webv2 probes blank") {
-				t.Errorf("missing.what = %q", objStr(m, "what"))
+			if !strings.Contains(validation.ObjStr(m, "what"), "webv2 probes blank") {
+				t.Errorf("missing.what = %q", validation.ObjStr(m, "what"))
 			}
 		}
-		if objStr(m, "subject") == "L-01" {
+		if validation.ObjStr(m, "subject") == "L-01" {
 			t.Errorf("unexpected L-01 missing entry: %s",
 				validation.DumpIndented(m))
 		}
@@ -1688,13 +1688,13 @@ func TestBlankAttestationClosesABlindAxis(t *testing.T) {
 	if len(saved) != 1 {
 		t.Fatalf("probe_blanks = %s", validation.DumpIndented(validation.VArr(saved...)))
 	}
-	if objStr(saved[0], "axis") != "L-03" ||
-		objStr(saved[0], "anchor_blind") != key {
+	if validation.ObjStr(saved[0], "axis") != "L-03" ||
+		validation.ObjStr(saved[0], "anchor_blind") != key {
 		t.Fatalf("saved = %s", validation.DumpIndented(saved[0]))
 	}
-	if objStr(saved[0], "actor") != "pytest" || objStr(saved[0], "at") == "" {
-		t.Fatalf("actor/at = %q/%q", objStr(saved[0], "actor"),
-			objStr(saved[0], "at"))
+	if validation.ObjStr(saved[0], "actor") != "pytest" || validation.ObjStr(saved[0], "at") == "" {
+		t.Fatalf("actor/at = %q/%q", validation.ObjStr(saved[0], "actor"),
+			validation.ObjStr(saved[0], "at"))
 	}
 	events, err := c.Events()
 	if err != nil {
@@ -1702,7 +1702,7 @@ func TestBlankAttestationClosesABlindAxis(t *testing.T) {
 	}
 	seen := false
 	for _, e := range events {
-		if objStr(e, "type") == "probes.blank" && objStr(e, "ref") == "L-03" {
+		if validation.ObjStr(e, "type") == "probes.blank" && validation.ObjStr(e, "ref") == "L-03" {
 			seen = true
 		}
 	}
@@ -1731,10 +1731,10 @@ func TestBlankAttestationClosesABlindAxis(t *testing.T) {
 func TestBlankAttestationRequiresABlindAxis(t *testing.T) {
 	ws, c, _, surface := t29Setup(t, t29Ranking, true)
 	axis := t29AxisByAxis(t, surface, "enforcement-timing")
-	if objStr(axis, "status") != "emitted" || objInt(axis, "rows") <= 0 {
+	if validation.ObjStr(axis, "status") != "emitted" || objInt(axis, "rows") <= 0 {
 		t.Fatalf("axis = %s", validation.DumpIndented(axis))
 	}
-	key := objStr(t29ObjList(axis, "blind")[0], "key")
+	key := validation.ObjStr(t29ObjList(axis, "blind")[0], "key")
 	code, _, errS := run(t, "--root", ws, "probes", t29CID, "blank",
 		"--axis", "L-03", "--anchor-blind", key,
 		"--reason", "a written reason of legal length",
@@ -1770,7 +1770,7 @@ func TestBlankRejectsAKeyTheProbeNeverPublished(t *testing.T) {
 	if !strings.Contains(errS, "not-a-blind-key") {
 		t.Fatalf("err = %q", errS)
 	}
-	if !strings.Contains(errS, objStr(t29ObjList(axis, "blind")[0], "key")) {
+	if !strings.Contains(errS, validation.ObjStr(t29ObjList(axis, "blind")[0], "key")) {
 		t.Fatalf("the error lists the real keys: %q", errS)
 	}
 	if got := t29StateBlanks(t, c); len(got) != 0 {
@@ -1781,7 +1781,7 @@ func TestBlankRejectsAKeyTheProbeNeverPublished(t *testing.T) {
 func TestBlankRequiresAWrittenReasonAndAnActor(t *testing.T) {
 	ws, _, _, surface := t29Setup(t, t29Blind, true)
 	axis := t29AxisByProbe(t, surface, "assertion-strength")
-	key := objStr(t29ObjList(axis, "blind")[0], "key")
+	key := validation.ObjStr(t29ObjList(axis, "blind")[0], "key")
 	code, _, errS := run(t, "--root", ws, "probes", t29CID, "blank",
 		"--axis", "L-03", "--anchor-blind", key,
 		"--reason", "short", "--actor", "pytest")
@@ -1798,7 +1798,7 @@ func TestBlankRequiresAWrittenReasonAndAnActor(t *testing.T) {
 
 func TestBlankRejectsAnUnregisteredAxisAndAMissingSurface(t *testing.T) {
 	ws, _, _, surface := t29Setup(t, t29Blind, true)
-	key := objStr(t29ObjList(t29AxisByProbe(t, surface, "assertion-strength"),
+	key := validation.ObjStr(t29ObjList(t29AxisByProbe(t, surface, "assertion-strength"),
 		"blind")[0], "key")
 	code, _, errS := run(t, "--root", ws, "probes", t29CID, "blank",
 		"--axis", "L-99", "--anchor-blind", key,
@@ -1832,7 +1832,7 @@ func TestAuditDetectsProbeRowDriftInBothDirections(t *testing.T) {
 	plan := t29PlanJSON(t, c)
 	ghost := t29DeepCopy(t29ProbePriority(t, c, ""))
 	t29Set(&ghost, "id", validation.VStr("Q-900"))
-	prov := objAt(ghost, "probe")
+	prov := validation.ObjAt(ghost, "probe")
 	t29Set(&prov, "row_id", validation.VStr("deadbeef00"))
 	t29Set(&ghost, "probe", prov)
 	prios := t29List(plan, "priorities")
@@ -1849,11 +1849,11 @@ func TestAuditDetectsProbeRowDriftInBothDirections(t *testing.T) {
 		t.Fatalf("problems = %v", t29Problems(sec))
 	}
 	// (b) a surface row that was never emitted as a priority
-	dropped := objStr(t29Row(t, surface, ""), "row_id")
+	dropped := validation.ObjStr(t29Row(t, surface, ""), "row_id")
 	plan = t29PlanJSON(t, c)
 	kept := []validation.Value{}
 	for _, p := range t29ObjList(plan, "priorities") {
-		if objStr(objAt(p, "probe"), "row_id") == dropped {
+		if validation.ObjStr(validation.ObjAt(p, "probe"), "row_id") == dropped {
 			continue
 		}
 		kept = append(kept, p)
@@ -1889,8 +1889,8 @@ func TestAuditReDerivesRowsAndCatchesAHandEditedAnchor(t *testing.T) {
 	}
 	rows := t29List(stored, "rows")
 	edited := rows[0]
-	if objStr(edited, "row_id") != objStr(t29Row(t, surface, ""), "row_id") {
-		t.Fatalf("edited row_id = %q", objStr(edited, "row_id"))
+	if validation.ObjStr(edited, "row_id") != validation.ObjStr(t29Row(t, surface, ""), "row_id") {
+		t.Fatalf("edited row_id = %q", validation.ObjStr(edited, "row_id"))
 	}
 	t29Set(&edited, "consumer_line", validation.VInt(99999))
 	rows[0] = edited
@@ -1903,7 +1903,7 @@ func TestAuditReDerivesRowsAndCatchesAHandEditedAnchor(t *testing.T) {
 	found := false
 	for _, p := range t29Problems(sec) {
 		if strings.Contains(p, "does not re-derive") &&
-			strings.Contains(p, objStr(edited, "row_id")) {
+			strings.Contains(p, validation.ObjStr(edited, "row_id")) {
 			found = true
 		}
 	}
@@ -1917,9 +1917,9 @@ func TestAuditReDerivesRowsAndCatchesAHandEditedAnchor(t *testing.T) {
 	prios := t29List(plan, "priorities")
 	victim := validation.VNull()
 	for i, p := range prios {
-		if objAt(p, "probe").Kind == validation.Obj {
+		if validation.ObjAt(p, "probe").Kind == validation.Obj {
 			victim = p
-			prov := objAt(p, "probe")
+			prov := validation.ObjAt(p, "probe")
 			t29Set(&prov, "shape_sha", validation.VStr(strings.Repeat("0", 16)))
 			t29Set(&p, "probe", prov)
 			prios[i] = p
@@ -1940,7 +1940,7 @@ func TestAuditReDerivesRowsAndCatchesAHandEditedAnchor(t *testing.T) {
 	found = false
 	for _, p := range t29Problems(sec) {
 		if strings.Contains(p, "dispositioned probe row") &&
-			strings.Contains(p, objStr(victim, "id")) {
+			strings.Contains(p, validation.ObjStr(victim, "id")) {
 			found = true
 		}
 	}
@@ -1972,7 +1972,7 @@ func TestAuditFlagsABlankAttestationForAnAxisThatIsNotBlind(t *testing.T) {
 	ws, c, _, surface := t29Setup(t, t29Ranking, true)
 	t29Emit(t, ws)
 	axis := t29AxisByAxis(t, surface, "enforcement-timing")
-	key := objStr(t29ObjList(axis, "blind")[0], "key")
+	key := validation.ObjStr(t29ObjList(axis, "blind")[0], "key")
 	st, err := c.State()
 	if err != nil {
 		t.Fatal(err)
@@ -2009,7 +2009,7 @@ func TestAuditFlagsABlankAttestationForAnAxisThatIsNotBlind(t *testing.T) {
 func TestAuditDetectsAStaleSurfaceAndAHandEditedAttestation(t *testing.T) {
 	ws, c, idx, surface := t29Setup(t, t29Blind, true)
 	axis := t29AxisByProbe(t, surface, "assertion-strength")
-	key := objStr(t29ObjList(axis, "blind")[0], "key")
+	key := validation.ObjStr(t29ObjList(axis, "blind")[0], "key")
 	code, out, errS := run(t, "--root", ws, "probes", t29CID, "blank",
 		"--axis", "L-03", "--anchor-blind", key,
 		"--reason", "every near key was audited", "--actor", "pytest")
@@ -2065,7 +2065,7 @@ func t29GhostPriority(t *testing.T, c *state.Campaign) {
 	plan := t29PlanJSON(t, c)
 	ghost := t29DeepCopy(t29ProbePriority(t, c, ""))
 	t29Set(&ghost, "id", validation.VStr("Q-900"))
-	prov := objAt(ghost, "probe")
+	prov := validation.ObjAt(ghost, "probe")
 	t29Set(&prov, "row_id", validation.VStr("deadbeef00"))
 	t29Set(&ghost, "probe", prov)
 	prios := t29List(plan, "priorities")
@@ -2233,7 +2233,7 @@ func TestAuditProblemListIsPinnedForADriftedSurface(t *testing.T) {
 		fmt.Sprintf("probe surface is stale: built against index_sha %s, "+
 			"current index is %s — every row anchor describes the old tree; "+
 			"re-run `webv2 probes %s run --emit` %s",
-			objStr(stored, "index_sha"), *current, t29CID, quota),
+			validation.ObjStr(stored, "index_sha"), *current, t29CID, quota),
 		fmt.Sprintf("plan priority Q-900 cites probe row 'deadbeef00', which "+
 			"the current surface does not carry — the surface was rebuilt "+
 			"without it; re-run `webv2 probes %s run --emit` %s", t29CID,
@@ -2456,12 +2456,12 @@ func TestBlankLensSpellingResolvesToTheAxisThatPublishedTheKey(t *testing.T) {
 	ws, c, _, surface := t29SharedLens(t)
 	acc := t29AxisByProbe(t, surface, "accumulator-basis-skew")
 	guard := t29AxisByProbe(t, surface, "short-circuitable-guard")
-	if objStr(acc, "status") != "blind" || objStr(guard, "status") != "blind" {
-		t.Fatalf("acc/guard status = %q/%q", objStr(acc, "status"),
-			objStr(guard, "status"))
+	if validation.ObjStr(acc, "status") != "blind" || validation.ObjStr(guard, "status") != "blind" {
+		t.Fatalf("acc/guard status = %q/%q", validation.ObjStr(acc, "status"),
+			validation.ObjStr(guard, "status"))
 	}
-	accKey := objStr(t29ObjList(acc, "blind")[0], "key")
-	guardKey := objStr(t29ObjList(guard, "blind")[0], "key")
+	accKey := validation.ObjStr(t29ObjList(acc, "blind")[0], "key")
+	guardKey := validation.ObjStr(t29ObjList(guard, "blind")[0], "key")
 	code, out, errS := run(t, "--root", ws, "probes", t29CID, "blank",
 		"--axis", "L-01", "--anchor-blind", accKey,
 		"--reason", "the companion write is elsewhere",
@@ -2501,7 +2501,7 @@ func TestBlankLensSpellingResolvesToTheAxisThatPublishedTheKey(t *testing.T) {
 	clash := t29DeepCopy(surface)
 	clashAxes := t29List(clash, "axes")
 	for i, axis := range clashAxes {
-		if objStr(axis, "probe") != "short-circuitable-guard" {
+		if validation.ObjStr(axis, "probe") != "short-circuitable-guard" {
 			continue
 		}
 		blind := t29List(axis, "blind")
@@ -2533,7 +2533,7 @@ func t29BlankPairs(t *testing.T, c *state.Campaign) [][2]string {
 	t.Helper()
 	out := [][2]string{}
 	for _, e := range t29StateBlanks(t, c) {
-		out = append(out, [2]string{objStr(e, "axis"), objStr(e, "probe_axis")})
+		out = append(out, [2]string{validation.ObjStr(e, "axis"), validation.ObjStr(e, "probe_axis")})
 	}
 	return out
 }

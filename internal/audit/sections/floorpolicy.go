@@ -24,10 +24,10 @@ func FloorPolicy(c *state.Campaign) (validation.Value, error) {
 	if err != nil {
 		return validation.Value{}, err
 	}
-	pol := listOf(objAt(st, "floor_policy"))
+	pol := listOf(validation.ObjAt(st, "floor_policy"))
 	var floorEvents []validation.Value
 	for _, e := range events {
-		switch objStr(e, "type") {
+		switch validation.ObjStr(e, "type") {
 		case "floor_policy.set", "floor_policy.cleared":
 			floorEvents = append(floorEvents, e)
 		}
@@ -49,30 +49,30 @@ func FloorPolicy(c *state.Campaign) (validation.Value, error) {
 func floorPolicyProblems(pol, events []validation.Value) []validation.Value {
 	cur := newFloorCurrent()
 	for _, e := range events { // log order = decision order
-		switch objStr(e, "type") {
+		switch validation.ObjStr(e, "type") {
 		case "floor_policy.set":
-			cur.set(objAt(e, "ref"), objAt(e, "data"))
+			cur.set(validation.ObjAt(e, "ref"), validation.ObjAt(e, "data"))
 		case "floor_policy.cleared":
-			cur.clear(objAt(e, "ref"))
+			cur.clear(validation.ObjAt(e, "ref"))
 		}
 	}
 	var problems []validation.Value
 	for _, entry := range pol {
-		cls := objAt(entry, "class")
+		cls := validation.ObjAt(entry, "class")
 		d, ok := cur.get(cls)
 		if !ok {
 			problems = append(problems, validation.VStr(fmt.Sprintf(
 				"floor_policy lists class %s (floor %s) with no "+
 					"floor_policy.set event — the policy was hand-edited",
-				validation.PyRepr(cls), pyStrValue(objAt(entry, "floor")))))
+				validation.PyRepr(cls), pyStrValue(validation.ObjAt(entry, "floor")))))
 			continue
 		}
-		if !pyEqual(objAt(d, "floor"), objAt(entry, "floor")) {
+		if !pyEqual(validation.ObjAt(d, "floor"), validation.ObjAt(entry, "floor")) {
 			problems = append(problems, validation.VStr(fmt.Sprintf(
 				"floor_policy for %s is %s but the log's last set says %s — "+
 					"projection drifted from the log",
-				validation.PyRepr(cls), pyStrValue(objAt(entry, "floor")),
-				validation.PyRepr(objAt(d, "floor")))))
+				validation.PyRepr(cls), pyStrValue(validation.ObjAt(entry, "floor")),
+				validation.PyRepr(validation.ObjAt(d, "floor")))))
 		}
 		// r14: the level was policed but the ATTRIBUTION was not — the
 		// floor law ("the decision is data, attributed, reasoned and
@@ -87,13 +87,13 @@ func floorPolicyProblems(pol, events []validation.Value) []validation.Value {
 			{"actor", "who decided"},
 			{"reason", "the written reason"},
 		} {
-			if !pyEqual(objAt(d, field.key), objAt(entry, field.key)) {
+			if !pyEqual(validation.ObjAt(d, field.key), validation.ObjAt(entry, field.key)) {
 				problems = append(problems, validation.VStr(fmt.Sprintf(
 					"floor_policy for %s records %s=%s but the log's "+
 						"last set says %s — %s drifted from the ledger",
 					validation.PyRepr(cls), field.key,
-					pyStrValue(objAt(entry, field.key)),
-					validation.PyRepr(objAt(d, field.key)), field.what)))
+					pyStrValue(validation.ObjAt(entry, field.key)),
+					validation.PyRepr(validation.ObjAt(d, field.key)), field.what)))
 			}
 		}
 	}
@@ -111,7 +111,7 @@ func floorPolicyProblems(pol, events []validation.Value) []validation.Value {
 // polHasClass is Python `any(e["class"] == cls for e in pol)`.
 func polHasClass(pol []validation.Value, cls validation.Value) bool {
 	for _, e := range pol {
-		if pyEqual(objAt(e, "class"), cls) {
+		if pyEqual(validation.ObjAt(e, "class"), cls) {
 			return true
 		}
 	}

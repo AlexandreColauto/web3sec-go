@@ -34,8 +34,8 @@ func capFinding(t *testing.T, c *state.Campaign, i int) validation.Value {
 			kv("profile", validation.VStr("EOA")),
 			kv("capabilities", validation.VArr()))),
 		kv("capabilities", validation.VObj(
-			kv("granted", strArr(granted)),
-			kv("required", strArr(required)))),
+			kv("granted", validation.StrArr(granted)),
+			kv("required", validation.StrArr(required)))),
 	), "code", "test", "")
 	if err != nil {
 		t.Fatalf("ingest hypothesis %d: %v", i, err)

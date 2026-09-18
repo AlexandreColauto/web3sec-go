@@ -15,12 +15,12 @@ import (
 	"fmt"
 	"math"
 	"math/big"
-	"os"
+
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
-	"time"
+
 	"unicode"
 	"unicode/utf8"
 
@@ -94,7 +94,7 @@ func PriorRisk(bugClass string, reachableUnprivileged, requiresForkState,
 	return validation.VObj(
 		validation.KV{K: "score",
 			V: validation.VFloat(validation.PythonRound(math.Min(score, 1.0), 3))},
-		validation.KV{K: "factors", V: strArr(factors)},
+		validation.KV{K: "factors", V: validation.StrArr(factors)},
 	)
 }
 
@@ -150,7 +150,7 @@ func ValidatedRisk(finding validation.Value) (validation.Value, error) {
 // validatedScore is the arithmetic half of validated_risk: the score before
 // the 1..10 clamp plus the rationale lines in Python's append order.
 func validatedScore(finding validation.Value) (float64, []string, error) {
-	impact := orObj(objAt(finding, "economic_impact"))
+	impact := orObj(validation.ObjAt(finding, "economic_impact"))
 	blast := blastRadius(impact)
 	score := 2.0
 	if w, ok := wBlast[blast]; ok {
@@ -186,7 +186,7 @@ func validatedScore(finding validation.Value) (float64, []string, error) {
 	// Reversibility (IMPROVEMENTS E5): the victim-perspective recoverability
 	// classification, when present. Absent field = no line, no weight — the
 	// byte-identical guarantee for findings that never classified it.
-	if rv := orStr(objAt(orObj(objAt(finding, "risk")), "reversibility")); rv != "" {
+	if rv := orStr(validation.ObjAt(orObj(validation.ObjAt(finding, "risk")), "reversibility")); rv != "" {
 		if w, ok := wReversibility[rv]; ok {
 			score += w
 			rationale = append(rationale,
@@ -242,7 +242,7 @@ func blastRadius(impact validation.Value) string {
 
 // privilegesOf is (finding.get("attacker") or {}).get("required_privileges").
 func privilegesOf(finding validation.Value) validation.Value {
-	return objAt(orObj(objAt(finding, "attacker")), "required_privileges")
+	return validation.ObjAt(orObj(validation.ObjAt(finding, "attacker")), "required_privileges")
 }
 
 // EconomicRisk is economic_risk: theoretical exposure and realistic
@@ -306,8 +306,8 @@ func isZeroNum(v validation.Value) bool {
 // Deliberately simple: it orders human/compute attention, it does NOT decide
 // submission. eligibility nil = Python None (not False).
 func BountyScore(risk validation.Value, eligibility *bool, amplifierBonus float64) float64 {
-	base := numOrZero(objAt(objAt(risk, "validated"), "score"))
-	econ := numOrZero(objAt(objAt(risk, "economic"), "extractable_usd"))
+	base := numOrZero(validation.ObjAt(validation.ObjAt(risk, "validated"), "score"))
+	econ := numOrZero(validation.ObjAt(validation.ObjAt(risk, "economic"), "extractable_usd"))
 	bonus := 0.0
 	if econ >= 100_000 {
 		bonus = 1.0
@@ -319,15 +319,6 @@ func BountyScore(risk validation.Value, eligibility *bool, amplifierBonus float6
 		score = math.Min(score, 4.0)
 	}
 	return validation.PythonRound(score, 2)
-}
-
-// strArr renders a []string as a JSON array value.
-func strArr(items []string) validation.Value {
-	out := make([]validation.Value, len(items))
-	for i, s := range items {
-		out[i] = validation.VStr(s)
-	}
-	return validation.VArr(out...)
 }
 
 // ---- impact vector: the computed half of severity -------------------------
@@ -398,7 +389,7 @@ func ImpactVector(finding validation.Value) (validation.Value, error) {
 // assetExposure is _asset_exposure: band the max recorded USD exposure into a
 // coarse size bucket.
 func assetExposure(finding validation.Value) string {
-	usd, ok := maxExposure(orObj(objAt(finding, "economic_impact")))
+	usd, ok := maxExposure(orObj(validation.ObjAt(finding, "economic_impact")))
 	if !ok {
 		return "none"
 	}
@@ -475,7 +466,7 @@ func privText(privs validation.Value) string {
 // recoverability is _recoverability: band attacker-cost recoverability from
 // the recorded capital profile.
 func recoverability(finding validation.Value) (string, error) {
-	cap := orObj(objAt(orObj(objAt(finding, "attacker")), "capital_profile"))
+	cap := orObj(validation.ObjAt(orObj(validation.ObjAt(finding, "attacker")), "capital_profile"))
 	rec, recSet, err := optNumAt(cap, "recoverable_usd")
 	if err != nil {
 		return "", err
@@ -499,14 +490,14 @@ func recoverability(finding validation.Value) (string, error) {
 // insolvencyRisk is _insolvency_risk: band protocol-solvency risk from claim
 // text and loss/gain ratio.
 func insolvencyRisk(finding validation.Value) string {
-	text := orStr(objAt(orObj(objAt(finding, "root_cause")), "description")) +
-		" " + orStr(objAt(finding, "title"))
+	text := orStr(validation.ObjAt(orObj(validation.ObjAt(finding, "root_cause")), "description")) +
+		" " + orStr(validation.ObjAt(finding, "title"))
 	if insolvencyRe.MatchString(text) {
 		return "high"
 	}
-	imp := orObj(objAt(finding, "economic_impact"))
-	ex := numOrZero(objAt(imp, "extractable_usd"))
-	ml := numOrZero(objAt(imp, "max_loss_usd"))
+	imp := orObj(validation.ObjAt(finding, "economic_impact"))
+	ex := numOrZero(validation.ObjAt(imp, "extractable_usd"))
+	ml := numOrZero(validation.ObjAt(imp, "max_loss_usd"))
 	if ex != 0 && ml != 0 && ml >= 10*ex {
 		return "medium"
 	}
@@ -600,7 +591,7 @@ func RecordEconomicImpact(campaign *state.Campaign, findingID string,
 	}
 	impact := &f.O[ii].V.O
 	reversedUnpriceable := false
-	if p := objAt(f.O[ii].V, "priceable"); p.Kind == validation.Bool && !p.B {
+	if p := validation.ObjAt(f.O[ii].V, "priceable"); p.Kind == validation.Bool && !p.B {
 		reversedUnpriceable = true
 	}
 	if reversedUnpriceable {
@@ -739,7 +730,7 @@ func Calibrate(campaign *state.Campaign, findingID string) (validation.Value, er
 	if err != nil {
 		return validation.VNull(), err
 	}
-	impact := orObj(objAt(f, "economic_impact"))
+	impact := orObj(validation.ObjAt(f, "economic_impact"))
 	ri, err := ensureObjField(&f.O, "risk")
 	if err != nil {
 		return validation.VNull(), err
@@ -750,9 +741,9 @@ func Calibrate(campaign *state.Campaign, findingID string) (validation.Value, er
 		return validation.VNull(), err
 	}
 	riskV.O = validation.SetOrAppend(riskV.O, "validated", validated)
-	econ, err := economicRisk(objAt(impact, "max_loss_usd"),
-		objAt(impact, "extractable_usd"),
-		objAt(orObj(objAt(f, "attacker")), "required_capital_usd"))
+	econ, err := economicRisk(validation.ObjAt(impact, "max_loss_usd"),
+		validation.ObjAt(impact, "extractable_usd"),
+		validation.ObjAt(orObj(validation.ObjAt(f, "attacker")), "required_capital_usd"))
 	if err != nil {
 		return validation.VNull(), err
 	}
@@ -766,7 +757,7 @@ func Calibrate(campaign *state.Campaign, findingID string) (validation.Value, er
 	// r40: the risk block (band included) is gate-read state; a stored
 	// calibration without its finding.calibrated event is a verdict the
 	// ledger never issued. Unwind on refusal.
-	data := validation.VObj(validation.KV{K: "band", V: objAt(validated, "band")})
+	data := validation.VObj(validation.KV{K: "band", V: validation.ObjAt(validated, "band")})
 	if err := findings.SaveThenLog(campaign, &f, func() error {
 		_, lerr := campaign.Log("finding.calibrated", &findingID, &data)
 		return lerr
@@ -786,7 +777,7 @@ func MintImpactEvidence(campaign *state.Campaign, findingID, artifactID,
 	if err != nil {
 		return validation.VNull(), err
 	}
-	impact := orObj(objAt(f, "economic_impact"))
+	impact := orObj(validation.ObjAt(f, "economic_impact"))
 	if isNoneField(impact, "extractable_usd") && isNoneField(impact, "max_loss_usd") {
 		return validation.VNull(), fmt.Errorf("cannot mint E7 on %s: no "+
 			"economic_impact numbers recorded (set extractable_usd and/or "+
@@ -806,7 +797,7 @@ func MintImpactEvidence(campaign *state.Campaign, findingID, artifactID,
 		validation.KV{K: "type", V: validation.VStr("balance-delta")},
 		validation.KV{K: "artifact_id", V: validation.VStr(artifactID)},
 		validation.KV{K: "description", V: validation.VStr(description)},
-		validation.KV{K: "produced_at", V: validation.VStr(nowIso())},
+		validation.KV{K: "produced_at", V: validation.VStr(state.NowIso())},
 		validation.KV{K: "snapshot_id", V: snapshotSource(f)},
 	)
 	out, err := findings.AddEvidence(campaign, findingID, item)
@@ -825,16 +816,6 @@ func MintImpactEvidence(campaign *state.Campaign, findingID, artifactID,
 }
 
 // ---- helpers -------------------------------------------------------------
-
-// objAt is d.get(key) as a Value: a missing key reads as Null.
-func objAt(v validation.Value, key string) validation.Value {
-	for _, kv := range v.O {
-		if kv.K == key {
-			return kv.V
-		}
-	}
-	return validation.VNull()
-}
 
 // fieldAt is d.get(key) with presence: (value, true) also for a present null.
 func fieldAt(v validation.Value, key string) (validation.Value, bool) {
@@ -871,7 +852,7 @@ func isNoneField(v validation.Value, key string) bool {
 
 // snapshotSource is f.get("snapshot_ids", {}).get("source").
 func snapshotSource(f validation.Value) validation.Value {
-	return objAt(orObj(objAt(f, "snapshot_ids")), "source")
+	return validation.ObjAt(orObj(validation.ObjAt(f, "snapshot_ids")), "source")
 }
 
 // idTail is new_id(prefix, n).split("-")[1].
@@ -1132,15 +1113,4 @@ func pySpace(r rune) bool {
 		return true
 	}
 	return unicode.IsSpace(r)
-}
-
-// nowIso is now_iso (mirrors state.nowIso, unexported there). The WEBV2_NOW
-// golden-suite clock pin is honored identically.
-func nowIso() string {
-	if v := os.Getenv("WEBV2_NOW"); v != "" {
-		return v
-	}
-	now := time.Now().UTC()
-	return fmt.Sprintf("%s.%06d+00:00",
-		now.Format("2006-01-02T15:04:05"), now.Nanosecond()/1000)
 }

@@ -60,14 +60,14 @@ func norm(caps []string) []string {
 // DUPLICATE, SUPERSEDED) answer a question; a sweep chains ANSWERS to
 // nothing. Live rows — including CONFIRMED — still participate.
 func nonDuplicate(f validation.Value) bool {
-	return !findings.IsTerminal(objStr(f, "status"))
+	return !findings.IsTerminal(validation.ObjStr(f, "status"))
 }
 
 // capBlock is `f.get("capabilities") or {}` normalized into granted/required.
 func capBlock(f validation.Value) ([]string, []string) {
-	caps := asObj(objAt(f, "capabilities"))
-	return norm(capInput(objAt(caps, "granted"))),
-		norm(capInput(objAt(caps, "required")))
+	caps := asObj(validation.ObjAt(f, "capabilities"))
+	return norm(capInput(validation.ObjAt(caps, "granted"))),
+		norm(capInput(validation.ObjAt(caps, "required")))
 }
 
 // BuildCapabilityIndex is build_capability_index(): granted -> [finding_ids],
@@ -84,7 +84,7 @@ func BuildCapabilityIndex(c *state.Campaign) (validation.Value, error) {
 		if !nonDuplicate(f) {
 			continue
 		}
-		fid := objStr(f, "finding_id")
+		fid := validation.ObjStr(f, "finding_id")
 		g, r := capBlock(f)
 		for _, cap := range g {
 			granted = appendID(granted, cap, fid)
@@ -131,8 +131,8 @@ func FindLinks(c *state.Campaign) ([]validation.Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	granted := objAt(idx, "granted").O
-	required := objAt(idx, "required").O
+	granted := validation.ObjAt(idx, "granted").O
+	required := validation.ObjAt(idx, "required").O
 	links := []validation.Value{}
 	for _, needKV := range required {
 		for _, grantFid := range idsOf(granted, needKV.K) {
@@ -170,7 +170,7 @@ func chainFindings(c *state.Campaign) ([]chainNode, error) {
 			continue
 		}
 		g, r := capBlock(f)
-		out = append(out, chainNode{fid: objStr(f, "finding_id"),
+		out = append(out, chainNode{fid: validation.ObjStr(f, "finding_id"),
 			grant: setOf(g), need: setOf(r)})
 	}
 	return out, nil
@@ -234,8 +234,8 @@ func FindChains(c *state.Campaign, minLength int) ([]validation.Value, error) {
 				if _, ok := seen[key]; !ok {
 					seen[key] = struct{}{}
 					chains = append(chains, validation.VObj(
-						kvOf("members", strArr(frame.path)),
-						kvOf("capabilities", strArr(setKeys(held)))))
+						kvOf("members", validation.StrArr(frame.path)),
+						kvOf("capabilities", validation.StrArr(setKeys(held)))))
 				}
 			}
 			// find_chains: once the cap is reached the enumeration BREAKS
@@ -324,7 +324,7 @@ func chainDocs(c *state.Campaign, onlyTerminal bool) ([]validation.Value, error)
 		if err != nil {
 			return nil, err
 		}
-		if onlyTerminal && !truthy(objAt(doc, "terminal")) {
+		if onlyTerminal && !truthy(validation.ObjAt(doc, "terminal")) {
 			continue
 		}
 		out = append(out, doc)

@@ -70,7 +70,7 @@ func InvariantVerification(c *state.Campaign) (validation.Value, error) {
 	if err != nil {
 		return validation.Value{}, err
 	}
-	reg := objAt(links, "invariants") // Python .get("invariants", {})
+	reg := validation.ObjAt(links, "invariants") // Python .get("invariants", {})
 	events, err := c.Events()
 	if err != nil {
 		return validation.Value{}, err
@@ -79,7 +79,7 @@ func InvariantVerification(c *state.Campaign) (validation.Value, error) {
 	var runs []validation.Value
 	tally := newRefusalTally()
 	for _, iid := range sortedObjKeys(reg) {
-		e := objAt(reg, iid)
+		e := validation.ObjAt(reg, iid)
 		if e.Kind != validation.Obj {
 			continue
 		}
@@ -140,13 +140,13 @@ func InvariantVerification(c *state.Campaign) (validation.Value, error) {
 			runs = append(runs, validation.VStr(line))
 		}
 		tally.add(e)
-		if objStr(e, "status") != "CHECKED_AGAINST_CODE" {
+		if validation.ObjStr(e, "status") != "CHECKED_AGAINST_CODE" {
 			continue
 		}
 		if invariants.IsVerified(e, c, iid, events) {
 			continue
 		}
-		artID := objStr(e, "verified_by")
+		artID := validation.ObjStr(e, "verified_by")
 		if artID == "" {
 			problems = append(problems, validation.VStr(fmt.Sprintf(
 				"%s: CHECKED_AGAINST_CODE without a verified_by artifact", iid)))
@@ -198,17 +198,17 @@ func InvariantVerification(c *state.Campaign) (validation.Value, error) {
 // must burn naming the field that is missing. Returns "" when there is
 // nothing to read (no harness object) or nothing claimed (no rung).
 func harnessSlotShapeBurn(iid string, e validation.Value) string {
-	h := objAt(objAt(e, "verification"), "harness")
+	h := validation.ObjAt(validation.ObjAt(e, "verification"), "harness")
 	if h.Kind != validation.Obj {
 		return "" // no harness object: no run, nothing to back
 	}
-	rung := objStr(h, "rung")
+	rung := validation.ObjStr(h, "rung")
 	if rung == "" {
 		return "" // no rung at all: the sanctioned silent skip
 	}
 	missing := []string{}
 	for _, key := range []string{"kind", "exec"} {
-		if objStr(h, key) == "" {
+		if validation.ObjStr(h, key) == "" {
 			missing = append(missing, key)
 		}
 	}
@@ -236,11 +236,11 @@ func harnessSlotShapeBurn(iid string, e validation.Value) string {
 // (harness.BridgeSequence owns that), and the label claims the witness
 // EXISTS, not that it has been replayed.
 func harnessRunLine(iid string, e validation.Value) (string, bool) {
-	h := objAt(objAt(e, "verification"), "harness")
+	h := validation.ObjAt(validation.ObjAt(e, "verification"), "harness")
 	if h.Kind != validation.Obj {
 		return "", false
 	}
-	kind, rung, exec := objStr(h, "kind"), objStr(h, "rung"), objStr(h, "exec")
+	kind, rung, exec := validation.ObjStr(h, "kind"), validation.ObjStr(h, "rung"), validation.ObjStr(h, "exec")
 	if kind == "" || rung == "" || exec == "" {
 		return "", false
 	}
@@ -259,7 +259,7 @@ func harnessRunLine(iid string, e validation.Value) (string, bool) {
 	// at all) and every other kind keep the historical plain line.
 	case kind == string(harness.MiniCertora) &&
 		rung == harness.RungInconclusive:
-		if class, advice, ok := harness.Disposition(objStr(h, "summary")); ok {
+		if class, advice, ok := harness.Disposition(validation.ObjStr(h, "summary")); ok {
 			line = fmt.Sprintf("%s: %s (%s, %s) | next: %s (%s)",
 				iid, rung, kind, exec, advice, class)
 		} else {
@@ -283,7 +283,7 @@ func harnessRunLine(iid string, e validation.Value) (string, bool) {
 // and an unattributed or witness-less minicertora line keeps its
 // historical bytes.
 func proofCallCount(h validation.Value) (int, bool) {
-	c := objAt(objAt(h, "proof"), "calls")
+	c := validation.ObjAt(validation.ObjAt(h, "proof"), "calls")
 	if c.Kind != validation.Arr || len(c.A) == 0 {
 		return 0, false
 	}
@@ -297,10 +297,10 @@ func proofCallCount(h validation.Value) (int, bool) {
 // renders verbatim rather than losing digits. ok=false for a null,
 // absent, or non-integer value in both places.
 func harnessBoundK(h validation.Value) (string, bool) {
-	if bk := objAt(h, "bounded_k"); bk.Kind == validation.Int {
+	if bk := validation.ObjAt(h, "bounded_k"); bk.Kind == validation.Int {
 		return validation.IntText(bk), true
 	}
-	lb := objAt(objAt(objAt(h, "proof"), "bounds"), "loop_bound")
+	lb := validation.ObjAt(validation.ObjAt(validation.ObjAt(h, "proof"), "bounds"), "loop_bound")
 	if lb.Kind == validation.Int {
 		return validation.IntText(lb), true
 	}
@@ -314,14 +314,14 @@ func harnessBoundK(h validation.Value) (string, bool) {
 // a refused bind whose unwind itself failed, or a version skew).
 func harnessRungBacked(events []validation.Value, iid string,
 	entry validation.Value) string {
-	h := objAt(objAt(entry, "verification"), "harness")
+	h := validation.ObjAt(validation.ObjAt(entry, "verification"), "harness")
 	last := validation.VNull()
 	for _, ev := range events {
-		if objStr(ev, "type") != "harness_run" {
+		if validation.ObjStr(ev, "type") != "harness_run" {
 			continue
 		}
-		d := objAt(ev, "data")
-		if objStr(d, "invariant") == iid {
+		d := validation.ObjAt(ev, "data")
+		if validation.ObjStr(d, "invariant") == iid {
 			last = d
 		}
 	}
@@ -334,7 +334,7 @@ func harnessRungBacked(events []validation.Value, iid string,
 	// event-less k can only mean "the run carried none"; any other
 	// disagreement (slot 999999 vs event 100) is a hand-edit. Events
 	// from pre-k mappers omit the key entirely and pass (null-vs-null).
-	slotK, eventK := objAt(h, "bounded_k"), objAt(last, "bounded_k")
+	slotK, eventK := validation.ObjAt(h, "bounded_k"), validation.ObjAt(last, "bounded_k")
 	if slotK.Kind != eventK.Kind ||
 		(slotK.Kind == validation.Int && slotK.I != eventK.I) {
 		return fmt.Sprintf("%s: stored bounded_k (%s) does not match the "+
@@ -346,8 +346,8 @@ func harnessRungBacked(events []validation.Value, iid string,
 	// slot proof must equal the event's fingerprint, and a subtree under
 	// an event that never fingerprinted proofs is exactly the
 	// "hand-edit around the rails" shape: unbacked by construction.
-	slotProof := objAt(h, "proof")
-	evDig := objStr(last, "proof_sha256")
+	slotProof := validation.ObjAt(h, "proof")
+	evDig := validation.ObjStr(last, "proof_sha256")
 	if evDig == "" {
 		if slotProof.Kind == validation.Obj {
 			return fmt.Sprintf("%s: stored proof subtree has no event "+
@@ -361,8 +361,8 @@ func harnessRungBacked(events []validation.Value, iid string,
 			"state drifted from the ledger", iid, got[:12], evDig[:12])
 	}
 	for _, key := range []string{"kind", "rung", "exec", "summary"} {
-		want := objStr(h, key)
-		got := objStr(last, key)
+		want := validation.ObjStr(h, key)
+		got := validation.ObjStr(last, key)
 		if want == "" || got == "" {
 			// early harness_run events predate per-kind/summary
 			// payloads; a field only ONE side carries is compared never,
@@ -386,7 +386,7 @@ func harnessRungBacked(events []validation.Value, iid string,
 					"no kind for the stored rung %s — the slot's kind is "+
 					"the run's provenance and no event carries it; the "+
 					"slot is unbacked", iid,
-					validation.PyReprStr(objStr(h, "rung")))
+					validation.PyReprStr(validation.ObjStr(h, "rung")))
 			}
 			continue
 		}
@@ -435,14 +435,14 @@ func proofDigest(proof validation.Value) string {
 // stdout whose own bytes said loop_bound 4.
 func harnessEvidenceRecheck(c *state.Campaign,
 	events []validation.Value, iid string, entry validation.Value) string {
-	h := objAt(objAt(entry, "verification"), "harness")
+	h := validation.ObjAt(validation.ObjAt(entry, "verification"), "harness")
 	last := validation.VNull()
 	for _, ev := range events {
-		if objStr(ev, "type") != "harness_run" {
+		if validation.ObjStr(ev, "type") != "harness_run" {
 			continue
 		}
-		d := objAt(ev, "data")
-		if objStr(d, "invariant") == iid {
+		d := validation.ObjAt(ev, "data")
+		if validation.ObjStr(d, "invariant") == iid {
 			last = d
 		}
 	}
@@ -454,12 +454,12 @@ func harnessEvidenceRecheck(c *state.Campaign,
 	// (cli.harnessKindFor / verifyAutoprove) can have written them. The
 	// DISPLAY line renders from this same slot kind, so a spelling no mapper
 	// knows is a rung whose claim cannot be reproduced from any evidence.
-	kindStr := objStr(h, "kind")
+	kindStr := validation.ObjStr(h, "kind")
 	kind, known := harness.NormalizeKind(kindStr)
 	if !known || kindStr != string(kind) {
 		return harnessKindBurn(iid, kindStr, known)
 	}
-	exec := objStr(last, "exec")
+	exec := validation.ObjStr(last, "exec")
 	switch {
 	case strings.HasPrefix(exec, "REPORT-") || kind == harnessReportKind:
 		// Report provenance names the report-bound bind, which maps the
@@ -535,7 +535,7 @@ func harnessKindBurn(iid, kindStr string, known bool) string {
 // record blesses anything).
 func recheckUnknownProvenance(iid string, last validation.Value,
 	exec string) string {
-	rung := objStr(last, "rung")
+	rung := validation.ObjStr(last, "rung")
 	if rung != harness.RungProvedBounded &&
 		rung != harness.RungCounterexample {
 		return ""
@@ -560,13 +560,13 @@ func harnessScaffoldArtifactBytes(c *state.Campaign,
 	want := "HARNESS-" + iid + "-" + string(kind)
 	ref := ""
 	for _, ev := range events {
-		if objStr(ev, "type") != "harness_scaffold" {
+		if validation.ObjStr(ev, "type") != "harness_scaffold" {
 			continue
 		}
-		if objStr(objAt(ev, "data"), "artifact_id") != want {
+		if validation.ObjStr(validation.ObjAt(ev, "data"), "artifact_id") != want {
 			continue
 		}
-		ref = objStr(ev, "ref")
+		ref = validation.ObjStr(ev, "ref")
 	}
 	if ref == "" {
 		return nil, fmt.Sprintf("no harness_scaffold event names %s", want)
@@ -598,13 +598,13 @@ func harnessScaffoldBindBytes(c *state.Campaign,
 	want := "HARNESS-" + iid + "-" + string(kind)
 	ref := ""
 	for _, ev := range events {
-		if objStr(ev, "type") != "harness_scaffold" {
+		if validation.ObjStr(ev, "type") != "harness_scaffold" {
 			continue
 		}
-		if objStr(objAt(ev, "data"), "artifact_id") != want {
+		if validation.ObjStr(validation.ObjAt(ev, "data"), "artifact_id") != want {
 			continue
 		}
-		ref = objStr(ev, "ref")
+		ref = validation.ObjStr(ev, "ref")
 	}
 	if ref == "" {
 		return nil, fmt.Sprintf("no harness_scaffold event names %s", want)
@@ -614,7 +614,7 @@ func harnessScaffoldBindBytes(c *state.Campaign,
 		return nil, fmt.Sprintf("the scaffold artifact %s the bind "+
 			"hashed is not registered any more", ref)
 	}
-	raw, err = harness.ArtifactFileBytes(c.Root, objStr(art, "path"))
+	raw, err = harness.ArtifactFileBytes(c.Root, validation.ObjStr(art, "path"))
 	if err != nil {
 		return nil, fmt.Sprintf("the scaffold artifact %s has no readable "+
 			"file: %v", ref, err)
@@ -695,7 +695,7 @@ func recheckExecEvidence(c *state.Campaign, events []validation.Value,
 	// (proved-bounded, counterexample). An inconclusive rung blesses
 	// nothing, and torching its (often old, often pruned) witness dir
 	// would punish honesty with noise.
-	rung := objStr(last, "rung")
+	rung := validation.ObjStr(last, "rung")
 	if rung != harness.RungProvedBounded &&
 		rung != harness.RungCounterexample {
 		// r25 preemption (critic's sharpest): a forged (slot,event)
@@ -723,7 +723,7 @@ func recheckExecEvidence(c *state.Campaign, events []validation.Value,
 	}
 	var rec validation.Value
 	for _, e := range recs {
-		if objStr(e, "exec_id") == exec {
+		if validation.ObjStr(e, "exec_id") == exec {
 			rec = e
 			break
 		}
@@ -782,7 +782,7 @@ func recheckExecEvidence(c *state.Campaign, events []validation.Value,
 		harness.MiniCertora, inv, raw, rec, scaffold,
 		harness.RecordTimedOut(rec), invK, harness.RecordExitStatus(rec),
 		harness.MspecRuleName(iid))
-	if want := objStr(last, "rung"); decRung != want {
+	if want := validation.ObjStr(last, "rung"); decRung != want {
 		return fmt.Sprintf("%s: exec %s stdout re-derives rung %s; the "+
 			"event claims %s — the mapping did not come from this run's "+
 			"bytes (re-derived: %s)", iid, exec,
@@ -805,8 +805,8 @@ func recheckExecEvidence(c *state.Campaign, events []validation.Value,
 		}
 		return validation.VObj(kvs...)
 	}
-	if dig := objStr(last, "proof_sha256"); dig != "" {
-		slotProof := stripPin(objAt(h, "proof"))
+	if dig := validation.ObjStr(last, "proof_sha256"); dig != "" {
+		slotProof := stripPin(validation.ObjAt(h, "proof"))
 		slotDig := proofDigest(slotProof)
 		reD := proofDigest(stripPin(proof))
 		// A slot that stored LESS proof than the bytes support is
@@ -822,7 +822,7 @@ func recheckExecEvidence(c *state.Campaign, events []validation.Value,
 				slotDig[:12], dig[:12])
 		}
 	}
-	if bkV := objAt(last, "bounded_k"); bkV.Kind == validation.Int {
+	if bkV := validation.ObjAt(last, "bounded_k"); bkV.Kind == validation.Int {
 		have := int64(-1)
 		if decBK != nil {
 			have = int64(*decBK)
@@ -852,7 +852,7 @@ func recheckRegistryEvidence(c *state.Campaign, iid string, h,
 	// a fresh bind refuses without ever reading them. Absence is not "no
 	// claim" on a report rung: the rung is not backed. The check sits FIRST
 	// for the same reason the bind's does — this is the verb's own order.
-	if prop := objStr(last, "property"); prop == "" {
+	if prop := validation.ObjStr(last, "property"); prop == "" {
 		return fmt.Sprintf("%s: the last harness_run event for this report "+
 			"rung carries property %s — no bind can write an empty title "+
 			"(verify --autoprove refuses one outright: \"needs --property "+
@@ -860,7 +860,7 @@ func recheckRegistryEvidence(c *state.Campaign, iid string, h,
 			"exact-match by design\"), so the rung's proof is attributed to "+
 			"no title and it is not backed", iid, validation.PyReprStr(prop))
 	}
-	dig := objStr(last, "report_sha256")
+	dig := validation.ObjStr(last, "report_sha256")
 	if dig == "" {
 		// r32b F2: r23's report_sha256 is the pin that makes a report rung
 		// checkable at all — the digest names the bytes this bind mapped
@@ -883,16 +883,16 @@ func recheckRegistryEvidence(c *state.Campaign, iid string, h,
 			"provenance (%s, rung %s) but pins no report_sha256 — the "+
 			"bytes it blessed are named nowhere, so the mapping cannot be "+
 			"re-derived from them; the rung is not backed", iid,
-			validation.PyReprStr(objStr(last, "exec")),
-			validation.PyReprStr(objStr(last, "rung")))
+			validation.PyReprStr(validation.ObjStr(last, "exec")),
+			validation.PyReprStr(validation.ObjStr(last, "rung")))
 	}
 	st, err := c.State()
 	if err != nil {
 		return fmt.Sprintf("%s: registry unreadable (%v)", iid, err)
 	}
 	var row validation.Value
-	for _, a := range objAt(st, "artifacts").A {
-		if objStr(a, "sha256") == dig {
+	for _, a := range validation.ObjAt(st, "artifacts").A {
+		if validation.ObjStr(a, "sha256") == dig {
 			row = a
 			break
 		}
@@ -930,7 +930,7 @@ func recheckRegistryEvidence(c *state.Campaign, iid string, h,
 	// chain-valid report copy whose ONLY difference was a SUSPECT finding
 	// (or published:false) audited green over bytes a fresh bind refuses
 	// with exit 2.
-	dec := harness.DecideReport(rep, objStr(last, "property"))
+	dec := harness.DecideReport(rep, validation.ObjStr(last, "property"))
 	if dec.Gate != harness.GateNone {
 		return fmt.Sprintf("%s: the pinned report bytes fail the bind's "+
 			"%s gate (%s) — a fresh bind of these very bytes is refused, "+
@@ -938,19 +938,19 @@ func recheckRegistryEvidence(c *state.Campaign, iid string, h,
 			iid, dec.Gate, strings.TrimRight(dec.Refusal, "\n"))
 	}
 	rung, summary, bk := dec.Rung, dec.Summary, dec.BoundedK
-	if want := objStr(last, "rung"); want != rung {
+	if want := validation.ObjStr(last, "rung"); want != rung {
 		return fmt.Sprintf("%s: the pinned report re-derives to rung "+
 			"%s; the event claims %s — the mapping did not come from "+
 			"these bytes", iid, validation.PyReprStr(rung),
 			validation.PyReprStr(want))
 	}
-	if want := objStr(last, "summary"); want != summary {
+	if want := validation.ObjStr(last, "summary"); want != summary {
 		return fmt.Sprintf("%s: the pinned report re-derives summary "+
 			"%s; the event carries %s", iid,
 			validation.PyReprStr(summary), validation.PyReprStr(want))
 	}
 	if bk == nil {
-		if v := objAt(last, "bounded_k"); v.Kind == validation.Int {
+		if v := validation.ObjAt(last, "bounded_k"); v.Kind == validation.Int {
 			return fmt.Sprintf("%s: the pinned report states no bound; "+
 				"the event pins bounded_k %d — inflated", iid, v.I)
 		}
@@ -977,7 +977,7 @@ func recheckRegistryEvidence(c *state.Campaign, iid string, h,
 				"bound these bytes never stated; the rung is not backed", iid,
 				shown)
 		}
-	} else if v := objAt(last, "bounded_k"); v.Kind != validation.Int ||
+	} else if v := validation.ObjAt(last, "bounded_k"); v.Kind != validation.Int ||
 		v.I != int64(*bk) {
 		return fmt.Sprintf("%s: the pinned report derives bounded_k "+
 			"%d; the event carries a different bound", iid, *bk)
@@ -1029,7 +1029,7 @@ func recheckRegistryEvidence(c *state.Campaign, iid string, h,
 		}
 		held := false
 		for _, e := range recs {
-			if objStr(e, "exec_id") == exec {
+			if validation.ObjStr(e, "exec_id") == exec {
 				held = true
 				break
 			}
@@ -1111,32 +1111,32 @@ func recheckRegistryEvidence(c *state.Campaign, iid string, h,
 // a collision-free claim).
 func reportProofCollisionBurn(events []validation.Value, iid string,
 	last validation.Value) string {
-	prop := objStr(last, "property")
+	prop := validation.ObjStr(last, "property")
 	firstInv, firstExec, firstPin := "", "", ""
 	for _, ev := range events {
-		if objStr(ev, "type") != "harness_run" {
+		if validation.ObjStr(ev, "type") != "harness_run" {
 			continue
 		}
-		d := objAt(ev, "data")
+		d := validation.ObjAt(ev, "data")
 		// r34 F1: a claimant must CARRY a title. objStr alone reads an
 		// absent/non-string field as "", which would let an exec-bound event
 		// (no property field at all) be named as the holder of the blank
 		// title — a holder that never claimed it. For every non-blank title
 		// this is the same claimant set as before: "" folds equal to no
 		// non-blank title.
-		if objAt(d, "property").Kind != validation.Str {
+		if validation.ObjAt(d, "property").Kind != validation.Str {
 			continue
 		}
-		if !harness.SamePropertyName(objStr(d, "property"), prop) {
+		if !harness.SamePropertyName(validation.ObjStr(d, "property"), prop) {
 			continue
 		}
-		inv := objStr(d, "invariant")
+		inv := validation.ObjStr(d, "invariant")
 		if inv == "" {
 			continue
 		}
 		if firstInv == "" {
-			firstInv, firstExec = inv, objStr(d, "exec")
-			firstPin = objStr(d, "report_sha256")
+			firstInv, firstExec = inv, validation.ObjStr(d, "exec")
+			firstPin = validation.ObjStr(d, "report_sha256")
 		}
 	}
 	if firstInv == "" || firstInv == iid {
@@ -1197,7 +1197,7 @@ func recheckMapRunEvidence(c *state.Campaign, events []validation.Value,
 	}
 	var rec validation.Value
 	for _, e := range recs {
-		if objStr(e, "exec_id") == exec {
+		if validation.ObjStr(e, "exec_id") == exec {
 			rec = e
 			break
 		}
@@ -1227,7 +1227,7 @@ func recheckMapRunEvidence(c *state.Campaign, events []validation.Value,
 		harness.InvValue(iid, entry), raw, rec, scaffold,
 		harness.RecordTimedOut(rec), invK, harness.RecordExitStatus(rec),
 		"")
-	if want := objStr(last, "rung"); rung != want {
+	if want := validation.ObjStr(last, "rung"); rung != want {
 		return fmt.Sprintf("%s: exec %s stdout re-derives rung %s; the "+
 			"event claims %s — the mapping did not come from this run's "+
 			"bytes (re-derived: %s)", iid, exec,
@@ -1235,7 +1235,7 @@ func recheckMapRunEvidence(c *state.Campaign, events []validation.Value,
 			decSummary)
 	}
 	if rung == harness.RungProvedBounded {
-		if bkV := objAt(last, "bounded_k"); bkV.Kind == validation.Int {
+		if bkV := validation.ObjAt(last, "bounded_k"); bkV.Kind == validation.Int {
 			have := int64(-1)
 			if decBK != nil {
 				have = int64(*decBK)
@@ -1265,7 +1265,7 @@ func recheckInconclusive(c *state.Campaign, events []validation.Value,
 	}
 	var rec validation.Value
 	for _, e := range recs {
-		if objStr(e, "exec_id") == exec {
+		if validation.ObjStr(e, "exec_id") == exec {
 			rec = e
 			break
 		}
@@ -1325,7 +1325,7 @@ func recheckInconclusive(c *state.Campaign, events []validation.Value,
 	// the canonical classifier the tally itself reads — comparing classes is
 	// the right equality for this rail, and the exact-text version (r25
 	// first cut) would have burned honest decorated binds.
-	wantCls, _, wantOK := harness.Disposition(objStr(last, "summary"))
+	wantCls, _, wantOK := harness.Disposition(validation.ObjStr(last, "summary"))
 	gotCls, _, gotOK := harness.Disposition(sum)
 	if !wantOK {
 		return "" // the pair renders no advice: nothing to fabricate

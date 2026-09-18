@@ -85,7 +85,7 @@ func findPriority(plan validation.Value,
 // priorityIndex is the linear scan for a priority id (-1 when absent).
 func priorityIndex(plan validation.Value, priorityID string) int {
 	for i, p := range listOf(plan, "priorities") {
-		if objStr(p, "id") == priorityID {
+		if validation.ObjStr(p, "id") == priorityID {
 			return i
 		}
 	}

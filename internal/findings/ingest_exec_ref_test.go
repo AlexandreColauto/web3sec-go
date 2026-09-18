@@ -110,14 +110,14 @@ func TestIngestExecRefUnknownRefused(t *testing.T) {
 func TestIngestExecRefNotSucceededRefused(t *testing.T) {
 	c := ingestCamp(t)
 	failed := testExec(t, c, "docker-networkless", "", 1, "boom\n")
-	fid := objStr(failed, "exec_id")
+	fid := validation.ObjStr(failed, "exec_id")
 	_, err := IngestHypothesis(c, t2ExecRefPayload(fid, "EV-y"), "code", "", "")
 	wantErr(t, err, "ingest refused: evidence EV-y exec_ref "+fid+": exec "+
 		fid+" exited with status 1; a run that did not succeed is not a "+
 		"reproduction")
 
 	silent := testExec(t, c, "docker-networkless", "", 0, "")
-	sid := objStr(silent, "exec_id")
+	sid := validation.ObjStr(silent, "exec_id")
 	_, err = IngestHypothesis(c, t2ExecRefPayload(sid, "EV-z"), "code", "", "")
 	wantErr(t, err, "exec "+sid+" exited 0 with EMPTY captured output")
 }
@@ -135,14 +135,14 @@ func TestIngestExecRefBoundElsewhereRefused(t *testing.T) {
 	c := ingestCamp(t)
 	other := "F-000000000000"
 	rec := testExec(t, c, "docker-networkless", other, 0, "PASS\n")
-	id := objStr(rec, "exec_id")
+	id := validation.ObjStr(rec, "exec_id")
 	_, err := IngestHypothesis(c, t2ExecRefPayload(id, "EV-b"), "code", "", "")
 	wantErr(t, err, "ingest refused: exec_ref "+id+" is bound to finding "+
 		"'"+other+"', not F-")
 
 	// The masking case: bound elsewhere AND a failing record.
 	failed := testExec(t, c, "docker-networkless", other, 1, "boom\n")
-	failedID := objStr(failed, "exec_id")
+	failedID := validation.ObjStr(failed, "exec_id")
 	_, err = IngestHypothesis(c, t2ExecRefPayload(failedID, "EV-b2"), "code", "", "")
 	wantErr(t, err, "ingest refused: exec_ref "+failedID+" is bound to finding "+
 		"'"+other+"'")
@@ -159,12 +159,12 @@ func TestIngestExecRefBoundElsewhereRefused(t *testing.T) {
 func TestIngestExecRefLandsMintedEvidence(t *testing.T) {
 	c := ingestCamp(t)
 	rec := testExec(t, c, "docker-networkless", "", 0, "PASS: test_exploit\n")
-	id := objStr(rec, "exec_id")
+	id := validation.ObjStr(rec, "exec_id")
 	f, err := IngestHypothesis(c, t2ExecRefPayload(id, "EV-ok"), "code", "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	ev := objAt(f, "evidence")
+	ev := validation.ObjAt(f, "evidence")
 	if len(ev.A) != 1 {
 		t.Fatalf("evidence items = %d, want 1", len(ev.A))
 	}
@@ -177,11 +177,11 @@ func TestIngestExecRefLandsMintedEvidence(t *testing.T) {
 		{"type", "foundry-test"},
 		{"artifact_id", id},
 		{"sandbox_profile", "docker-networkless"},
-		{"command", objStr(rec, "command")},
+		{"command", validation.ObjStr(rec, "command")},
 		{"description", "the sandboxed PoC reproduced it"},
-		{"snapshot_id", pyStr(objAt(objAt(f, "snapshot_ids"), "source"))},
+		{"snapshot_id", pyStr(validation.ObjAt(validation.ObjAt(f, "snapshot_ids"), "source"))},
 	} {
-		if got := objStr(item, want.key); got != want.val {
+		if got := validation.ObjStr(item, want.key); got != want.val {
 			t.Errorf("item %s = %q, want %q", want.key, got, want.val)
 		}
 	}
@@ -203,14 +203,14 @@ func TestIngestExecRefFollowsRecordedTier(t *testing.T) {
 	}
 	c := ingestCamp(t)
 	rec := testExec(t, c, "docker-networkless", "", 0, "PASS: test_exploit\n")
-	id := objStr(rec, "exec_id")
+	id := validation.ObjStr(rec, "exec_id")
 	p := t2ExecRefPayload(id, "EV-t3")
 	p.O = validation.SetOrAppend(p.O, "verification", validation.VObj(
 		kv("reproduction", validation.VObj(
 			kv("tier_reached", validation.VStr("T3"))))))
 	// the payload declares what the derivation will say (I-4): declaring a
 	// LIE is refused outright, tested in TestIngestExecRefRejectsFalseType.
-	if items := objAt(p, "evidence").A; len(items) == 1 {
+	if items := validation.ObjAt(p, "evidence").A; len(items) == 1 {
 		it := validation.VObj(items[0].O...)
 		for i, e := range it.O {
 			if e.K == "type" {
@@ -227,8 +227,8 @@ func TestIngestExecRefFollowsRecordedTier(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	item := objAt(f, "evidence").A[0]
-	if lvl, typ := objStr(item, "level"), objStr(item, "type"); lvl != "E5" ||
+	item := validation.ObjAt(f, "evidence").A[0]
+	if lvl, typ := validation.ObjStr(item, "level"), validation.ObjStr(item, "type"); lvl != "E5" ||
 		typ != "fork-test" {
 		t.Fatalf("landed (%s, %s), want (E5, fork-test)", lvl, typ)
 	}
@@ -241,7 +241,7 @@ func TestIngestExecRefFollowsRecordedTier(t *testing.T) {
 func TestIngestExecRefRejectsFalseType(t *testing.T) {
 	c := ingestCamp(t)
 	rec := testExec(t, c, "docker-networkless", "", 0, "PASS: test_exploit\n")
-	id := objStr(rec, "exec_id")
+	id := validation.ObjStr(rec, "exec_id")
 	p := t2ExecRefPayload(id, "EV-lie") // declares E4/foundry-test: honest pair
 	f, err := IngestHypothesis(c, p, "code", "", "")
 	if err != nil {

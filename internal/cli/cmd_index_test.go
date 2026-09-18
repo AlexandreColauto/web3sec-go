@@ -60,11 +60,11 @@ func TestIndexCommandWritesArtifact(t *testing.T) {
 	if err != nil {
 		t.Fatalf("index artifact: %v", err)
 	}
-	if got := objStr(idx, "parse_version"); got != "3" {
+	if got := validation.ObjStr(idx, "parse_version"); got != "3" {
 		t.Fatalf("parse_version %q", got)
 	}
-	if objStr(idx, "campaign_id") != c.CampaignID {
-		t.Fatalf("campaign_id %q", objStr(idx, "campaign_id"))
+	if validation.ObjStr(idx, "campaign_id") != c.CampaignID {
+		t.Fatalf("campaign_id %q", validation.ObjStr(idx, "campaign_id"))
 	}
 	if err := validation.Validate(idx, "structural_index", 1); err != nil {
 		t.Fatalf("schema: %v", err)
@@ -147,8 +147,8 @@ func TestSinksCommandWritesValueFlow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("value_flow artifact: %v", err)
 	}
-	if objStr(rep, "snapshot_id") != "unpinned" {
-		t.Fatalf("snapshot_id %q", objStr(rep, "snapshot_id"))
+	if validation.ObjStr(rep, "snapshot_id") != "unpinned" {
+		t.Fatalf("snapshot_id %q", validation.ObjStr(rep, "snapshot_id"))
 	}
 }
 
@@ -170,7 +170,7 @@ func TestForkdiffNoBaselines(t *testing.T) {
 	if err != nil {
 		t.Fatalf("fork_diff artifact: %v", err)
 	}
-	if objAt(rep, "matched_baseline").Kind != validation.Null {
+	if validation.ObjAt(rep, "matched_baseline").Kind != validation.Null {
 		t.Fatalf("matched_baseline must be null")
 	}
 }
@@ -195,11 +195,11 @@ func TestBaselineAddListRemove(t *testing.T) {
 	if err != nil {
 		t.Fatalf("baseline.json: %v", err)
 	}
-	if objStr(meta, "license") != "MIT" {
-		t.Fatalf("license %q", objStr(meta, "license"))
+	if validation.ObjStr(meta, "license") != "MIT" {
+		t.Fatalf("license %q", validation.ObjStr(meta, "license"))
 	}
-	if len(objStr(meta, "fingerprint_sha256")) != 64 {
-		t.Fatalf("sha256 %q", objStr(meta, "fingerprint_sha256"))
+	if len(validation.ObjStr(meta, "fingerprint_sha256")) != 64 {
+		t.Fatalf("sha256 %q", validation.ObjStr(meta, "fingerprint_sha256"))
 	}
 
 	code, out, errS = run(t, "baseline", "list")

@@ -34,30 +34,6 @@ import (
 // findings uses (a plain strings.ToLower is not Python's case mapping).
 var pyLower = cases.Lower(language.Und)
 
-// objAt is the dict lookup: the value for key, or Null when the key is absent
-// (or the receiver is not an object).
-func objAt(v validation.Value, key string) validation.Value {
-	if v.Kind != validation.Obj {
-		return validation.VNull()
-	}
-	for _, kv := range v.O {
-		if kv.K == key {
-			return kv.V
-		}
-	}
-	return validation.VNull()
-}
-
-// objStr is the string flavor of objAt ("" when absent or not a string).
-func objStr(v validation.Value, key string) string {
-	for _, kv := range v.O {
-		if kv.K == key {
-			return kv.V.S
-		}
-	}
-	return ""
-}
-
 // fieldAt is (key in obj, obj[key]): the present-but-null case is distinct
 // from the absent case.
 func fieldAt(v validation.Value, key string) (validation.Value, bool) {
@@ -198,7 +174,7 @@ func SavePolicy(campaign *state.Campaign, policy validation.Value,
 // address. The bool is the match; the string is the human-facing why.
 func InScope(policy validation.Value, target string) (bool, string, error) {
 	t := pyLower.String(target)
-	for _, s := range objAt(policy, "scope").A {
+	for _, s := range validation.ObjAt(policy, "scope").A {
 		needleV, ok := fieldAt(s, "target")
 		if !ok {
 			return false, "", fmt.Errorf("%s", validation.PyReprStr("target"))
@@ -222,19 +198,19 @@ func textHit(text, pattern string, caseSensitive bool) bool {
 // ExclusionHit is exclusion_hit: the first exclusion whose pattern matches
 // class/title/desc/mechanism, or Null (Python None).
 func ExclusionHit(policy, finding validation.Value) (validation.Value, error) {
-	root := objAt(finding, "root_cause")
+	root := validation.ObjAt(finding, "root_cause")
 	haystacks := strings.Join([]string{
-		objStr(root, "class"),
-		objStr(finding, "title"),
-		objStr(root, "description"),
-		objStr(root, "mechanism"),
+		validation.ObjStr(root, "class"),
+		validation.ObjStr(finding, "title"),
+		validation.ObjStr(root, "description"),
+		validation.ObjStr(root, "mechanism"),
 	}, " \n")
-	for _, ex := range objAt(policy, "exclusions").A {
+	for _, ex := range validation.ObjAt(policy, "exclusions").A {
 		pattern, ok := fieldAt(ex, "pattern")
 		if !ok {
 			return validation.VNull(), fmt.Errorf("%s", validation.PyReprStr("pattern"))
 		}
-		if textHit(haystacks, pattern.S, pyTruthyBigNonEmpty(objAt(ex, "case_sensitive"))) {
+		if textHit(haystacks, pattern.S, pyTruthyBigNonEmpty(validation.ObjAt(ex, "case_sensitive"))) {
 			return ex, nil
 		}
 	}
@@ -246,19 +222,19 @@ func ExclusionHit(policy, finding validation.Value) (validation.Value, error) {
 // semantics as exclusions), or Null. Accepted risks are the program's
 // "we know, we accept, we do not pay" channel (IMPROVEMENTS A1).
 func AcceptedRiskHit(policy, finding validation.Value) (validation.Value, error) {
-	root := objAt(finding, "root_cause")
+	root := validation.ObjAt(finding, "root_cause")
 	haystacks := strings.Join([]string{
-		objStr(root, "class"),
-		objStr(finding, "title"),
-		objStr(root, "description"),
-		objStr(root, "mechanism"),
+		validation.ObjStr(root, "class"),
+		validation.ObjStr(finding, "title"),
+		validation.ObjStr(root, "description"),
+		validation.ObjStr(root, "mechanism"),
 	}, " \n")
-	for _, ar := range objAt(policy, "accepted_risks").A {
+	for _, ar := range validation.ObjAt(policy, "accepted_risks").A {
 		pattern, ok := fieldAt(ar, "pattern")
 		if !ok {
 			return validation.VNull(), fmt.Errorf("%s", validation.PyReprStr("pattern"))
 		}
-		if textHit(haystacks, pattern.S, pyTruthyBigNonEmpty(objAt(ar, "case_sensitive"))) {
+		if textHit(haystacks, pattern.S, pyTruthyBigNonEmpty(validation.ObjAt(ar, "case_sensitive"))) {
 			return ar, nil
 		}
 	}
@@ -285,10 +261,10 @@ func severityRank(sev string) int {
 // highest severity whose match block is satisfied by the finding. The
 // severity is "" for Python None.
 func SeverityFor(policy, finding validation.Value) (string, string, error) {
-	impact := objAt(finding, "economic_impact")
-	class := objStr(objAt(finding, "root_cause"), "class")
+	impact := validation.ObjAt(finding, "economic_impact")
+	class := validation.ObjStr(validation.ObjAt(finding, "root_cause"), "class")
 	for _, sev := range []string{"critical", "high", "medium", "low"} {
-		for _, rule := range objAt(policy, "severity_rules").A {
+		for _, rule := range validation.ObjAt(policy, "severity_rules").A {
 			sevV, ok := fieldAt(rule, "severity")
 			if !ok {
 				return "", "", fmt.Errorf("%s", validation.PyReprStr("severity"))
@@ -296,16 +272,16 @@ func SeverityFor(policy, finding validation.Value) (string, string, error) {
 			if sevV.S != sev {
 				continue
 			}
-			m := objAt(rule, "match")
-			if bc := objAt(m, "bug_classes"); pyTruthyBigNonEmpty(bc) && !inStringList(bc, class) {
+			m := validation.ObjAt(rule, "match")
+			if bc := validation.ObjAt(m, "bug_classes"); pyTruthyBigNonEmpty(bc) && !inStringList(bc, class) {
 				continue
 			}
-			if br := objAt(m, "blast_radius"); pyTruthyBigNonEmpty(br) &&
-				!inStringList(br, objStr(impact, "blast_radius")) {
+			if br := validation.ObjAt(m, "blast_radius"); pyTruthyBigNonEmpty(br) &&
+				!inStringList(br, validation.ObjStr(impact, "blast_radius")) {
 				continue
 			}
-			if minUsd := objAt(m, "min_extractable_usd"); minUsd.Kind != validation.Null {
-				got, okGot := pyFloat(objAt(impact, "extractable_usd"))
+			if minUsd := validation.ObjAt(m, "min_extractable_usd"); minUsd.Kind != validation.Null {
+				got, okGot := pyFloat(validation.ObjAt(impact, "extractable_usd"))
 				floor, okFloor := pyFloat(minUsd)
 				if !okGot {
 					got = 0
@@ -314,8 +290,8 @@ func SeverityFor(policy, finding validation.Value) (string, string, error) {
 					continue
 				}
 			}
-			if pyTruthyBigNonEmpty(objAt(m, "require_invariant_violation")) &&
-				!pyTruthyBigNonEmpty(objAt(objAt(finding, "invariant"), "violation_demonstrated")) {
+			if pyTruthyBigNonEmpty(validation.ObjAt(m, "require_invariant_violation")) &&
+				!pyTruthyBigNonEmpty(validation.ObjAt(validation.ObjAt(finding, "invariant"), "violation_demonstrated")) {
 				continue
 			}
 			return sev, "matched severity rule for " + sev, nil
@@ -527,14 +503,14 @@ func SetConfirmedGateRemediation(m map[string]string) {
 // defaults to "open" and "missing" means no ladder row at all.
 func ladderDisposition(campaign *state.Campaign,
 	f validation.Value) (string, validation.Value, error) {
-	lad, err := loadLadderFunc(campaign, objStr(f, "finding_id"))
+	lad, err := loadLadderFunc(campaign, validation.ObjStr(f, "finding_id"))
 	if err != nil {
 		return "", validation.VNull(), err
 	}
 	if lad.Kind == validation.Null {
 		return "missing", validation.VNull(), nil
 	}
-	stateV := objAt(objAt(lad, "disposition"), "state")
+	stateV := validation.ObjAt(validation.ObjAt(lad, "disposition"), "state")
 	st := "open"
 	if pyTruthyBigNonEmpty(stateV) {
 		st = pyStrAny(stateV)
@@ -583,8 +559,8 @@ func (g *gate) add(name, result, detail, remediation string) {
 // waiver row). It appends *after* the fail row it answers, so the pair has to
 // be read through effectiveChecks — see the note there.
 func (g *gate) addWaived(check string, w *validation.Value) {
-	g.add(check, "pass", "waived by "+pyStrAny(objAt(*w, "actor"))+
-		": "+headRunes(pyStrAny(objAt(*w, "reason")), 80), "")
+	g.add(check, "pass", "waived by "+pyStrAny(validation.ObjAt(*w, "actor"))+
+		": "+headRunes(pyStrAny(validation.ObjAt(*w, "reason")), 80), "")
 }
 
 // effectiveChecks collapses the policy_checks rows to one row per check name:
@@ -602,14 +578,14 @@ func effectiveChecks(rows []validation.Value) []validation.Value {
 	}
 	last := make(map[string]int, len(rows))
 	for i, c := range rows {
-		last[objStr(c, "check")] = i
+		last[validation.ObjStr(c, "check")] = i
 	}
 	if len(last) == len(rows) {
 		return rows
 	}
 	out := make([]validation.Value, 0, len(last))
 	for i, c := range rows {
-		if last[objStr(c, "check")] == i {
+		if last[validation.ObjStr(c, "check")] == i {
 			out = append(out, c)
 		}
 	}
@@ -625,11 +601,11 @@ func effectiveChecks(rows []validation.Value) []validation.Value {
 // A nameless finding falls back to its recorded path, exactly as before.
 func (g *gate) scopeTargets() []string {
 	first := validation.VObj()
-	if aff := objAt(g.f, "affected"); aff.Kind == validation.Arr && len(aff.A) > 0 {
+	if aff := validation.ObjAt(g.f, "affected"); aff.Kind == validation.Arr && len(aff.A) > 0 {
 		first = aff.A[0]
 	}
 	name := ""
-	if c := objAt(first, "contract"); c.Kind == validation.Str && c.S != "" {
+	if c := validation.ObjAt(first, "contract"); c.Kind == validation.Str && c.S != "" {
 		name = c.S
 	}
 	out := []string{}
@@ -652,19 +628,19 @@ func (g *gate) scopeTargets() []string {
 		add(contractPathFunc(g.campaign, name))
 	} else {
 		// No name: fall back to the recorded path (the pre-B4 behaviour).
-		add(objStr(first, "path"))
+		add(validation.ObjStr(first, "path"))
 	}
 	return out
 }
 
 // check1 is security-confirmed (deterministic, from finding status).
 func (g *gate) check1() {
-	if objStr(g.f, "status") == "CONFIRMED" {
+	if validation.ObjStr(g.f, "status") == "CONFIRMED" {
 		g.add("security-confirmed", "pass", "", "")
 		return
 	}
 	g.add("security-confirmed", "fail",
-		"status is "+pyStrAny(objAt(g.f, "status")), "")
+		"status is "+pyStrAny(validation.ObjAt(g.f, "status")), "")
 	g.blockers = append(g.blockers, "finding is not CONFIRMED")
 }
 
@@ -674,7 +650,7 @@ func (g *gate) check2() error {
 	if err != nil {
 		return err
 	}
-	pin := objAt(objAt(g.f, "snapshot_ids"), "source")
+	pin := validation.ObjAt(validation.ObjAt(g.f, "snapshot_ids"), "source")
 	switch {
 	case active != nil && pin.Kind == validation.Str && pin.S == *active:
 		g.add("snapshot-pinned", "pass", "", "")
@@ -732,19 +708,19 @@ func (g *gate) check4() error {
 		return err
 	}
 	if ex.Kind == validation.Obj {
-		pattern := objStr(ex, "pattern")
+		pattern := validation.ObjStr(ex, "pattern")
 		ar, err := AcceptedRiskHit(g.policy, g.f)
 		if err != nil {
 			return err
 		}
-		if ar.Kind == validation.Obj && objStr(ar, "pattern") == pattern {
+		if ar.Kind == validation.Obj && validation.ObjStr(ar, "pattern") == pattern {
 			g.add("known-issue-check", "pass", "exclusion "+
 				validation.PyReprStr(pattern)+" suppressed — an accepted risk "+
 				"with the same pattern is the narrower rule (check "+
 				"accepted-risk)", "")
 			return nil
 		}
-		kind := objAt(ex, "kind")
+		kind := validation.ObjAt(ex, "kind")
 		g.add("known-issue-check", "fail", "matches exclusion "+
 			validation.PyReprStr(pattern)+" ("+pyStrAny(kind)+")", "")
 		g.blockers = append(g.blockers,
@@ -785,7 +761,7 @@ func needLevel(req validation.Value) (string, error) {
 // check6 is evidence sufficiency (policy-level, stricter than the CONFIRMED
 // floor).
 func (g *gate) check6() error {
-	req := objAt(g.policy, "poc_requirements")
+	req := validation.ObjAt(g.policy, "poc_requirements")
 	need, err := needLevel(req)
 	if err != nil {
 		return err
@@ -819,10 +795,10 @@ func (g *gate) check6() error {
 
 // check6Fork is the require_fork_repro clause of check 6.
 func (g *gate) check6Fork(req validation.Value) error {
-	if !pyTruthyBigNonEmpty(objAt(req, "require_fork_repro")) {
+	if !pyTruthyBigNonEmpty(validation.ObjAt(req, "require_fork_repro")) {
 		return nil
 	}
-	repro := objAt(objAt(g.f, "verification"), "reproduction")
+	repro := validation.ObjAt(validation.ObjAt(g.f, "verification"), "reproduction")
 	tier := getDefault(repro, "tier_reached", validation.VStr("none"))
 	if tier.Kind == validation.Str && (tier.S == "T3" || tier.S == "T4") {
 		g.add("fork-repro", "pass", "tier "+tier.S, "")
@@ -836,11 +812,11 @@ func (g *gate) check6Fork(req validation.Value) error {
 
 // check6Economic is the require_economic_quantification clause of check 6.
 func (g *gate) check6Economic(req validation.Value) error {
-	if !pyTruthyBigNonEmpty(objAt(req, "require_economic_quantification")) {
+	if !pyTruthyBigNonEmpty(validation.ObjAt(req, "require_economic_quantification")) {
 		return nil
 	}
-	usd := objAt(objAt(g.f, "economic_impact"), "extractable_usd")
-	floor := objAt(req, "min_extractable_usd")
+	usd := validation.ObjAt(validation.ObjAt(g.f, "economic_impact"), "extractable_usd")
+	floor := validation.ObjAt(req, "min_extractable_usd")
 	ok := usd.Kind != validation.Null
 	if ok && floor.Kind != validation.Null {
 		got, okGot := pyFloat(usd)
@@ -866,7 +842,7 @@ var maximalAxes = []string{"capital-minimization", "precondition-removal",
 // pinned) or disproved, all five axes explored, the ladder closed — or the
 // closure is an explicit, named waiver.
 func (g *gate) check7() error {
-	if objStr(g.f, "status") != "CONFIRMED" {
+	if validation.ObjStr(g.f, "status") != "CONFIRMED" {
 		return nil
 	}
 	disposition, lad, err := ladderDisposition(g.campaign, g.f)
@@ -876,9 +852,9 @@ func (g *gate) check7() error {
 	switch disposition {
 	case "complete":
 		g.add("maximal-exploitation", "pass",
-			"ladder closed (maximal: "+pyStrAny(objAt(lad, "maximal_rung_id"))+")", "")
+			"ladder closed (maximal: "+pyStrAny(validation.ObjAt(lad, "maximal_rung_id"))+")", "")
 	case "waived":
-		reason := objAt(objAt(lad, "disposition"), "reason")
+		reason := validation.ObjAt(validation.ObjAt(lad, "disposition"), "reason")
 		if !pyTruthyBigNonEmpty(reason) {
 			reason = validation.VStr("")
 		}
@@ -891,7 +867,7 @@ func (g *gate) check7() error {
 		g.blockers = append(g.blockers,
 			"variant ladder missing for a CONFIRMED finding")
 	default:
-		explored := objAt(lad, "axes_explored")
+		explored := validation.ObjAt(lad, "axes_explored")
 		var openAxes []string
 		for _, a := range maximalAxes {
 			if !inStringList(explored, a) {
@@ -912,7 +888,7 @@ func (g *gate) check7() error {
 // check8 is price basis (G) — every USD figure must name the price row it was
 // computed from.
 func (g *gate) check8() error {
-	ei := objAt(g.f, "economic_impact")
+	ei := validation.ObjAt(g.f, "economic_impact")
 	var usdKeys []string
 	for _, kv := range ei.O {
 		if strings.HasSuffix(kv.K, "_usd") && kv.V.Kind != validation.Null {
@@ -923,7 +899,7 @@ func (g *gate) check8() error {
 		return nil
 	}
 	sort.Strings(usdKeys)
-	basis := objAt(ei, "price_basis")
+	basis := validation.ObjAt(ei, "price_basis")
 	row := validation.VNull()
 	if pyTruthyBigNonEmpty(basis) && basis.Kind == validation.Str {
 		var err error
@@ -939,9 +915,9 @@ func (g *gate) check8() error {
 			"USD figures without a resolvable price basis")
 		return nil
 	}
-	detail := pyStrAny(basis) + " -> " + pyStrAny(objAt(row, "asset")) + " @ $" +
-		pyStrAny(objAt(row, "usd")) + " (" +
-		headRunes(pyStrAny(objAt(row, "source")), 40) + ")"
+	detail := pyStrAny(basis) + " -> " + pyStrAny(validation.ObjAt(row, "asset")) + " @ $" +
+		pyStrAny(validation.ObjAt(row, "usd")) + " (" +
+		headRunes(pyStrAny(validation.ObjAt(row, "source")), 40) + ")"
 	g.add("e7-price-basis", "pass", detail, "")
 	return nil
 }
@@ -966,8 +942,8 @@ func (g *gate) check9() error {
 // "the code never enforces this" rows.
 func falsePreconditions(f validation.Value) []validation.Value {
 	var out []validation.Value
-	for _, p := range objAt(f, "preconditions").A {
-		if objStr(p, "enforced_by_poc") == "false" {
+	for _, p := range validation.ObjAt(f, "preconditions").A {
+		if validation.ObjStr(p, "enforced_by_poc") == "false" {
 			out = append(out, p)
 		}
 	}
@@ -977,8 +953,8 @@ func falsePreconditions(f validation.Value) []validation.Value {
 // removedPreconditions is every variant's removed_preconditions, flattened.
 func removedPreconditions(lad validation.Value) []string {
 	var out []string
-	for _, v := range objAt(lad, "variants").A {
-		for _, r := range objAt(v, "removed_preconditions").A {
+	for _, v := range validation.ObjAt(lad, "variants").A {
+		for _, r := range validation.ObjAt(v, "removed_preconditions").A {
 			if r.Kind == validation.Str {
 				out = append(out, r.S)
 			}
@@ -1009,7 +985,7 @@ func (g *gate) check10() error {
 	removed := removedPreconditions(lad)
 	var openPre []string
 	for _, p := range falsePre {
-		desc := objStr(p, "description")
+		desc := validation.ObjStr(p, "description")
 		closed := false
 		for _, r := range removed {
 			if strings.Contains(desc, r) || strings.Contains(r, desc) {
@@ -1052,7 +1028,7 @@ const (
 // The check row keeps the seam's own reason; the blocker repeats it so the
 // operator reading `gate` sees the same precise status `prove` shows.
 func (g *gate) check11() error {
-	findingID := objStr(g.f, "finding_id")
+	findingID := validation.ObjStr(g.f, "finding_id")
 	ok, why, err := forkPocStatusFunc(g.campaign, findingID)
 	if err != nil {
 		return err
@@ -1066,12 +1042,12 @@ func (g *gate) check11() error {
 		return err
 	}
 	for _, w := range rows {
-		subject := objStr(w, "subject")
+		subject := validation.ObjStr(w, "subject")
 		if subject != "*" && subject != findingID {
 			continue
 		}
-		g.add("mainnet-fork-poc", "pass", "waived by "+pyStrAny(objAt(w, "actor"))+
-			": "+headRunes(pyStrAny(objAt(w, "reason")), 80), "")
+		g.add("mainnet-fork-poc", "pass", "waived by "+pyStrAny(validation.ObjAt(w, "actor"))+
+			": "+headRunes(pyStrAny(validation.ObjAt(w, "reason")), 80), "")
 		return nil
 	}
 	g.add("mainnet-fork-poc", "fail", why, "")
@@ -1166,18 +1142,18 @@ func (g *gate) check12Prose() error {
 // error is returned, never swallowed: the pre-D8 check aborted the gate on it
 // and this helper must not quietly turn that into a plain failure.
 func (g *gate) waived(stage string) (bool, error) {
-	findingID := objStr(g.f, "finding_id")
+	findingID := validation.ObjStr(g.f, "finding_id")
 	rows, err := waiversFunc(g.campaign, stage)
 	if err != nil {
 		return false, err
 	}
 	for _, w := range rows {
-		subject := objStr(w, "subject")
+		subject := validation.ObjStr(w, "subject")
 		if subject != "*" && subject != findingID {
 			continue
 		}
-		g.add("immunization", "pass", "waived by "+pyStrAny(objAt(w, "actor"))+
-			": "+headRunes(pyStrAny(objAt(w, "reason")), 80), "")
+		g.add("immunization", "pass", "waived by "+pyStrAny(validation.ObjAt(w, "actor"))+
+			": "+headRunes(pyStrAny(validation.ObjAt(w, "reason")), 80), "")
 		return true, nil
 	}
 	return false, nil
@@ -1187,7 +1163,7 @@ func (g *gate) waived(stage string) (bool, error) {
 // detail text has to be self-explaining ("the framework is not asking for
 // this — your program is, or is not").
 func (g *gate) programLabel() string {
-	if name := objStr(g.policy, "program"); name != "" {
+	if name := validation.ObjStr(g.policy, "program"); name != "" {
 		return name
 	}
 	return "the target program"
@@ -1212,9 +1188,9 @@ func (g *gate) check13() error {
 		g.add("accepted-risk", "pass", "no accepted-risk pattern matched", "")
 		return nil
 	}
-	pattern := objStr(ar, "pattern")
-	kind := pyStrAny(objAt(ar, "kind"))
-	if minSev := objStr(ar, "min_severity"); minSev != "" {
+	pattern := validation.ObjStr(ar, "pattern")
+	kind := pyStrAny(validation.ObjAt(ar, "kind"))
+	if minSev := validation.ObjStr(ar, "min_severity"); minSev != "" {
 		sev, _, err := SeverityFor(g.policy, g.f)
 		if err != nil {
 			return err
@@ -1244,25 +1220,25 @@ func (g *gate) check13() error {
 			rec.O = append(rec.O, validation.KV{K: key, V: v})
 		}
 	}
-	bounty := objAt(g.f, "bounty")
+	bounty := validation.ObjAt(g.f, "bounty")
 	if bounty.Kind != validation.Obj {
 		bounty = validation.VObj()
 	}
 	bounty.O = validation.SetOrAppend(bounty.O, "accepted_risk", rec)
 	g.f.O = validation.SetOrAppend(g.f.O, "bounty", bounty)
 
-	findingID := objStr(g.f, "finding_id")
+	findingID := validation.ObjStr(g.f, "finding_id")
 	rows, err := waiversFunc(g.campaign, "accepted-risk")
 	if err != nil {
 		return err
 	}
 	for _, w := range rows {
-		subject := objStr(w, "subject")
+		subject := validation.ObjStr(w, "subject")
 		if subject != "*" && subject != findingID {
 			continue
 		}
-		g.add("accepted-risk", "pass", "waived by "+pyStrAny(objAt(w, "actor"))+
-			": "+headRunes(pyStrAny(objAt(w, "reason")), 80), "")
+		g.add("accepted-risk", "pass", "waived by "+pyStrAny(validation.ObjAt(w, "actor"))+
+			": "+headRunes(pyStrAny(validation.ObjAt(w, "reason")), 80), "")
 		return nil
 	}
 	g.add("accepted-risk", "fail",
@@ -1284,25 +1260,25 @@ func (g *gate) check13() error {
 // it records why the finding is NOT payable. Waivable per-finding (stage
 // "paid-exploitability", reason required).
 func (g *gate) check14() error {
-	status := objStr(g.f, "status")
-	ext := objAt(objAt(g.f, "economic_impact"), "extractable_usd")
+	status := validation.ObjStr(g.f, "status")
+	ext := validation.ObjAt(validation.ObjAt(g.f, "economic_impact"), "extractable_usd")
 	extractable := (ext.Kind == validation.Int && (ext.I > 0 || ext.Big != "")) ||
 		(ext.Kind == validation.Flt && ext.F > 0)
-	findingID := objStr(g.f, "finding_id")
+	findingID := validation.ObjStr(g.f, "finding_id")
 	var waiver *validation.Value
 	rows, err := waiversFunc(g.campaign, "paid-exploitability")
 	if err != nil {
 		return err
 	}
 	for _, w := range rows {
-		if subject := objStr(w, "subject"); subject == "*" ||
+		if subject := validation.ObjStr(w, "subject"); subject == "*" ||
 			subject == findingID {
 			w := w
 			waiver = &w
 			break
 		}
 	}
-	exp := objAt(g.f, "exploitability")
+	exp := validation.ObjAt(g.f, "exploitability")
 	if exp.Kind != validation.Obj {
 		if (status == "CONFIRMED" || status == "CHAIN") && extractable {
 			g.add("paid-exploitability", "fail",
@@ -1329,7 +1305,7 @@ func (g *gate) check14() error {
 			"")
 		return nil
 	}
-	n := len([]rune(objStr(exp, "argument")))
+	n := len([]rune(validation.ObjStr(exp, "argument")))
 	if paid.B {
 		if n < findings.ExploitabilityArgumentMin {
 			g.add("paid-exploitability", "fail",
@@ -1377,14 +1353,14 @@ func (g *gate) check15() error {
 		g.add("adversarial-game", "pass", "not a liveness finding", "")
 		return nil
 	}
-	findingID := objStr(g.f, "finding_id")
+	findingID := validation.ObjStr(g.f, "finding_id")
 	var waiver *validation.Value
 	rows, err := waiversFunc(g.campaign, "adversarial-game")
 	if err != nil {
 		return err
 	}
 	for _, w := range rows {
-		if subject := objStr(w, "subject"); subject == "*" ||
+		if subject := validation.ObjStr(w, "subject"); subject == "*" ||
 			subject == findingID {
 			w := w
 			waiver = &w
@@ -1457,29 +1433,29 @@ func EvaluateBountyGate(campaign *state.Campaign, findingID string,
 	effective := effectiveChecks(g.checks)
 	eligible := true
 	for _, c := range effective {
-		if objStr(c, "result") != "fail" {
+		if validation.ObjStr(c, "result") != "fail" {
 			continue
 		}
-		switch objStr(c, "check") {
+		switch validation.ObjStr(c, "check") {
 		case "security-confirmed", "in-scope", "known-issue-check":
 			eligible = false
 		}
 	}
 	submissionReady := len(g.blockers) == 0
 	for _, c := range effective {
-		if objStr(c, "result") != "pass" {
+		if validation.ObjStr(c, "result") != "pass" {
 			submissionReady = false
 			break
 		}
 	}
-	bounty := objAt(f, "bounty")
+	bounty := validation.ObjAt(f, "bounty")
 	if bounty.Kind != validation.Obj {
 		bounty = validation.VObj()
 	}
 	// A2 advisory: an in-code acknowledgement (dedup_meta.in_code_ack)
 	// demotes acceptance likelihood. Advisory only — it never blocks: the
 	// owner's own comment is context for the reviewer, not a gate condition.
-	if ack := objAt(objAt(f, "dedup_meta"), "in_code_ack"); ack.Kind ==
+	if ack := validation.ObjAt(validation.ObjAt(f, "dedup_meta"), "in_code_ack"); ack.Kind ==
 		validation.Obj {
 		bounty.O = validation.SetOrAppend(bounty.O, "advisories", strList(
 			[]string{"in_code_ack present: acceptance likelihood demoted"}))
@@ -1488,7 +1464,7 @@ func EvaluateBountyGate(campaign *state.Campaign, findingID string,
 	// record under a prose/none patch clause). Advisory only, same channel.
 	if len(g.advisories) > 0 {
 		combined := []string{}
-		if cur := objAt(bounty, "advisories"); cur.Kind == validation.Arr {
+		if cur := validation.ObjAt(bounty, "advisories"); cur.Kind == validation.Arr {
 			for _, v := range cur.A {
 				combined = append(combined, pyStrAny(v))
 			}
@@ -1501,7 +1477,7 @@ func EvaluateBountyGate(campaign *state.Campaign, findingID string,
 	// number is the gate's audit trail, not the source of truth).
 	// Policy-gated (G3): acceptance_priors true carries the class prior.
 	score, _ := gateAcceptance(f, g.policy)
-	riskObj := objAt(f, "risk")
+	riskObj := validation.ObjAt(f, "risk")
 	if riskObj.Kind != validation.Obj {
 		riskObj = validation.VObj()
 	}

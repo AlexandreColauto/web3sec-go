@@ -42,18 +42,18 @@ func runSinks(root string, args []string, r *Runner) int {
 			fmt.Fprintln(r.Out, validation.DumpIndentedASCII(rep))
 			return nil
 		}
-		stats := objAt(rep, "stats")
+		stats := validation.ObjAt(rep, "stats")
 		fmt.Fprintf(r.Out, "sinks: %s  unguarded paths: %s\n",
-			pyIntText(objAt(stats, "sinks")),
-			pyIntText(objAt(stats, "unguarded_paths")))
+			pyIntText(validation.ObjAt(stats, "sinks")),
+			pyIntText(validation.ObjAt(stats, "unguarded_paths")))
 		for _, s := range objListAt(rep, "sinks") {
 			mark := "guarded"
-			if len(t14Strings(objAt(s, "unguarded_entry_points"))) > 0 {
+			if len(t14Strings(validation.ObjAt(s, "unguarded_entry_points"))) > 0 {
 				mark = "UNGUARDED"
 			}
 			fmt.Fprintf(r.Out, "  %s %s <- %s\n", mark,
-				objStr(s, "sink_function"),
-				strings.Join(t14Strings(objAt(s, "sink_calls")), ", "))
+				validation.ObjStr(s, "sink_function"),
+				strings.Join(t14Strings(validation.ObjAt(s, "sink_calls")), ", "))
 		}
 		return nil
 	})
@@ -61,7 +61,7 @@ func runSinks(root string, args []string, r *Runner) int {
 
 // objListAt is v.get(key) as a list (empty when absent or not a list).
 func objListAt(v validation.Value, key string) []validation.Value {
-	x := objAt(v, key)
+	x := validation.ObjAt(v, key)
 	if x.Kind != validation.Arr {
 		return nil
 	}

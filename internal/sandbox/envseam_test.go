@@ -95,12 +95,12 @@ func TestClassifyFailureVerdicts(t *testing.T) {
 		if strAt(got, "class") != tc.class {
 			t.Errorf("%s: class = %q, want %q (signals %s)", tc.name,
 				strAt(got, "class"), tc.class,
-				validation.CanonCompact(objAt(got, "signals")))
+				validation.CanonCompact(validation.ObjAt(got, "signals")))
 		}
 		if tc.signal != "" &&
-			!containsStrValue(objAt(got, "signals"), tc.signal) {
+			!containsStrValue(validation.ObjAt(got, "signals"), tc.signal) {
 			t.Errorf("%s: signals = %s, want %s", tc.name,
-				validation.CanonCompact(objAt(got, "signals")), tc.signal)
+				validation.CanonCompact(validation.ObjAt(got, "signals")), tc.signal)
 		}
 		if strAt(got, "note") == "" {
 			t.Errorf("%s: empty note", tc.name)
@@ -161,18 +161,18 @@ func TestSandboxPreflightHostReadonly(t *testing.T) {
 	if !boolAt(pre, "ok") {
 		t.Errorf("ok = false: %s", validation.CanonCompact(pre))
 	}
-	checks := objAt(pre, "checks")
-	if strAt(objAt(checks, "docker"), "status") != "na" ||
-		strAt(objAt(checks, "image"), "status") != "na" ||
-		strAt(objAt(checks, "solc"), "status") != "na" {
+	checks := validation.ObjAt(pre, "checks")
+	if strAt(validation.ObjAt(checks, "docker"), "status") != "na" ||
+		strAt(validation.ObjAt(checks, "image"), "status") != "na" ||
+		strAt(validation.ObjAt(checks, "solc"), "status") != "na" {
 		t.Errorf("checks = %s", validation.CanonCompact(checks))
 	}
-	if objStr(objAt(checks, "docker"), "detail") !=
+	if validation.ObjStr(validation.ObjAt(checks, "docker"), "detail") !=
 		"host-readonly executes on the host — no container involved" {
 		t.Errorf("docker detail = %q",
-			objStr(objAt(checks, "docker"), "detail"))
+			validation.ObjStr(validation.ObjAt(checks, "docker"), "detail"))
 	}
-	if len(objAt(pre, "issues").A) != 0 || len(objAt(pre, "warnings").A) != 0 {
+	if len(validation.ObjAt(pre, "issues").A) != 0 || len(validation.ObjAt(pre, "warnings").A) != 0 {
 		t.Errorf("preflight issues/warnings = %s",
 			validation.CanonCompact(pre))
 	}
@@ -181,9 +181,9 @@ func TestSandboxPreflightHostReadonly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strAt(objAt(objAt(pre2, "checks"), "workdir"), "status") != "ok" {
+	if strAt(validation.ObjAt(validation.ObjAt(pre2, "checks"), "workdir"), "status") != "ok" {
 		t.Errorf("workdir check = %s",
-			validation.CanonCompact(objAt(objAt(pre2, "checks"), "workdir")))
+			validation.CanonCompact(validation.ObjAt(validation.ObjAt(pre2, "checks"), "workdir")))
 	}
 }
 
@@ -203,14 +203,14 @@ func TestSandboxPreflightMissingWorkdir(t *testing.T) {
 	want := "workdir: workdir " + missing + " does not exist — a missing " +
 		"bind source fails the whole run — fix: create " + missing +
 		" or point --workdir at an existing directory"
-	issues := objAt(pre, "issues")
+	issues := validation.ObjAt(pre, "issues")
 	if len(issues.A) != 1 || issues.A[0].S != want {
 		t.Fatalf("issues = %s\nwant %q", validation.CanonCompact(issues), want)
 	}
-	if objStr(objAt(objAt(pre, "checks"), "workdir"), "fix") !=
+	if validation.ObjStr(validation.ObjAt(validation.ObjAt(pre, "checks"), "workdir"), "fix") !=
 		"create "+missing+" or point --workdir at an existing directory" {
 		t.Errorf("fix = %q",
-			objStr(objAt(objAt(pre, "checks"), "workdir"), "fix"))
+			validation.ObjStr(validation.ObjAt(validation.ObjAt(pre, "checks"), "workdir"), "fix"))
 	}
 }
 
@@ -280,12 +280,12 @@ func TestSandboxPreflightContainer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	checks := objAt(pre, "checks")
-	if strAt(objAt(checks, "docker"), "status") != "fail" {
-		t.Errorf("docker = %s", validation.CanonCompact(objAt(checks, "docker")))
+	checks := validation.ObjAt(pre, "checks")
+	if strAt(validation.ObjAt(checks, "docker"), "status") != "fail" {
+		t.Errorf("docker = %s", validation.CanonCompact(validation.ObjAt(checks, "docker")))
 	}
-	if strAt(objAt(checks, "image"), "status") != "na" {
-		t.Errorf("image = %s", validation.CanonCompact(objAt(checks, "image")))
+	if strAt(validation.ObjAt(checks, "image"), "status") != "na" {
+		t.Errorf("image = %s", validation.CanonCompact(validation.ObjAt(checks, "image")))
 	}
 	if boolAt(pre, "ok") {
 		t.Error("ok = true with a down daemon")
@@ -293,20 +293,20 @@ func TestSandboxPreflightContainer(t *testing.T) {
 	want := "docker: docker daemon not answering — fix: start the docker " +
 		"daemon (container profiles are the only honest execution path — " +
 		"evidence produced un-sandboxed cannot be minted at E4+)"
-	if got := strScalar(objAt(pre, "issues").A[0]); got != want {
+	if got := strScalar(validation.ObjAt(pre, "issues").A[0]); got != want {
 		t.Errorf("issue = %q\nwant %q", got, want)
 	}
 	// A pinned compiler with WEBV2_SOLC_DIR unset is a WARN (the image may
 	// ship it), naming the exact env var.
 	found := false
-	for _, w := range objAt(pre, "warnings").A {
+	for _, w := range validation.ObjAt(pre, "warnings").A {
 		if strings.Contains(strScalar(w), "solc 0.8.24 pinned by "+
 			"foundry.toml but WEBV2_SOLC_DIR is unset") {
 			found = true
 		}
 	}
 	if !found {
-		t.Errorf("warnings = %s", validation.CanonCompact(objAt(pre, "warnings")))
+		t.Errorf("warnings = %s", validation.CanonCompact(validation.ObjAt(pre, "warnings")))
 	}
 }
 
@@ -331,12 +331,12 @@ func TestSandboxPreflightSolcCache(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	solc := objAt(objAt(pre, "checks"), "solc")
+	solc := validation.ObjAt(validation.ObjAt(pre, "checks"), "solc")
 	if strAt(solc, "status") != "fail" ||
 		!strings.Contains(strAt(solc, "detail"), "missing from the svm cache") {
 		t.Errorf("solc (missing) = %s", validation.CanonCompact(solc))
 	}
-	img := objAt(objAt(pre, "checks"), "image")
+	img := validation.ObjAt(validation.ObjAt(pre, "checks"), "image")
 	if st := strAt(img, "status"); st != "ok" && st != "warn" {
 		t.Errorf("image = %s", validation.CanonCompact(img))
 	}
@@ -353,7 +353,7 @@ func TestSandboxPreflightSolcCache(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	solc2 := objAt(objAt(pre2, "checks"), "solc")
+	solc2 := validation.ObjAt(validation.ObjAt(pre2, "checks"), "solc")
 	if strAt(solc2, "status") != "ok" ||
 		!strings.Contains(strAt(solc2, "detail"), "present in the svm cache") {
 		t.Errorf("solc (present) = %s", validation.CanonCompact(solc2))
@@ -369,7 +369,7 @@ func TestSandboxPreflightSolcCache(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	solc3 := objAt(objAt(pre3, "checks"), "solc")
+	solc3 := validation.ObjAt(validation.ObjAt(pre3, "checks"), "solc")
 	if strAt(solc3, "status") != "warn" ||
 		!strings.Contains(strAt(solc3, "detail"), "fork-runner bridge may "+
 			"still reach the registry") {

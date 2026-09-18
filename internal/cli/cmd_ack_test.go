@@ -85,7 +85,7 @@ func ackCliFinding(t *testing.T, c *state.Campaign, title, path string,
 	if err != nil {
 		t.Fatal(err)
 	}
-	return objStr(f, "finding_id")
+	return validation.ObjStr(f, "finding_id")
 }
 
 func TestAckSingleHit(t *testing.T) {

@@ -51,23 +51,23 @@ func TestBriefEconomicsLensYieldPresence(t *testing.T) {
 		t.Fatal(err)
 	}
 	b := build(t, camp, false)
-	econ := objAt(b, "economics")
-	ly := objAt(econ, "lens_yield")
+	econ := validation.ObjAt(b, "economics")
+	ly := validation.ObjAt(econ, "lens_yield")
 	if ly.Kind != validation.Arr || len(ly.A) != 1 {
 		t.Fatalf("lens_yield = %s, want 1 row",
 			validation.DumpIndented(ly))
 	}
-	if got := objStr(ly.A[0], "lens"); got != "L-01" {
+	if got := validation.ObjStr(ly.A[0], "lens"); got != "L-01" {
 		t.Errorf("lens = %q, want L-01", got)
 	}
-	if got := floatOf(objAt(ly.A[0], "cost_usd")); got != 30 {
+	if got := floatOf(validation.ObjAt(ly.A[0], "cost_usd")); got != 30 {
 		t.Errorf("cost_usd = %v, want 30", got)
 	}
 	// The per-confirmed quotients ride totals (null here: no findings).
-	totals := objAt(econ, "totals")
+	totals := validation.ObjAt(econ, "totals")
 	for _, k := range []string{"cost_per_critic_confirmed_usd",
 		"cost_per_evidence_confirmed_usd"} {
-		if v := objAt(totals, k); v.Kind != validation.Null {
+		if v := validation.ObjAt(totals, k); v.Kind != validation.Null {
 			t.Errorf("totals.%s = %s, want null (no findings)", k,
 				validation.DumpIndented(v))
 		}
@@ -77,7 +77,7 @@ func TestBriefEconomicsLensYieldPresence(t *testing.T) {
 func TestBriefEconomicsLensYieldAbsent(t *testing.T) {
 	camp := newCamp(t, "No Lens Program")
 	b := build(t, camp, false)
-	econ := objAt(b, "economics")
+	econ := validation.ObjAt(b, "economics")
 	for _, kv := range econ.O {
 		if kv.K == "lens_yield" {
 			t.Fatalf("fresh campaign economics carries lens_yield: %s",

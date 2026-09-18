@@ -179,7 +179,7 @@ func t14SetOrAppend(o []validation.KV, key string,
 
 // t14List is `v.get(key) or []` for list-valued fields.
 func t14List(v validation.Value, key string) validation.Value {
-	got := objAt(v, key)
+	got := validation.ObjAt(v, key)
 	if got.Kind != validation.Arr {
 		return validation.VArr()
 	}
@@ -339,8 +339,8 @@ func runScope(root string, args []string, r *Runner) error {
 	}
 	if policy != "" {
 		fmt.Fprintf(r.Out, "policy loaded from %s — %d scope entries, "+
-			"%d exclusions\n", policy, t14PyLen(objAt(res, "scope")),
-			t14PyLen(objAt(res, "exclusions")))
+			"%d exclusions\n", policy, t14PyLen(validation.ObjAt(res, "scope")),
+			t14PyLen(validation.ObjAt(res, "exclusions")))
 		return nil
 	}
 	fmt.Fprintln(r.Out, "no policy provided (load one before BOUNTY_GATE "+

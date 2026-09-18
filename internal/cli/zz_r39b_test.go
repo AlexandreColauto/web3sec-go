@@ -54,7 +54,7 @@ func r39bCutFixture(t *testing.T) (string, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	evs := objAt(st, "events")
+	evs := validation.ObjAt(st, "events")
 	if len(evs.A) != 10 {
 		t.Fatalf("fixture: mirror must hold 10, got %d", len(evs.A))
 	}

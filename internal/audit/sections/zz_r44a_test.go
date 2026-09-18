@@ -63,7 +63,7 @@ func TestR44aSequenceCoverageRefusesUnreadableStore(t *testing.T) {
 	if err != nil {
 		t.Fatalf("the section degrades, it does not raise: %v", err)
 	}
-	if ok := objAt(got, "ok"); ok.B {
+	if ok := validation.ObjAt(got, "ok"); ok.B {
 		t.Fatalf("sequence coverage certified an unreadable exec store: %v", got)
 	}
 	blob := validation.DumpIndentedASCII(got)
@@ -98,10 +98,10 @@ func TestR44aExecsSectionHonestShapesStayGreen(t *testing.T) {
 	if err != nil {
 		t.Fatalf("an absent exec store is an empty campaign: %v", err)
 	}
-	if n := objAt(got, "checked"); n.Kind != validation.Int || n.I != 0 {
+	if n := validation.ObjAt(got, "checked"); n.Kind != validation.Int || n.I != 0 {
 		t.Fatalf("absent store: checked = %v, want 0", n)
 	}
-	if ok := objAt(got, "ok"); !ok.B {
+	if ok := validation.ObjAt(got, "ok"); !ok.B {
 		t.Fatalf("absent store: ok = %v, want true", ok)
 	}
 

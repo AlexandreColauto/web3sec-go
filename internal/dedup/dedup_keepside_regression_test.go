@@ -40,7 +40,7 @@ func TestAutoMergePairKeepSideCrossSnapshotFlags(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(flagged, "status"); got != "HYPOTHESIS" {
+	if got := validation.ObjStr(flagged, "status"); got != "HYPOTHESIS" {
 		t.Fatalf("dup status = %q, want HYPOTHESIS (flagged, not merged)", got)
 	}
 }

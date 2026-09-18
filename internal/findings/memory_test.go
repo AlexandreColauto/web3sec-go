@@ -115,10 +115,10 @@ func TestVisibleRowsMergeBothSources(t *testing.T) {
 	if !ok {
 		t.Fatal("campaign row missing")
 	}
-	if got := objStr(row, "bug_class"); got != "reentrancy" {
+	if got := validation.ObjStr(row, "bug_class"); got != "reentrancy" {
 		t.Errorf("campaign row bug_class = %q, want reentrancy", got)
 	}
-	if got := objStr(vis["MEM-global01"], "bug_class"); got != "logic-error" {
+	if got := validation.ObjStr(vis["MEM-global01"], "bug_class"); got != "logic-error" {
 		t.Errorf("global row bug_class = %q, want logic-error", got)
 	}
 }
@@ -156,7 +156,7 @@ func TestRecordValidatesIDsAndStamps(t *testing.T) {
 	row := globalMemoryRow()
 	installMemoryStore(t, row)
 	f := mintFinding(t, c, "logic-error")
-	out, err := RecordMemoryCheck(c, objStr(f, "finding_id"),
+	out, err := RecordMemoryCheck(c, validation.ObjStr(f, "finding_id"),
 		[]validation.Value{validation.VObj(
 			kv("memory_ids", validation.VArr(validation.VStr("MEM-global01"))),
 			kv("mode", validation.VStr("negative")),
@@ -164,20 +164,20 @@ func TestRecordValidatesIDsAndStamps(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	checks := objAt(asDict(objAt(out, "provenance")), "memory_checks")
+	checks := validation.ObjAt(asDict(validation.ObjAt(out, "provenance")), "memory_checks")
 	if len(checks.A) != 1 {
 		t.Fatalf("memory_checks = %d, want 1", len(checks.A))
 	}
 	entry := checks.A[0]
-	if ids := objAt(entry, "memory_ids"); len(ids.A) != 1 ||
+	if ids := validation.ObjAt(entry, "memory_ids"); len(ids.A) != 1 ||
 		ids.A[0].S != "MEM-global01" {
 		t.Errorf("memory_ids = %v", ids)
 	}
-	if got := objStr(entry, "mode"); got != "negative" {
+	if got := validation.ObjStr(entry, "mode"); got != "negative" {
 		t.Errorf("mode = %q, want negative", got)
 	}
 	wantDigest := "4856491a33fd0b0665bc37ffd3c15d211f919480950b1bf5a05694fb2d7b6e10"
-	got := objStr(entry, "row_digest")
+	got := validation.ObjStr(entry, "row_digest")
 	if got != wantDigest {
 		t.Fatalf("row_digest = %q, want %q", got, wantDigest)
 	}
@@ -185,7 +185,7 @@ func TestRecordValidatesIDsAndStamps(t *testing.T) {
 		map[string]validation.Value{"MEM-global01": row}) {
 		t.Error("stamp must equal compute_row_digest over the live rows")
 	}
-	if objStr(entry, "consulted_at") == "" {
+	if validation.ObjStr(entry, "consulted_at") == "" {
 		t.Error("consulted_at missing")
 	}
 }
@@ -195,7 +195,7 @@ func TestRecordRejectsUnknownID(t *testing.T) {
 	c := ingestCamp(t)
 	installMemoryStore(t, globalMemoryRow())
 	f := mintFinding(t, c, "logic-error")
-	_, err := RecordMemoryCheck(c, objStr(f, "finding_id"),
+	_, err := RecordMemoryCheck(c, validation.ObjStr(f, "finding_id"),
 		[]validation.Value{validation.VObj(
 			kv("memory_ids", validation.VArr(validation.VStr("MEM-nope"))),
 			kv("mode", validation.VStr("negative")),
@@ -211,7 +211,7 @@ func TestRecordDedupesOnIDsAndMode(t *testing.T) {
 	c := ingestCamp(t)
 	installMemoryStore(t, globalMemoryRow())
 	f := mintFinding(t, c, "logic-error")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	if _, err := RecordMemoryCheck(c, fid, []validation.Value{validation.VObj(
 		kv("memory_ids", validation.VArr(validation.VStr("MEM-global01"))),
 		kv("mode", validation.VStr("negative")))}); err != nil {
@@ -223,7 +223,7 @@ func TestRecordDedupesOnIDsAndMode(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	checks := objAt(asDict(objAt(out, "provenance")), "memory_checks")
+	checks := validation.ObjAt(asDict(validation.ObjAt(out, "provenance")), "memory_checks")
 	if len(checks.A) != 1 {
 		t.Fatalf("duplicate check recorded: %d entries", len(checks.A))
 	}
@@ -235,11 +235,11 @@ func TestRecordDedupesOnIDsAndMode(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	checks = objAt(asDict(objAt(out, "provenance")), "memory_checks")
+	checks = validation.ObjAt(asDict(validation.ObjAt(out, "provenance")), "memory_checks")
 	if len(checks.A) != 2 {
 		t.Fatalf("distinct mode not recorded: %d entries", len(checks.A))
 	}
-	if got := objStr(checks.A[1], "note"); got != "compared X" {
+	if got := validation.ObjStr(checks.A[1], "note"); got != "compared X" {
 		t.Errorf("note = %q, want 'compared X'", got)
 	}
 }
@@ -249,7 +249,7 @@ func TestGateAcceptsValidNegativeCheck(t *testing.T) {
 	c := ingestCamp(t)
 	installMemoryStore(t, globalMemoryRow())
 	f := mintFinding(t, c, "logic-error")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	if _, err := RecordMemoryCheck(c, fid, []validation.Value{validation.VObj(
 		kv("memory_ids", validation.VArr(validation.VStr("MEM-global01"))),
 		kv("mode", validation.VStr("negative")))}); err != nil {
@@ -269,7 +269,7 @@ func TestGateBlocksWithoutCheck(t *testing.T) {
 	c := ingestCamp(t)
 	installMemoryStore(t, globalMemoryRow())
 	f := mintFinding(t, c, "logic-error")
-	msg, err := MemoryCheckFails(c, objStr(f, "finding_id"))
+	msg, err := MemoryCheckFails(c, validation.ObjStr(f, "finding_id"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -279,7 +279,7 @@ func TestGateBlocksWithoutCheck(t *testing.T) {
 	want := "no verified graph-memory recall recorded — none recorded, or " +
 		"every recorded check is stale (a referenced row changed or left " +
 		"the store) — run `webv2 recall " + c.CampaignID + " --finding " +
-		objStr(f, "finding_id") + "`"
+		validation.ObjStr(f, "finding_id") + "`"
 	if *msg != want {
 		t.Fatalf("message = %q, want %q", *msg, want)
 	}
@@ -287,7 +287,7 @@ func TestGateBlocksWithoutCheck(t *testing.T) {
 	// positional and the finding are both present (Wave-B review follow-up;
 	// Python's test_every_printed_recall_remedy_is_executable is P3/briefing).
 	if !strings.Contains(*msg, "webv2 recall "+c.CampaignID+" --finding "+
-		objStr(f, "finding_id")) {
+		validation.ObjStr(f, "finding_id")) {
 		t.Fatalf("remedy is not an executable command: %q", *msg)
 	}
 }
@@ -299,7 +299,7 @@ func TestGateBlocksStaleStore(t *testing.T) {
 	row := globalMemoryRow()
 	installMemoryStore(t, row)
 	f := mintFinding(t, c, "logic-error")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	if _, err := RecordMemoryCheck(c, fid, []validation.Value{validation.VObj(
 		kv("memory_ids", validation.VArr(validation.VStr("MEM-global01"))),
 		kv("mode", validation.VStr("negative")))}); err != nil {
@@ -330,11 +330,11 @@ func TestGateBlocksLegacyRagRefs(t *testing.T) {
 		kv("mode", validation.VStr("negative")),
 	))))
 	f.O = validation.SetOrAppend(f.O, "provenance", prov)
-	if err := validation.WriteJson(FindingPath(c, objStr(f, "finding_id")),
+	if err := validation.WriteJson(FindingPath(c, validation.ObjStr(f, "finding_id")),
 		f, ""); err != nil {
 		t.Fatal(err)
 	}
-	msg, err := MemoryCheckFails(c, objStr(f, "finding_id"))
+	msg, err := MemoryCheckFails(c, validation.ObjStr(f, "finding_id"))
 	if err != nil {
 		t.Fatal(err)
 	}

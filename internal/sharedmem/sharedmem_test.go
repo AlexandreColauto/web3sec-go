@@ -139,13 +139,13 @@ func hypo(t *testing.T, c *state.Campaign, granted, required []string,
 			kv("profile", validation.VStr("arbitrary EOA")),
 			kv("capabilities", validation.VArr()))),
 		kv("capabilities", validation.VObj(
-			kv("granted", strArr(granted)),
-			kv("required", strArr(required)))),
+			kv("granted", validation.StrArr(granted)),
+			kv("required", validation.StrArr(required)))),
 	), "code", "test", "")
 	if err != nil {
 		t.Fatalf("ingest hypothesis: %v", err)
 	}
-	return objStr(f, "finding_id")
+	return validation.ObjStr(f, "finding_id")
 }
 
 // confirm is the test module's confirm: the single-clause CONFIRMED gate
@@ -169,8 +169,8 @@ func confirm(t *testing.T, c *state.Campaign, fid string) validation.Value {
 		kv("level", validation.VStr("E4")),
 		kv("type", validation.VStr("foundry-test")),
 		kv("description", validation.VStr("repro under sandbox")),
-		kv("sandbox_profile", objAt(rec, "profile")),
-		kv("artifact_id", objAt(rec, "exec_id")))
+		kv("sandbox_profile", validation.ObjAt(rec, "profile")),
+		kv("artifact_id", validation.ObjAt(rec, "exec_id")))
 	if _, err := findings.AddEvidence(c, fid, item); err != nil {
 		t.Fatalf("add evidence: %v", err)
 	}
@@ -187,7 +187,7 @@ func confirm(t *testing.T, c *state.Campaign, fid string) validation.Value {
 	}
 	if _, err := findings.RecordMemoryCheck(c, fid, []validation.Value{
 		validation.VObj(
-			kv("memory_ids", validation.VArr(objAt(mem, "memory_id"))),
+			kv("memory_ids", validation.VArr(validation.ObjAt(mem, "memory_id"))),
 			kv("mode", validation.VStr("negative")))}); err != nil {
 		t.Fatalf("record memory check: %v", err)
 	}
@@ -195,7 +195,7 @@ func confirm(t *testing.T, c *state.Campaign, fid string) validation.Value {
 	if err != nil {
 		t.Fatalf("load finding: %v", err)
 	}
-	ver := objAt(f, "verification")
+	ver := validation.ObjAt(f, "verification")
 	if ver.Kind != validation.Obj {
 		ver = validation.VObj()
 	}
@@ -275,11 +275,11 @@ func TestPublishOnlyConfirmedAndApproved(t *testing.T) {
 	if err != nil {
 		t.Fatalf("publish: %v", err)
 	}
-	if objAt(pub, "signatures_added").I != 1 {
-		t.Fatalf("signatures_added = %v", objAt(pub, "signatures_added"))
+	if validation.ObjAt(pub, "signatures_added").I != 1 {
+		t.Fatalf("signatures_added = %v", validation.ObjAt(pub, "signatures_added"))
 	}
-	if objAt(pub, "memory_added").I != 0 {
-		t.Fatalf("memory_added = %v", objAt(pub, "memory_added"))
+	if validation.ObjAt(pub, "memory_added").I != 0 {
+		t.Fatalf("memory_added = %v", validation.ObjAt(pub, "memory_added"))
 	}
 	sigs, err := LoadSignatures(root)
 	if err != nil {
@@ -310,7 +310,7 @@ func TestPublishSecondCampaignWithApprovedMemory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("all memory: %v", err)
 	}
-	memA := objStr(rows[0], "memory_id")
+	memA := validation.ObjStr(rows[0], "memory_id")
 	if _, err := learning.ApproveMemory(a, memA, "operator"); err != nil {
 		t.Fatalf("approve: %v", err)
 	}
@@ -318,8 +318,8 @@ func TestPublishSecondCampaignWithApprovedMemory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("publish a: %v", err)
 	}
-	if objAt(first, "memory_added").I != 1 {
-		t.Fatalf("first memory_added = %v", objAt(first, "memory_added"))
+	if validation.ObjAt(first, "memory_added").I != 1 {
+		t.Fatalf("first memory_added = %v", validation.ObjAt(first, "memory_added"))
 	}
 	b := makeCampaign(t, root, "Program B")
 	if _, err := learning.QueueMemory(b, learning.QueueOpts{
@@ -331,7 +331,7 @@ func TestPublishSecondCampaignWithApprovedMemory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("all memory: %v", err)
 	}
-	memB := objStr(rowsB[0], "memory_id")
+	memB := validation.ObjStr(rowsB[0], "memory_id")
 	if _, err := learning.ApproveMemory(b, memB, "operator"); err != nil {
 		t.Fatalf("approve: %v", err)
 	}
@@ -339,8 +339,8 @@ func TestPublishSecondCampaignWithApprovedMemory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("publish b: %v", err)
 	}
-	if objAt(second, "memory_added").I != 1 {
-		t.Fatalf("second memory_added = %v", objAt(second, "memory_added"))
+	if validation.ObjAt(second, "memory_added").I != 1 {
+		t.Fatalf("second memory_added = %v", validation.ObjAt(second, "memory_added"))
 	}
 	shared, err := LoadSharedMemory(root)
 	if err != nil {
@@ -349,8 +349,8 @@ func TestPublishSecondCampaignWithApprovedMemory(t *testing.T) {
 	ids := map[string]struct{}{}
 	keys := map[string]struct{}{}
 	for _, r := range shared {
-		ids[objStr(objAt(r, "row"), "memory_id")] = struct{}{}
-		keys[objStr(r, "program_key")] = struct{}{}
+		ids[validation.ObjStr(validation.ObjAt(r, "row"), "memory_id")] = struct{}{}
+		keys[validation.ObjStr(r, "program_key")] = struct{}{}
 	}
 	if _, ok := ids[memA]; !ok {
 		t.Fatalf("missing memA in %v", ids)
@@ -368,8 +368,8 @@ func TestPublishSecondCampaignWithApprovedMemory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("republish a: %v", err)
 	}
-	if objAt(third, "memory_added").I != 0 {
-		t.Fatalf("third memory_added = %v", objAt(third, "memory_added"))
+	if validation.ObjAt(third, "memory_added").I != 0 {
+		t.Fatalf("third memory_added = %v", validation.ObjAt(third, "memory_added"))
 	}
 	shared, err = LoadSharedMemory(root)
 	if err != nil {
@@ -394,11 +394,11 @@ func TestPublishIsIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("second publish: %v", err)
 	}
-	if objAt(first, "signatures_added").I != 1 {
-		t.Fatalf("first signatures_added = %v", objAt(first, "signatures_added"))
+	if validation.ObjAt(first, "signatures_added").I != 1 {
+		t.Fatalf("first signatures_added = %v", validation.ObjAt(first, "signatures_added"))
 	}
-	if objAt(second, "signatures_added").I != 0 {
-		t.Fatalf("second signatures_added = %v", objAt(second, "signatures_added"))
+	if validation.ObjAt(second, "signatures_added").I != 0 {
+		t.Fatalf("second signatures_added = %v", validation.ObjAt(second, "signatures_added"))
 	}
 	sigs, err := LoadSignatures(root)
 	if err != nil {
@@ -436,26 +436,26 @@ func TestSignatureIsDerivedNotRaw(t *testing.T) {
 	if _, ok := fieldAt(sig, "economic_impact"); ok {
 		t.Fatal("signature carries economic_impact")
 	}
-	if got := validation.CanonCompact(objAt(sig, "granted")); got != `["control_perceived_asset_price","move_spot_price","withdraw_unbacked_assets"]` {
+	if got := validation.CanonCompact(validation.ObjAt(sig, "granted")); got != `["control_perceived_asset_price","move_spot_price","withdraw_unbacked_assets"]` {
 		t.Fatalf("granted = %s", got)
 	}
-	if got := validation.CanonCompact(objAt(sig, "required")); got != `["access_flash_liquidity"]` {
+	if got := validation.CanonCompact(validation.ObjAt(sig, "required")); got != `["access_flash_liquidity"]` {
 		t.Fatalf("required = %s", got)
 	}
-	if got := len(objAt(sig, "code_sourced_required").A); got != 0 {
+	if got := len(validation.ObjAt(sig, "code_sourced_required").A); got != 0 {
 		t.Fatalf("code_sourced_required = %d entries", got)
 	}
-	if got := objStr(sig, "terminal"); got != "withdraw_unbacked_assets" {
+	if got := validation.ObjStr(sig, "terminal"); got != "withdraw_unbacked_assets" {
 		t.Fatalf("terminal = %q", got)
 	}
-	if got := objStr(objAt(sig, "source"), "campaign_id"); got != c.CampaignID {
+	if got := validation.ObjStr(validation.ObjAt(sig, "source"), "campaign_id"); got != c.CampaignID {
 		t.Fatalf("source campaign = %q", got)
 	}
-	if !strings.HasPrefix(objStr(objAt(sig, "source"), "finding_id"), "F-") {
+	if !strings.HasPrefix(validation.ObjStr(validation.ObjAt(sig, "source"), "finding_id"), "F-") {
 		t.Fatalf("source finding = %q",
-			objStr(objAt(sig, "source"), "finding_id"))
+			validation.ObjStr(validation.ObjAt(sig, "source"), "finding_id"))
 	}
-	if got := objStr(sig, "program_key"); got != "Acme Immunefi|immunefi|ethereum" {
+	if got := validation.ObjStr(sig, "program_key"); got != "Acme Immunefi|immunefi|ethereum" {
 		t.Fatalf("program_key = %q", got)
 	}
 }
@@ -484,24 +484,24 @@ func TestRecallFindsACrossCampaignPrimitive(t *testing.T) {
 	if err != nil {
 		t.Fatalf("recall: %v", err)
 	}
-	if got := objStr(res, "program_key"); got != "Acme Immunefi|immunefi|ethereum" {
+	if got := validation.ObjStr(res, "program_key"); got != "Acme Immunefi|immunefi|ethereum" {
 		t.Fatalf("program_key = %q", got)
 	}
-	matches := objAt(res, "shared_signatures").A
+	matches := validation.ObjAt(res, "shared_signatures").A
 	if len(matches) != 1 {
 		t.Fatalf("matches = %d", len(matches))
 	}
 	m := matches[0]
-	if !objAt(m, "class_match").B {
+	if !validation.ObjAt(m, "class_match").B {
 		t.Fatal("class_match = false")
 	}
-	if got := objStr(objAt(m, "source"), "campaign_id"); got != a.CampaignID {
+	if got := validation.ObjStr(validation.ObjAt(m, "source"), "campaign_id"); got != a.CampaignID {
 		t.Fatalf("source campaign = %q", got)
 	}
-	if got := validation.CanonCompact(objAt(m, "primitive_depended_on")); got != `["access_flash_liquidity"]` {
+	if got := validation.CanonCompact(validation.ObjAt(m, "primitive_depended_on")); got != `["access_flash_liquidity"]` {
 		t.Fatalf("primitive_depended_on = %s", got)
 	}
-	if got := validation.CanonCompact(objAt(m, "missing")); got != `["access_flash_liquidity"]` {
+	if got := validation.CanonCompact(validation.ObjAt(m, "missing")); got != `["access_flash_liquidity"]` {
 		t.Fatalf("missing = %s", got)
 	}
 	if _, ok := fieldAt(m, "still_provided"); !ok {
@@ -522,7 +522,7 @@ func TestRecallIgnoresExogenousRequiredCaps(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load signatures: %v", err)
 	}
-	if got := len(objAt(sigs[0], "code_sourced_required").A); got != 0 {
+	if got := len(validation.ObjAt(sigs[0], "code_sourced_required").A); got != 0 {
 		t.Fatalf("code_sourced_required = %d entries", got)
 	}
 	b := makeCampaign(t, root, "Acme Immunefi")
@@ -536,15 +536,15 @@ func TestRecallIgnoresExogenousRequiredCaps(t *testing.T) {
 	if err != nil {
 		t.Fatalf("recall: %v", err)
 	}
-	matches := objAt(res, "shared_signatures").A
+	matches := validation.ObjAt(res, "shared_signatures").A
 	if len(matches) != 1 {
 		t.Fatalf("matches = %d", len(matches))
 	}
 	m := matches[0]
-	if got := len(objAt(m, "primitive_depended_on").A); got != 0 {
+	if got := len(validation.ObjAt(m, "primitive_depended_on").A); got != 0 {
 		t.Fatalf("primitive_depended_on = %d entries", got)
 	}
-	if got := len(objAt(m, "missing").A); got != 0 {
+	if got := len(validation.ObjAt(m, "missing").A); got != 0 {
 		t.Fatalf("missing = %d entries", got)
 	}
 }
@@ -568,7 +568,7 @@ func TestRecallExcludesTheCandidatesOwnCampaign(t *testing.T) {
 	if err != nil {
 		t.Fatalf("recall: %v", err)
 	}
-	if got := len(objAt(res, "shared_signatures").A); got != 0 {
+	if got := len(validation.ObjAt(res, "shared_signatures").A); got != 0 {
 		t.Fatalf("matches = %d", got)
 	}
 }
@@ -593,7 +593,7 @@ func TestRecallFiltersByProgram(t *testing.T) {
 	if err != nil {
 		t.Fatalf("recall: %v", err)
 	}
-	if got := len(objAt(res, "shared_signatures").A); got != 0 {
+	if got := len(validation.ObjAt(res, "shared_signatures").A); got != 0 {
 		t.Fatalf("matches = %d", got)
 	}
 }
@@ -608,15 +608,15 @@ func TestRecallWithoutAPolicyIsHonest(t *testing.T) {
 	if err != nil {
 		t.Fatalf("recall: %v", err)
 	}
-	if objAt(res, "program_key").Kind != validation.Null {
+	if validation.ObjAt(res, "program_key").Kind != validation.Null {
 		t.Fatalf("program_key = %s",
-			validation.CanonCompact(objAt(res, "program_key")))
+			validation.CanonCompact(validation.ObjAt(res, "program_key")))
 	}
-	if got := len(objAt(res, "shared_signatures").A); got != 0 {
+	if got := len(validation.ObjAt(res, "shared_signatures").A); got != 0 {
 		t.Fatalf("matches = %d", got)
 	}
-	if !strings.Contains(strings.ToLower(objStr(res, "note")), "policy") {
-		t.Fatalf("note = %q", objStr(res, "note"))
+	if !strings.Contains(strings.ToLower(validation.ObjStr(res, "note")), "policy") {
+		t.Fatalf("note = %q", validation.ObjStr(res, "note"))
 	}
 }
 
@@ -635,7 +635,7 @@ func TestRecallSurfacesApprovedMemory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("queue memory: %v", err)
 	}
-	if _, err := learning.ApproveMemory(a, objStr(mem, "memory_id"),
+	if _, err := learning.ApproveMemory(a, validation.ObjStr(mem, "memory_id"),
 		"operator"); err != nil {
 		t.Fatalf("approve: %v", err)
 	}
@@ -654,16 +654,16 @@ func TestRecallSurfacesApprovedMemory(t *testing.T) {
 		t.Fatalf("recall: %v", err)
 	}
 	found := false
-	for _, m := range objAt(res, "shared_memory").A {
-		if objStr(m, "memory_id") == objStr(mem, "memory_id") &&
-			objStr(m, "status") == "CONFIRMED" &&
-			objStr(m, "source_campaign") == a.CampaignID {
+	for _, m := range validation.ObjAt(res, "shared_memory").A {
+		if validation.ObjStr(m, "memory_id") == validation.ObjStr(mem, "memory_id") &&
+			validation.ObjStr(m, "status") == "CONFIRMED" &&
+			validation.ObjStr(m, "source_campaign") == a.CampaignID {
 			found = true
 		}
 	}
 	if !found {
 		t.Fatalf("shared_memory = %s",
-			validation.CanonCompact(objAt(res, "shared_memory")))
+			validation.CanonCompact(validation.ObjAt(res, "shared_memory")))
 	}
 }
 
@@ -726,11 +726,11 @@ func TestVerifyPassesOnACleanStore(t *testing.T) {
 	if err != nil {
 		t.Fatalf("verify: %v", err)
 	}
-	if !objAt(rep, "ok").B || len(objAt(rep, "problems").A) != 0 {
+	if !validation.ObjAt(rep, "ok").B || len(validation.ObjAt(rep, "problems").A) != 0 {
 		t.Fatalf("report = %s", validation.CanonCompact(rep))
 	}
-	if objAt(rep, "signature_count").I != 1 {
-		t.Fatalf("signature_count = %v", objAt(rep, "signature_count"))
+	if validation.ObjAt(rep, "signature_count").I != 1 {
+		t.Fatalf("signature_count = %v", validation.ObjAt(rep, "signature_count"))
 	}
 }
 
@@ -741,7 +741,7 @@ func TestVerifyReportsAMissingStoreAsOk(t *testing.T) {
 	if err != nil {
 		t.Fatalf("verify: %v", err)
 	}
-	if objAt(rep, "exists").B || !objAt(rep, "ok").B {
+	if validation.ObjAt(rep, "exists").B || !validation.ObjAt(rep, "ok").B {
 		t.Fatalf("report = %s", validation.CanonCompact(rep))
 	}
 }
@@ -760,7 +760,7 @@ func TestVerifyFlagsAHandEdit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read signatures: %v", err)
 	}
-	granted := objAt(sigs.A[0], "granted")
+	granted := validation.ObjAt(sigs.A[0], "granted")
 	granted.A = append(granted.A, validation.VStr("sneaked_in_capability"))
 	sigs.A[0].O = validation.SetOrAppend(sigs.A[0].O, "granted", granted)
 	writeRaw(t, sp, validation.DumpIndented(sigs)+"\n")
@@ -768,17 +768,17 @@ func TestVerifyFlagsAHandEdit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("verify: %v", err)
 	}
-	if objAt(rep, "ok").B {
+	if validation.ObjAt(rep, "ok").B {
 		t.Fatal("verify passed a hand-edited store")
 	}
 	found := false
-	for _, p := range objAt(rep, "problems").A {
+	for _, p := range validation.ObjAt(rep, "problems").A {
 		if strings.Contains(p.S, "signatures.json") {
 			found = true
 		}
 	}
 	if !found {
-		t.Fatalf("problems = %s", validation.CanonCompact(objAt(rep, "problems")))
+		t.Fatalf("problems = %s", validation.CanonCompact(validation.ObjAt(rep, "problems")))
 	}
 }
 
@@ -816,7 +816,7 @@ func TestPublishToGlobalTierIsVisibleFromAnotherRoot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("all memory: %v", err)
 	}
-	memA := objStr(rows[0], "memory_id")
+	memA := validation.ObjStr(rows[0], "memory_id")
 	if _, err := learning.ApproveMemory(a, memA, "operator"); err != nil {
 		t.Fatalf("approve: %v", err)
 	}
@@ -824,11 +824,11 @@ func TestPublishToGlobalTierIsVisibleFromAnotherRoot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("publish: %v", err)
 	}
-	if got := objStr(pub, "tier"); got != "global" {
+	if got := validation.ObjStr(pub, "tier"); got != "global" {
 		t.Fatalf("tier = %q", got)
 	}
-	if objAt(pub, "memory_added").I != 1 {
-		t.Fatalf("memory_added = %v", objAt(pub, "memory_added"))
+	if validation.ObjAt(pub, "memory_added").I != 1 {
+		t.Fatalf("memory_added = %v", validation.ObjAt(pub, "memory_added"))
 	}
 	if _, err := os.Stat(StoreDir(rootA)); err == nil {
 		t.Fatal("the root tier of repo-a was written")
@@ -838,10 +838,10 @@ func TestPublishToGlobalTierIsVisibleFromAnotherRoot(t *testing.T) {
 		t.Fatalf("load shared memory: %v", err)
 	}
 	if len(shared) != 1 ||
-		objStr(objAt(shared[0], "row"), "memory_id") != memA {
+		validation.ObjStr(validation.ObjAt(shared[0], "row"), "memory_id") != memA {
 		t.Fatalf("shared = %s", validation.CanonCompact(validation.VArr(shared...)))
 	}
-	if got := objStr(shared[0], "program_key"); got != "Program A|immunefi|ethereum" {
+	if got := validation.ObjStr(shared[0], "program_key"); got != "Program A|immunefi|ethereum" {
 		t.Fatalf("program_key = %q", got)
 	}
 }
@@ -860,7 +860,7 @@ func TestGlobalScopeRowIsRecalledForAnyProgram(t *testing.T) {
 	if err != nil {
 		t.Fatalf("all memory: %v", err)
 	}
-	memA := objStr(rows[0], "memory_id")
+	memA := validation.ObjStr(rows[0], "memory_id")
 	if _, err := learning.ApproveMemory(a, memA, "operator"); err != nil {
 		t.Fatalf("approve: %v", err)
 	}
@@ -877,7 +877,7 @@ func TestGlobalScopeRowIsRecalledForAnyProgram(t *testing.T) {
 	if err != nil {
 		t.Fatalf("recall: %v", err)
 	}
-	if got := len(objAt(res, "shared_memory").A); got != 0 {
+	if got := len(validation.ObjAt(res, "shared_memory").A); got != 0 {
 		t.Fatalf("pre-scope hits = %d", got)
 	}
 	if _, err := SetScope(root, "global", "operator", "", "root"); err != nil {
@@ -887,8 +887,8 @@ func TestGlobalScopeRowIsRecalledForAnyProgram(t *testing.T) {
 	if err != nil {
 		t.Fatalf("recall: %v", err)
 	}
-	hits := objAt(res, "shared_memory").A
-	if len(hits) != 1 || objStr(hits[0], "memory_id") != memA {
+	hits := validation.ObjAt(res, "shared_memory").A
+	if len(hits) != 1 || validation.ObjStr(hits[0], "memory_id") != memA {
 		t.Fatalf("hits = %s", validation.CanonCompact(validation.VArr(hits...)))
 	}
 }
@@ -916,14 +916,14 @@ func TestGlobalScopeSignaturesAreRecalledForAnyProgram(t *testing.T) {
 	if err != nil {
 		t.Fatalf("recall: %v", err)
 	}
-	if got := objStr(res, "program_key"); got != "Totally Other Program|immunefi|ethereum" {
+	if got := validation.ObjStr(res, "program_key"); got != "Totally Other Program|immunefi|ethereum" {
 		t.Fatalf("program_key = %q", got)
 	}
-	matches := objAt(res, "shared_signatures").A
+	matches := validation.ObjAt(res, "shared_signatures").A
 	if len(matches) != 1 {
 		t.Fatalf("matches = %d", len(matches))
 	}
-	if got := objStr(objAt(matches[0], "source"), "campaign_id"); got != a.CampaignID {
+	if got := validation.ObjStr(validation.ObjAt(matches[0], "source"), "campaign_id"); got != a.CampaignID {
 		t.Fatalf("source campaign = %q", got)
 	}
 }
@@ -942,7 +942,7 @@ func TestRecallWithoutPolicyStillReturnsGlobalRows(t *testing.T) {
 	if err != nil {
 		t.Fatalf("all memory: %v", err)
 	}
-	memA := objStr(rows[0], "memory_id")
+	memA := validation.ObjStr(rows[0], "memory_id")
 	if _, err := learning.ApproveMemory(a, memA, "operator"); err != nil {
 		t.Fatalf("approve: %v", err)
 	}
@@ -962,15 +962,15 @@ func TestRecallWithoutPolicyStillReturnsGlobalRows(t *testing.T) {
 	if err != nil {
 		t.Fatalf("recall: %v", err)
 	}
-	if objAt(res, "program_key").Kind != validation.Null {
+	if validation.ObjAt(res, "program_key").Kind != validation.Null {
 		t.Fatalf("program_key = %s",
-			validation.CanonCompact(objAt(res, "program_key")))
+			validation.CanonCompact(validation.ObjAt(res, "program_key")))
 	}
-	if !strings.Contains(objStr(res, "note"), "no program identity") {
-		t.Fatalf("note = %q", objStr(res, "note"))
+	if !strings.Contains(validation.ObjStr(res, "note"), "no program identity") {
+		t.Fatalf("note = %q", validation.ObjStr(res, "note"))
 	}
-	hits := objAt(res, "shared_memory").A
-	if len(hits) != 1 || objStr(hits[0], "memory_id") != memA {
+	hits := validation.ObjAt(res, "shared_memory").A
+	if len(hits) != 1 || validation.ObjStr(hits[0], "memory_id") != memA {
 		t.Fatalf("hits = %s", validation.CanonCompact(validation.VArr(hits...)))
 	}
 }
@@ -988,8 +988,8 @@ func TestSetScopeIsManifestLoggedAndKeepsVerifyGreen(t *testing.T) {
 	if err != nil {
 		t.Fatalf("set scope: %v", err)
 	}
-	if objAt(rep, "memory_updated").I != 0 ||
-		objAt(rep, "signatures_updated").I != 1 {
+	if validation.ObjAt(rep, "memory_updated").I != 0 ||
+		validation.ObjAt(rep, "signatures_updated").I != 1 {
 		t.Fatalf("report = %s", validation.CanonCompact(rep))
 	}
 	manifest, err := LoadManifest(root)
@@ -997,29 +997,29 @@ func TestSetScopeIsManifestLoggedAndKeepsVerifyGreen(t *testing.T) {
 		t.Fatalf("load manifest: %v", err)
 	}
 	last := manifest[len(manifest)-1]
-	if objStr(last, "record_id") != objStr(rep, "record_id") {
-		t.Fatalf("last record_id = %q", objStr(last, "record_id"))
+	if validation.ObjStr(last, "record_id") != validation.ObjStr(rep, "record_id") {
+		t.Fatalf("last record_id = %q", validation.ObjStr(last, "record_id"))
 	}
-	if objStr(last, "action") != "scope.changed" {
-		t.Fatalf("action = %q", objStr(last, "action"))
+	if validation.ObjStr(last, "action") != "scope.changed" {
+		t.Fatalf("action = %q", validation.ObjStr(last, "action"))
 	}
-	if objStr(last, "actor") != "operator" {
-		t.Fatalf("actor = %q", objStr(last, "actor"))
+	if validation.ObjStr(last, "actor") != "operator" {
+		t.Fatalf("actor = %q", validation.ObjStr(last, "actor"))
 	}
 	ver, err := VerifySharedStore(root)
 	if err != nil {
 		t.Fatalf("verify: %v", err)
 	}
-	if !objAt(ver, "ok").B {
+	if !validation.ObjAt(ver, "ok").B {
 		t.Fatalf("verify problems = %s",
-			validation.CanonCompact(objAt(ver, "problems")))
+			validation.CanonCompact(validation.ObjAt(ver, "problems")))
 	}
 	sp := filepath.Join(StoreDir(root), "signatures.json")
 	sigs, err := validation.ReadJson(sp)
 	if err != nil {
 		t.Fatalf("read signatures: %v", err)
 	}
-	granted := objAt(sigs.A[0], "granted")
+	granted := validation.ObjAt(sigs.A[0], "granted")
 	granted.A = append(granted.A, validation.VStr("sneaked_in_capability"))
 	sigs.A[0].O = validation.SetOrAppend(sigs.A[0].O, "granted", granted)
 	writeRaw(t, sp, validation.DumpIndented(sigs)+"\n")
@@ -1027,7 +1027,7 @@ func TestSetScopeIsManifestLoggedAndKeepsVerifyGreen(t *testing.T) {
 	if err != nil {
 		t.Fatalf("verify: %v", err)
 	}
-	if objAt(ver, "ok").B {
+	if validation.ObjAt(ver, "ok").B {
 		t.Fatal("verify passed a hand edit after the scope change")
 	}
 }
@@ -1055,7 +1055,7 @@ func TestMergedTiersDedupeAndUnionVisibility(t *testing.T) {
 	if err != nil {
 		t.Fatalf("all memory: %v", err)
 	}
-	memA := objStr(rows[0], "memory_id")
+	memA := validation.ObjStr(rows[0], "memory_id")
 	if _, err := learning.ApproveMemory(a, memA, "operator"); err != nil {
 		t.Fatalf("approve: %v", err)
 	}
@@ -1070,7 +1070,7 @@ func TestMergedTiersDedupeAndUnionVisibility(t *testing.T) {
 		t.Fatalf("load shared memory: %v", err)
 	}
 	if len(shared) != 1 ||
-		objStr(objAt(shared[0], "row"), "memory_id") != memA {
+		validation.ObjStr(validation.ObjAt(shared[0], "row"), "memory_id") != memA {
 		t.Fatalf("shared = %s", validation.CanonCompact(validation.VArr(shared...)))
 	}
 	if _, ok := fieldAt(shared[0], "scope"); ok {
@@ -1083,7 +1083,7 @@ func TestMergedTiersDedupeAndUnionVisibility(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load shared memory: %v", err)
 	}
-	if len(shared) != 1 || objStr(shared[0], "scope") != "global" {
+	if len(shared) != 1 || validation.ObjStr(shared[0], "scope") != "global" {
 		t.Fatalf("shared = %s", validation.CanonCompact(validation.VArr(shared...)))
 	}
 	b := makeCampaign(t, root, "Program B")
@@ -1096,8 +1096,8 @@ func TestMergedTiersDedupeAndUnionVisibility(t *testing.T) {
 	if err != nil {
 		t.Fatalf("recall: %v", err)
 	}
-	hits := objAt(res, "shared_memory").A
-	if len(hits) != 1 || objStr(hits[0], "memory_id") != memA {
+	hits := validation.ObjAt(res, "shared_memory").A
+	if len(hits) != 1 || validation.ObjStr(hits[0], "memory_id") != memA {
 		t.Fatalf("hits = %s", validation.CanonCompact(validation.VArr(hits...)))
 	}
 }
@@ -1115,7 +1115,7 @@ func TestStoreViewReportsBothTiers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("all memory: %v", err)
 	}
-	if _, err := learning.ApproveMemory(a, objStr(rows[0], "memory_id"),
+	if _, err := learning.ApproveMemory(a, validation.ObjStr(rows[0], "memory_id"),
 		"operator"); err != nil {
 		t.Fatalf("approve: %v", err)
 	}
@@ -1127,21 +1127,21 @@ func TestStoreViewReportsBothTiers(t *testing.T) {
 		t.Fatalf("store view: %v", err)
 	}
 	tiers := map[string]validation.Value{}
-	for _, t2 := range objAt(v, "tiers").A {
-		tiers[objStr(t2, "tier")] = t2
+	for _, t2 := range validation.ObjAt(v, "tiers").A {
+		tiers[validation.ObjStr(t2, "tier")] = t2
 	}
-	if objAt(tiers["root"], "exists").B {
+	if validation.ObjAt(tiers["root"], "exists").B {
 		t.Fatal("root tier exists")
 	}
-	if !objAt(tiers["global"], "exists").B {
+	if !validation.ObjAt(tiers["global"], "exists").B {
 		t.Fatal("global tier missing")
 	}
-	if objAt(tiers["global"], "memory_count").I != 1 {
+	if validation.ObjAt(tiers["global"], "memory_count").I != 1 {
 		t.Fatalf("global memory_count = %v",
-			objAt(tiers["global"], "memory_count"))
+			validation.ObjAt(tiers["global"], "memory_count"))
 	}
-	if objAt(v, "memory_count").I != 1 {
-		t.Fatalf("memory_count = %v", objAt(v, "memory_count"))
+	if validation.ObjAt(v, "memory_count").I != 1 {
+		t.Fatalf("memory_count = %v", validation.ObjAt(v, "memory_count"))
 	}
 }
 
@@ -1179,7 +1179,7 @@ func twoPublishManifest(t *testing.T, root string) (string, []validation.Value) 
 			t.Fatalf("record %d has no prev_hash", i)
 		}
 	}
-	if objStr(m[1], "prev_hash") != objStr(m[0], "record_hash") {
+	if validation.ObjStr(m[1], "prev_hash") != validation.ObjStr(m[0], "record_hash") {
 		t.Fatal("the chain does not link")
 	}
 	return mpath, m
@@ -1195,17 +1195,17 @@ func TestManifestChainCatchesADeletedPublish(t *testing.T) {
 	if err != nil {
 		t.Fatalf("verify: %v", err)
 	}
-	if objAt(rep, "ok").B {
+	if validation.ObjAt(rep, "ok").B {
 		t.Fatal("verify passed a manifest with a deleted publish")
 	}
 	found := false
-	for _, p := range objAt(rep, "problems").A {
+	for _, p := range validation.ObjAt(rep, "problems").A {
 		if strings.Contains(p.S, "prev_hash breaks the chain") {
 			found = true
 		}
 	}
 	if !found {
-		t.Fatalf("problems = %s", validation.CanonCompact(objAt(rep, "problems")))
+		t.Fatalf("problems = %s", validation.CanonCompact(validation.ObjAt(rep, "problems")))
 	}
 }
 
@@ -1219,17 +1219,17 @@ func TestManifestChainCatchesAnEditedRecord(t *testing.T) {
 	if err != nil {
 		t.Fatalf("verify: %v", err)
 	}
-	if objAt(rep, "ok").B {
+	if validation.ObjAt(rep, "ok").B {
 		t.Fatal("verify passed an edited manifest record")
 	}
 	found := false
-	for _, p := range objAt(rep, "problems").A {
+	for _, p := range validation.ObjAt(rep, "problems").A {
 		if strings.Contains(p.S, "record_hash does not recompute") {
 			found = true
 		}
 	}
 	if !found {
-		t.Fatalf("problems = %s", validation.CanonCompact(objAt(rep, "problems")))
+		t.Fatalf("problems = %s", validation.CanonCompact(validation.ObjAt(rep, "problems")))
 	}
 }
 
@@ -1292,7 +1292,7 @@ func TestMigrationStripsFieldAndAppendsManifest(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read memory: %v", err)
 	}
-	if _, ok := fieldAt(objAt(rows.A[0], "row"), "rag_doc_id"); ok {
+	if _, ok := fieldAt(validation.ObjAt(rows.A[0], "row"), "rag_doc_id"); ok {
 		t.Fatal("rag_doc_id still present")
 	}
 	manifest, err := validation.ReadJson(filepath.Join(gdir, "manifest.json"))
@@ -1301,18 +1301,18 @@ func TestMigrationStripsFieldAndAppendsManifest(t *testing.T) {
 	}
 	strips := []validation.Value{}
 	for _, r := range manifest.A {
-		if objStr(r, "op") == "field-strip" {
+		if validation.ObjStr(r, "op") == "field-strip" {
 			strips = append(strips, r)
 		}
 	}
 	if len(strips) != 1 {
 		t.Fatalf("field-strip records = %d", len(strips))
 	}
-	if objStr(strips[0], "field") != "rag_doc_id" {
-		t.Fatalf("field = %q", objStr(strips[0], "field"))
+	if validation.ObjStr(strips[0], "field") != "rag_doc_id" {
+		t.Fatalf("field = %q", validation.ObjStr(strips[0], "field"))
 	}
-	if objStr(strips[0], "actor") != "operator" {
-		t.Fatalf("actor = %q", objStr(strips[0], "actor"))
+	if validation.ObjStr(strips[0], "actor") != "operator" {
+		t.Fatalf("actor = %q", validation.ObjStr(strips[0], "actor"))
 	}
 	if _, ok := fieldAt(strips[0], "record_hash"); !ok {
 		t.Fatal("no record_hash")
@@ -1320,9 +1320,9 @@ func TestMigrationStripsFieldAndAppendsManifest(t *testing.T) {
 	if _, ok := fieldAt(strips[0], "prev_hash"); !ok {
 		t.Fatal("no prev_hash")
 	}
-	if objAt(objAt(out, "tiers").A[0], "rows_stripped").I != 1 {
+	if validation.ObjAt(validation.ObjAt(out, "tiers").A[0], "rows_stripped").I != 1 {
 		t.Fatalf("rows_stripped = %v",
-			objAt(objAt(out, "tiers").A[0], "rows_stripped"))
+			validation.ObjAt(validation.ObjAt(out, "tiers").A[0], "rows_stripped"))
 	}
 }
 
@@ -1345,13 +1345,13 @@ func TestMigrationIsIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("second migrate: %v", err)
 	}
-	if objAt(objAt(first, "tiers").A[0], "rows_stripped").I != 1 {
+	if validation.ObjAt(validation.ObjAt(first, "tiers").A[0], "rows_stripped").I != 1 {
 		t.Fatalf("first rows_stripped = %v",
-			objAt(objAt(first, "tiers").A[0], "rows_stripped"))
+			validation.ObjAt(validation.ObjAt(first, "tiers").A[0], "rows_stripped"))
 	}
-	if objAt(objAt(second, "tiers").A[0], "rows_stripped").I != 0 {
+	if validation.ObjAt(validation.ObjAt(second, "tiers").A[0], "rows_stripped").I != 0 {
 		t.Fatalf("second rows_stripped = %v",
-			objAt(objAt(second, "tiers").A[0], "rows_stripped"))
+			validation.ObjAt(validation.ObjAt(second, "tiers").A[0], "rows_stripped"))
 	}
 	gdir := filepath.Join(root, "global-shared-memory")
 	manifest, err := validation.ReadJson(filepath.Join(gdir, "manifest.json"))
@@ -1360,7 +1360,7 @@ func TestMigrationIsIdempotent(t *testing.T) {
 	}
 	strips := 0
 	for _, r := range manifest.A {
-		if objStr(r, "op") == "field-strip" {
+		if validation.ObjStr(r, "op") == "field-strip" {
 			strips++
 		}
 	}
@@ -1385,11 +1385,11 @@ func TestMigrationVerifiesAfterRewrite(t *testing.T) {
 	if err != nil {
 		t.Fatalf("verify: %v", err)
 	}
-	if objAt(view, "ok").B {
+	if validation.ObjAt(view, "ok").B {
 		return
 	}
-	for _, tier := range objAt(view, "tiers").A {
-		if !objAt(tier, "ok").B {
+	for _, tier := range validation.ObjAt(view, "tiers").A {
+		if !validation.ObjAt(tier, "ok").B {
 			t.Fatalf("tier not ok: %s", validation.CanonCompact(tier))
 		}
 	}
@@ -1453,7 +1453,7 @@ func queuePartitioned(t *testing.T, c *state.Campaign,
 	if err != nil {
 		t.Fatalf("queue memory: %v", err)
 	}
-	path := filepath.Join(c.MemoryDir, objStr(mem, "memory_id")+".json")
+	path := filepath.Join(c.MemoryDir, validation.ObjStr(mem, "memory_id")+".json")
 	row, err := validation.ReadJson(path)
 	if err != nil {
 		t.Fatalf("read row: %v", err)
@@ -1489,7 +1489,7 @@ func TestPublishRejectsNonDevRowWithoutStoreEntry(t *testing.T) {
 	c := makeCampaign(t, root, "Acme Immunefi")
 	held := queuePartitioned(t, c, "held-out")
 	handApprove(t, filepath.Join(c.MemoryDir,
-		objStr(held, "memory_id")+".json"), "held-out")
+		validation.ObjStr(held, "memory_id")+".json"), "held-out")
 	if _, err := PublishCampaign(c, "operator", false); err == nil ||
 		!strings.Contains(err.Error(), "held-out") {
 		t.Fatalf("error = %v", err)
@@ -1505,9 +1505,9 @@ func TestPublishRejectsNonDevRowWithoutStoreEntry(t *testing.T) {
 	if err != nil {
 		t.Fatalf("verify: %v", err)
 	}
-	if !objAt(rep, "ok").B {
+	if !validation.ObjAt(rep, "ok").B {
 		t.Fatalf("verify problems = %s",
-			validation.CanonCompact(objAt(rep, "problems")))
+			validation.CanonCompact(validation.ObjAt(rep, "problems")))
 	}
 }
 
@@ -1517,7 +1517,7 @@ func TestPublishRejectsTrainingRow(t *testing.T) {
 	c := makeCampaign(t, root, "Acme Immunefi")
 	training := queuePartitioned(t, c, "training")
 	handApprove(t, filepath.Join(c.MemoryDir,
-		objStr(training, "memory_id")+".json"), "training")
+		validation.ObjStr(training, "memory_id")+".json"), "training")
 	if _, err := PublishCampaign(c, "operator", false); err == nil ||
 		!strings.Contains(err.Error(), "training") {
 		t.Fatalf("error = %v", err)
@@ -1536,7 +1536,7 @@ func TestPublishAllowsDevRow(t *testing.T) {
 	root := newRoot(t)
 	c := makeCampaign(t, root, "Acme Immunefi")
 	dev := queuePartitioned(t, c, "dev")
-	if _, err := learning.ApproveMemory(c, objStr(dev, "memory_id"),
+	if _, err := learning.ApproveMemory(c, validation.ObjStr(dev, "memory_id"),
 		"operator"); err != nil {
 		t.Fatalf("approve: %v", err)
 	}
@@ -1544,20 +1544,20 @@ func TestPublishAllowsDevRow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("publish: %v", err)
 	}
-	if objAt(pub, "memory_added").I != 1 {
-		t.Fatalf("memory_added = %v", objAt(pub, "memory_added"))
+	if validation.ObjAt(pub, "memory_added").I != 1 {
+		t.Fatalf("memory_added = %v", validation.ObjAt(pub, "memory_added"))
 	}
 	mems, err := tierMemory(StoreDir(root))
 	if err != nil {
 		t.Fatalf("tier memory: %v", err)
 	}
 	if len(mems) != 1 ||
-		objStr(objAt(mems[0], "row"), "memory_id") != objStr(dev, "memory_id") {
+		validation.ObjStr(validation.ObjAt(mems[0], "row"), "memory_id") != validation.ObjStr(dev, "memory_id") {
 		t.Fatalf("tier memory = %s",
 			validation.CanonCompact(validation.VArr(mems...)))
 	}
 	for _, w := range mems {
-		p := objStr(objAt(w, "row"), "partition")
+		p := validation.ObjStr(validation.ObjAt(w, "row"), "partition")
 		if p == "" {
 			p = "dev"
 		}
@@ -1569,8 +1569,8 @@ func TestPublishAllowsDevRow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("verify: %v", err)
 	}
-	if !objAt(rep, "ok").B {
+	if !validation.ObjAt(rep, "ok").B {
 		t.Fatalf("verify problems = %s",
-			validation.CanonCompact(objAt(rep, "problems")))
+			validation.CanonCompact(validation.ObjAt(rep, "problems")))
 	}
 }

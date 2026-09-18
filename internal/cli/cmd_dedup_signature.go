@@ -20,6 +20,7 @@ package cli
 
 import (
 	"fmt"
+	"websec/internal/validation"
 
 	"websec/internal/dedup"
 	"websec/internal/findings"
@@ -98,9 +99,9 @@ func dedupSignatureCmd(root string, args []string, r *Runner) error {
 			return err
 		}
 		fmt.Fprintf(r.Out, "%s: root_cause_signature %s\n", fid,
-			objStr(objAt(f, "dedup"), "root_cause_signature"))
+			validation.ObjStr(validation.ObjAt(f, "dedup"), "root_cause_signature"))
 		if cwe != "" {
-			fmt.Fprintf(r.Out, "  cwe %s\n", objStr(objAt(f, "root_cause"), "cwe"))
+			fmt.Fprintf(r.Out, "  cwe %s\n", validation.ObjStr(validation.ObjAt(f, "root_cause"), "cwe"))
 		}
 		return nil
 	}
@@ -109,7 +110,7 @@ func dedupSignatureCmd(root string, args []string, r *Runner) error {
 		return err
 	}
 	fmt.Fprintf(r.Out, "%s: economic_signature %s\n", fid,
-		objStr(objAt(f, "dedup"), "economic_signature"))
+		validation.ObjStr(validation.ObjAt(f, "dedup"), "economic_signature"))
 	return nil
 }
 

@@ -82,7 +82,7 @@ func runPriceBasis(root string, args []string, r *Runner) int {
 			return err
 		}
 		fmt.Fprintf(r.Out, "%s: price basis pinned to %s (%s @ $%s)\n",
-			pos[1], pos[2], objStr(*row, "asset"),
+			pos[1], pos[2], validation.ObjStr(*row, "asset"),
 			t14Money(objFlt(*row, "usd")))
 		return nil
 	})

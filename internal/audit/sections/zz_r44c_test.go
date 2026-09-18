@@ -218,11 +218,11 @@ func TestR44cEvalAbsentAndEmptyFindingsStoresStayGreen(t *testing.T) {
 			if err != nil {
 				t.Fatalf("%s findings store must stay green: %v", shape, err)
 			}
-			if ok := objAt(sec, "ok"); ok.Kind != validation.Bool || !ok.B {
+			if ok := validation.ObjAt(sec, "ok"); ok.Kind != validation.Bool || !ok.B {
 				t.Fatalf("%s store: ok = %v, want true", shape, ok)
 			}
 			lines := []string{}
-			for _, l := range objAt(sec, "lines").A {
+			for _, l := range validation.ObjAt(sec, "lines").A {
 				lines = append(lines, l.S)
 			}
 			joined := strings.Join(lines, "\n")
@@ -306,10 +306,10 @@ func TestR44cExecsAbsentLedgerStaysGreen(t *testing.T) {
 			if err != nil {
 				t.Fatalf("%s ledger must stay green: %v", shape, err)
 			}
-			if got := objAt(sec, "checked"); got.Kind != validation.Int || got.I != 1 {
+			if got := validation.ObjAt(sec, "checked"); got.Kind != validation.Int || got.I != 1 {
 				t.Fatalf("%s ledger: checked = %v, want 1", shape, got)
 			}
-			if ok := objAt(sec, "ok"); ok.Kind != validation.Bool || !ok.B {
+			if ok := validation.ObjAt(sec, "ok"); ok.Kind != validation.Bool || !ok.B {
 				t.Fatalf("%s ledger: ok = %v, want true", shape, ok)
 			}
 		})
@@ -330,11 +330,11 @@ func TestR44cExecsEventsWithoutRecordsStillBurnsGreen(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Execs: %v", err)
 	}
-	if ok := objAt(sec, "ok"); ok.Kind != validation.Bool || ok.B {
+	if ok := validation.ObjAt(sec, "ok"); ok.Kind != validation.Bool || ok.B {
 		t.Fatalf("deleted record still certified ok=true: %s",
 			validation.CanonCompact(sec))
 	}
-	problems := objAt(sec, "problems").A
+	problems := validation.ObjAt(sec, "problems").A
 	if len(problems) != 2 {
 		t.Fatalf("problems = %d, want 2 (one per ledger event): %s",
 			len(problems), fmt.Sprint(problems))

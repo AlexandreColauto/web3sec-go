@@ -61,7 +61,7 @@ func TestR42cEventLogSectionRefusesATornTail(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !objAt(sec, "ok").B || len(objAt(sec, "problems").A) != 0 {
+	if !validation.ObjAt(sec, "ok").B || len(validation.ObjAt(sec, "problems").A) != 0 {
 		t.Fatalf("honest ledger must pass: %s", validation.DumpsOrdered(sec, false))
 	}
 	wantKeys := []string{"events", "ok", "problems", "chained",
@@ -75,7 +75,7 @@ func TestR42cEventLogSectionRefusesATornTail(t *testing.T) {
 			t.Fatalf("key %d = %q, want %q", i, sec.O[i].K, k)
 		}
 	}
-	if got := objAt(sec, "events").I; got != 3 {
+	if got := validation.ObjAt(sec, "events").I; got != 3 {
 		t.Fatalf("events = %d, want 3", got)
 	}
 
@@ -85,11 +85,11 @@ func TestR42cEventLogSectionRefusesATornTail(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objAt(sec, "ok").B {
+	if validation.ObjAt(sec, "ok").B {
 		t.Fatalf("the event_log section certified a torn ledger: %s",
 			validation.DumpsOrdered(sec, false))
 	}
-	probs := objAt(sec, "problems").A
+	probs := validation.ObjAt(sec, "problems").A
 	if len(probs) != 1 {
 		t.Fatalf("one problem, naming the tear: %s",
 			validation.DumpsOrdered(sec, false))
@@ -99,7 +99,7 @@ func TestR42cEventLogSectionRefusesATornTail(t *testing.T) {
 		t.Fatalf("the problem must name the file and the shape: %q", probs[0].S)
 	}
 	// The surviving prefix is still reported, so a FAIL is explainable.
-	if objAt(sec, "chained").I != 3 || objAt(sec, "malformed_lines").I != 0 {
+	if validation.ObjAt(sec, "chained").I != 3 || validation.ObjAt(sec, "malformed_lines").I != 0 {
 		t.Fatalf("the prefix accounting must survive the tear: %s",
 			validation.DumpsOrdered(sec, false))
 	}
@@ -124,11 +124,11 @@ func TestR42cEventLogSectionKeepsTheDocumentedTear(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objAt(sec, "ok").B || objAt(sec, "malformed_lines").I != 1 {
+	if validation.ObjAt(sec, "ok").B || validation.ObjAt(sec, "malformed_lines").I != 1 {
 		t.Fatalf("the mid-record tear must be red on its line: %s",
 			validation.DumpsOrdered(sec, false))
 	}
-	probs := objAt(sec, "problems").A
+	probs := validation.ObjAt(sec, "problems").A
 	if len(probs) != 1 ||
 		!strings.Contains(probs[0].S, "line 4: not valid JSON") {
 		t.Fatalf("the documented line problem alone: %s",

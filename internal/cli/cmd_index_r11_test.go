@@ -33,7 +33,7 @@ func TestIndexArtifactIsRegisteredAndPoliced(t *testing.T) {
 	}
 	found := false
 	for _, a := range objListAt(st, "artifacts") {
-		if objStr(a, "kind") == "structural-index" {
+		if validation.ObjStr(a, "kind") == "structural-index" {
 			found = true
 		}
 	}

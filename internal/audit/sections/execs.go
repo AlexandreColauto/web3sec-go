@@ -39,7 +39,7 @@ func Execs(c *state.Campaign) (validation.Value, error) {
 		if eid == "?" {
 			eid = ""
 		}
-		hashes := objAt(rec, "artifact_hashes")
+		hashes := validation.ObjAt(rec, "artifact_hashes")
 		if hashes.Kind != validation.Obj {
 			continue
 		}
@@ -87,7 +87,7 @@ func Execs(c *state.Campaign) (validation.Value, error) {
 	}
 	seen := map[string]bool{}
 	for _, rec := range execs {
-		seen[objStr(rec, "exec_id")] = true
+		seen[validation.ObjStr(rec, "exec_id")] = true
 	}
 	// r16 P2 ATTEMPTED, REFUSED after the golden proved it wrong:
 	// the records-without-events direction (planted-run detection,
@@ -104,11 +104,11 @@ func Execs(c *state.Campaign) (validation.Value, error) {
 	// execs/ is a filesystem-trust question like the hash chain's
 	// (see the verifylog boundary note).
 	for _, e := range evts {
-		typ := objStr(e, "type")
+		typ := validation.ObjStr(e, "type")
 		if typ != "sandbox.exec.registered" && typ != "sandbox.exec" {
 			continue
 		}
-		eid := objStr(e, "ref")
+		eid := validation.ObjStr(e, "ref")
 		if eid == "" || seen[eid] {
 			continue
 		}

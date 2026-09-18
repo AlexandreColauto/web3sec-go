@@ -113,7 +113,7 @@ func artifactPruneCmd(root string, args []string, r *Runner) error {
 	// predicate, state.ArtifactCitedByLiveBinds: the verb must not hold a
 	// second opinion about what "cited" means, and the decision it takes here
 	// is the same one the ghost-prune takes.
-	dig := objStr(row, "sha256")
+	dig := validation.ObjStr(row, "sha256")
 	cited, why, err := state.ArtifactCitedByLiveBinds(c, artID)
 	if err != nil {
 		// The citation could not be checked: refuse to prune on an unknown
@@ -147,8 +147,8 @@ func artifactPruneCmd(root string, args []string, r *Runner) error {
 		fmt.Fprintln(r.Out, validation.DumpIndentedASCII(validation.VObj(kvs...)))
 		return nil
 	}
-	fmt.Fprintf(r.Out, "%s: kind=%s path=%s\n", objStr(rec, "artifact_id"),
-		objStr(rec, "kind"), objStr(rec, "path"))
+	fmt.Fprintf(r.Out, "%s: kind=%s path=%s\n", validation.ObjStr(rec, "artifact_id"),
+		validation.ObjStr(rec, "kind"), validation.ObjStr(rec, "path"))
 	return nil
 }
 
@@ -180,8 +180,8 @@ func pruneLookup(root, artID string) (*state.Campaign, validation.Value, error) 
 		if err != nil {
 			return nil, validation.VNull(), err
 		}
-		for _, a := range objAt(st, "artifacts").A {
-			if objStr(a, "artifact_id") != artID {
+		for _, a := range validation.ObjAt(st, "artifacts").A {
+			if validation.ObjStr(a, "artifact_id") != artID {
 				continue
 			}
 			if found != nil {
@@ -224,14 +224,14 @@ func pruneCitedInvariants(c *state.Campaign, dig string) ([]string, error) {
 	var ids []string
 	seen := map[string]bool{}
 	for _, ev := range events {
-		if objStr(ev, "type") != "harness_run" {
+		if validation.ObjStr(ev, "type") != "harness_run" {
 			continue
 		}
-		d := objAt(ev, "data")
+		d := validation.ObjAt(ev, "data")
 		if !artifactEventCitesDig(d, dig, pins) {
 			continue
 		}
-		iid := objStr(d, "invariant")
+		iid := validation.ObjStr(d, "invariant")
 		if iid == "" || seen[iid] {
 			continue
 		}

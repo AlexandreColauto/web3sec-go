@@ -83,14 +83,14 @@ func zzR32bEvent(t *testing.T, c *state.Campaign, iid string,
 	h validation.Value, sha, prop string) {
 	t.Helper()
 	dig := sha256.Sum256([]byte(validation.CanonCompact(
-		objAt(h, "proof"))))
+		validation.ObjAt(h, "proof"))))
 	data := validation.VObj(
-		KV("kind", validation.VStr(objStr(h, "kind"))),
-		KV("rung", validation.VStr(objStr(h, "rung"))),
-		KV("exec", validation.VStr(objStr(h, "exec"))),
+		KV("kind", validation.VStr(validation.ObjStr(h, "kind"))),
+		KV("rung", validation.VStr(validation.ObjStr(h, "rung"))),
+		KV("exec", validation.VStr(validation.ObjStr(h, "exec"))),
 		KV("invariant", validation.VStr(iid)),
-		KV("summary", validation.VStr(objStr(h, "summary"))),
-		KV("bounded_k", objAt(h, "bounded_k")),
+		KV("summary", validation.VStr(validation.ObjStr(h, "summary"))),
+		KV("bounded_k", validation.ObjAt(h, "bounded_k")),
 		KV("proof_sha256", validation.VStr(hexText(dig))),
 		KV("report_sha256", validation.VStr(sha)),
 		KV("property", validation.VStr(prop)),
@@ -112,11 +112,11 @@ func zzR32bDropEventKey(t *testing.T, c *state.Campaign, iid, key string) {
 	}
 	last := validation.VNull()
 	for _, ev := range events {
-		if objStr(ev, "type") != "harness_run" {
+		if validation.ObjStr(ev, "type") != "harness_run" {
 			continue
 		}
-		if objStr(objAt(ev, "data"), "invariant") == iid {
-			last = objAt(ev, "data")
+		if validation.ObjStr(validation.ObjAt(ev, "data"), "invariant") == iid {
+			last = validation.ObjAt(ev, "data")
 		}
 	}
 	if last.Kind != validation.Obj {
@@ -155,8 +155,8 @@ func zzR32bCampaign(t *testing.T, body, prop string) (*state.Campaign,
 	if err != nil {
 		t.Fatal(err)
 	}
-	reg := objAt(links, "invariants")
-	e := objAt(reg, "INV-3")
+	reg := validation.ObjAt(links, "invariants")
+	e := validation.ObjAt(reg, "INV-3")
 	e.O = validation.SetOrAppend(e.O, "verification",
 		validation.VObj(KV("harness", h)))
 	reg.O = validation.SetOrAppend(reg.O, "INV-3", e)
@@ -170,7 +170,7 @@ func zzR32bCampaign(t *testing.T, body, prop string) (*state.Campaign,
 
 func zzR32bProblems(v validation.Value) string {
 	joined := ""
-	for _, p := range objAt(v, "problems").A {
+	for _, p := range validation.ObjAt(v, "problems").A {
 		joined += p.S
 	}
 	return joined
@@ -179,14 +179,14 @@ func zzR32bProblems(v validation.Value) string {
 // zzR32bWantBurn asserts section 11 burned and named the gate/missing thing.
 func zzR32bWantBurn(t *testing.T, v validation.Value, want string) {
 	t.Helper()
-	if objAt(v, "ok").B {
+	if validation.ObjAt(v, "ok").B {
 		t.Fatalf("section 11 must burn: %s", validation.CanonCompact(v))
 	}
 	joined := zzR32bProblems(v)
 	if !strings.Contains(joined, want) {
 		t.Fatalf("the burn must name %q, got %q", want, joined)
 	}
-	for _, r := range objAt(v, "harness_runs").A {
+	for _, r := range validation.ObjAt(v, "harness_runs").A {
 		if r.Kind == validation.Str && !strings.HasSuffix(r.S, " (UNBACKED)") {
 			t.Fatalf("a burned rung must not print unqualified: %q", r.S)
 		}
@@ -282,14 +282,14 @@ func TestZZR32bHonestPinnedReportStaysGreen(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !objAt(v, "ok").B {
+	if !validation.ObjAt(v, "ok").B {
 		t.Fatalf("an honest pinned report must stay green: %s",
 			validation.CanonCompact(v))
 	}
-	runs := objAt(v, "harness_runs")
+	runs := validation.ObjAt(v, "harness_runs")
 	if runs.Kind != validation.Arr || len(runs.A) != 1 ||
 		runs.A[0].S != "INV-3: PROVEN-BOUNDED (miniprover, k=4, "+
-			objStr(h, "exec")+")" {
+			validation.ObjStr(h, "exec")+")" {
 		t.Fatalf("honest line = %s", validation.CanonCompact(runs))
 	}
 	if s := validation.CanonCompact(v); strings.Contains(s, "UNBACKED") {
@@ -309,7 +309,7 @@ func TestZZR32bBlankSlotFieldBurnsNamingIt(t *testing.T) {
 			// Honest control first: the untouched slot is green.
 			if v, err := InvariantVerification(c); err != nil {
 				t.Fatal(err)
-			} else if !objAt(v, "ok").B {
+			} else if !validation.ObjAt(v, "ok").B {
 				t.Fatalf("control must be green: %s",
 					validation.CanonCompact(v))
 			}
@@ -334,11 +334,11 @@ func TestZZR32bNoRungSlotStaysSilent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !objAt(v, "ok").B {
+	if !validation.ObjAt(v, "ok").B {
 		t.Fatalf("a rung-less slot must not burn: %s",
 			validation.CanonCompact(v))
 	}
-	if runs := objAt(v, "harness_runs"); runs.Kind == validation.Arr &&
+	if runs := validation.ObjAt(v, "harness_runs"); runs.Kind == validation.Arr &&
 		len(runs.A) != 0 {
 		t.Fatalf("a rung-less slot must contribute no line: %s",
 			validation.CanonCompact(runs))
@@ -357,11 +357,11 @@ func zzR32bSetEventKey(t *testing.T, c *state.Campaign, iid, key string,
 	}
 	last := validation.VNull()
 	for _, ev := range events {
-		if objStr(ev, "type") != "harness_run" {
+		if validation.ObjStr(ev, "type") != "harness_run" {
 			continue
 		}
-		if objStr(objAt(ev, "data"), "invariant") == iid {
-			last = objAt(ev, "data")
+		if validation.ObjStr(validation.ObjAt(ev, "data"), "invariant") == iid {
+			last = validation.ObjAt(ev, "data")
 		}
 	}
 	if last.Kind != validation.Obj {
@@ -400,10 +400,10 @@ func zzR32bBlankSlot(t *testing.T, c *state.Campaign, iid, field string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	reg := objAt(links, "invariants")
-	e := objAt(reg, iid)
-	ver := objAt(e, "verification")
-	h := objAt(ver, "harness")
+	reg := validation.ObjAt(links, "invariants")
+	e := validation.ObjAt(reg, iid)
+	ver := validation.ObjAt(e, "verification")
+	h := validation.ObjAt(ver, "harness")
 	if h.Kind != validation.Obj {
 		t.Fatal("no verification.harness to edit")
 	}

@@ -20,7 +20,7 @@ func amendCamp(t *testing.T, over ...validation.KV) (*state.Campaign, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return c, objStr(f, "finding_id")
+	return c, validation.ObjStr(f, "finding_id")
 }
 
 // withKnownClasses wires the taxonomy seam to a fixed vocabulary,
@@ -39,7 +39,7 @@ func withKnownClasses(t *testing.T, classes ...string) {
 
 func lastHistory(t *testing.T, f validation.Value) validation.Value {
 	t.Helper()
-	hist := objAt(f, "history")
+	hist := validation.ObjAt(f, "history")
 	if hist.Kind != validation.Arr || len(hist.A) == 0 {
 		t.Fatal("history is empty")
 	}
@@ -53,7 +53,7 @@ func hasEvent(t *testing.T, c *state.Campaign, typ string) validation.Value {
 		t.Fatal(err)
 	}
 	for _, e := range events {
-		if objStr(e, "type") == typ {
+		if validation.ObjStr(e, "type") == typ {
 			return e
 		}
 	}
@@ -71,9 +71,9 @@ func assertNoStatusEvent(t *testing.T, c *state.Campaign) {
 		t.Fatal(err)
 	}
 	for _, e := range events {
-		if objStr(e, "type") == "finding.status" {
+		if validation.ObjStr(e, "type") == "finding.status" {
 			t.Fatalf("amend emitted finding.status (ref %s) — amend "+
-				"must never move status", objStr(e, "ref"))
+				"must never move status", validation.ObjStr(e, "ref"))
 		}
 	}
 }
@@ -120,33 +120,33 @@ func TestAmendBumpsVersionHistoryAndEvent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if st := objStr(got, "status"); st != "HYPOTHESIS" {
+	if st := validation.ObjStr(got, "status"); st != "HYPOTHESIS" {
 		t.Fatalf("amend moved status to %q", st)
 	}
-	if v := objAt(got, "claim_version"); v.Kind != validation.Int || v.I != 1 {
+	if v := validation.ObjAt(got, "claim_version"); v.Kind != validation.Int || v.I != 1 {
 		t.Fatalf("claim_version = %v, want 1", v)
 	}
-	if title := objStr(got, "title"); title != "User can withdraw more "+
+	if title := validation.ObjStr(got, "title"); title != "User can withdraw more "+
 		"than deposited via rounding tricks" {
 		t.Fatalf("title = %q", title)
 	}
 	last := lastHistory(t, got)
-	if objStr(last, "from") != "HYPOTHESIS" || objStr(last, "to") != "HYPOTHESIS" {
+	if validation.ObjStr(last, "from") != "HYPOTHESIS" || validation.ObjStr(last, "to") != "HYPOTHESIS" {
 		t.Fatalf("history from/to = %q/%q, want HYPOTHESIS/HYPOTHESIS",
-			objStr(last, "from"), objStr(last, "to"))
+			validation.ObjStr(last, "from"), validation.ObjStr(last, "to"))
 	}
 	wantReason := "amend: title — retitled after reading the vault code"
-	if objStr(last, "reason") != wantReason {
-		t.Fatalf("history reason = %q, want %q", objStr(last, "reason"),
+	if validation.ObjStr(last, "reason") != wantReason {
+		t.Fatalf("history reason = %q, want %q", validation.ObjStr(last, "reason"),
 			wantReason)
 	}
-	if objStr(last, "actor") != "model" {
-		t.Fatalf("history actor = %q, want model", objStr(last, "actor"))
+	if validation.ObjStr(last, "actor") != "model" {
+		t.Fatalf("history actor = %q, want model", validation.ObjStr(last, "actor"))
 	}
 	e := hasEvent(t, c, "finding.amended")
-	if objStr(objAt(e, "data"), "reason") != wantReason {
+	if validation.ObjStr(validation.ObjAt(e, "data"), "reason") != wantReason {
 		t.Errorf("finding.amended reason = %q, want %q",
-			objStr(objAt(e, "data"), "reason"), wantReason)
+			validation.ObjStr(validation.ObjAt(e, "data"), "reason"), wantReason)
 	}
 	// Law 1: amend never moves status, so it emits no finding.status
 	// event (ingest logs finding.ingested, not finding.status — any
@@ -161,20 +161,20 @@ func TestAmendBumpsVersionHistoryAndEvent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if v := objAt(got, "claim_version"); v.Kind != validation.Int || v.I != 2 {
+	if v := validation.ObjAt(got, "claim_version"); v.Kind != validation.Int || v.I != 2 {
 		t.Fatalf("claim_version = %v, want 2", v)
 	}
-	if desc := objStr(objAt(got, "root_cause"), "description"); desc !=
+	if desc := validation.ObjStr(validation.ObjAt(got, "root_cause"), "description"); desc !=
 		"share calculation rounds down in the attacker's favor always" {
 		t.Fatalf("root_cause.description = %q", desc)
 	}
 	last = lastHistory(t, got)
-	if objStr(last, "reason") != "amend: claim" {
-		t.Fatalf("history reason = %q, want %q", objStr(last, "reason"),
+	if validation.ObjStr(last, "reason") != "amend: claim" {
+		t.Fatalf("history reason = %q, want %q", validation.ObjStr(last, "reason"),
 			"amend: claim")
 	}
-	if objStr(last, "actor") != "cli" {
-		t.Fatalf("history actor = %q, want cli", objStr(last, "actor"))
+	if validation.ObjStr(last, "actor") != "cli" {
+		t.Fatalf("history actor = %q, want cli", validation.ObjStr(last, "actor"))
 	}
 	// Still no finding.status event after the second amend.
 	assertNoStatusEvent(t, c)
@@ -186,10 +186,10 @@ func TestAmendNoteOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if v := objAt(got, "claim_version"); v.Kind != validation.Int || v.I != 1 {
+	if v := validation.ObjAt(got, "claim_version"); v.Kind != validation.Int || v.I != 1 {
 		t.Fatalf("claim_version = %v, want 1", v)
 	}
-	if reason := objStr(lastHistory(t, got), "reason"); reason !=
+	if reason := validation.ObjStr(lastHistory(t, got), "reason"); reason !=
 		"amend: note — reviewer asked for clarity" {
 		t.Fatalf("history reason = %q", reason)
 	}
@@ -208,10 +208,10 @@ func TestAmendNoFlagRejected(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if v := objAt(got, "claim_version"); v.Kind != validation.Null {
+	if v := validation.ObjAt(got, "claim_version"); v.Kind != validation.Null {
 		t.Fatalf("rejected amend wrote claim_version = %v", v)
 	}
-	if hist := objAt(got, "history"); hist.Kind != validation.Arr ||
+	if hist := validation.ObjAt(got, "history"); hist.Kind != validation.Arr ||
 		len(hist.A) != 1 {
 		t.Fatalf("rejected amend touched history: %v", hist)
 	}
@@ -224,10 +224,10 @@ func TestAmendClassCanonicalization(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cls := objStr(objAt(got, "root_cause"), "class"); cls != "logic-error" {
+	if cls := validation.ObjStr(validation.ObjAt(got, "root_cause"), "class"); cls != "logic-error" {
 		t.Fatalf("root_cause.class = %q", cls)
 	}
-	if reason := objStr(lastHistory(t, got), "reason"); reason != "amend: class" {
+	if reason := validation.ObjStr(lastHistory(t, got), "reason"); reason != "amend: class" {
 		t.Fatalf("history reason = %q", reason)
 	}
 	_, err = Amend(c, fid, AmendOpts{Class: "vibes-based", HasClass: true})
@@ -240,10 +240,10 @@ func TestAmendClassCanonicalization(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cls := objStr(objAt(got, "root_cause"), "class"); cls != "logic-error" {
+	if cls := validation.ObjStr(validation.ObjAt(got, "root_cause"), "class"); cls != "logic-error" {
 		t.Fatalf("rejected class overwrote root_cause.class = %q", cls)
 	}
-	if v := objAt(got, "claim_version"); v.Kind != validation.Int || v.I != 1 {
+	if v := validation.ObjAt(got, "claim_version"); v.Kind != validation.Int || v.I != 1 {
 		t.Fatalf("rejected amend bumped claim_version = %v", v)
 	}
 }
@@ -271,7 +271,7 @@ func TestSupersedeHappyPath(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	beforeEv := validation.CanonSpaced(objAt(before, "evidence"))
+	beforeEv := validation.CanonSpaced(validation.ObjAt(before, "evidence"))
 	var newID string
 	{
 		f, err := IngestHypothesis(c, hypoPayload(
@@ -280,7 +280,7 @@ func TestSupersedeHappyPath(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		newID = objStr(f, "finding_id")
+		newID = validation.ObjStr(f, "finding_id")
 	}
 	got, err := Supersede(c, newID, oldID, "model")
 	if err != nil {
@@ -291,44 +291,44 @@ func TestSupersedeHappyPath(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if st := objStr(old, "status"); st != "SUPERSEDED" {
+	if st := validation.ObjStr(old, "status"); st != "SUPERSEDED" {
 		t.Fatalf("old status = %q, want SUPERSEDED", st)
 	}
 	last := lastHistory(t, old)
-	if objStr(last, "to") != "SUPERSEDED" {
-		t.Fatalf("old history to = %q", objStr(last, "to"))
+	if validation.ObjStr(last, "to") != "SUPERSEDED" {
+		t.Fatalf("old history to = %q", validation.ObjStr(last, "to"))
 	}
-	if objStr(last, "reason") != "superseded by "+newID {
-		t.Fatalf("old history reason = %q", objStr(last, "reason"))
+	if validation.ObjStr(last, "reason") != "superseded by "+newID {
+		t.Fatalf("old history reason = %q", validation.ObjStr(last, "reason"))
 	}
 	// Old evidence array byte-equal pre/post (append-only store).
-	if after := validation.CanonSpaced(objAt(old, "evidence")); after != beforeEv {
+	if after := validation.CanonSpaced(validation.ObjAt(old, "evidence")); after != beforeEv {
 		t.Fatalf("old evidence mutated:\nbefore %s\nafter  %s", beforeEv, after)
 	}
 	// New finding: copies stamped re_parented_from + dedup_meta.supersedes.
-	ev := objAt(got, "evidence")
+	ev := validation.ObjAt(got, "evidence")
 	if len(ev.A) != 2 {
 		t.Fatalf("new evidence has %d items, want 2", len(ev.A))
 	}
 	for _, it := range ev.A {
-		if objStr(it, "re_parented_from") != oldID {
+		if validation.ObjStr(it, "re_parented_from") != oldID {
 			t.Errorf("copied item %s missing re_parented_from",
-				objStr(it, "evidence_id"))
+				validation.ObjStr(it, "evidence_id"))
 		}
 	}
 	ids := map[string]bool{}
 	for _, it := range ev.A {
-		ids[objStr(it, "evidence_id")] = true
+		ids[validation.ObjStr(it, "evidence_id")] = true
 	}
 	if !ids["EV-aaa"] || !ids["EV-aab"] {
 		t.Fatalf("copied evidence ids = %v", ids)
 	}
-	if sup := objStr(objAt(got, "dedup_meta"), "supersedes"); sup != oldID {
+	if sup := validation.ObjStr(validation.ObjAt(got, "dedup_meta"), "supersedes"); sup != oldID {
 		t.Fatalf("dedup_meta.supersedes = %q, want %q", sup, oldID)
 	}
 	e := hasEvent(t, c, "finding.superseded")
-	if objStr(objAt(e, "data"), "old") != oldID {
-		t.Errorf("finding.superseded old = %q", objStr(objAt(e, "data"), "old"))
+	if validation.ObjStr(validation.ObjAt(e, "data"), "old") != oldID {
+		t.Errorf("finding.superseded old = %q", validation.ObjStr(validation.ObjAt(e, "data"), "old"))
 	}
 	// And the old finding's own SUPERSEDED transition event exists.
 	hasEvent(t, c, "finding.status")
@@ -346,7 +346,7 @@ func TestSupersedeTerminalOldRefused(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	newID := objStr(nf, "finding_id")
+	newID := validation.ObjStr(nf, "finding_id")
 	_, err = Supersede(c, newID, oldID, "model")
 	var rej *RejectedError
 	if !errors.As(err, &rej) {
@@ -357,7 +357,7 @@ func TestSupersedeTerminalOldRefused(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := fieldAt(objAt(got, "dedup_meta"), "supersedes"); ok {
+	if _, ok := fieldAt(validation.ObjAt(got, "dedup_meta"), "supersedes"); ok {
 		t.Error("refused supersede wrote dedup_meta.supersedes")
 	}
 }
@@ -399,7 +399,7 @@ func TestAmendClassRaiseConvertsNotRefuses(t *testing.T) {
 		t.Fatalf("the advisory tells operators to re-file by true class: %v", err)
 	}
 	after, _ := LoadFinding(c, fid)
-	if st := objStr(after, "status"); st != "CONFIRMED" {
+	if st := validation.ObjStr(after, "status"); st != "CONFIRMED" {
 		t.Fatalf("status must stand (conversion, not invalidation): %q", st)
 	}
 	if d := EvidenceDeficit(after, "CONFIRMED", c); d == nil {
@@ -421,7 +421,7 @@ func TestSupersedeTwoCycleRefused(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	idA, idB := objStr(fa, "finding_id"), objStr(fb, "finding_id")
+	idA, idB := validation.ObjStr(fa, "finding_id"), validation.ObjStr(fb, "finding_id")
 	if _, err := Supersede(c, idA, idB, "model"); err != nil {
 		t.Fatalf("first supersede A-of-B: %v", err)
 	}
@@ -436,7 +436,7 @@ func TestSupersedeTwoCycleRefused(t *testing.T) {
 	}
 	// A is still live and holds the family.
 	a, _ := LoadFinding(c, idA)
-	if st := objStr(a, "status"); st != "HYPOTHESIS" {
+	if st := validation.ObjStr(a, "status"); st != "HYPOTHESIS" {
 		t.Fatalf("successor status after refusal = %q", st)
 	}
 }

@@ -61,7 +61,7 @@ func r40GateDone(t *testing.T, c *state.Campaign) bool {
 	if err != nil {
 		t.Fatalf("proof status: %v", err)
 	}
-	d := objAt(pr, "done")
+	d := validation.ObjAt(pr, "done")
 	return d.Kind == validation.Bool && d.B
 }
 
@@ -103,7 +103,7 @@ func r40LadderState(t *testing.T, c *state.Campaign, fid string) string {
 	if err != nil {
 		t.Fatalf("parse ladder: %v", err)
 	}
-	return objStr(asObj(objAt(lad, "disposition")), "state")
+	return validation.ObjStr(asObj(validation.ObjAt(lad, "disposition")), "state")
 }
 
 // TestR40RefusedWaiveShortReasonLeavesPairUntouched pins the short-reason
@@ -114,7 +114,7 @@ func TestR40RefusedWaiveShortReasonLeavesPairUntouched(t *testing.T) {
 	r40WireGate(t)
 	c := newCampaign(t, "Waive Burn")
 	f := confirmedFinding(t, c, "Fee skim via rounding")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	if _, err := StartLadder(c, fid); err != nil {
 		t.Fatal(err)
 	}
@@ -173,7 +173,7 @@ func TestR40RefusedWaiveLedgerDoorLeavesPairUntouched(t *testing.T) {
 	r40WireGate(t)
 	c := newCampaign(t, "Ledger Door")
 	f := confirmedFinding(t, c, "Flash-loan price manipulation")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	if _, err := StartLadder(c, fid); err != nil {
 		t.Fatal(err)
 	}
@@ -249,7 +249,7 @@ func TestR40SuccessfulWaiveStillCompletesGate(t *testing.T) {
 	r40WireGate(t)
 	c := newCampaign(t, "Honest Waive")
 	f := confirmedFinding(t, c, "Rounding loss")
-	fid := objStr(f, "finding_id")
+	fid := validation.ObjStr(f, "finding_id")
 	if _, err := StartLadder(c, fid); err != nil {
 		t.Fatal(err)
 	}
@@ -261,14 +261,14 @@ func TestR40SuccessfulWaiveStillCompletesGate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("honest waive refused: %v", err)
 	}
-	if st := objStr(asObj(objAt(lad, "disposition")), "state"); st != "waived" {
+	if st := validation.ObjStr(asObj(validation.ObjAt(lad, "disposition")), "state"); st != "waived" {
 		t.Fatalf("ladder disposition = %q, want waived", st)
 	}
 	f2, err := findings.LoadFinding(c, fid)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(asObj(objAt(f2, "maximization")), "disposition"); got != "waived" {
+	if got := validation.ObjStr(asObj(validation.ObjAt(f2, "maximization")), "disposition"); got != "waived" {
 		t.Fatalf("finding maximization.disposition = %q, want waived", got)
 	}
 	if _, err := os.Stat(completion.WaiversPath(c)); err != nil {

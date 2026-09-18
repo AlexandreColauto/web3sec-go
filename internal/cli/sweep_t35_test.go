@@ -200,7 +200,7 @@ func TestPlanFileOnExistingPlanWithoutRebuildFailsLoudly(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, e := range events {
-		if objStr(e, "type") == "plan.superseded" {
+		if validation.ObjStr(e, "type") == "plan.superseded" {
 			t.Fatal("refused write must not log plan.superseded")
 		}
 	}
@@ -290,7 +290,7 @@ func TestProbeEmitRewritesInPlaceWithoutArchiving(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, e := range events {
-		if objStr(e, "type") == "plan.superseded" {
+		if validation.ObjStr(e, "type") == "plan.superseded" {
 			t.Fatal("emit must not log plan.superseded")
 		}
 	}
@@ -321,7 +321,7 @@ func TestAnsweredCLIRecordsProvenance(t *testing.T) {
 		t.Fatal("plan has no priorities")
 		return validation.VNull()
 	}
-	q := objStr(prio(), "id")
+	q := validation.ObjStr(prio(), "id")
 	code, _, errS := run(t, "--root", root, "answered", cid, q,
 		"answered", "--reason", "probe ran; no effect",
 		"--ref", "EXEC-abc123")
@@ -329,16 +329,16 @@ func TestAnsweredCLIRecordsProvenance(t *testing.T) {
 		t.Fatalf("answered exit %d: %q", code, errS)
 	}
 	p := prio()
-	if got := objStr(p, "status"); got != "answered" {
+	if got := validation.ObjStr(p, "status"); got != "answered" {
 		t.Fatalf("status = %q", got)
 	}
-	if got := objStr(p, "closed_reason"); got != "probe ran; no effect" {
+	if got := validation.ObjStr(p, "closed_reason"); got != "probe ran; no effect" {
 		t.Fatalf("closed_reason = %q", got)
 	}
-	if got := objStr(p, "closed_ref"); got != "EXEC-abc123" {
+	if got := validation.ObjStr(p, "closed_ref"); got != "EXEC-abc123" {
 		t.Fatalf("closed_ref = %q", got)
 	}
-	if got := objStr(p, "closed_by"); got != "cli" {
+	if got := validation.ObjStr(p, "closed_by"); got != "cli" {
 		t.Fatalf("closed_by = %q, want cli", got)
 	}
 	code, _, errS = run(t, "--root", root, "answered", cid, q, "open",
@@ -347,7 +347,7 @@ func TestAnsweredCLIRecordsProvenance(t *testing.T) {
 		t.Fatalf("reopen exit %d: %q", code, errS)
 	}
 	p = prio()
-	if got := objStr(p, "status"); got != "open" {
+	if got := validation.ObjStr(p, "status"); got != "open" {
 		t.Fatalf("reopened status = %q", got)
 	}
 	for _, kv := range p.O {

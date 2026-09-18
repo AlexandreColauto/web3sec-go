@@ -14,13 +14,13 @@ func TestWorkQueueOracle(t *testing.T) {
 	root := oracles(t)
 	wq := at(t, root, "work_queue")
 	camp := newCampaign(t, "wq")
-	queue, err := WorkQueue(camp, objAt(wq, "plan"), objAt(wq, "model"), false)
+	queue, err := WorkQueue(camp, validation.ObjAt(wq, "plan"), validation.ObjAt(wq, "model"), false)
 	if err != nil {
 		t.Fatalf("work_queue: %v", err)
 	}
-	requireJSON(t, "queue", validation.VArr(queue...), objAt(wq, "queue"))
+	requireJSON(t, "queue", validation.VArr(queue...), validation.ObjAt(wq, "queue"))
 	for _, row := range queue {
-		if objStr(row, "slot") == "" {
+		if validation.ObjStr(row, "slot") == "" {
 			t.Fatalf("queue row without a slot: %v", validation.CanonCompact(row))
 		}
 	}
@@ -32,14 +32,14 @@ func TestWorkQueueHintsEmpty(t *testing.T) {
 	root := oracles(t)
 	wq := at(t, root, "work_queue")
 	camp := newCampaign(t, "wqh")
-	queue, err := WorkQueue(camp, objAt(wq, "plan"), objAt(wq, "model"), true)
+	queue, err := WorkQueue(camp, validation.ObjAt(wq, "plan"), validation.ObjAt(wq, "model"), true)
 	if err != nil {
 		t.Fatalf("work_queue hints: %v", err)
 	}
 	requireJSON(t, "queue_hints", validation.VArr(queue...),
-		objAt(wq, "queue_hints"))
+		validation.ObjAt(wq, "queue_hints"))
 	requireJSON(t, "queue_hints == queue", validation.VArr(queue...),
-		objAt(wq, "queue"))
+		validation.ObjAt(wq, "queue"))
 }
 
 // TestWorkQueueHintRows pins the seam: an installed hint loader contributes
@@ -61,11 +61,11 @@ func TestWorkQueueHintRows(t *testing.T) {
 		t.Fatalf("expected 2 rows, got %d", len(queue))
 	}
 	hint := queue[0]
-	requireJSON(t, "hint id", objAt(hint, "priority_id"), validation.VStr("H-01"))
-	requireJSON(t, "hint source", objAt(hint, "source"),
+	requireJSON(t, "hint id", validation.ObjAt(hint, "priority_id"), validation.VStr("H-01"))
+	requireJSON(t, "hint source", validation.ObjAt(hint, "source"),
 		validation.VStr("hint:H-01"))
-	requireJSON(t, "hint slot", objAt(hint, "slot"), validation.VStr("next"))
-	requireJSON(t, "hint components", objAt(hint, "components"),
+	requireJSON(t, "hint slot", validation.ObjAt(hint, "slot"), validation.VStr("next"))
+	requireJSON(t, "hint components", validation.ObjAt(hint, "components"),
 		validation.VArr())
 }
 
@@ -84,7 +84,7 @@ func TestWorkQueueRankingOracle(t *testing.T) {
 		t.Fatalf("work_queue ranking: %v", err)
 	}
 	requireJSON(t, "ranking queue", validation.VArr(queue...),
-		objAt(wq, "ranking_queue"))
+		validation.ObjAt(wq, "ranking_queue"))
 }
 
 // TestWorkQueueSkipsTerminalStatuses pins the status filter and the stability
@@ -107,11 +107,11 @@ func TestWorkQueueSkipsTerminalStatuses(t *testing.T) {
 	if len(queue) != 2 {
 		t.Fatalf("expected 2 live rows, got %d", len(queue))
 	}
-	requireJSON(t, "first live row", objAt(queue[0], "priority_id"),
+	requireJSON(t, "first live row", validation.ObjAt(queue[0], "priority_id"),
 		validation.VStr("Q-003"))
-	requireJSON(t, "second live row", objAt(queue[1], "priority_id"),
+	requireJSON(t, "second live row", validation.ObjAt(queue[1], "priority_id"),
 		validation.VStr("Q-004"))
-	requireJSON(t, "trajectory enum", objAt(queue[0], "trajectories"),
+	requireJSON(t, "trajectory enum", validation.ObjAt(queue[0], "trajectories"),
 		jsonValue(t, `["economic"]`))
 }
 
@@ -134,6 +134,6 @@ func TestWorkQueueSkipsNotApplicable(t *testing.T) {
 		t.Fatalf("expected 1 live row (not-applicable dropped), got %d",
 			len(queue))
 	}
-	requireJSON(t, "live row", objAt(queue[0], "priority_id"),
+	requireJSON(t, "live row", validation.ObjAt(queue[0], "priority_id"),
 		validation.VStr("Q-002"))
 }

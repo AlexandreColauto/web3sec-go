@@ -45,7 +45,7 @@ func TestCompilerPinNoLineVersionIsUnchecked(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit %d err %q", code, errS)
 	}
-	pin := objStr(mcLinkField(t, c, "invariants", "INV-1", "verification",
+	pin := validation.ObjStr(mcLinkField(t, c, "invariants", "INV-1", "verification",
 		"harness", "proof"), "compiler_pin")
 	if !strings.Contains(pin, "nothing was verified") ||
 		strings.Contains(pin, "checked against") {

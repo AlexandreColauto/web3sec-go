@@ -43,7 +43,7 @@ const artifactRegisterRefreshReason = "re-registered (content may have changed)"
 // refresh/migrate path the RUNBOOK's one-row-per-path law requires — which is
 // also the only shape whose success line must NOT promise immutability.
 func artifactRowWasRefreshed(row validation.Value) bool {
-	rc := objAt(row, "refresh_count")
+	rc := validation.ObjAt(row, "refresh_count")
 	return rc.Kind == validation.Int && rc.I > 0
 }
 

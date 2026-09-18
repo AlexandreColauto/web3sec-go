@@ -51,7 +51,7 @@ func ReproTierOf(repro validation.Value) string {
 // RecordedReproTier is tier_of over a FINDING: the tier its
 // verification.reproduction block records.
 func RecordedReproTier(f validation.Value) string {
-	return ReproTierOf(objAt(objAt(f, "verification"), "reproduction"))
+	return ReproTierOf(validation.ObjAt(validation.ObjAt(f, "verification"), "reproduction"))
 }
 
 // MintEvidenceLevelType is the claim-tier -> (level, type) derivation mint
@@ -118,20 +118,20 @@ func (tc TruncatedCapture) Accounting() string {
 // --harness-result binder in cmd_verify_harness.go), so no evidence
 // consumer can hold a second opinion about a truncated capture.
 func ExecTruncatedCapture(rec validation.Value) *TruncatedCapture {
-	oc := objAt(rec, "output_capture")
+	oc := validation.ObjAt(rec, "output_capture")
 	if oc.Kind != validation.Obj {
 		return nil
 	}
 	for _, stream := range []string{"stdout", "stderr"} {
-		marked := objAt(oc, stream+"_truncated")
+		marked := validation.ObjAt(oc, stream+"_truncated")
 		if marked.Kind != validation.Bool || !marked.B {
 			continue
 		}
 		tc := TruncatedCapture{Stream: stream}
-		if cap := objAt(oc, "cap_bytes"); cap.Kind == validation.Int {
+		if cap := validation.ObjAt(oc, "cap_bytes"); cap.Kind == validation.Int {
 			tc.Cap = cap.I
 		}
-		if total := objAt(oc, stream+"_total_bytes"); total.Kind ==
+		if total := validation.ObjAt(oc, stream+"_total_bytes"); total.Kind ==
 			validation.Int {
 			tc.Total, tc.HasTotal = total.I, true
 		}
@@ -149,13 +149,13 @@ func ExecTruncatedCapture(rec validation.Value) *TruncatedCapture {
 // mint's, byte for byte — mint wraps the returned error in its MintError
 // class, ingest names it as a refusal.
 func ValidateExecRecord(execID string, rec validation.Value) error {
-	profile := objStr(rec, "profile")
+	profile := validation.ObjStr(rec, "profile")
 	if _, ok := sandbox.E4_PROFILES[profile]; !ok {
 		return fmt.Errorf("exec %s ran under %s; E4+ evidence requires a "+
 			"container/VM profile — re-run the repro sandboxed", execID,
 			validation.PyReprStr(profile))
 	}
-	exit := objAt(rec, "exit_status")
+	exit := validation.ObjAt(rec, "exit_status")
 	if !(exit.Kind == validation.Int && exit.I == 0) {
 		return fmt.Errorf("exec %s exited with status %s; a run that did not "+
 			"succeed is not a reproduction — fix the PoC and re-run before "+
@@ -202,11 +202,11 @@ func MintedExecEvidenceItem(execID, level, etype, description string, rec,
 		validation.KV{K: "type", V: validation.VStr(etype)},
 		validation.KV{K: "artifact_id", V: validation.VStr(execID)},
 		validation.KV{K: "description", V: validation.VStr(description)},
-		validation.KV{K: "command", V: validation.VStr(objStr(rec, "command"))},
-		validation.KV{K: "produced_at", V: validation.VStr(nowIso())},
+		validation.KV{K: "command", V: validation.VStr(validation.ObjStr(rec, "command"))},
+		validation.KV{K: "produced_at", V: validation.VStr(state.NowIso())},
 		validation.KV{K: "sandbox_profile", V: validation.VStr(
-			objStr(rec, "profile"))},
-		validation.KV{K: "snapshot_id", V: objAt(objAt(f, "snapshot_ids"),
+			validation.ObjStr(rec, "profile"))},
+		validation.KV{K: "snapshot_id", V: validation.ObjAt(validation.ObjAt(f, "snapshot_ids"),
 			"source")},
 	)
 }
@@ -216,7 +216,7 @@ func MintedExecEvidenceItem(execID, level, etype, description string, rec,
 // evidence; an exec bound to ANOTHER finding may not. One rule, both readers
 // (add_evidence's E4+ gate and the ingest exec_ref gate).
 func execFindingMatch(rec validation.Value, findingID string) bool {
-	f := objAt(rec, "finding_id")
+	f := validation.ObjAt(rec, "finding_id")
 	return f.Kind == validation.Null ||
 		(f.Kind == validation.Str && f.S == findingID)
 }
@@ -246,8 +246,8 @@ func execFindingMatch(rec validation.Value, findingID string) bool {
 // finding.
 func IngestExecRefEvidence(c *state.Campaign, findingID string, finding,
 	item validation.Value) (validation.Value, error) {
-	ref := objStr(item, "exec_ref")
-	eid := pyStr(objAt(item, "evidence_id"))
+	ref := validation.ObjStr(item, "exec_ref")
+	eid := pyStr(validation.ObjAt(item, "evidence_id"))
 	rec, err := sandbox.LoadExec(c, ref)
 	if err != nil {
 		return validation.VNull(), fmt.Errorf("ingest refused: evidence %s "+
@@ -258,7 +258,7 @@ func IngestExecRefEvidence(c *state.Campaign, findingID string, finding,
 		return validation.VNull(), fmt.Errorf("ingest refused: exec_ref %s is "+
 			"bound to finding %s, not %s — an exec backs only the finding it "+
 			"ran under; re-run it with --finding %s to cite it here", ref,
-			validation.PyRepr(objAt(rec, "finding_id")), findingID, findingID)
+			validation.PyRepr(validation.ObjAt(rec, "finding_id")), findingID, findingID)
 	}
 	if err := ValidateExecRecord(ref, rec); err != nil {
 		return validation.VNull(), fmt.Errorf("ingest refused: evidence %s "+
@@ -271,22 +271,22 @@ func IngestExecRefEvidence(c *state.Campaign, findingID string, finding,
 	// provenance feeds EVIDENCE_TYPE_GROUPS gate reads). Refuse, naming the
 	// derived pair, so the author re-files with the truth or mints with
 	// --type. Absent declarations are the happy path.
-	if dt := objStr(item, "type"); dt != "" && dt != etype {
+	if dt := validation.ObjStr(item, "type"); dt != "" && dt != etype {
 		return validation.VNull(), fmt.Errorf("ingest refused: evidence %s "+
 			"declares type %s, but exec_ref %s derives %s for this finding "+
 			"(the derivation governs — cite it honestly or use `webv2 mint "+
-			"--type`)", objStr(item, "evidence_id"), validation.PyReprStr(dt),
+			"--type`)", validation.ObjStr(item, "evidence_id"), validation.PyReprStr(dt),
 			ref, validation.PyReprStr(etype))
 	}
-	if dl := objStr(item, "level"); dl != "" && dl != level {
+	if dl := validation.ObjStr(item, "level"); dl != "" && dl != level {
 		return validation.VNull(), fmt.Errorf("ingest refused: evidence %s "+
 			"declares level %s, but exec_ref %s derives %s for this finding "+
 			"(the derivation governs — cite it honestly)",
-			objStr(item, "evidence_id"), validation.PyReprStr(dl), ref,
+			validation.ObjStr(item, "evidence_id"), validation.PyReprStr(dl), ref,
 			validation.PyReprStr(level))
 	}
 	return MintedExecEvidenceItem(ref, level, etype,
-		objStr(item, "description"), rec, finding), nil
+		validation.ObjStr(item, "description"), rec, finding), nil
 }
 
 // pyReprScalar is Python's repr for the JSON scalars an exec field holds

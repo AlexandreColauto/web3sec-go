@@ -22,7 +22,7 @@ func bloat(t *testing.T, c *state.Campaign, stage string, chars int) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	stages := objAt(st, "stages")
+	stages := validation.ObjAt(st, "stages")
 	note := strings.Repeat("x", chars)
 	setKey(&stages, stage, validation.VObj(
 		validation.KV{K: "status", V: validation.VStr("done")},
@@ -59,8 +59,8 @@ func TestStateHealthTruncatesOversizedNote(t *testing.T) {
 			beforeSize)
 	}
 	got := []string{}
-	for _, e := range objAt(res, "notes_truncated").A {
-		got = append(got, objStr(e, "stage"))
+	for _, e := range validation.ObjAt(res, "notes_truncated").A {
+		got = append(got, validation.ObjStr(e, "stage"))
 	}
 	if len(got) != 1 || got[0] != "structural-index" {
 		t.Errorf("notes_truncated = %v, want [structural-index]", got)
@@ -69,7 +69,7 @@ func TestStateHealthTruncatesOversizedNote(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	note := objStr(objAt(objAt(st, "stages"), "structural-index"), "note")
+	note := validation.ObjStr(validation.ObjAt(validation.ObjAt(st, "stages"), "structural-index"), "note")
 	if utf8.RuneCountInString(note) > state.NOTE_CAP+100 {
 		t.Errorf("note length = %d, want <= %d",
 			utf8.RuneCountInString(note), state.NOTE_CAP+100)
@@ -91,7 +91,7 @@ func TestStateHealthLeavesSmallNotesAndLogUntouched(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if n := len(objAt(res, "notes_truncated").A); n != 0 {
+	if n := len(validation.ObjAt(res, "notes_truncated").A); n != 0 {
 		t.Errorf("notes_truncated = %d, want 0", n)
 	}
 	if intField(res, "bytes_freed") > 0 {
@@ -101,7 +101,7 @@ func TestStateHealthLeavesSmallNotesAndLogUntouched(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := objStr(objAt(objAt(st, "stages"), "recon"), "note"); got !=
+	if got := validation.ObjStr(validation.ObjAt(validation.ObjAt(st, "stages"), "recon"), "note"); got !=
 		strings.Repeat("x", 200) {
 		t.Errorf("note = %q..., want 200 x's", got)
 	}
@@ -137,7 +137,7 @@ func TestStateHealthTruncatesArtifactNotes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	note := objStr(objAt(got, "artifacts").A[0], "note")
+	note := validation.ObjStr(validation.ObjAt(got, "artifacts").A[0], "note")
 	if utf8.RuneCountInString(note) > state.NOTE_CAP+100 {
 		t.Errorf("artifact note length = %d, want <= %d",
 			utf8.RuneCountInString(note), state.NOTE_CAP+100)
@@ -168,7 +168,7 @@ func TestSnapshotScopeReportsShapeAndWarns(t *testing.T) {
 	if got := intField(res, "files"); got != 7 {
 		t.Errorf("files = %d, want 7", got)
 	}
-	if w := objAt(res, "file_count_warning"); w.Kind != validation.Null {
+	if w := validation.ObjAt(res, "file_count_warning"); w.Kind != validation.Null {
 		t.Errorf("file_count_warning = %s, want null",
 			validation.DumpIndented(w))
 	}
@@ -180,11 +180,11 @@ func TestSnapshotScopeReportsShapeAndWarns(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	warn := objStr(res, "file_count_warning")
+	warn := validation.ObjStr(res, "file_count_warning")
 	if warn == "" || !strings.Contains(warn, "scope drift") {
 		t.Errorf("file_count_warning = %q, want a scope-drift warning", warn)
 	}
-	top := objAt(res, "top_directories").A
+	top := validation.ObjAt(res, "top_directories").A
 	if len(top) == 0 {
 		t.Fatalf("top_directories empty")
 	}
@@ -199,10 +199,10 @@ func TestSnapshotScopeNoPin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if s := objAt(res, "active_snapshot"); s.Kind != validation.Null {
+	if s := validation.ObjAt(res, "active_snapshot"); s.Kind != validation.Null {
 		t.Errorf("active_snapshot = %s, want null", validation.DumpIndented(s))
 	}
-	if note := objStr(res, "note"); !strings.Contains(note, "no snapshot pinned") {
+	if note := validation.ObjStr(res, "note"); !strings.Contains(note, "no snapshot pinned") {
 		t.Errorf("note = %q", note)
 	}
 }
@@ -227,7 +227,7 @@ func TestSnapshotScopeKeepsTheMetavariableForAnIdLessCampaign(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			note := objStr(res, "note")
+			note := validation.ObjStr(res, "note")
 			slot := "`webv2 snap " + tc.want + " <target>`"
 			if !strings.Contains(note, slot) {
 				t.Errorf("note does not name the campaign slot %q: %q",
@@ -246,14 +246,14 @@ func TestDoctorIncludesPreflight(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	pre := objAt(rep, "preflight")
+	pre := validation.ObjAt(rep, "preflight")
 	if pre.Kind != validation.Obj {
 		t.Fatalf("preflight = %s", validation.DumpIndented(pre))
 	}
-	if objAt(pre, "checks").Kind != validation.Obj {
+	if validation.ObjAt(pre, "checks").Kind != validation.Obj {
 		t.Errorf("preflight.checks missing")
 	}
-	if objAt(objAt(pre, "checks"), "workdir").Kind != validation.Obj {
+	if validation.ObjAt(validation.ObjAt(pre, "checks"), "workdir").Kind != validation.Obj {
 		t.Errorf("preflight.checks.workdir missing")
 	}
 }
@@ -277,7 +277,7 @@ func fileSize(t *testing.T, path string) int64 {
 }
 
 func intField(v validation.Value, key string) int64 {
-	f := objAt(v, key)
+	f := validation.ObjAt(v, key)
 	if f.Kind == validation.Int {
 		return f.I
 	}
@@ -303,8 +303,8 @@ func TestStateHealthRebuildsStrandedMirror(t *testing.T) {
 	}
 	// Strand it: drop the mirrored note event from the projection only.
 	kept := []validation.Value{}
-	for _, e := range objAt(st, "events").A {
-		if objStr(e, "type") != "note.added" {
+	for _, e := range validation.ObjAt(st, "events").A {
+		if validation.ObjStr(e, "type") != "note.added" {
 			kept = append(kept, e)
 		}
 	}
@@ -332,7 +332,7 @@ func TestStateHealthRebuildsStrandedMirror(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !objAt(report, "events_mirror_rebuilt").B {
+	if !validation.ObjAt(report, "events_mirror_rebuilt").B {
 		t.Fatalf("doctor must report the rebuild: %s",
 			validation.DumpsOrdered(report, false))
 	}
@@ -345,7 +345,7 @@ func TestStateHealthRebuildsStrandedMirror(t *testing.T) {
 			v.Problems)
 	}
 	// The log was not touched: both events still chained.
-	if n := len(objAt(st, "events").A); false {
+	if n := len(validation.ObjAt(st, "events").A); false {
 		_ = n
 	}
 }
@@ -377,10 +377,10 @@ func TestMirrorRebuildRefusesADamagedLedger(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if objAt(rep, "events_mirror_rebuilt").B {
+	if validation.ObjAt(rep, "events_mirror_rebuilt").B {
 		t.Fatal("doctor rebuilt from a damaged ledger")
 	}
-	refusal := objAt(rep, "events_mirror_refused")
+	refusal := validation.ObjAt(rep, "events_mirror_refused")
 	if refusal.Kind != validation.Str || !strings.Contains(refusal.S, "not a JSON object") {
 		t.Fatalf("refusal must name the damage: %s",
 			validation.DumpsOrdered(rep, false))
@@ -408,10 +408,10 @@ func TestRebuildDisclosesEditedEvents(t *testing.T) {
 	// note text differs, chain recomputed with the tool's own algorithm
 	// by regenerating through Log then surgical single-line replace.
 	st, _ := c.State()
-	evs := objAt(st, "events")
+	evs := validation.ObjAt(st, "events")
 	var want string
 	for _, e := range evs.A {
-		if objStr(e, "type") == "note.added" {
+		if validation.ObjStr(e, "type") == "note.added" {
 			want = validation.CanonSpaced(e)
 		}
 	}
@@ -427,10 +427,10 @@ func TestRebuildDisclosesEditedEvents(t *testing.T) {
 		t.Fatal(err)
 	}
 	st, _ = c.State()
-	t.Logf("mirror before strip: %d events", len(objAt(st, "events").A))
+	t.Logf("mirror before strip: %d events", len(validation.ObjAt(st, "events").A))
 	one := []validation.Value{}
-	for _, e := range objAt(st, "events").A {
-		if objStr(e, "type") != "note.added" {
+	for _, e := range validation.ObjAt(st, "events").A {
+		if validation.ObjStr(e, "type") != "note.added" {
 			one = append(one, e)
 		}
 	}
@@ -439,7 +439,7 @@ func TestRebuildDisclosesEditedEvents(t *testing.T) {
 		t.Fatal(err)
 	}
 	st2, _ := c.State()
-	t.Logf("mirror after strip: %d events", len(objAt(st2, "events").A))
+	t.Logf("mirror after strip: %d events", len(validation.ObjAt(st2, "events").A))
 	rawDisk, _ := os.ReadFile(c.StatePath)
 	t.Logf("DISK has %d note events: %v",
 		strings.Count(string(rawDisk), "note.added"), len(rawDisk))
@@ -447,12 +447,12 @@ func TestRebuildDisclosesEditedEvents(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !objAt(rep, "events_mirror_rebuilt").B {
+	if !validation.ObjAt(rep, "events_mirror_rebuilt").B {
 		t.Fatalf("clean chain must rebuild: %s",
 			validation.DumpsOrdered(rep, false))
 	}
-	delta := objAt(rep, "events_mirror_delta")
-	if delta.Kind != validation.Obj || deltaInt(objAt(delta, "added_from_log")) != 2 {
+	delta := validation.ObjAt(rep, "events_mirror_delta")
+	if delta.Kind != validation.Obj || deltaInt(validation.ObjAt(delta, "added_from_log")) != 2 {
 		t.Fatalf("delta must count what the rebuild adopted: %s",
 			validation.DumpsOrdered(rep, false))
 	}
@@ -497,9 +497,9 @@ func TestTailTruncationIsDisclosedNotLaundered(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	delta := objAt(rep, "events_mirror_delta")
+	delta := validation.ObjAt(rep, "events_mirror_delta")
 	if delta.Kind != validation.Obj ||
-		deltaInt(objAt(delta, "dropped_from_projection")) != 1 {
+		deltaInt(validation.ObjAt(delta, "dropped_from_projection")) != 1 {
 		t.Fatalf("dropped must be counted: %s",
 			validation.DumpsOrdered(rep, false))
 	}
