@@ -111,20 +111,51 @@ The campaign's own `RUNBOOK.md` (dropped by `init`) is the general lifecycle.
 Three obligations are specific to this measurement.
 
 **3.1 Model `rollup_finalization` as a state machine.** Not optional: the
-per-machine liveness gate refuses a model whose liveness coverage is partial.
-Minimal shape (`model.json`; schema `assets/schema/protocol_model.schema.json`):
+per-machine liveness gate refuses a model whose liveness coverage is partial —
+other machines carry a liveness invariant, the named one does not.
+
+Minimal `model.json`. The schema (`assets/schema/protocol_model.schema.json`)
+requires six top-level keys, so a bare `{"state_machines": …}` never reaches the
+gate — it dies in validation first (quoted below). Empty arrays are fine:
 
 ```json
-{"state_machines": [{"name": "rollup_finalization",
-  "states": [{"id": "committed"}, {"id": "challenged"},
-             {"id": "finalized", "terminal": true}],
-  "transitions": [
-    {"from": "committed",  "to": "challenged", "trigger": "challengeState"},
-    {"from": "challenged", "to": "finalized",  "trigger": "finalizeBatch"}]}]}
+{"protocol_id": "morph-l2", "name": "Morph L2",
+ "contracts": [], "actors": [], "assets": [], "relations": [],
+ "state_machines": [{"name": "rollup_finalization",
+   "states": [{"id": "committed"}, {"id": "challenged"},
+              {"id": "finalized", "terminal": true}],
+   "transitions": [
+     {"from": "committed",  "to": "challenged", "trigger": "challengeState"},
+     {"from": "challenged", "to": "finalized",  "trigger": "finalizeBatch"}]}]}
 ```
 
 ```bash
 webv2 model <C-id> model.json
+```
+
+Verbatim from a scratch campaign, 2026-09-18 — this one **loads, exit 0**:
+
+```
+model loaded: 0 actors, 0 assets, 0 invariants
+  reconciliation: model covers every documented invariant id
+  WARNING: the model declares no invariants — the invariant registry was seeded with NOTHING (invariants.seed_empty logged). Every evidence level rise will be guardrail-blocked until the model is refined.
+```
+
+The two `model loaded`/`reconciliation` lines are stdout, the `WARNING` is
+stderr. One machine with no liveness coverage anywhere takes the **zero-coverage
+synthesis** path: the gate mints a `liveness-template` invariant covering it, so
+nothing is refused. The refusal is a **partial-coverage** gate — it fires when
+some other machine is covered and this one is not (§3.2-1). Load the bare
+`{"state_machines": …}` fragment — the six required keys omitted — and you get
+this instead, never the refusal (exit 2):
+
+```
+model load failed: protocol_model validation failed at <root>: 'protocol_id' is a required property
+  also at <root>: 'name' is a required property
+  also at <root>: 'contracts' is a required property
+  also at <root>: 'actors' is a required property
+  also at <root>: 'assets' is a required property
+  also at <root>: 'relations' is a required property
 ```
 
 The machine **name** is the stable handle (the `LC-###` ids are display-only and
@@ -135,9 +166,39 @@ around them — record each firing you see.
 
 1. **Per-machine liveness refusal** —
    `protocol model: state machine(s) <names> have no liveness invariant (one per machine — stage 37)`.
-   Refused at load, before any write. If the uncovered machine is
-   `rollup_finalization`, the gate has just named the G-01 gap. Fix the *model*
-   (or register a real liveness invariant covering that machine), never the gate.
+   Refused at load, before any write. It needs partial coverage, so to watch it
+   fire, add a second machine and cover *that* one, leaving
+   `rollup_finalization` bare:
+
+   ```json
+   {"protocol_id": "morph-l2", "name": "Morph L2",
+    "contracts": [], "actors": [], "assets": [], "relations": [],
+    "state_machines": [
+      {"name": "rollup_finalization",
+       "states": [{"id": "committed"}, {"id": "challenged"},
+                  {"id": "finalized", "terminal": true}],
+       "transitions": [
+         {"from": "committed",  "to": "challenged", "trigger": "challengeState"},
+         {"from": "challenged", "to": "finalized",  "trigger": "finalizeBatch"}]},
+      {"name": "message_queue",
+       "states": [{"id": "queued"}, {"id": "dropped", "terminal": true}],
+       "transitions": [
+         {"from": "queued", "to": "dropped", "trigger": "onDropMessage"}]}],
+    "invariants": [{"id": "INV-1", "kind": "liveness",
+      "severity_if_broken": "critical",
+      "statement": "every queued message eventually advances to dropped",
+      "applies_to": ["message_queue"]}]}
+   ```
+
+   Verbatim output from a scratch campaign, 2026-09-18 (exit 2):
+
+   ```
+   model load failed: protocol model: state machine(s) rollup_finalization have no liveness invariant (one per machine — stage 37)
+   ```
+
+   If the uncovered machine is `rollup_finalization`, the gate has just named
+   the G-01 gap. Fix the *model* (or register a real liveness invariant
+   covering that machine), never the gate.
 2. **Cold-probe nag** — while the phase is DISCOVERY with no probe emit on
    record, the cockpit carries `webv2 probes <C-id> run --emit`:
    "cold probe surface — DISCOVERY is running with no probe emit on record, so
@@ -198,7 +259,7 @@ The bar, verbatim from the benchmark's `scoring` block:
   partial result"
 
 The scorer's own gate, from the repo root with no path hacks (both green
-2026-09-18, 25 tests):
+2026-09-18, 26 tests):
 
 ```bash
 python3 -m unittest scripts.eval_gold_test
