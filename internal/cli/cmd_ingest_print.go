@@ -148,5 +148,10 @@ func printIngestExample(r *Runner) error {
 	for _, line := range legend {
 		fmt.Fprintf(r.Err, "  %s\n", line)
 	}
+	// B1(c): additive pointer line after the legend block — the bytes above
+	// are untouched (cmd_ingest_test.go Contains-matches them), and the
+	// payload template plus the legend still do not show the schema's
+	// required fields or nesting; the document itself is one command away.
+	fmt.Fprint(r.Err, schemaPointerLine("finding"))
 	return nil
 }

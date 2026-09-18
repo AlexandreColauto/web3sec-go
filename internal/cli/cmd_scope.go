@@ -312,6 +312,11 @@ func runScope(root string, args []string, r *Runner) error {
 			"contract: save as policy.json, replace program, program_url, "+
 			"chains and scope with the program's own terms, then: "+
 			"webv2 scope <campaign> --policy policy.json\n")
+		// B1(c): additive pointer line — the contract line above is
+		// untouched (cmd_scope_example_test.go pins the stdout bytes, and
+		// the stderr line is only ever Contains-matched), the raw schema
+		// document is one command away.
+		fmt.Fprint(r.Err, schemaPointerLine("bounty_policy"))
 		return nil
 	}
 	if len(pos) < 1 {

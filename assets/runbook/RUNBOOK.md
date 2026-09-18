@@ -156,7 +156,7 @@ fixed order:
 | 17 | `learning` | model | LEARNING |
 
 ```bash
-webv2 run <C-xxx>                        # walk; halts at the first model stage (exit 3)
+webv2 run <C-xxx>                        # walk; exits 0 complete, 2 scheduler halt, 3 model-stage halt
 webv2 run <C-xxx> --until discovery      # walk only through this stage
 webv2 run <C-xxx> --max-stages 1         # budget the walk
 webv2 log <C-xxx> --tail 50              # tail the event log
@@ -508,6 +508,30 @@ value you assumed, and read it. `webv2 snap --dry-run` tells you whether the
 pin covers the working tree; it says nothing about the instance. When the
 value is genuinely unreadable (unverified source, no RPC), record that as a
 coverage gap on the priority rather than closing it.
+
+## 4d. Reading the schemas: `webv2 schema` and `--example`
+
+Every refusal in this CLI names a schema (`... validation failed at
+artifacts/1/kind`), and an `--example` template is a SHAPE hint, not the
+contract: it shows one valid document, not the closed enums, the required
+fields or the nesting rules. `webv2 schema` is the read path for the documents
+the framework actually validates against — the bytes ride the binary, so no
+framework checkout (and no `assets/schema/` path) is needed:
+
+```bash
+webv2 schema                        # every schema name, one per line (= schema --list)
+webv2 schema finding                # the raw document, byte-for-byte (pipe it: | jq .)
+webv2 schema protocol_model         # what `webv2 model <C> model.json` enforces
+webv2 schema bounty_policy          # what `webv2 scope <C> --policy p.json` enforces
+webv2 model --example               # a minimal schema-valid protocol_model on stdout
+```
+
+The `--example` branches print their template on stdout (pipeable, campaign
+free) and end their stderr with the schema pointer, e.g. `schema: webv2 schema
+bounty_policy — the raw schema document (every field and enum)`;
+`ingest --example`, `scope --example` and `model --example` all carry it. An
+unknown name exits 2 with the same `unknown schema 'x'; known: (...)` text the
+validation layer prints, so the list of known schemas has exactly one spelling.
 
 ## 5. Plan, dispatch, ingest
 
@@ -1569,14 +1593,15 @@ webv2 waive <C> <stage> [--subject S] --reason R --actor A         waive one com
 webv2 scope <C> --policy policy.json | webv2 scope --example        load the bounty policy (program identity + gate scope) / print a valid template
 webv2 snap <C> <target> [--deployment F] [--chain F] [--exclude NAME] [--dry-run]   pin a source snapshot (+ deployment/chain pins; foundry.toml read automatically); --dry-run previews ladder, prune set and untracked files, recording nothing; --exclude matches EXACT base names (no globs) and a pattern that matched nothing is named on stdout
 webv2 index <C> --src SRC                                          rebuild the structural index for the active pin
-webv2 model <C> [file] [--json] [--facts P] [--facts-observed-at D]    load a protocol model (seeds invariants) / show the loaded one; --facts merges operator-supplied DNS/dependency facts (offline only, no lookup)
+webv2 model <C> [file] [--json] [--example] [--facts P] [--facts-observed-at D]    load a protocol model (seeds invariants) / show the loaded one; --example prints a valid template; --facts merges operator-supplied DNS/dependency facts (offline only, no lookup)
 webv2 plan <C> [file] [--rebuild] [--json]                         read-only plan view; --rebuild archives + regenerates (both polarities of every lifecycle transition belong in it — §4c/§5)
 webv2 answered <C> <priority|L-0X> [<priority>...] <status> [--reason R] [--reason-all R] [--ref R] [--anchor FIELD] [--families a,b,c] [--symmetry fam=prim;...] [--actor A]   # one status over ONE OR MORE rows: gates run per row all-or-nothing (first refusal names its row, zero mutations)
 webv2 probes <C> run [--emit --per-axis N --total N] | list [--axis L-0n|AXIS] [--all] [--json] | blank --axis L-0n|AXIS --anchor-blind K --reason R --actor A
 webv2 ingest <C> --json-file F (or -) [--trajectory T] [--stage S] [--answers-priority Q-xxx]   |  webv2 ingest --example
 webv2 prompts {list,show} [name]                                   print the embedded stage prompts (no framework checkout needed; show accepts full name, stem, or stage number)
+webv2 schema [--list] [<name>]                                     print an embedded validation schema, byte-for-byte (finding, protocol_model, bounty_policy, ...); no name (or --list) names them all
 
-webv2 run <C> [--until STAGE] [--max-stages N]                     walk the pipeline; halt at the first model stage (exit 3)
+webv2 run <C> [--until STAGE] [--max-stages N]                     walk the pipeline (exit 0 complete, 2 scheduler halt, 3 needs-model halt)
 webv2 log <C> [--tail N]                                           tail the event log
 webv2 verify <C> [--queue] [--exec E --finding F --verifier V --description D]   # log integrity / E6 queue / record an independent verification
 webv2 verify <C> --scaffold halmos|forge-fuzz|minicertora --invariant INV-xxx   # write the harness scaffold artifact (the model fills the BODY region only; outside it is scaffold)

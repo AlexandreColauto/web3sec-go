@@ -5,7 +5,8 @@ package cli
 // (seeds the invariant registry, reconciles against documented INV ids), or
 // show the loaded one (cli.py cmd_model verbatim). --facts (I4) merges
 // operator-supplied DNS/dependency facts into components[] BEFORE the model
-// is stored; without it the verb moves zero bytes.
+// is stored; without it the verb moves zero bytes. --example (B1) is the
+// campaign-free template branch: schema-valid protocol_model JSON on stdout.
 
 import (
 	"fmt"
@@ -21,12 +22,12 @@ import (
 	"websec/internal/validation"
 )
 
-const t14ModelUsage = `usage: webv2 model [-h] [--json] [--facts FACTS] ` +
-	`[--facts-observed-at DATE] campaign [file]
+const t14ModelUsage = `usage: webv2 model [-h] [--json] [--example] ` +
+	`[--facts FACTS] [--facts-observed-at DATE] campaign [file]
 `
 
-const t14ModelHelp = `usage: webv2 model [-h] [--json] [--facts FACTS] ` +
-	`[--facts-observed-at DATE] campaign [file]
+const t14ModelHelp = `usage: webv2 model [-h] [--json] [--example] ` +
+	`[--facts FACTS] [--facts-observed-at DATE] campaign [file]
 
 positional arguments:
   campaign
@@ -35,11 +36,58 @@ positional arguments:
 options:
   -h, --help            show this help message and exit
   --json
+  --example             print a valid example protocol model to stdout and exit
   --facts FACTS         operator facts JSON document, or a directory of
                         offline manifests (remappings.txt + lockfiles)
   --facts-observed-at DATE
                         the operator's YYYY-MM-DD observation date (required
                         for a directory, ignored for a JSON document)
+`
+
+// t14ExampleModel is the B1 model template: a MINIMAL schema-valid
+// protocol_model, mirroring the `ingest --example`/`scope --example` contract
+// (pipeable stdout, campaign-free, stderr says how to load it). Every field
+// here is one the schema requires or one an operator must replace with the
+// protocol's own facts — the model that actually loads is the audit's
+// semantic layer, and a template cannot know it. Kept minimal on purpose:
+// cmd_model_example_test.go validates these exact bytes against
+// protocol_model AND validates a deliberately broken copy, so this constant
+// can never rot into "anything parses".
+const t14ExampleModel = `{
+  "protocol_id": "example-protocol",
+  "name": "Example Protocol",
+  "snapshot_id": "unpinned",
+  "chains": ["ethereum"],
+  "contracts": [
+    {
+      "name": "Vault",
+      "path": "src/Vault.sol",
+      "role": "core",
+      "in_scope": true,
+      "entry_points": ["deposit"],
+      "state_variables": [
+        {"name": "totalAssets", "kind": "balance", "accounting": true}
+      ]
+    }
+  ],
+  "actors": [
+    {"id": "user", "kind": "EOA", "trust": "externally-owned"},
+    {"id": "owner", "kind": "ROLE", "trust": "trusted", "can_drain": true}
+  ],
+  "assets": [{"id": "share", "kind": "share", "erc": "4626"}],
+  "relations": [
+    {"from": "user", "rel": "DEPOSITS", "to": "share"},
+    {"from": "owner", "rel": "OWNS", "to": "Vault"}
+  ],
+  "invariants": [
+    {
+      "id": "INV-1",
+      "statement": "a depositor's share of total assets may not decrease as a result of their own deposit",
+      "kind": "accounting",
+      "severity_if_broken": "critical"
+    }
+  ]
+}
 `
 
 // factsDateRe is the date shape the CLI accepts for --facts-observed-at: the
@@ -49,6 +97,7 @@ var factsDateRe = regexp.MustCompile(`^[0-9]{4}-[0-9]{2}-[0-9]{2}$`)
 func runModel(root string, args []string, r *Runner) error {
 	var pos []string
 	asJSON := false
+	example := false
 	factsPath, factsDate := "", ""
 	for i := 0; i < len(args); i++ {
 		a := args[i]
@@ -58,6 +107,8 @@ func runModel(root string, args []string, r *Runner) error {
 			return nil
 		case a == "--json":
 			asJSON = true
+		case a == "--example":
+			example = true
 		case a == "--facts" && i+1 < len(args) && !looksLikeOption(args[i+1]):
 			factsPath = args[i+1]
 			i++
@@ -77,6 +128,19 @@ func runModel(root string, args []string, r *Runner) error {
 		default:
 			pos = append(pos, a)
 		}
+	}
+	// --example wins before the campaign requirement, exactly like
+	// cmd_scope.go:307 and ingest: the template is pipeable stdout, so
+	// `webv2 model --example` needs no campaign (and no workspace).
+	if example {
+		fmt.Fprint(r.Out, t14ExampleModel)
+		fmt.Fprint(r.Err, "this model template IS the protocol_model "+
+			"schema contract: save as model.json, replace protocol_id, "+
+			"name, contracts, actors, assets, relations and invariants "+
+			"with the protocol's own, then: webv2 model <campaign> "+
+			"model.json\n")
+		fmt.Fprint(r.Err, schemaPointerLine("protocol_model"))
+		return nil
 	}
 	if len(pos) < 1 {
 		return t14ArgparseErr(t14ModelUsage, "model",
@@ -236,7 +300,8 @@ func mergeFacts(model validation.Value, factsPath, factsDate string) (
 
 func init() {
 	register(command{ord: 33, name: "model",
-		line: `model <campaign> [file] [--json]   load/show the protocol model`,
+		line: `model <campaign> [file] [--json] [--example]   load/show the ` +
+			`protocol model; --example prints a valid template`,
 		run: func(root string, args []string, r *Runner) int {
 			return t14Dispatch(root, r, func() error {
 				return runModel(root, args, r)

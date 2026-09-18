@@ -23,6 +23,16 @@ var knownSchemas = []string{
 	"operator_facts", "disclosure",
 }
 
+// KnownSchemas returns a copy of the schema-name list in its contractual
+// order — the order the unknown-schema error text renders (schema.go:51) and
+// the order the schema files must be listed in. A copy, so a caller (the
+// `webv2 schema` verb) cannot reorder the list the error text depends on.
+func KnownSchemas() []string {
+	out := make([]string, len(knownSchemas))
+	copy(out, knownSchemas)
+	return out
+}
+
 // SchemaError is the port of webv2.validation.SchemaError. Msg holds the
 // exact multi-line text the Python version would raise.
 type SchemaError struct{ Msg string }

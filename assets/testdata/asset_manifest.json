@@ -390,12 +390,12 @@
   },
   "runbook": {
    "AGENT_BOOTSTRAP.md": {
-    "sha256": "868ff4ea9787693b063ef7f0ea1ba2bb44febfd9a5e71c3436bef3561879e50f",
-    "size": 21805
+    "sha256": "9642fb25f7c4a6008ec99475a78cdf3fea99113e525dbce8646a120d43f52335",
+    "size": 21910
    },
    "RUNBOOK.md": {
-    "sha256": "e88ff103ed023be751b5fdda99d2d3b761dcae865dc24fa18bc3bbd44b8c9735",
-    "size": 110713
+    "sha256": "26bb0d2fba0716abcd0812ca03f5bf480d0aa01d20ccb23b92c44897ce63fea0",
+    "size": 112386
    }
   },
   "schema": {

@@ -179,7 +179,9 @@ only if the operator named a different workspace.
    every hypothesis with `ingest <C-id> --json-file payload.json
    --trajectory T --stage S` — never hand-write a finding file. `webv2 ingest
    --example` prints a schema-valid payload template; a failing payload
-   reports EVERY error. Draining the queue is necessary, not sufficient: the
+   reports EVERY error, and the schema itself is one command away
+   (`webv2 schema finding`; `webv2 schema` names them all). Draining the queue
+   is necessary, not sufficient: the
    DIVERGENCE GATE blocks discovery close until every lens is resolved AND >=
    4 distinct canonical bug classes are named across the plan's priorities.
    `prove <C-id> --stage discovery` shows what is still open; a subject is
