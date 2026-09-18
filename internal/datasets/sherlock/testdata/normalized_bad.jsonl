@@ -1,1 +1,0 @@
-{"id":"sh-2025-03-vault-B-01","class":"access-control","severity":"High","judge":"Banana","known":false,"griefing":false,"duplicate_of":"","title":"Row with an unknown judge verdict string","url":"https://github.com/sherlock-audit/vault-2025-03","program":"vault-2025-03"}

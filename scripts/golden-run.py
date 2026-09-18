@@ -74,9 +74,9 @@ The recipe has four halves:
       invocation is a fresh process whose counter restarts at 0. A single
       global seed therefore makes the first id of every command identical
       (two `exec` calls would mint the SAME EXEC- id). v3 pins
-      `WEBV2_UUID=<seed>:<step>` instead: both twins derive the same id per
+      `WEBV2_UUID=<seed>:<step>` instead: every step derives the same id per
       step, and distinct steps can no longer collide. The finding-id pin
-      (`WEBV2_FINDING_IDS=pin` + scripts/golden/sitecustomize.py) keeps its
+      (`WEBV2_FINDING_IDS=pin`) keeps its
       own running `WEBV2_FINDING_ID_SEQ` stream on top of the per-step seed;
       the v4 additions are `WEBV2_COST_IDS=pin` + `WEBV2_COST_ID_SEQ` (the
       cost id is a RAW uuid4 in the reference, like the finding id). The
@@ -84,11 +84,11 @@ The recipe has four halves:
       v5 — both now point at the committed P4 fixture (see D26).
 
 Fixtures live under scripts/golden/ and are referenced by paths RELATIVE to
-the Go repo root; both twins run with cwd=GO_ROOT so a relative path means
+the Go repo root; cwd=GO_ROOT so a relative path means
 the same file in both. The snapshot target is materialized in a temp dir
 OUTSIDE any git repository on purpose: inside a repo the `git-clean`
 ladder pins a `git worktree` whose `.git` file embeds a per-process
-gitdir, which is not reproducible across twins (or runs).
+gitdir, which is not reproducible across runs.
 """
 from __future__ import annotations
 
@@ -108,7 +108,6 @@ from pathlib import Path
 from probe_axes import SURFACE2_AXES
 
 GO_ROOT = Path(__file__).resolve().parent.parent
-PY_ROOT = GO_ROOT.parent / "web3sec-final"
 WORK = GO_ROOT / ".scratch" / "golden"
 GOBIN = WORK / "webv2"
 SEED = "golden-p2"
@@ -149,8 +148,8 @@ def seed_for(step: int) -> str:
 
     Every CLI command is a fresh process whose new_id counter restarts at 0,
     so a single global seed would mint the SAME first id in every command
-    (two `exec` calls would collide on one EXEC- id). Both twins receive the
-    same per-step seed, so ids stay cross-twin identical AND unique across
+    (two `exec` calls would collide on one EXEC- id). Each step receives the
+    same per-step seed, so ids stay deterministic AND unique across
     the recipe."""
     return f"{SEED}:{step:02d}"
 
@@ -277,11 +276,11 @@ def render_gate_pass_payload(artifact_id: str, fixture: str) -> Path:
 # The ladder's `repro` step mints E4 evidence, which the reference only
 # accepts from an exec record whose profile is a container/VM profile. The
 # default golden suite must stay docker-free, so the harness SEEDS one
-# externally-reported exec record per twin exactly the way
+# externally-reported exec record exactly the way
 # sandbox.register_exec does (origin="externally-reported", empty
 # tool_versions, a passing stdout.log) — the same out-of-band registration
 # the reference's own CLI test performs with `register_exec`. The record is
-# byte-identical in both twins by construction (same content, same root
+# byte-identical by construction (same content, same root
 # path), so the tree diff still proves the rest of the P2 surface.
 SEEDED_EXEC_STDOUT = "Suite result: ok. 1 passed; 0 failed\n"
 
@@ -354,12 +353,11 @@ def build_go() -> None:
 def run_step(twin: str, root: Path, argv: list[str], step: int,
              fid_base: int, sft_store: str) -> tuple[int, str, str]:
     now = now_for(step)
-    # WEBV2_FINDING_IDS=pin + WEBV2_FINDING_ID_SEQ: Python's
-    # findings.new_finding_id is a raw uuid4, so the two twins must be
-    # pinned through the same stream (see scripts/golden/sitecustomize.py
-    # and cmd/webv2/main.go). WEBV2_GLOBAL_MEMORY_DIR points at an empty
+    # WEBV2_FINDING_IDS=pin + WEBV2_FINDING_ID_SEQ: the finding id is a raw
+    # uuid4, so every id minter is pinned through one stream (cmd/webv2).
+    # WEBV2_GLOBAL_MEMORY_DIR points at an empty
     # dir: the operator's ~/.webv2/shared-memory store must never leak into
-    # a deterministic cross-twin comparison.
+    # a deterministic comparison against the committed oracle.
     env = dict(os.environ, WEBV2_NOW=now, WEBV2_UUID=seed_for(step),
                WEBV2_FINDING_IDS="pin", WEBV2_FINDING_ID_SEQ=str(fid_base),
                WEBV2_COST_IDS="pin", WEBV2_COST_ID_SEQ=str(fid_base),
@@ -372,16 +370,9 @@ def run_step(twin: str, root: Path, argv: list[str], step: int,
                WEBV2_BASELINES_DIR=str(WORK / "baselines"),
                WEBV2_PROMPTS_BASE=str(GO_ROOT / "assets"),
                WEBV2_GLOBAL_MEMORY_DIR=str(WORK / "shared-memory"))
-    # Both twins run with cwd=GO_ROOT so a relative fixture path resolves to
-    # the same file; the Python package is located via PYTHONPATH.
-    cwd = GO_ROOT
-    if twin == "py":
-        env["PYTHONPATH"] = os.pathsep.join(
-            [str(GO_ROOT / "scripts" / "golden"), str(PY_ROOT / "src")])
-        cmd = [sys.executable, "-m", "webv2.cli", "--root", str(root)] + argv
-    else:
-        cmd = [str(GOBIN), "--root", str(root)] + argv
-    r = subprocess.run(cmd, capture_output=True, text=True, env=env, cwd=cwd)
+    # cwd=GO_ROOT so a relative fixture path resolves to the committed file.
+    r = subprocess.run([str(GOBIN), "--root", str(root)] + argv,
+                       capture_output=True, text=True, env=env, cwd=GO_ROOT)
     return r.returncode, r.stdout, r.stderr
 
 
@@ -673,7 +664,7 @@ def recipe(state: dict) -> list[dict]:
         # disprove: only the two GUARD branches are byte-comparable. The
         # happy path queues negative memory, which the reference writes as a
         # campaigns/<cid>/memory/MEM-*.json row PLUS a memory.queued event —
-        # the Go twin's learning seam is a no-op (KNOWN_DIVERGENCES D18), so
+        # the learning seam is a no-op (KNOWN_DIVERGENCES D18), so
         # exercising it would fork the event chain. Both guards below abort
         # before any write, so they compare byte-for-byte.
         {"name": "ladder-disprove-short-reason", "exit": 2,
@@ -818,7 +809,7 @@ def recipe(state: dict) -> list[dict]:
          "argv": ["relations", cid, "--rebuild"]},
         {"name": "relations-view", "exit": 0, "argv": ["relations", cid]},
         {"name": "resemble", "exit": 0, "argv": ["resemble", cid, f[0]]},
-        # Corpus sweep. Both twins run with an ABSENT eval + PoC store
+        # Corpus sweep. Runs with an ABSENT eval + PoC store
         # (WEBV2_EVAL_DIR / WEBV2_POC_ROOT, see D26): the eval store and the
         # DeFiHackLabs dataset are unported (P4), and an absent corpus root
         # is the module's documented legitimate input state. The step still
@@ -867,8 +858,8 @@ def recipe(state: dict) -> list[dict]:
                   "--src", snap_src, "--json"]},
         # Baseline store: full lifecycle against ONE scratch store pinned by
         # WEBV2_BASELINES_DIR (D24: the reference hangs the store off its
-        # own package root, the Go twin off cwd; the harness points both at
-        # .scratch/golden/baselines and resets it per twin). list (empty) ->
+        # own package root off cwd; the harness points it at
+        # .scratch/golden/baselines and resets it per run). list (empty) ->
         # forkdiff (no baselines) -> add the target as a baseline -> list ->
         # forkdiff (score 1.00 against itself) -> remove -> list (empty).
         {"name": "baseline-list-empty", "exit": 0,

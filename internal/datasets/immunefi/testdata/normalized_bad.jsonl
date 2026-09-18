@@ -1,1 +1,0 @@
-{"id":"imm-2025-0319-z","status":"escalated","paid":false,"paid_usd":"","class":"access-control","severity":"High","root_cause":"Row with an unknown triage status string","program":"acme-vault","url":"https://immunefi.com/bug-bounty/acme-vault/validation/imm-2025-0319-z"}
