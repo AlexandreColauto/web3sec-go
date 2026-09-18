@@ -2127,6 +2127,21 @@ func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, er
 	// (hand-built briefs), the brief's own campaign_id is the fallback.
 	cid := lensActionCampaign(brief, campaign)
 
+	// Task 11: the cold probe surface. DISCOVERY is the phase whose whole
+	// point is a mechanical pass over the probe surface, and every later
+	// gate reads what that pass emitted — a campaign running DISCOVERY with
+	// no `probes run --emit` on record is working an unprobed surface. The
+	// line is standing and advisory: it names the exact command and clears
+	// the moment the emit is on record. It gates nothing.
+	if campaign != nil && objStr(cb, "phase") == "DISCOVERY" {
+		if emitted, err := probes.Emitted(campaign); err == nil && !emitted {
+			actions = append(actions, webv2Action(
+				"webv2 probes "+cid+" run --emit",
+				"cold probe surface — DISCOVERY is running with no probe "+
+					"emit on record, so the mechanical surface is unprobed"))
+		}
+	}
+
 	// probe surface: the ranked open rows lead
 	if ps := objAt(brief, "probe_surface"); ps.Kind == validation.Obj {
 		rows := listAt(ps, "open_rows")

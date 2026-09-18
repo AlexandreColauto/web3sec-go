@@ -48,6 +48,25 @@ func CampaignSurface(c *state.Campaign) (*validation.Value, error) {
 	return &v, nil
 }
 
+// Emitted is the read seam behind the cockpit's cold-probe-surface warning
+// (Task 11): has this campaign ever recorded a `probes run --emit`? The emit
+// path logs exactly one `probes.emit` event (EmitRows, after the plan rewrite
+// lands), so the ledger — not the surface artifact, which `probes run` writes
+// with or without --emit — is the honest witness. A ledger that cannot be read
+// is an error, never a silent "no": the caller renders it as unknown.
+func Emitted(c *state.Campaign) (bool, error) {
+	events, err := c.Events()
+	if err != nil {
+		return false, err
+	}
+	for _, e := range events {
+		if vStr(e, "type") == "probes.emit" {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 // CampaignIndex is campaign_index: the campaign's structural index artifact,
 // or nil when it is absent or unreadable.
 func CampaignIndex(c *state.Campaign) (*validation.Value, error) {
