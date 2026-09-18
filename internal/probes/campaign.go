@@ -53,7 +53,10 @@ func CampaignSurface(c *state.Campaign) (*validation.Value, error) {
 // path logs exactly one `probes.emit` event (EmitRows, after the plan rewrite
 // lands), so the ledger — not the surface artifact, which `probes run` writes
 // with or without --emit — is the honest witness. A ledger that cannot be read
-// is an error, never a silent "no": the caller renders it as unknown.
+// is an error, never a silent "no": the caller (briefing.NextActions) stays
+// SILENT on that error instead of claiming "no emit on record" — the line is
+// advisory, so an unreadable ledger drops it rather than lying. (Independent
+// Phase C review, .scratch/sdd/task-10-12-review.md, Task 11 finding 1.)
 func Emitted(c *state.Campaign) (bool, error) {
 	events, err := c.Events()
 	if err != nil {

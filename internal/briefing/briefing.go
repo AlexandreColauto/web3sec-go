@@ -2244,14 +2244,38 @@ func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, er
 		}
 	}
 
-	// Open SIBLING priorities (the disproof-sibling rule): a DISPROVED
-	// lifecycle finding names its adjacent unchecked property, which spawns
-	// an OPEN priority carrying sibling_of — the neighborhood stays open
-	// until the sibling is worked. Guarded like the criticality block:
-	// plan-less/model-less campaigns get zero new lines.
+	// The plan's own priorities carry two open-work families that must reach
+	// the cockpit: the open-question rows Task 10 mints, and open SIBLING
+	// priorities (the disproof-sibling rule: a DISPROVED lifecycle finding
+	// names its adjacent unchecked property, which spawns an OPEN priority
+	// carrying sibling_of — the neighborhood stays open until the sibling is
+	// worked). One readonly load serves both. Guarded like the criticality
+	// block: plan-less/model-less campaigns get zero new lines.
 	if campaign != nil {
-		if sibPlan, err := planner.LoadPlanReadonly(campaign); err == nil {
-			for _, p := range listAt(sibPlan, "priorities") {
+		if plan, err := planner.LoadPlanReadonly(campaign); err == nil {
+			// Task 10's Law ends "brief shows it" (independent Phase C
+			// review, .scratch/sdd/task-10-12-review.md, Task 10 finding 1):
+			// the minted `resolve open question Q-…: <text>` row was visible
+			// only through `webv2 plan --json` and the queue-debt counts, so
+			// the question's own text never reached the brief. It now renders
+			// its own line — the id and the text, command-first per the
+			// Task 7 law, pointing at the plan JSON that shows the row and
+			// its rank. `status` is the clear condition: answering the
+			// priority closes it, and the line goes with it.
+			for _, p := range listAt(plan, "priorities") {
+				text := objStr(p, "question")
+				if objStr(p, "status") != "open" ||
+					!strings.HasPrefix(text, "resolve open question ") {
+					continue
+				}
+				if id := objStr(p, "id"); id != "" &&
+					!strings.Contains(text, id) {
+					text = "resolve open question " + id + ": " + text
+				}
+				actions = append(actions, webv2Action(
+					"webv2 plan "+cid+" --json", text))
+			}
+			for _, p := range listAt(plan, "priorities") {
 				if objStr(p, "status") == "open" &&
 					objStr(p, "sibling_of") != "" {
 					pid := objStr(p, "id")
