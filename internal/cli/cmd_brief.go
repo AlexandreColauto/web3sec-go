@@ -79,12 +79,45 @@ func parseBriefArgs(args []string) (string, bool, bool, bool, error) {
 	return sp.pos[0].val, asJSON, deep, false, nil
 }
 
+// briefPrinter carries the shared printBrief context — the campaign handle,
+// the brief value, the writer and the resolved active-snapshot fallback — so
+// each section of the cockpit view is its own method with no parameter list
+// to grow.
+type briefPrinter struct {
+	c        *state.Campaign
+	b        validation.Value
+	r        *Runner
+	camp     validation.Value
+	snapshot string
+}
+
 func printBrief(c *state.Campaign, b validation.Value, r *Runner) error {
-	camp := validation.ObjAt(b, "campaign")
+	p := &briefPrinter{c: c, b: b, r: r, camp: validation.ObjAt(b, "campaign")}
+	p.briefHeader()
+	p.briefFindingsSummary()
+	p.briefSurfaces()
+	p.briefFindingLines()
+	p.briefBountyGates()
+	p.briefCriticalHunt()
+	p.briefHuntSignals()
+	p.briefStaleArtifacts()
+	p.briefMemoryRelationsProblems()
+	p.briefEconomics()
+	p.briefIntegrity()
+	p.briefAttentionNextActions()
+	return nil
+}
+
+// briefHeader emits the campaign line and, for a closed campaign, the
+// COMPLETE footer. It also resolves the "(none)" snapshot fallback that the
+// stale-artifact section reuses.
+func (p *briefPrinter) briefHeader() {
+	camp := p.camp
 	snapshot := validation.ObjStr(camp, "active_snapshot")
 	if snapshot == "" {
 		snapshot = "(none)"
 	}
+	p.snapshot = snapshot
 	line := fmt.Sprintf("campaign %s (%s) — phase %s, pass %s, stages %s/%s, "+
 		"discovery slots left %s, snapshot %s", validation.ObjStr(camp, "campaign_id"),
 		validation.ObjStr(camp, "program"), validation.ObjStr(camp, "phase"), pyReprVal(validation.ObjAt(camp, "pass")),
@@ -93,7 +126,7 @@ func printBrief(c *state.Campaign, b validation.Value, r *Runner) error {
 	if v := validation.ObjAt(camp, "elapsed_hours"); v.Kind != validation.Null {
 		line += fmt.Sprintf(", %sh elapsed", pyReprVal(v))
 	}
-	fmt.Fprintln(r.Out, line)
+	fmt.Fprintln(p.r.Out, line)
 	if t14Truthy(validation.ObjAt(camp, "closed")) {
 		by := validation.ObjStr(camp, "completed_by")
 		if by == "" {
@@ -103,84 +136,106 @@ func printBrief(c *state.Campaign, b validation.Value, r *Runner) error {
 		if reason == "" {
 			reason = "no reason recorded"
 		}
-		fmt.Fprintf(r.Out, "COMPLETE — closed by %s: %s\n", by, reason)
+		fmt.Fprintf(p.r.Out, "COMPLETE — closed by %s: %s\n", by, reason)
 	}
-	fs := validation.ObjAt(b, "findings")
+}
+
+// briefFindingsSummary emits the findings count line and, when present, the
+// probe-surface line.
+func (p *briefPrinter) briefFindingsSummary() {
+	fs := validation.ObjAt(p.b, "findings")
 	byStatus := validation.ObjAt(fs, "by_status")
 	byStatusTxt := "{ }"
 	if t14Truthy(byStatus) {
 		byStatusTxt = validation.PyRepr(byStatus)
 	}
-	fmt.Fprintf(r.Out, "findings: %s  %s\n", pyReprVal(validation.ObjAt(fs, "total")), byStatusTxt)
-	if ps := validation.ObjAt(b, "probe_surface"); t14Truthy(ps) {
+	fmt.Fprintf(p.r.Out, "findings: %s  %s\n", pyReprVal(validation.ObjAt(fs, "total")), byStatusTxt)
+	if ps := validation.ObjAt(p.b, "probe_surface"); t14Truthy(ps) {
 		pl := fmt.Sprintf("probe surface: %s rows (%s dispositioned, %s open)",
 			pyReprVal(validation.ObjAt(ps, "rows")), pyReprVal(validation.ObjAt(ps, "dispositioned")),
 			pyReprVal(validation.ObjAt(ps, "open")))
 		if t14Truthy(validation.ObjAt(ps, "stale")) {
 			pl += " — stale?"
 		}
-		fmt.Fprintln(r.Out, pl)
+		fmt.Fprintln(p.r.Out, pl)
 	}
+}
+
+// briefSurfaces emits the presence-gated surface sections: the opaque
+// tracked surfaces, the chain-assumption table, and the disposition review.
+func (p *briefPrinter) briefSurfaces() {
 	// G9 opaque surfaces (Task 6): presence-gated — a brief whose model
 	// carries no components prints no bytes here.
-	if ts := validation.ObjAt(b, "tracked_surfaces"); len(ts.A) > 0 {
-		fmt.Fprintln(r.Out, "  tracked-but-opaque surfaces (findings only):")
+	if ts := validation.ObjAt(p.b, "tracked_surfaces"); len(ts.A) > 0 {
+		fmt.Fprintln(p.r.Out, "  tracked-but-opaque surfaces (findings only):")
 		for _, ln := range t31Strings(ts) {
-			fmt.Fprintf(r.Out, "    %s\n", ln)
+			fmt.Fprintf(p.r.Out, "    %s\n", ln)
 		}
 	}
 	// G10 assumption table (Task 4): presence-gated — a brief whose model
 	// is chains-only (no declared assumptions, no gaps) prints no bytes.
-	if al := validation.ObjAt(b, "chain_assumption_lines"); len(al.A) > 0 {
-		fmt.Fprintln(r.Out, "  chain assumptions (declared table + gaps):")
+	if al := validation.ObjAt(p.b, "chain_assumption_lines"); len(al.A) > 0 {
+		fmt.Fprintln(p.r.Out, "  chain assumptions (declared table + gaps):")
 		for _, ln := range t31Strings(al) {
-			fmt.Fprintf(r.Out, "    %s\n", ln)
+			fmt.Fprintf(p.r.Out, "    %s\n", ln)
 		}
 	}
-	if dr := validation.ObjAt(b, "disposition_review"); len(dr.A) > 0 {
-		fmt.Fprintf(r.Out, "  disposition review: %d flagged high-risk "+
+	if dr := validation.ObjAt(p.b, "disposition_review"); len(dr.A) > 0 {
+		fmt.Fprintf(p.r.Out, "  disposition review: %d flagged high-risk "+
 			"dismissal(s) (B4)\n", len(dr.A))
 		for _, f := range dr.A {
 			phrases := strings.Join(t31Strings(validation.ObjAt(f, "phrases")), ", ")
-			fmt.Fprintf(r.Out, "    %s (row %s, tier %s, gap %s): %s [%s]\n",
+			fmt.Fprintf(p.r.Out, "    %s (row %s, tier %s, gap %s): %s [%s]\n",
 				validation.ObjStr(f, "priority"), validation.ObjStr(f, "row_id"),
 				pyReprVal(validation.ObjAt(f, "tier")), pyReprVal(validation.ObjAt(f, "assertion_gap")),
 				scalarStr(validation.ObjAt(f, "reason")), phrases)
 		}
 	}
+}
+
+// briefFindingLines emits the per-finding detail loops: materializable
+// chains, gate deficits, pending memory recalls, unreachable findings,
+// terminals and the E6 verification queue.
+func (p *briefPrinter) briefFindingLines() {
+	fs := validation.ObjAt(p.b, "findings")
 	for _, ch := range objListAt(fs, "materializable_chains") {
-		fmt.Fprintf(r.Out, "  materializable chain: %s\n",
+		fmt.Fprintf(p.r.Out, "  materializable chain: %s\n",
 			strings.Join(t31Strings(validation.ObjAt(ch, "members")), " -> "))
 	}
 	for _, d := range objListAt(fs, "gate_deficits") {
-		fmt.Fprintf(r.Out, "  %s [%s %s]: %s\n", validation.ObjStr(d, "finding_id"),
+		fmt.Fprintf(p.r.Out, "  %s [%s %s]: %s\n", validation.ObjStr(d, "finding_id"),
 			validation.ObjStr(d, "status"), validation.ObjStr(d, "level"), validation.ObjStr(d, "deficit"))
 	}
 	for _, fid := range t31Strings(validation.ObjAt(fs, "memory_recall_pending")) {
-		fmt.Fprintf(r.Out, "  %s: memory recall pending — run `webv2 recall %s "+
-			"--finding %s`\n", fid, c.CampaignID, fid)
+		fmt.Fprintf(p.r.Out, "  %s: memory recall pending — run `webv2 recall %s "+
+			"--finding %s`\n", fid, p.c.CampaignID, fid)
 	}
 	for _, u := range objListAt(fs, "structurally_unreachable") {
-		fmt.Fprintf(r.Out, "  %s stuck at %s (floor %s): %s\n",
+		fmt.Fprintf(p.r.Out, "  %s stuck at %s (floor %s): %s\n",
 			validation.ObjStr(u, "finding_id"), validation.ObjStr(u, "level"), validation.ObjStr(u, "floor"),
 			strings.Join(t31Strings(validation.ObjAt(u, "missing")), "; "))
 	}
-	for _, t := range objListAt(b, "terminals") {
-		fmt.Fprintf(r.Out, "  terminal -> %s: %s (capital $%s)\n",
+	for _, t := range objListAt(p.b, "terminals") {
+		fmt.Fprintf(p.r.Out, "  terminal -> %s: %s (capital $%s)\n",
 			validation.ObjStr(t, "terminal_capability"),
 			strings.Join(t31Strings(validation.ObjAt(t, "path")), " -> "),
 			t31Comma0(validation.ObjAt(t, "capital_usd")))
 	}
-	for _, q := range objListAt(b, "independent_verification_queue") {
+	for _, q := range objListAt(p.b, "independent_verification_queue") {
 		tag := ""
 		if t14Truthy(validation.ObjAt(q, "mandatory")) {
 			tag = " [MANDATORY]"
 		}
-		fmt.Fprintf(r.Out, "  E6 queue: %s (at %s)%s\n", validation.ObjStr(q, "finding_id"),
+		fmt.Fprintf(p.r.Out, "  E6 queue: %s (at %s)%s\n", validation.ObjStr(q, "finding_id"),
 			validation.ObjStr(q, "evidence_level"), tag)
 	}
-	if t14Truthy(validation.ObjAt(validation.ObjAt(b, "bounty"), "policy")) {
-		for _, x := range objListAt(validation.ObjAt(b, "bounty"), "evaluated") {
+}
+
+// briefBountyGates emits the per-finding bounty gate states, or the
+// no-policy line when no policy is loaded.
+func (p *briefPrinter) briefBountyGates() {
+	if t14Truthy(validation.ObjAt(validation.ObjAt(p.b, "bounty"), "policy")) {
+		for _, x := range objListAt(validation.ObjAt(p.b, "bounty"), "evaluated") {
 			var state string
 			switch {
 			case t14Truthy(validation.ObjAt(x, "submission_ready")):
@@ -191,12 +246,17 @@ func printBrief(c *state.Campaign, b validation.Value, r *Runner) error {
 			default:
 				state = "not eligible"
 			}
-			fmt.Fprintf(r.Out, "  gate: %s: %s\n", validation.ObjStr(x, "finding_id"), state)
+			fmt.Fprintf(p.r.Out, "  gate: %s: %s\n", validation.ObjStr(x, "finding_id"), state)
 		}
 	} else {
-		fmt.Fprintln(r.Out, "  gate: no policy loaded (run scope with a policy)")
+		fmt.Fprintln(p.r.Out, "  gate: no policy loaded (run scope with a policy)")
 	}
-	ch := asObjOrEmpty(validation.ObjAt(b, "critical_hunt"))
+}
+
+// briefCriticalHunt emits the critical-hunt block: prescreen matches, the
+// fork-diff summary and the recency top list.
+func (p *briefPrinter) briefCriticalHunt() {
+	ch := asObjOrEmpty(validation.ObjAt(p.b, "critical_hunt"))
 	if ps := validation.ObjAt(ch, "prescreen"); t14Truthy(ps) {
 		// Python: ', '.join(ps['matched']) or 'none' — an empty match list
 		// renders the literal "none", not an empty tail.
@@ -208,28 +268,34 @@ func printBrief(c *state.Campaign, b validation.Value, r *Runner) error {
 		if forced := t31Strings(validation.ObjAt(ps, "forced")); len(forced) > 0 {
 			pl += " (forced: " + strings.Join(forced, ", ") + ")"
 		}
-		fmt.Fprintln(r.Out, pl)
+		fmt.Fprintln(p.r.Out, pl)
 		for _, pair := range validation.ObjAt(ps, "near_matches").O {
 			names := t31Strings(pair.V)
 			if len(names) > 3 {
 				names = names[:3]
 			}
-			fmt.Fprintf(r.Out, "        near-miss %s: %s\n", pair.K,
+			fmt.Fprintf(p.r.Out, "        near-miss %s: %s\n", pair.K,
 				strings.Join(names, ", "))
 		}
 	}
 	if fd := validation.ObjAt(ch, "fork_diff"); t14Truthy(fd) {
-		fmt.Fprintf(r.Out, "  fork-diff: %s\n", validation.ObjStr(fd, "summary"))
+		fmt.Fprintf(p.r.Out, "  fork-diff: %s\n", validation.ObjStr(fd, "summary"))
 	}
 	for _, rec := range objListAt(ch, "recency_top") {
 		d := "never"
 		if v := validation.ObjAt(rec, "days_ago"); v.Kind != validation.Null {
 			d = pyReprVal(v) + "d ago"
 		}
-		fmt.Fprintf(r.Out, "  recency: %s %s  %s\n",
+		fmt.Fprintf(p.r.Out, "  recency: %s %s  %s\n",
 			pyFixed2(t31Float(validation.ObjAt(rec, "score"))), pyRight(d, 10),
 			validation.ObjStr(rec, "path"))
 	}
+}
+
+// briefHuntSignals emits the hunt's derived signals: detected amplifiers,
+// boosted classes, SAST tool flags and the invariant-verification line.
+func (p *briefPrinter) briefHuntSignals() {
+	ch := asObjOrEmpty(validation.ObjAt(p.b, "critical_hunt"))
 	amps := asObjOrEmpty(validation.ObjAt(ch, "amplifiers"))
 	if detected := validation.ObjAt(amps, "detected"); t14Truthy(detected) {
 		parts := []string{}
@@ -242,24 +308,24 @@ func printBrief(c *state.Campaign, b validation.Value, r *Runner) error {
 			parts = append(parts, fmt.Sprintf("%s(%s)", k,
 				pyReprVal(validation.ObjAt(detected, k))))
 		}
-		fmt.Fprintln(r.Out, "  amplifiers: "+strings.Join(parts, ", "))
+		fmt.Fprintln(p.r.Out, "  amplifiers: "+strings.Join(parts, ", "))
 		for _, bc := range objListAt(amps, "boosted_classes") {
-			fmt.Fprintf(r.Out, "        boosted %s: %s\n", validation.ObjStr(bc, "bug_class"),
+			fmt.Fprintf(p.r.Out, "        boosted %s: %s\n", validation.ObjStr(bc, "bug_class"),
 				strings.Join(t31Strings(validation.ObjAt(bc, "amplifiers")), ", "))
 		}
 	}
 	// G1 tool flags: present only when a finding carries detector
 	// provenance (briefing.ChToolFlags returns Null otherwise).
 	if tf := validation.ObjAt(ch, "tool_flags"); t14Truthy(tf) {
-		fmt.Fprintln(r.Out, "TOOL FLAGS (SAST hypotheses)")
-		fmt.Fprintf(r.Out, "  flags: %s, corroborated: %d\n",
+		fmt.Fprintln(p.r.Out, "TOOL FLAGS (SAST hypotheses)")
+		fmt.Fprintf(p.r.Out, "  flags: %s, corroborated: %d\n",
 			pyReprVal(validation.ObjAt(tf, "total")),
 			len(t31Strings(validation.ObjAt(tf, "corroborated"))))
 		census := []string{}
 		for _, pair := range validation.ObjAt(tf, "by_verdict").O {
 			census = append(census, pair.K+" "+pyReprVal(pair.V))
 		}
-		fmt.Fprintf(r.Out, "  by verdict: %s\n", strings.Join(census, ", "))
+		fmt.Fprintf(p.r.Out, "  by verdict: %s\n", strings.Join(census, ", "))
 	}
 	iv := asObjOrEmpty(validation.ObjAt(ch, "invariant_verification"))
 	if t14Truthy(validation.ObjAt(iv, "total")) {
@@ -267,10 +333,15 @@ func printBrief(c *state.Campaign, b validation.Value, r *Runner) error {
 		if unv == "" {
 			unv = "none"
 		}
-		fmt.Fprintf(r.Out, "  invariants: %s total — unverified model-derived: "+
+		fmt.Fprintf(p.r.Out, "  invariants: %s total — unverified model-derived: "+
 			"%s\n", pyReprVal(validation.ObjAt(iv, "total")), unv)
 	}
-	for _, s := range objListAt(ch, "stale_artifacts") {
+}
+
+// briefStaleArtifacts emits one line per stale artifact, with the reason
+// wording pinned by the r9/r46 review notes.
+func (p *briefPrinter) briefStaleArtifacts() {
+	for _, s := range objListAt(validation.ObjAt(p.b, "critical_hunt"), "stale_artifacts") {
 		// r9 (critic): the reason must tell the truth about the geometry.
 		// "active pin moved" is only honest when a pin EXISTS to move.
 		// r46: "computed before any pin existed" was a story the recorded
@@ -280,7 +351,7 @@ func printBrief(c *state.Campaign, b validation.Value, r *Runner) error {
 		// critic's repro: `snap --exclude bulk`, then `index`, then
 		// `brief` claimed no pin ever existed while one did). Say what the
 		// field establishes: the workspace it hashed was not pinned.
-		from, active := validation.ObjStr(s, "stale_snapshot"), snapshot
+		from, active := validation.ObjStr(s, "stale_snapshot"), p.snapshot
 		if active == "(none)" {
 			active = ""
 		}
@@ -299,14 +370,19 @@ func printBrief(c *state.Campaign, b validation.Value, r *Runner) error {
 		} else {
 			why = "computed on " + from + ", " + why
 		}
-		fmt.Fprintf(r.Out, "  STALE %s (%s) — re-run: %s\n",
+		fmt.Fprintf(p.r.Out, "  STALE %s (%s) — re-run: %s\n",
 			validation.ObjStr(s, "artifact"), why, validation.ObjStr(s, "re_run"))
 	}
-	for _, m := range objListAt(b, "pending_memory") {
-		fmt.Fprintf(r.Out, "  memory decision: %s (%s/%s)\n",
+}
+
+// briefMemoryRelationsProblems emits pending memory decisions, the relations
+// summary line (with drift suffix) and the problems block.
+func (p *briefPrinter) briefMemoryRelationsProblems() {
+	for _, m := range objListAt(p.b, "pending_memory") {
+		fmt.Fprintf(p.r.Out, "  memory decision: %s (%s/%s)\n",
 			validation.ObjStr(m, "memory_id"), validation.ObjStr(m, "kind"), validation.ObjStr(m, "status"))
 	}
-	rv := validation.ObjAt(b, "relations")
+	rv := validation.ObjAt(p.b, "relations")
 	kinds := []string{}
 	for _, pair := range validation.ObjAt(rv, "by_kind").O {
 		if t14Truthy(pair.V) {
@@ -322,16 +398,20 @@ func printBrief(c *state.Campaign, b validation.Value, r *Runner) error {
 	if drift := validation.ObjAt(rv, "drift_problems"); t14Truthy(drift) {
 		relLine += " — DRIFT: " + validation.PyRepr(drift)
 	}
-	fmt.Fprintln(r.Out, relLine)
-	if problems := objListAt(b, "problems"); len(problems) > 0 {
-		fmt.Fprintln(r.Out, "  problems:")
-		for _, p := range problems {
-			fmt.Fprintf(r.Out, "    %s\n", scalarStr(p))
+	fmt.Fprintln(p.r.Out, relLine)
+	if problems := objListAt(p.b, "problems"); len(problems) > 0 {
+		fmt.Fprintln(p.r.Out, "  problems:")
+		for _, pr := range problems {
+			fmt.Fprintf(p.r.Out, "    %s\n", scalarStr(pr))
 		}
 	}
-	ec := validation.ObjAt(validation.ObjAt(b, "economics"), "totals")
+}
+
+// briefEconomics emits the cost/budget/yield line.
+func (p *briefPrinter) briefEconomics() {
+	ec := validation.ObjAt(validation.ObjAt(p.b, "economics"), "totals")
 	y := validation.ObjAt(ec, "yield_usd_per_usd")
-	budget := validation.ObjAt(validation.ObjAt(b, "economics"), "budget")
+	budget := validation.ObjAt(validation.ObjAt(p.b, "economics"), "budget")
 	var budgetLine string
 	if validation.ObjStr(budget, "status") == "no-limit" {
 		budgetLine = "no cost ceiling set (unbounded)"
@@ -346,11 +426,16 @@ func printBrief(c *state.Campaign, b validation.Value, r *Runner) error {
 	if y.Kind != validation.Null {
 		yieldTxt = pyFixed2(t31Float(y)) + "x"
 	}
-	fmt.Fprintf(r.Out, "  economics: cost $%s, confirmed %s / $%s, yield %s  "+
+	fmt.Fprintf(p.r.Out, "  economics: cost $%s, confirmed %s / $%s, yield %s  "+
 		"[%s]\n", t31Comma2(validation.ObjAt(ec, "total_cost_usd")),
 		pyReprVal(validation.ObjAt(ec, "confirmed_findings")),
 		t31Comma0(validation.ObjAt(ec, "confirmed_value_usd")), yieldTxt, budgetLine)
-	integ := validation.ObjAt(b, "integrity")
+}
+
+// briefIntegrity emits the integrity verdict (or the not-checked line) and,
+// when present, the shared-store verdict.
+func (p *briefPrinter) briefIntegrity() {
+	integ := validation.ObjAt(p.b, "integrity")
 	if ok := validation.ObjAt(integ, "ok"); ok.Kind != validation.Null {
 		problems := validation.ObjAt(integ, "problems")
 		n := 0
@@ -365,32 +450,36 @@ func printBrief(c *state.Campaign, b validation.Value, r *Runner) error {
 		if t14Truthy(ok) {
 			verdict = "PASS"
 		}
-		fmt.Fprintf(r.Out, "  integrity: %s — %d problem(s) (fast: event-log "+
+		fmt.Fprintf(p.r.Out, "  integrity: %s — %d problem(s) (fast: event-log "+
 			"chain; --deep for full re-hashes)\n", verdict, n)
 		if shared := validation.ObjAt(integ, "shared_store"); t14Truthy(shared) {
 			sv := "FAIL"
 			if t14Truthy(validation.ObjAt(shared, "ok")) {
 				sv = "PASS"
 			}
-			fmt.Fprintf(r.Out, "  shared store: %s (%s signatures, %s "+
+			fmt.Fprintf(p.r.Out, "  shared store: %s (%s signatures, %s "+
 				"memory rows)\n", sv, pyReprVal(validation.ObjAt(shared, "signature_count")),
 				pyReprVal(validation.ObjAt(shared, "memory_count")))
 		}
 	} else {
-		fmt.Fprintln(r.Out, "  integrity: not checked (use --deep)")
+		fmt.Fprintln(p.r.Out, "  integrity: not checked (use --deep)")
 	}
-	att := asObjOrEmpty(validation.ObjAt(b, "attention"))
+}
+
+// briefAttentionNextActions emits the attention block and the numbered
+// next-actions list that closes the brief.
+func (p *briefPrinter) briefAttentionNextActions() {
+	att := asObjOrEmpty(validation.ObjAt(p.b, "attention"))
 	if lines := objListAt(att, "lines"); len(lines) > 0 {
-		fmt.Fprintln(r.Out, "  attention:")
+		fmt.Fprintln(p.r.Out, "  attention:")
 		for _, l := range lines {
-			fmt.Fprintf(r.Out, "    %s\n", scalarStr(l))
+			fmt.Fprintf(p.r.Out, "    %s\n", scalarStr(l))
 		}
 	}
-	fmt.Fprintln(r.Out, "next actions:")
-	for i, a := range objListAt(b, "next_actions") {
-		fmt.Fprintf(r.Out, "  %d. %s\n", i+1, scalarStr(a))
+	fmt.Fprintln(p.r.Out, "next actions:")
+	for i, a := range objListAt(p.b, "next_actions") {
+		fmt.Fprintf(p.r.Out, "  %d. %s\n", i+1, scalarStr(a))
 	}
-	return nil
 }
 
 // t31Strings renders a list value as Go strings (Python's join semantics need
