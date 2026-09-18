@@ -296,28 +296,87 @@ func (c *Campaign) refreshArtifact(artifactID, reason, actor, newKind string) (v
 	if err != nil {
 		return validation.VNull(), err
 	}
-	arts := validation.ObjAt(st, "artifacts")
+	r := &refreshArtCtx{c: c, artifactID: artifactID, reason: reason,
+		actor: actor, newKind: newKind, st: st}
+	if err := r.findRow(); err != nil {
+		return validation.VNull(), err
+	}
+	if err := r.checkFile(); err != nil {
+		return validation.VNull(), err
+	}
+	if err := r.checkReason(); err != nil {
+		return validation.VNull(), err
+	}
+	if err := r.applyRow(); err != nil {
+		return validation.VNull(), err
+	}
+	return r.saveAndLog()
+}
+
+// refreshArtCtx carries the shared refreshArtifact context across its
+// section helpers (row lookup, file/reason checks, row rewrite, save +
+// event with unwind).
+type refreshArtCtx struct {
+	c          *Campaign
+	artifactID string
+	reason     string
+	actor      string
+	newKind    string
+	st         validation.Value
+	arts       validation.Value
+	idx        int
+	a          validation.Value
+	p          string
+	old        validation.Value
+	sha        string
+	count      int64
+	migrated   string
+}
+
+// refreshArtFindRow locates the registry row for the id, refusing an
+// unknown artifact exactly as the reference does.
+func (r *refreshArtCtx) findRow() error {
+	arts := validation.ObjAt(r.st, "artifacts")
+	r.arts = arts
 	idx := -1
 	for i, a := range arts.A {
-		if validation.ObjStr(a, "artifact_id") == artifactID {
+		if validation.ObjStr(a, "artifact_id") == r.artifactID {
 			idx = i
 			break
 		}
 	}
 	if idx < 0 {
-		return validation.VNull(), fmt.Errorf("unknown artifact %s",
-			validation.PyReprStr(artifactID))
+		return fmt.Errorf("unknown artifact %s",
+			validation.PyReprStr(r.artifactID))
 	}
-	a := arts.A[idx]
-	p := c.resolveArtifactPath(a)
+	r.idx = idx
+	r.a = arts.A[idx]
+	return nil
+}
+
+// refreshArtCheckFile resolves the row's path and refuses a refresh whose
+// file no longer exists.
+func (r *refreshArtCtx) checkFile() error {
+	p := r.c.resolveArtifactPath(r.a)
 	if _, err := os.Stat(p); err != nil {
-		return validation.VNull(),
-			fmt.Errorf("artifact file missing, cannot refresh: %s", p)
+		return fmt.Errorf("artifact file missing, cannot refresh: %s", p)
 	}
-	if reason == "" || strings.TrimSpace(reason) == "" {
-		return validation.VNull(),
-			fmt.Errorf("refresh_artifact requires a written reason")
+	r.p = p
+	return nil
+}
+
+// refreshArtCheckReason refuses an empty reason (the file check comes
+// BEFORE the reason check, as in Python).
+func (r *refreshArtCtx) checkReason() error {
+	if r.reason == "" || strings.TrimSpace(r.reason) == "" {
+		return fmt.Errorf("refresh_artifact requires a written reason")
 	}
+	return nil
+}
+
+// refreshArtApplyRow rewrites the row: optional kind migration, fresh
+// sha256, refreshed_at, refresh_reason and the bumped refresh_count.
+func (r *refreshArtCtx) applyRow() error {
 	// r12 NOTE (critic issue 6, REFUSED): a hash-equal refresh does log
 	// an event and bump refresh_count — deliberately. Two ported twin
 	// pins demand it: TestRefreshArtifact ("second refresh increments to
@@ -327,62 +386,70 @@ func (c *Campaign) refreshArtifact(artifactID, reason, actor, newKind string) (v
 	// re-index → prove says "regenerate" — is honest: something DID
 	// happen after report.generated. A content-no-op refresh would trade
 	// recorded provenance for convenience, so the flip stays.
-	old := validation.ObjAt(a, "sha256")
-	oldKind := validation.ObjStr(a, "kind")
-	migrated := ""
-	if newKind != "" && oldKind != newKind {
-		migrated = oldKind + "→" + newKind
-		a.O = validation.SetOrAppend(a.O, "kind", validation.VStr(newKind))
+	r.old = validation.ObjAt(r.a, "sha256")
+	oldKind := validation.ObjStr(r.a, "kind")
+	r.migrated = ""
+	if r.newKind != "" && oldKind != r.newKind {
+		r.migrated = oldKind + "→" + r.newKind
+		r.a.O = validation.SetOrAppend(r.a.O, "kind", validation.VStr(r.newKind))
 	}
-	sha, err := validation.Sha256File(p)
+	sha, err := validation.Sha256File(r.p)
 	if err != nil {
-		return validation.VNull(), err
+		return err
 	}
+	r.sha = sha
 	count := int64(0)
-	if rc := validation.ObjAt(a, "refresh_count"); rc.Kind == validation.Int {
+	if rc := validation.ObjAt(r.a, "refresh_count"); rc.Kind == validation.Int {
 		if n, err := strconv.ParseInt(validation.IntText(rc), 10, 64); err == nil {
 			count = n
 		}
 	}
-	a.O = validation.SetOrAppend(a.O, "sha256", validation.VStr(sha))
-	a.O = validation.SetOrAppend(a.O, "refreshed_at", validation.VStr(nowIso()))
-	a.O = validation.SetOrAppend(a.O, "refresh_reason", validation.VStr(reason))
-	a.O = validation.SetOrAppend(a.O, "refresh_count", validation.VInt(count+1))
-	arts.A[idx] = a
-	st.O = validation.SetOrAppend(st.O, "artifacts", arts)
+	r.count = count
+	r.a.O = validation.SetOrAppend(r.a.O, "sha256", validation.VStr(sha))
+	r.a.O = validation.SetOrAppend(r.a.O, "refreshed_at", validation.VStr(nowIso()))
+	r.a.O = validation.SetOrAppend(r.a.O, "refresh_reason", validation.VStr(r.reason))
+	r.a.O = validation.SetOrAppend(r.a.O, "refresh_count", validation.VInt(count+1))
+	r.arts.A[r.idx] = r.a
+	r.st.O = validation.SetOrAppend(r.st.O, "artifacts", r.arts)
+	return nil
+}
+
+// refreshArtSaveAndLog saves the projection and logs artifact.refreshed,
+// unwinding the state when the ledger refuses the event.
+func (r *refreshArtCtx) saveAndLog() (validation.Value, error) {
 	// r17: capture disk bytes BEFORE this save — under the caller's lock
 	// they are the last CONSISTENT state (refresh is only reached while
 	// a locked method runs; the disk has not been touched since its
 	// load).
-	prevRaw, hadRaw := c.rawState()
-	if err := c.save(st); err != nil {
+	prevRaw, hadRaw := r.c.rawState()
+	if err := r.c.save(r.st); err != nil {
 		return validation.VNull(), err
 	}
 	data := validation.VObj(
-		kv("kind", validation.ObjAt(a, "kind")),
-		kv("actor", validation.VStr(actor)),
-		kv("reason", validation.VStr(reason)),
-		kv("old_sha256", old),
-		kv("new_sha256", validation.VStr(sha)),
-		kv("refresh_count", validation.VInt(count+1)),
+		kv("kind", validation.ObjAt(r.a, "kind")),
+		kv("actor", validation.VStr(r.actor)),
+		kv("reason", validation.VStr(r.reason)),
+		kv("old_sha256", r.old),
+		kv("new_sha256", validation.VStr(r.sha)),
+		kv("refresh_count", validation.VInt(r.count+1)),
 	)
-	if migrated != "" {
+	if r.migrated != "" {
 		data.O = validation.SetOrAppend(data.O, "kind_migrated",
-			validation.VStr(migrated))
+			validation.VStr(r.migrated))
 	}
-	if _, err := c.Log("artifact.refreshed", &artifactID, &data); err != nil {
+	if _, err := r.c.Log("artifact.refreshed", &r.artifactID, &data); err != nil {
 		// r17 P1: the refresh half-landed SILENTLY — projection shows
 		// the new sha + count, the log has no artifact.refreshed, and
 		// audit stays green because the only refreshed check runs
 		// log->state. UNWIND, like every other save-then-log site
 		// (the r16 headline said "every": prune/register got it,
 		// refresh had been skipped by the converter).
-		if uerr := c.unwindState(prevRaw, hadRaw); uerr != nil {
+		if uerr := r.c.unwindState(prevRaw, hadRaw); uerr != nil {
 			return validation.VNull(), err
 		}
 		return validation.VNull(), err
 	}
-	return a, nil
+	return r.a, nil
 }
 
 // KeptGhost is one same-path registry row a re-registration did NOT retire
