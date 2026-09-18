@@ -248,6 +248,7 @@ func buildStageJoins() map[string]JoinSpec {
 	for _, s := range specs {
 		spec, err := Join(JoinAll, s.deps, nil, nil)
 		if err != nil {
+			// aislop-ignore-next-line ai-slop/go-library-panic — deliberate: embedded STAGE_JOINS parsed at init, the template.Must contract
 			panic("pipeline: STAGE_JOINS: " + err.Error())
 		}
 		out[s.sid] = spec

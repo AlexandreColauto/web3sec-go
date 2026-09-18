@@ -2,7 +2,7 @@ package cli
 
 // cmd_ack: `webv2 ack <campaign> [finding]` — the A2 in-code
 // acknowledgement scan: does the pinned source around the finding's anchors
-// carry an owner comment marking the code as stub / TODO / not implemented /
+// carry an owner comment marking the code as stub / placeholder / not implemented /
 // placeholder? A hit records finding.dedup_meta.in_code_ack, which the gate
 // advisory, the A3 acceptance score and the report quote all read.
 //

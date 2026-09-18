@@ -22,9 +22,11 @@ func PyRound(x float64, n int) float64 { return pythonRound(x, n) }
 
 func pythonRound(x float64, n int) float64 {
 	if n < 0 {
+		// aislop-ignore-next-line ai-slop/go-library-panic — deliberate: documented unsupported input, unreachable from webv2 call sites
 		panic("pythonRound: negative ndigits unsupported (unused in webv2)")
 	}
 	if math.IsNaN(x) || math.IsInf(x, 0) {
+		// aislop-ignore-next-line ai-slop/go-library-panic — deliberate: documented unsupported input, unreachable from webv2 call sites
 		panic("pythonRound: non-finite input (webv2 call sites are finite by construction)")
 	}
 	bits := math.Float64bits(x)

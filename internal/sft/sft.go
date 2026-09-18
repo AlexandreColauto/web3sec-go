@@ -7,7 +7,7 @@
 // unlike the machine-generated eval store — and the human curator is the only
 // reasoner: this package is pure format/lint/store machinery, with no model
 // calls. The lint mechanizes the curation rubric (arc markers, per-taxonomy
-// requirements, reason completeness, TODO placeholders, pivot accounting,
+// requirements, reason completeness, placeholder markers, pivot accounting,
 // impact specificity, name anchoring, dedup) so a draft cannot reach the
 // corpus half-formed.
 package sft

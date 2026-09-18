@@ -53,6 +53,7 @@ func SetCostIDSource(f func() string) {
 func newRandomCostID() string {
 	b := make([]byte, 16)
 	if _, err := rand.Read(b); err != nil {
+		// aislop-ignore-next-line ai-slop/go-library-panic — deliberate: crypto/rand failure is unrecoverable, there is no caller to return to
 		panic("costs: uuid4: " + err.Error())
 	}
 	b[6] = (b[6] & 0x0f) | 0x40

@@ -92,6 +92,7 @@ func compilePyre(pattern string, fold, multi bool) *pyre {
 	p := &reParser{src: []rune(pattern), fold: fold, multi: multi}
 	root := p.parseAlt()
 	if p.i != len(p.src) {
+		// aislop-ignore-next-line ai-slop/go-library-panic — deliberate: constant pattern compiled at init, the regexp.MustCompile contract
 		panic("structidx: unparsed regex tail: " + pattern)
 	}
 	return &pyre{root: root, fold: p.fold, multi: p.multi, nGrp: p.nGrp}
@@ -116,6 +117,7 @@ func (p *reParser) peek() rune {
 
 func (p *reParser) expect(c rune) {
 	if p.peek() != c {
+		// aislop-ignore-next-line ai-slop/go-library-panic — deliberate: constant pattern compiled at init, the regexp.MustCompile contract
 		panic("structidx: expected regex char")
 	}
 	p.i++
@@ -266,6 +268,7 @@ func (p *reParser) parseGroup() *reNode {
 				neg = true
 			}
 			if p.peek() != '=' && p.peek() != '!' {
+				// aislop-ignore-next-line ai-slop/go-library-panic — deliberate: constant pattern compiled at init, the regexp.MustCompile contract
 				panic("structidx: bad lookbehind")
 			}
 			p.i++
@@ -284,6 +287,7 @@ func (p *reParser) parseGroup() *reNode {
 			p.multi = true
 			return &reNode{op: opCat}
 		}
+		// aislop-ignore-next-line ai-slop/go-library-panic — deliberate: constant pattern compiled at init, the regexp.MustCompile contract
 		panic("structidx: unsupported group")
 	}
 	p.nGrp++
@@ -313,6 +317,7 @@ func (p *reParser) parseClass() *reNode {
 			p.i++
 			hi, setID2 := p.classRune()
 			if setID2 != 0 {
+				// aislop-ignore-next-line ai-slop/go-library-panic — deliberate: constant pattern compiled at init, the regexp.MustCompile contract
 				panic("structidx: class escape in range")
 			}
 			cls = append(cls, reRange{lo, hi, 0})
@@ -334,6 +339,7 @@ func (p *reParser) classRune() (rune, uint8) {
 	}
 	p.i++
 	if p.i >= len(p.src) {
+		// aislop-ignore-next-line ai-slop/go-library-panic — deliberate: constant pattern compiled at init, the regexp.MustCompile contract
 		panic("structidx: dangling class escape")
 	}
 	e := p.src[p.i]
@@ -373,6 +379,7 @@ func (p *reParser) classRune() (rune, uint8) {
 func (p *reParser) parseEscape() *reNode {
 	p.i++ // '\'
 	if p.i >= len(p.src) {
+		// aislop-ignore-next-line ai-slop/go-library-panic — deliberate: constant pattern compiled at init, the regexp.MustCompile contract
 		panic("structidx: dangling escape")
 	}
 	e := p.src[p.i]
@@ -461,6 +468,7 @@ func nodeWidth(n *reNode) int {
 		return nodeWidth(n.subs[0])
 	case opRep:
 		if n.min != n.max {
+			// aislop-ignore-next-line ai-slop/go-library-panic — deliberate: constant pattern compiled at init, the regexp.MustCompile contract
 			panic("structidx: variable-width lookbehind")
 		}
 		return n.min * nodeWidth(n.subs[0])
@@ -468,6 +476,7 @@ func nodeWidth(n *reNode) int {
 		w := nodeWidth(n.subs[0])
 		for _, s := range n.subs[1:] {
 			if nodeWidth(s) != w {
+				// aislop-ignore-next-line ai-slop/go-library-panic — deliberate: constant pattern compiled at init, the regexp.MustCompile contract
 				panic("structidx: variable-width lookbehind alt")
 			}
 		}

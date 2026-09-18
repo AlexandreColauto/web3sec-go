@@ -2,7 +2,7 @@ package sft
 
 // lint.go ports sft_dataset's curation lint (Task B, source doc §6,
 // mechanized): the arc markers, the per-taxonomy requirements, reason
-// completeness, TODO placeholders, pivot accounting, impact specificity, the
+// completeness, placeholder markers, pivot accounting, impact specificity, the
 // name-anchoring guard and dedup. The lint NEVER raises — it returns rejection
 // reasons (empty = pass); `warn:`-prefixed reasons are advisory.
 

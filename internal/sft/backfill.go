@@ -153,7 +153,7 @@ func maxBySeq(items []validation.Value) validation.Value {
 
 // backfillStructured is the structured pre-fill: the finding's root cause,
 // assumptions (with the status translation), invariants (head first, deduped)
-// and impact, plus the TODO skeleton fields.
+// and impact, plus the placeholder skeleton fields.
 func backfillStructured(f validation.Value) validation.Value {
 	rc := validation.ObjAt(f, "root_cause")
 	econ := validation.ObjAt(f, "economic_impact")

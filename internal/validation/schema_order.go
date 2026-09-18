@@ -281,10 +281,12 @@ func ifValid(compiler *v6.Compiler, cache *map[*Value]*v6.Schema, cond *Value, i
 	}
 	loc := "https://web3sec.local/ifcond/" + strconv.Itoa(len(*cache))
 	if err := compiler.AddResource(loc, toAny(*cond)); err != nil {
+		// aislop-ignore-next-line ai-slop/go-library-panic — deliberate: embedded schema $ref, validated by the build sweep
 		panic("validation: if-condition resource: " + err.Error())
 	}
 	sc, err := compiler.Compile(loc)
 	if err != nil {
+		// aislop-ignore-next-line ai-slop/go-library-panic — deliberate: embedded schema $ref, validated by the build sweep
 		panic("validation: if-condition compile: " + err.Error())
 	}
 	(*cache)[cond] = sc
@@ -296,6 +298,7 @@ func ifValid(compiler *v6.Compiler, cache *map[*Value]*v6.Schema, cond *Value, i
 func resolveRef(node, root Value) Value {
 	for steps := 0; node.Kind == Obj; steps++ {
 		if steps > 32 {
+			// aislop-ignore-next-line ai-slop/go-library-panic — deliberate: a $ref cycle in an embedded schema is a broken build, caught by the build sweep
 			panic("validation: $ref cycle")
 		}
 		ref := objKey(node, "$ref")
@@ -320,12 +323,14 @@ func derefFragment(root Value, ref string) Value {
 		case Arr:
 			n, err := strconv.Atoi(part)
 			if err != nil || n < 0 || n >= len(cur.A) {
+				// aislop-ignore-next-line ai-slop/go-library-panic — deliberate: embedded schema $ref, validated by the build sweep
 				panic("validation: bad $ref fragment " + ref)
 			}
 			cur = cur.A[n]
 		}
 	}
 	if cur.Kind == 0 {
+		// aislop-ignore-next-line ai-slop/go-library-panic — deliberate: embedded schema $ref, validated by the build sweep
 		panic("validation: unresolvable $ref " + ref)
 	}
 	return cur

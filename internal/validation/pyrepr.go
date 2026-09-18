@@ -34,6 +34,7 @@ func PyRepr(v Value) string {
 		}
 		return "{" + strings.Join(parts, ", ") + "}"
 	}
+	// aislop-ignore-next-line ai-slop/go-library-panic — deliberate: internal enum invariant, an out-of-range Kind is a programming error
 	panic("validation: PyRepr of bad kind " + strconv.Itoa(int(v.Kind)))
 }
 

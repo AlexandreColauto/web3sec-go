@@ -48,6 +48,7 @@ func newId(prefix string, n int) string {
 		copy(b, h[:16])
 		uuidPinCounter++
 	} else if _, err := rand.Read(b); err != nil {
+		// aislop-ignore-next-line ai-slop/go-library-panic — deliberate: crypto/rand failure is unrecoverable, there is no caller to return to
 		panic("state: uuid4: " + err.Error())
 	}
 	b[6] = (b[6] & 0x0f) | 0x40 // version 4
