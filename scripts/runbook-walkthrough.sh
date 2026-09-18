@@ -86,10 +86,17 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$GO_ROOT"
 
-export GOCACHE="${GOCACHE:-$GO_ROOT/.scratch/gocache}"
-export GOPATH="${GOPATH:-$GO_ROOT/.scratch/gomod}"
-export GOMODCACHE="${GOMODCACHE:-$GOPATH/pkg/mod}"
-export GOFLAGS="${GOFLAGS:--mod=mod}"
+# The Go caches live under .scratch so the script works in sandboxed
+# environments where $HOME is not writable. These are FORCED, not
+# `${VAR:-default}` fallbacks: an inherited GOPATH may point at a read-only
+# location (this harness exports GOPATH=$HOME/go), which would defeat the
+# convention and make the build die on a cache it cannot write instead of
+# building. Same plain-export rule as scripts/verify-full.sh and
+# scripts/security-check.sh.
+export GOCACHE="$GO_ROOT/.scratch/gocache"
+export GOPATH="$GO_ROOT/.scratch/gomod"
+export GOMODCACHE="$GO_ROOT/.scratch/gomod/pkg/mod"
+export GOFLAGS=-mod=mod
 
 RB="$GO_ROOT/.scratch/t37/runbook-walkthrough"
 WEBV2="$RB/webv2"
