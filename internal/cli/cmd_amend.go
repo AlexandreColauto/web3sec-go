@@ -55,12 +55,20 @@ func runAmend(root string, args []string, r *Runner) int {
 	return t14Dispatch(root, r, func() error { return amendCmd(root, args, r) })
 }
 
-func amendCmd(root string, args []string, r *Runner) error {
-	var opts findings.AmendOpts
-	actorSet := false
-	var pos []string
-	var posIdx []int
-	var unknown []immunizeUnk
+// amendArgs carries the parsed argv of the amend verb.
+type amendArgs struct {
+	opts     findings.AmendOpts
+	actorSet bool
+	pos      []string
+	posIdx   []int
+	unknown  []immunizeUnk
+	helpSeen bool
+}
+
+// amendParseArgs parses the flag loop, printing the help block and flagging
+// it when -h/--help appears mid-argv.
+func amendParseArgs(args []string, r *Runner) (*amendArgs, error) {
+	pa := &amendArgs{}
 	for i := 0; i < len(args); i++ {
 		a := args[i]
 		switch {
@@ -68,63 +76,71 @@ func amendCmd(root string, args []string, r *Runner) error {
 			// argparse's help action fires while parsing, before required
 			// arguments are checked, and exits 0.
 			fmt.Fprint(r.Out, amendHelp)
-			return nil
+			pa.helpSeen = true
+			return pa, nil
 		case a == "--title" && i+1 < len(args) && !looksLikeOption(args[i+1]):
-			opts.Title, opts.HasTitle = args[i+1], true
+			pa.opts.Title, pa.opts.HasTitle = args[i+1], true
 			i++
 		case strings.HasPrefix(a, "--title="):
-			opts.Title, opts.HasTitle = strings.TrimPrefix(a, "--title="), true
+			pa.opts.Title, pa.opts.HasTitle = strings.TrimPrefix(a, "--title="), true
 		case a == "--title":
-			return t14ArgparseErr(amendUsage, "amend",
+			return nil, t14ArgparseErr(amendUsage, "amend",
 				"argument --title: expected one argument")
 		case a == "--class" && i+1 < len(args) && !looksLikeOption(args[i+1]):
-			opts.Class, opts.HasClass = args[i+1], true
+			pa.opts.Class, pa.opts.HasClass = args[i+1], true
 			i++
 		case strings.HasPrefix(a, "--class="):
-			opts.Class, opts.HasClass = strings.TrimPrefix(a, "--class="), true
+			pa.opts.Class, pa.opts.HasClass = strings.TrimPrefix(a, "--class="), true
 		case a == "--class":
-			return t14ArgparseErr(amendUsage, "amend",
+			return nil, t14ArgparseErr(amendUsage, "amend",
 				"argument --class: expected one argument")
 		case a == "--claim" && i+1 < len(args) && !looksLikeOption(args[i+1]):
-			opts.Claim, opts.HasClaim = args[i+1], true
+			pa.opts.Claim, pa.opts.HasClaim = args[i+1], true
 			i++
 		case strings.HasPrefix(a, "--claim="):
-			opts.Claim, opts.HasClaim = strings.TrimPrefix(a, "--claim="), true
+			pa.opts.Claim, pa.opts.HasClaim = strings.TrimPrefix(a, "--claim="), true
 		case a == "--claim":
-			return t14ArgparseErr(amendUsage, "amend",
+			return nil, t14ArgparseErr(amendUsage, "amend",
 				"argument --claim: expected one argument")
 		case a == "--note" && i+1 < len(args) && !looksLikeOption(args[i+1]):
-			opts.Note = args[i+1]
+			pa.opts.Note = args[i+1]
 			i++
 		case strings.HasPrefix(a, "--note="):
-			opts.Note = strings.TrimPrefix(a, "--note=")
+			pa.opts.Note = strings.TrimPrefix(a, "--note=")
 		case a == "--note":
-			return t14ArgparseErr(amendUsage, "amend",
+			return nil, t14ArgparseErr(amendUsage, "amend",
 				"argument --note: expected one argument")
 		case a == "--actor" && i+1 < len(args) && !looksLikeOption(args[i+1]):
-			opts.Actor = args[i+1]
-			actorSet = true
+			pa.opts.Actor = args[i+1]
+			pa.actorSet = true
 			i++
 		case strings.HasPrefix(a, "--actor="):
-			opts.Actor = strings.TrimPrefix(a, "--actor=")
-			actorSet = true
+			pa.opts.Actor = strings.TrimPrefix(a, "--actor=")
+			pa.actorSet = true
 		case a == "--actor":
-			return t14ArgparseErr(amendUsage, "amend",
+			return nil, t14ArgparseErr(amendUsage, "amend",
 				"argument --actor: expected one argument")
 		case strings.HasPrefix(a, "-"):
-			unknown = append(unknown, immunizeUnk{i, a})
+			pa.unknown = append(pa.unknown, immunizeUnk{i, a})
 		default:
-			pos = append(pos, a)
-			posIdx = append(posIdx, i)
+			pa.pos = append(pa.pos, a)
+			pa.posIdx = append(pa.posIdx, i)
 		}
 	}
+	return pa, nil
+}
+
+// amendCheckArgs applies argparse's post-loop checks in its own order:
+// required arguments, the positional overflow, the unknown flags, then the
+// at-least-one-field rule.
+func amendCheckArgs(pa *amendArgs) error {
 	// argparse checks the subparser's required arguments BEFORE the root
 	// parser's "unrecognized arguments" (parse_known_args).
 	missing := []string{}
-	if len(pos) < 1 {
+	if len(pa.pos) < 1 {
 		missing = append(missing, "campaign")
 	}
-	if len(pos) < 2 {
+	if len(pa.pos) < 2 {
 		missing = append(missing, "finding")
 	}
 	if len(missing) > 0 {
@@ -132,30 +148,36 @@ func amendCmd(root string, args []string, r *Runner) error {
 			"the following arguments are required: %s", strings.Join(missing, ", "))
 	}
 	// Positionals are assigned greedily; the overflow is unrecognized.
-	if len(pos) > 2 {
-		for j, t := range pos[2:] {
-			unknown = append(unknown, immunizeUnk{posIdx[2+j], t})
+	if len(pa.pos) > 2 {
+		for j, t := range pa.pos[2:] {
+			pa.unknown = append(pa.unknown, immunizeUnk{pa.posIdx[2+j], t})
 		}
-		pos = pos[:2]
+		pa.pos = pa.pos[:2]
 	}
-	if len(unknown) > 0 {
-		sort.Slice(unknown, func(i, j int) bool {
-			return unknown[i].idx < unknown[j].idx
+	if len(pa.unknown) > 0 {
+		sort.Slice(pa.unknown, func(i, j int) bool {
+			return pa.unknown[i].idx < pa.unknown[j].idx
 		})
-		toks := make([]string, len(unknown))
-		for i, u := range unknown {
+		toks := make([]string, len(pa.unknown))
+		for i, u := range pa.unknown {
 			toks[i] = u.tok
 		}
 		return t14Unrecognized(strings.Join(toks, " "))
 	}
-	if !opts.HasTitle && !opts.HasClass && !opts.HasClaim && opts.Note == "" {
+	if !pa.opts.HasTitle && !pa.opts.HasClass && !pa.opts.HasClaim && pa.opts.Note == "" {
 		return t14ArgparseErr(amendUsage, "amend",
 			"at least one of --title, --class, --claim, --note is required")
 	}
-	if !actorSet {
-		opts.Actor = "model"
+	return nil
+}
+
+// amendApply opens the campaign, applies the amend and prints the summary
+// line plus the CONFIRMED-floor note.
+func amendApply(root string, pa *amendArgs, r *Runner) error {
+	if !pa.actorSet {
+		pa.opts.Actor = "model"
 	}
-	c, err := t14Open(root, pos[0])
+	c, err := t14Open(root, pa.pos[0])
 	if err != nil {
 		return err
 	}
@@ -163,11 +185,11 @@ func amendCmd(root string, args []string, r *Runner) error {
 	// conversion path the T6 advisory recommends — legal, but never silent:
 	// name the new bar and the work it creates.
 	oldClass, oldStatus := "", ""
-	if pre, perr := findings.LoadFinding(c, pos[1]); perr == nil {
+	if pre, perr := findings.LoadFinding(c, pa.pos[1]); perr == nil {
 		oldClass = validation.ObjStr(validation.ObjAt(pre, "root_cause"), "class")
 		oldStatus = validation.ObjStr(pre, "status")
 	}
-	f, err := findings.Amend(c, pos[1], opts)
+	f, err := findings.Amend(c, pa.pos[1], pa.opts)
 	if err != nil {
 		var rej *findings.RejectedError
 		if errors.As(err, &rej) {
@@ -175,9 +197,9 @@ func amendCmd(root string, args []string, r *Runner) error {
 		}
 		return err
 	}
-	fmt.Fprintf(r.Out, "amended %s: claim_version %s (%s)\n", pos[1],
-		validation.IntText(validation.ObjAt(f, "claim_version")), amendKeysText(opts))
-	if opts.HasClass && oldStatus == "CONFIRMED" {
+	fmt.Fprintf(r.Out, "amended %s: claim_version %s (%s)\n", pa.pos[1],
+		validation.IntText(validation.ObjAt(f, "claim_version")), amendKeysText(pa.opts))
+	if pa.opts.HasClass && oldStatus == "CONFIRMED" {
 		newClass := validation.ObjStr(validation.ObjAt(f, "root_cause"), "class")
 		was := findings.RequiredLevelForCampaign(c, "CONFIRMED", oldClass)
 		now := findings.RequiredLevelForCampaign(c, "CONFIRMED", newClass)
@@ -189,6 +211,20 @@ func amendCmd(root string, args []string, r *Runner) error {
 		}
 	}
 	return nil
+}
+
+func amendCmd(root string, args []string, r *Runner) error {
+	pa, err := amendParseArgs(args, r)
+	if err != nil {
+		return err
+	}
+	if pa.helpSeen {
+		return nil
+	}
+	if err := amendCheckArgs(pa); err != nil {
+		return err
+	}
+	return amendApply(root, pa, r)
 }
 
 // amendKeysText names the amended fields for the summary line.

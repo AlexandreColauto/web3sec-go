@@ -51,65 +51,79 @@ func runAdversarialGame(root string, args []string, r *Runner) int {
 	})
 }
 
-func adversarialCmd(root string, args []string, r *Runner) error {
-	ensureSeams()
-	who, mech, inter := "", "", ""
-	var pos []string
-	var posIdx []int
-	var unknown []immunizeUnk
+// adversarialArgs carries the parsed argv of the adversarial-game verb.
+type adversarialArgs struct {
+	who, mech, inter string
+	pos              []string
+	posIdx           []int
+	unknown          []immunizeUnk
+	helpSeen         bool
+}
+
+// adversarialParseArgs parses the flag loop, printing the help block and
+// flagging it when -h/--help appears mid-argv.
+func adversarialParseArgs(args []string, r *Runner) (*adversarialArgs, error) {
+	pa := &adversarialArgs{}
 	for i := 0; i < len(args); i++ {
 		a := args[i]
 		switch {
 		case a == "-h" || a == "--help":
 			fmt.Fprint(r.Out, adversarialHelp)
-			return nil
+			pa.helpSeen = true
+			return pa, nil
 		case a == "--who-profit" && i+1 < len(args) && !looksLikeOption(args[i+1]):
-			who = args[i+1]
+			pa.who = args[i+1]
 			i++
 		case strings.HasPrefix(a, "--who-profit="):
-			who = strings.TrimPrefix(a, "--who-profit=")
+			pa.who = strings.TrimPrefix(a, "--who-profit=")
 		case a == "--who-profit":
-			return t14ArgparseErr(adversarialUsage, "adversarial-game",
+			return nil, t14ArgparseErr(adversarialUsage, "adversarial-game",
 				"argument --who-profit: expected one argument")
 		case a == "--mechanism" && i+1 < len(args) && !looksLikeOption(args[i+1]):
-			mech = args[i+1]
+			pa.mech = args[i+1]
 			i++
 		case strings.HasPrefix(a, "--mechanism="):
-			mech = strings.TrimPrefix(a, "--mechanism=")
+			pa.mech = strings.TrimPrefix(a, "--mechanism=")
 		case a == "--mechanism":
-			return t14ArgparseErr(adversarialUsage, "adversarial-game",
+			return nil, t14ArgparseErr(adversarialUsage, "adversarial-game",
 				"argument --mechanism: expected one argument")
 		case a == "--interplay" && i+1 < len(args) && !looksLikeOption(args[i+1]):
-			inter = args[i+1]
+			pa.inter = args[i+1]
 			i++
 		case strings.HasPrefix(a, "--interplay="):
-			inter = strings.TrimPrefix(a, "--interplay=")
+			pa.inter = strings.TrimPrefix(a, "--interplay=")
 		case a == "--interplay":
-			return t14ArgparseErr(adversarialUsage, "adversarial-game",
+			return nil, t14ArgparseErr(adversarialUsage, "adversarial-game",
 				"argument --interplay: expected one argument")
 		case strings.HasPrefix(a, "-"):
-			unknown = append(unknown, immunizeUnk{i, a})
+			pa.unknown = append(pa.unknown, immunizeUnk{i, a})
 		default:
-			pos = append(pos, a)
-			posIdx = append(posIdx, i)
+			pa.pos = append(pa.pos, a)
+			pa.posIdx = append(pa.posIdx, i)
 		}
 	}
+	return pa, nil
+}
+
+// adversarialCheckArgs applies argparse's post-loop checks in its own order:
+// required arguments, then the positional overflow, then the unknown flags.
+func adversarialCheckArgs(pa *adversarialArgs) error {
 	// argparse checks the subparser's required arguments BEFORE the root
 	// parser's "unrecognized arguments" (parse_known_args).
 	missing := []string{}
-	if len(pos) < 1 {
+	if len(pa.pos) < 1 {
 		missing = append(missing, "campaign")
 	}
-	if len(pos) < 2 {
+	if len(pa.pos) < 2 {
 		missing = append(missing, "finding")
 	}
-	if who == "" {
+	if pa.who == "" {
 		missing = append(missing, "--who-profit")
 	}
-	if mech == "" {
+	if pa.mech == "" {
 		missing = append(missing, "--mechanism")
 	}
-	if inter == "" {
+	if pa.inter == "" {
 		missing = append(missing, "--interplay")
 	}
 	if len(missing) > 0 {
@@ -118,27 +132,32 @@ func adversarialCmd(root string, args []string, r *Runner) error {
 			strings.Join(missing, ", "))
 	}
 	// Positionals are assigned greedily; the overflow is unrecognized.
-	if len(pos) > 2 {
-		for j, t := range pos[2:] {
-			unknown = append(unknown, immunizeUnk{posIdx[2+j], t})
+	if len(pa.pos) > 2 {
+		for j, t := range pa.pos[2:] {
+			pa.unknown = append(pa.unknown, immunizeUnk{pa.posIdx[2+j], t})
 		}
-		pos = pos[:2]
+		pa.pos = pa.pos[:2]
 	}
-	if len(unknown) > 0 {
-		sort.Slice(unknown, func(i, j int) bool {
-			return unknown[i].idx < unknown[j].idx
+	if len(pa.unknown) > 0 {
+		sort.Slice(pa.unknown, func(i, j int) bool {
+			return pa.unknown[i].idx < pa.unknown[j].idx
 		})
-		toks := make([]string, len(unknown))
-		for i, u := range unknown {
+		toks := make([]string, len(pa.unknown))
+		for i, u := range pa.unknown {
 			toks[i] = u.tok
 		}
 		return t14Unrecognized(strings.Join(toks, " "))
 	}
-	c, err := state.Open(root, pos[0])
+	return nil
+}
+
+// adversarialRecord stores the clause and prints the confirmation line.
+func adversarialRecord(root string, pa *adversarialArgs, r *Runner) error {
+	c, err := state.Open(root, pa.pos[0])
 	if err != nil {
 		return err
 	}
-	f, err := findings.SetAdversarialGame(c, pos[1], who, mech, inter)
+	f, err := findings.SetAdversarialGame(c, pa.pos[1], pa.who, pa.mech, pa.inter)
 	if err != nil {
 		var ie *findings.InputError
 		if errors.As(err, &ie) {
@@ -151,8 +170,23 @@ func adversarialCmd(root string, args []string, r *Runner) error {
 	runes := int64(len([]rune(validation.ObjStr(ag, "who_profits"))))
 	fmt.Fprintf(r.Out, "%s: adversarial-game clause recorded (who_profits %d "+
 		"chars) — the adversarial-game gate clause is now complete\n",
-		pos[1], runes)
+		pa.pos[1], runes)
 	return nil
+}
+
+func adversarialCmd(root string, args []string, r *Runner) error {
+	ensureSeams()
+	pa, err := adversarialParseArgs(args, r)
+	if err != nil {
+		return err
+	}
+	if pa.helpSeen {
+		return nil
+	}
+	if err := adversarialCheckArgs(pa); err != nil {
+		return err
+	}
+	return adversarialRecord(root, pa, r)
 }
 
 func init() {

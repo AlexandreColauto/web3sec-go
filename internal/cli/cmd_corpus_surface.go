@@ -48,6 +48,100 @@ options:
                    NAME ∈ {always, never, slither, aderyn}
 `
 
+// corpusSurfaceCheck applies the post-parse checks: --top's int/range
+// validation, the --baseline choices, and the --backtest dependency checks.
+// It returns the resolved top-K window.
+func corpusSurfaceCheck(backtestFlag *boolOpt, topFlag, baselineFlag *valOpt) (int, error) {
+	top := 10
+	if topFlag.seen {
+		n, err := strconv.Atoi(topFlag.val)
+		if err != nil {
+			return 0, t14ArgparseErr(corpusSurfaceUsage,
+				"corpus-surface",
+				"argument --top: invalid int value: %s",
+				quoteSingle(topFlag.val))
+		}
+		if n <= 0 {
+			return 0, t14ArgparseErr(corpusSurfaceUsage,
+				"corpus-surface",
+				"argument --top: must be >= 1 (got %d)", n)
+		}
+		top = n
+	}
+	// The choices check is parse-time in argparse, so it runs before
+	// the post-parse dependency checks below: a bad NAME is reported
+	// even when a prerequisite flag is missing too. The message reuses
+	// the --from family's exact shape (PyReprStr + quotedList).
+	for _, name := range baselineFlag.multi {
+		if !backtest.IsBaseline(name) {
+			return 0, t14ArgparseErr(corpusSurfaceUsage, "corpus-surface",
+				"argument --baseline: invalid choice: %s "+
+					"(choose from %s)", validation.PyReprStr(name),
+				quotedList(backtest.BaselineRoster))
+		}
+	}
+	// --top is a --backtest window, not a sweep option: accepting it
+	// beside the plain sweep would silently ignore it, so it is an
+	// argparse usage error (exit 2) instead.
+	if topFlag.seen && !backtestFlag.set {
+		return 0, t14ArgparseErr(corpusSurfaceUsage,
+			"corpus-surface", "--top requires --backtest")
+	}
+	// The floors need the held-out set, which only --backtest has.
+	if baselineFlag.seen && !backtestFlag.set {
+		return 0, t14ArgparseErr(corpusSurfaceUsage, "corpus-surface",
+			"--baseline requires --backtest")
+	}
+	return top, nil
+}
+
+// corpusSurfaceSweep is the plain (non---backtest) sweep: build the report,
+// write it under artifacts/, register it and print the summary blocks.
+func corpusSurfaceSweep(r *Runner, root string, campaign string) error {
+	c, err := t14Open(root, campaign)
+	if err != nil {
+		return err
+	}
+	report, err := corpus.BuildReport(c, nil)
+	if err != nil {
+		return err
+	}
+	out := filepath.Join(c.ArtifactsDir, corpus.CorpusSurfaceFile)
+	if err := validation.WriteJson(out, report, ""); err != nil {
+		return err
+	}
+	if _, err := c.RegisterOrRefresh("corpus-surface", out, "", nil,
+		"corpus sweep: class exposure + shape matches"); err != nil {
+		return err
+	}
+	exposure := listAtCLI(report, "class_exposure")
+	matches := listAtCLI(report, "shape_matches")
+	fmt.Fprintf(r.Out, "corpus surface for %s: %d classes probed, "+
+		"%d PoC files with signal, %d records without a resolvable PoC\n",
+		c.CampaignID, len(exposure), len(matches),
+		objInt(report, "poc_missing"))
+	fmt.Fprint(r.Out, "class exposure (top 10):\n")
+	for _, row := range firstRowsCLI(exposure, 10) {
+		flag := "-"
+		if boolAtCLI(row, "exposed") {
+			flag = "EXPOSED"
+		}
+		fmt.Fprintf(r.Out, "  [%s] %-24s score=%.3f (w=%s, conf=%s)\n",
+			flag, validation.ObjStr(row, "bug_class"), floatAtCLI(row, "score"),
+			scalarStr(validation.ObjAt(row, "corpus_weight")),
+			validation.ObjStr(row, "confidence"))
+	}
+	if len(matches) > 0 {
+		fmt.Fprint(r.Out, "PoC shape matches (top 5):\n")
+		for _, m := range firstRowsCLI(matches, 5) {
+			fmt.Fprintf(r.Out, "  %s  exact=%d near=%d %s\n",
+				validation.ObjStr(m, "file"), len(listAtCLI(m, "exact_hits")),
+				len(listAtCLI(m, "near_misses")), validation.ObjStr(m, "bug_class"))
+		}
+	}
+	return nil
+}
+
 func runCorpusSurface(root string, args []string, r *Runner) int {
 	ensureSeams()
 	return t14Dispatch(root, r, func() error {
@@ -70,91 +164,14 @@ func runCorpusSurface(root string, args []string, r *Runner) int {
 			fmt.Fprint(r.Out, corpusSurfaceHelp)
 			return nil
 		}
-		top := 10
-		if topFlag.seen {
-			n, err := strconv.Atoi(topFlag.val)
-			if err != nil {
-				return t14ArgparseErr(corpusSurfaceUsage,
-					"corpus-surface",
-					"argument --top: invalid int value: %s",
-					quoteSingle(topFlag.val))
-			}
-			if n <= 0 {
-				return t14ArgparseErr(corpusSurfaceUsage,
-					"corpus-surface",
-					"argument --top: must be >= 1 (got %d)", n)
-			}
-			top = n
-		}
-		// The choices check is parse-time in argparse, so it runs before
-		// the post-parse dependency checks below: a bad NAME is reported
-		// even when a prerequisite flag is missing too. The message reuses
-		// the --from family's exact shape (PyReprStr + quotedList).
-		for _, name := range baselineFlag.multi {
-			if !backtest.IsBaseline(name) {
-				return t14ArgparseErr(corpusSurfaceUsage, "corpus-surface",
-					"argument --baseline: invalid choice: %s "+
-						"(choose from %s)", validation.PyReprStr(name),
-					quotedList(backtest.BaselineRoster))
-			}
-		}
-		// --top is a --backtest window, not a sweep option: accepting it
-		// beside the plain sweep would silently ignore it, so it is an
-		// argparse usage error (exit 2) instead.
-		if topFlag.seen && !backtestFlag.set {
-			return t14ArgparseErr(corpusSurfaceUsage,
-				"corpus-surface", "--top requires --backtest")
-		}
-		// The floors need the held-out set, which only --backtest has.
-		if baselineFlag.seen && !backtestFlag.set {
-			return t14ArgparseErr(corpusSurfaceUsage, "corpus-surface",
-				"--baseline requires --backtest")
+		top, err := corpusSurfaceCheck(backtestFlag, topFlag, baselineFlag)
+		if err != nil {
+			return err
 		}
 		if backtestFlag.set {
 			return runCorpusBacktest(r, root, top, baselineFlag.multi)
 		}
-		c, err := t14Open(root, sp.pos[0].val)
-		if err != nil {
-			return err
-		}
-		report, err := corpus.BuildReport(c, nil)
-		if err != nil {
-			return err
-		}
-		out := filepath.Join(c.ArtifactsDir, corpus.CorpusSurfaceFile)
-		if err := validation.WriteJson(out, report, ""); err != nil {
-			return err
-		}
-		if _, err := c.RegisterOrRefresh("corpus-surface", out, "", nil,
-			"corpus sweep: class exposure + shape matches"); err != nil {
-			return err
-		}
-		exposure := listAtCLI(report, "class_exposure")
-		matches := listAtCLI(report, "shape_matches")
-		fmt.Fprintf(r.Out, "corpus surface for %s: %d classes probed, "+
-			"%d PoC files with signal, %d records without a resolvable PoC\n",
-			c.CampaignID, len(exposure), len(matches),
-			objInt(report, "poc_missing"))
-		fmt.Fprint(r.Out, "class exposure (top 10):\n")
-		for _, row := range firstRowsCLI(exposure, 10) {
-			flag := "-"
-			if boolAtCLI(row, "exposed") {
-				flag = "EXPOSED"
-			}
-			fmt.Fprintf(r.Out, "  [%s] %-24s score=%.3f (w=%s, conf=%s)\n",
-				flag, validation.ObjStr(row, "bug_class"), floatAtCLI(row, "score"),
-				scalarStr(validation.ObjAt(row, "corpus_weight")),
-				validation.ObjStr(row, "confidence"))
-		}
-		if len(matches) > 0 {
-			fmt.Fprint(r.Out, "PoC shape matches (top 5):\n")
-			for _, m := range firstRowsCLI(matches, 5) {
-				fmt.Fprintf(r.Out, "  %s  exact=%d near=%d %s\n",
-					validation.ObjStr(m, "file"), len(listAtCLI(m, "exact_hits")),
-					len(listAtCLI(m, "near_misses")), validation.ObjStr(m, "bug_class"))
-			}
-		}
-		return nil
+		return corpusSurfaceSweep(r, root, sp.pos[0].val)
 	})
 }
 

@@ -30,12 +30,9 @@ func runAck(root string, args []string, r *Runner) int {
 	return t14Dispatch(root, r, func() error { return ackCmd(root, args, r) })
 }
 
-func ackCmd(root string, args []string, r *Runner) error {
-	if helpRequested(r.Out, "ack", args) {
-		return nil
-	}
-
-	ensureSeams()
+// ackParseArgs splits the raw argv into positionals, reproducing argparse's
+// required-then-unknown order.
+func ackParseArgs(args []string) ([]string, error) {
 	var pos []string
 	var posIdx []int
 	var unknown []immunizeUnk
@@ -54,7 +51,7 @@ func ackCmd(root string, args []string, r *Runner) error {
 		missing = append(missing, "campaign")
 	}
 	if len(missing) > 0 {
-		return t14ArgparseErr(ackUsage, "ack",
+		return nil, t14ArgparseErr(ackUsage, "ack",
 			"the following arguments are required: %s", strings.Join(missing, ", "))
 	}
 	if len(pos) > 2 {
@@ -71,64 +68,69 @@ func ackCmd(root string, args []string, r *Runner) error {
 		for i, u := range unknown {
 			toks[i] = u.tok
 		}
-		return t14Unrecognized(strings.Join(toks, " "))
+		return nil, t14Unrecognized(strings.Join(toks, " "))
 	}
-	c, err := state.Open(root, pos[0])
+	return pos, nil
+}
+
+// ackScan carries the open campaign and the output runner the ack scan and
+// its printing read through.
+type ackScan struct {
+	c *state.Campaign
+	r *Runner
+}
+
+// scan runs one finding's in-code acknowledgement scan.
+func (a *ackScan) scan(fid string) (ackLine, error) {
+	hit, err := findings.RecordAckScan(a.c, fid)
 	if err != nil {
-		return err
-	}
-	scan := func(fid string) (ackLine, error) {
-		hit, err := findings.RecordAckScan(c, fid)
-		if err != nil {
-			// missing finding: the generic handler (exit 1).
-			if _, lerr := findings.LoadFinding(c, fid); lerr != nil {
-				return ackLine{}, lerr
-			}
-			// scannability problem: skip with the reason
-			return ackLine{fid: fid, skip: err.Error()}, nil
-		}
-		f, lerr := findings.LoadFinding(c, fid)
-		if lerr != nil {
+		// missing finding: the generic handler (exit 1).
+		if _, lerr := findings.LoadFinding(a.c, fid); lerr != nil {
 			return ackLine{}, lerr
 		}
-		line := ackLine{fid: fid}
-		if hit {
-			ack := validation.ObjAt(validation.ObjAt(f, "dedup_meta"), "in_code_ack")
-			line.hit = true
-			line.file = validation.ObjStr(ack, "file")
-			line.lineNo = int(validation.ObjAt(ack, "line").I)
-			line.phrase = validation.ObjStr(ack, "phrase")
-		}
-		return line, nil
+		// scannability problem: skip with the reason
+		return ackLine{fid: fid, skip: err.Error()}, nil
 	}
-	print := func(line ackLine) {
-		switch {
-		case line.skip != "":
-			fmt.Fprintf(r.Out, "%s: skipped — %s\n", line.fid, line.skip)
-		case line.hit:
-			fmt.Fprintf(r.Out, "%s: ack — %s:%d %q (window ±%d)\n",
-				line.fid, line.file, line.lineNo, line.phrase,
-				findings.AckWindow)
-		default:
-			fmt.Fprintf(r.Out, "%s: clean — no in-code acknowledgement "+
-				"in window\n", line.fid)
-		}
+	f, lerr := findings.LoadFinding(a.c, fid)
+	if lerr != nil {
+		return ackLine{}, lerr
 	}
-	if len(pos) == 2 {
-		line, err := scan(pos[1])
-		if err != nil {
-			return err
-		}
-		print(line)
-		return nil
+	line := ackLine{fid: fid}
+	if hit {
+		ack := validation.ObjAt(validation.ObjAt(f, "dedup_meta"), "in_code_ack")
+		line.hit = true
+		line.file = validation.ObjStr(ack, "file")
+		line.lineNo = int(validation.ObjAt(ack, "line").I)
+		line.phrase = validation.ObjStr(ack, "phrase")
 	}
+	return line, nil
+}
+
+// print renders one scan line (skipped / ack / clean).
+func (a *ackScan) print(line ackLine) {
+	switch {
+	case line.skip != "":
+		fmt.Fprintf(a.r.Out, "%s: skipped — %s\n", line.fid, line.skip)
+	case line.hit:
+		fmt.Fprintf(a.r.Out, "%s: ack — %s:%d %q (window ±%d)\n",
+			line.fid, line.file, line.lineNo, line.phrase,
+			findings.AckWindow)
+	default:
+		fmt.Fprintf(a.r.Out, "%s: clean — no in-code acknowledgement "+
+			"in window\n", line.fid)
+	}
+}
+
+// scanAll scans every live finding and prints the per-finding lines plus the
+// summary.
+func (a *ackScan) scanAll() error {
 	nAck, nClean, nSkip := 0, 0, 0
-	all, err := findings.LoadLiveFindings(c)
+	all, err := findings.LoadLiveFindings(a.c)
 	if err != nil {
 		return err
 	}
 	for _, f := range all {
-		line, err := scan(validation.ObjStr(f, "finding_id"))
+		line, err := a.scan(validation.ObjStr(f, "finding_id"))
 		if err != nil {
 			return err
 		}
@@ -140,11 +142,37 @@ func ackCmd(root string, args []string, r *Runner) error {
 		default:
 			nClean++
 		}
-		print(line)
+		a.print(line)
 	}
-	fmt.Fprintf(r.Out, "%d findings: %d ack, %d clean, %d skipped\n",
+	fmt.Fprintf(a.r.Out, "%d findings: %d ack, %d clean, %d skipped\n",
 		len(all), nAck, nClean, nSkip)
 	return nil
+}
+
+func ackCmd(root string, args []string, r *Runner) error {
+	if helpRequested(r.Out, "ack", args) {
+		return nil
+	}
+
+	ensureSeams()
+	pos, err := ackParseArgs(args)
+	if err != nil {
+		return err
+	}
+	c, err := state.Open(root, pos[0])
+	if err != nil {
+		return err
+	}
+	sc := &ackScan{c: c, r: r}
+	if len(pos) == 2 {
+		line, err := sc.scan(pos[1])
+		if err != nil {
+			return err
+		}
+		sc.print(line)
+		return nil
+	}
+	return sc.scanAll()
 }
 
 type ackLine struct {

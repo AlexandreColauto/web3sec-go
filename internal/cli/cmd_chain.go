@@ -58,11 +58,20 @@ func runChain(root string, args []string, r *Runner) int {
 	return t14Dispatch(root, r, func() error { return chainCmd(root, args, r) })
 }
 
-func chainCmd(root string, args []string, r *Runner) error {
-	unproven := false
-	note, title := "", ""
-	var pos []string
-	var unknown []immunizeUnk
+// chainArgs carries the parsed argv of the chain verb.
+type chainArgs struct {
+	unproven bool
+	note     string
+	title    string
+	pos      []string
+	unknown  []immunizeUnk
+	helpSeen bool
+}
+
+// chainParseArgs parses the flag loop, printing the help block and flagging
+// it when -h/--help appears mid-argv.
+func chainParseArgs(args []string, r *Runner) (*chainArgs, error) {
+	pa := &chainArgs{}
 	for i := 0; i < len(args); i++ {
 		a := args[i]
 		switch {
@@ -70,43 +79,50 @@ func chainCmd(root string, args []string, r *Runner) error {
 			// argparse's help action fires while parsing, before required
 			// arguments are checked, and exits 0.
 			fmt.Fprint(r.Out, chainHelp)
-			return nil
+			pa.helpSeen = true
+			return pa, nil
 		case a == "--unproven":
-			unproven = true
+			pa.unproven = true
 		case strings.HasPrefix(a, "--unproven="):
 			// store_true takes no value.
-			return t14ArgparseErr(chainUsage, "chain",
+			return nil, t14ArgparseErr(chainUsage, "chain",
 				"argument --unproven: ignored explicit argument %s",
 				validation.PyReprStr(strings.TrimPrefix(a, "--unproven=")))
 		case a == "--note" && i+1 < len(args) && !looksLikeOption(args[i+1]):
-			note = args[i+1]
+			pa.note = args[i+1]
 			i++
 		case strings.HasPrefix(a, "--note="):
-			note = strings.TrimPrefix(a, "--note=")
+			pa.note = strings.TrimPrefix(a, "--note=")
 		case a == "--note":
-			return t14ArgparseErr(chainUsage, "chain",
+			return nil, t14ArgparseErr(chainUsage, "chain",
 				"argument --note: expected one argument")
 		case a == "--title" && i+1 < len(args) && !looksLikeOption(args[i+1]):
-			title = args[i+1]
+			pa.title = args[i+1]
 			i++
 		case strings.HasPrefix(a, "--title="):
-			title = strings.TrimPrefix(a, "--title=")
+			pa.title = strings.TrimPrefix(a, "--title=")
 		case a == "--title":
-			return t14ArgparseErr(chainUsage, "chain",
+			return nil, t14ArgparseErr(chainUsage, "chain",
 				"argument --title: expected one argument")
 		case strings.HasPrefix(a, "-"):
-			unknown = append(unknown, immunizeUnk{i, a})
+			pa.unknown = append(pa.unknown, immunizeUnk{i, a})
 		default:
-			pos = append(pos, a)
+			pa.pos = append(pa.pos, a)
 		}
 	}
+	return pa, nil
+}
+
+// chainCheckArgs applies argparse's post-loop checks in its own order:
+// required arguments, then the unknown flags.
+func chainCheckArgs(pa *chainArgs) error {
 	// argparse checks the subparser's required arguments before the root
 	// parser's "unrecognized arguments" (parse_known_args).
 	missing := []string{}
-	if len(pos) < 1 {
+	if len(pa.pos) < 1 {
 		missing = append(missing, "campaign")
 	}
-	if len(pos) < 2 {
+	if len(pa.pos) < 2 {
 		missing = append(missing, "member")
 	}
 	if len(missing) > 0 {
@@ -114,39 +130,45 @@ func chainCmd(root string, args []string, r *Runner) error {
 			"the following arguments are required: %s", strings.Join(missing, ", "))
 	}
 
-	if len(unknown) > 0 {
-		sort.Slice(unknown, func(i, j int) bool {
-			return unknown[i].idx < unknown[j].idx
+	if len(pa.unknown) > 0 {
+		sort.Slice(pa.unknown, func(i, j int) bool {
+			return pa.unknown[i].idx < pa.unknown[j].idx
 		})
-		toks := make([]string, len(unknown))
-		for i, u := range unknown {
+		toks := make([]string, len(pa.unknown))
+		for i, u := range pa.unknown {
 			toks[i] = u.tok
 		}
 		return t14Unrecognized(strings.Join(toks, " "))
 	}
-	c, err := t14Open(root, pos[0])
+	return nil
+}
+
+// chainMaterialize opens the campaign, materializes the chain and prints the
+// result line.
+func chainMaterialize(root string, pa *chainArgs, r *Runner) error {
+	c, err := t14Open(root, pa.pos[0])
 	if err != nil {
 		return err
 	}
-	members := pos[1:]
-	if title == "" {
+	members := pa.pos[1:]
+	if pa.title == "" {
 		// The chain schema wants a titled chain (>= 10 runes); the member
 		// path is the deterministic default (two F- ids are 29+ runes), and
 		// it is what the report heading and the `chains` row already show.
-		title = strings.Join(members, " -> ")
+		pa.title = strings.Join(members, " -> ")
 	}
-	doc, err := chainengine.MaterializeChainOpts(c, members, title, note, nil,
-		nil, chainengine.MaterializeOpts{Unproven: unproven})
+	doc, err := chainengine.MaterializeChainOpts(c, members, pa.title, pa.note, nil,
+		nil, chainengine.MaterializeOpts{Unproven: pa.unproven})
 	if err != nil {
 		var it *findings.IllegalTransition
-		if errors.As(err, &it) && !unproven {
+		if errors.As(err, &it) && !pa.unproven {
 			return t14ExitErr(2, "chain failed: %s — pass --unproven to "+
 				"materialize a hypothesis-level chain\n", err)
 		}
 		return err
 	}
 	kind := "chain"
-	if unproven {
+	if pa.unproven {
 		kind = "unproven chain"
 	}
 	line := fmt.Sprintf("%s: %s materialized from %d members (evidence floor %s)",
@@ -156,11 +178,25 @@ func chainCmd(root string, args []string, r *Runner) error {
 		line += fmt.Sprintf(", terminal %s via %s", validation.ObjStr(t, "capability"),
 			validation.ObjStr(t, "via_finding"))
 	}
-	if unproven {
+	if pa.unproven {
 		line += ", no super-finding (hypothesis-level)"
 	}
 	fmt.Fprintln(r.Out, line)
 	return nil
+}
+
+func chainCmd(root string, args []string, r *Runner) error {
+	pa, err := chainParseArgs(args, r)
+	if err != nil {
+		return err
+	}
+	if pa.helpSeen {
+		return nil
+	}
+	if err := chainCheckArgs(pa); err != nil {
+		return err
+	}
+	return chainMaterialize(root, pa, r)
 }
 
 func init() {

@@ -251,16 +251,8 @@ func pyFloatOf(v validation.Value) float64 {
 	}
 }
 
-// ensureSeams installs the cross-module connections the CLI's commands read
-// through (Python: import-time). Idempotent; every setter simply replaces
-// the seam target.
-var seamsInstalled bool
-
-func ensureSeams() {
-	if seamsInstalled {
-		return
-	}
-	seamsInstalled = true
+// ensureSeamsFindings wires the dedup/taxonomy/findings/reproduction seams.
+func ensureSeamsFindings() {
 	dedup.SetMarkDuplicate(findings.MarkDuplicate)
 	dedup.SetFlagPossibleDuplicate(findings.FlagPossibleDuplicate)
 	dedup.SetFoldIntoLineage(findings.FoldIntoLineage)
@@ -288,9 +280,13 @@ func ensureSeams() {
 		NextTier:                reproduction.NextTier,
 		MintIndependentEvidence: reproduction.MintIndependentEvidence,
 	})
-	// sequence_poc: the CONFIRMED gate (findings), the fork-PoC evidence
-	// floor (forkpoc) and the reproduction queue (orchestrator) all read the
-	// same predicate/verifier. One implementation, three seams.
+}
+
+// ensureSeamsSequence wires the sequence-PoC seam group: the CONFIRMED gate
+// (findings), the fork-PoC evidence floor (forkpoc) and the reproduction
+// queue (orchestrator) all read the same predicate/verifier. One
+// implementation, three seams.
+func ensureSeamsSequence() {
 	findings.SetOnchainSequenceRequired(sequencepoc.OnchainSequenceRequired)
 	findings.SetVerifySequenceCoverage(sequencepoc.VerifySequenceCoverage)
 	forkpoc.SetOnchainSequenceRequired(sequencepoc.OnchainSequenceRequired)
@@ -298,6 +294,10 @@ func ensureSeams() {
 	orchestrator.SetSequencePOC(orchestrator.SequencePOCAPI{
 		IsSequenceRequired: sequencepoc.IsSequenceRequired,
 	})
+}
+
+// ensureSeamsSandbox wires the sandbox/costs/pipeline seams.
+func ensureSeamsSandbox() {
 	// D17: the env port (internal/envgo) now backs the sandbox seams — the
 	// transcription in envseam.go stays as the seam default.
 	sandbox.SetClassifyFailure(envgo.ClassifyFailure)
@@ -312,9 +312,14 @@ func ensureSeams() {
 	// directly). The other deterministic stages need no handler: they are
 	// owned by the orchestrator the runner passes to pipeline.New.
 	pipeline.SetReport(reportAdapter{})
-	// structidx: the structural index seams (Python: import-time module
-	// access). Idempotent; Wire covers orchestrator/coverage/reproduction/
-	// planner, the two calls below cover histmining's recency seam.
+}
+
+// ensureSeamsStructidx wires the structural-index seams (Python: import-time
+// module access). Idempotent; Wire covers orchestrator/coverage/reproduction/
+// planner, the two calls below cover histmining's recency seam, and the
+// bounty scope check is wired here (the top module) because the
+// structidx→orchestrator→bounty import cycle bars a direct dependency.
+func ensureSeamsStructidx() {
 	structidx.Wire()
 	histmining.SetIndexAPI(histmining.IndexAPI{
 		EnsureFreshIndex: structidx.EnsureFreshIndex,
@@ -337,6 +342,11 @@ func ensureSeams() {
 		}
 		return structidx.ContractPath(idx, name)
 	})
+}
+
+// ensureSeamsLate wires the remaining seam groups: forkdiff, the post-patch
+// plant check and the T28/T33/T34 wires.
+func ensureSeamsLate() {
 	// forkdiff: the baselines audit section (audit.py section 10) reads the
 	// baselines directory and the T0-parser fingerprint from here.
 	forkdiff.Wire()
@@ -353,6 +363,23 @@ func ensureSeams() {
 	wireT33Seams()
 	// T34: the dataset record loader (corpus_surface attribution).
 	wireT34Seams()
+}
+
+// ensureSeams installs the cross-module connections the CLI's commands read
+// through (Python: import-time). Idempotent; every setter simply replaces
+// the seam target.
+var seamsInstalled bool
+
+func ensureSeams() {
+	if seamsInstalled {
+		return
+	}
+	seamsInstalled = true
+	ensureSeamsFindings()
+	ensureSeamsSequence()
+	ensureSeamsSandbox()
+	ensureSeamsStructidx()
+	ensureSeamsLate()
 }
 
 // reportAdapter adapts report.Generate to pipeline.ReportAPI (D2).

@@ -84,110 +84,152 @@ options:
 // match, so "A B" passes exactly as it does upstream.
 var envKeyRe = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*`)
 
-func runExec(root string, args []string, r *Runner) int {
-	ensureSeams()
-	var pos []string
-	command, profile, workdir, finding := "", "host-readonly", "", ""
-	timeout, haveTimeout := 300, false
-	dryRun := false
-	var env []sandbox.EnvVar
+// execArgs carries the parsed argv of the exec verb.
+type execArgs struct {
+	command     string
+	profile     string
+	workdir     string
+	finding     string
+	timeout     int
+	haveTimeout bool
+	dryRun      bool
+	env         []sandbox.EnvVar
+	pos         []string
+	helpSeen    bool
+}
+
+// execTimeoutSecs parses and range-checks one --timeout value.
+func execTimeoutSecs(val string) (int, error) {
+	n, err := strconv.ParseInt(strings.TrimSpace(val), 10, 64)
+	if err != nil {
+		return 0, argErrf("exec",
+			"argument --timeout: invalid int value: %s",
+			validation.PyReprStr(val))
+	}
+	// A zero or negative timeout cannot be honored: the
+	// sandbox clamps it to its 300s default, so the operator
+	// would silently get the opposite of what they asked
+	// (and the record would carry no trace of the request).
+	// Refuse at the boundary, name the state and the fix.
+	if n <= 0 {
+		return 0, argErrf("exec",
+			"argument --timeout: must be a positive number of "+
+				"seconds (got %d) — the sandbox cannot honor a "+
+				"zero or negative timeout; re-run with --timeout N "+
+				"where N >= 1", n)
+	}
+	// Absurdly large: past this bound the sandbox's kill
+	// timer wraps and the run would be killed instantly while
+	// the record claimed a timeout of the requested length —
+	// a lying record. Refuse the value instead.
+	if n > maxTimeoutSeconds || n > int64(^uint(0)>>1) {
+		return 0, argErrf("exec",
+			"argument --timeout: %d seconds exceeds the largest "+
+				"timeout the sandbox can honor (%d) — re-run with "+
+				"a smaller --timeout", n, int64(min(
+				maxTimeoutSeconds, int64(^uint(0)>>1))))
+	}
+	return int(n), nil
+}
+
+// execParseArgs parses the flag loop, printing the help block and flagging
+// it when -h/--help appears mid-argv.
+func execParseArgs(args []string, r *Runner) (*execArgs, error) {
+	pa := &execArgs{profile: "host-readonly", timeout: 300}
 	for i := 0; i < len(args); i++ {
 		a := args[i]
 		name, val, hasVal := splitFlag(a)
 		switch {
 		case a == "--dry-run":
-			dryRun = true
+			pa.dryRun = true
 		case name == "--command" || name == "--profile" || name == "--workdir" ||
 			name == "--finding" || name == "--timeout" || name == "--env":
 			if !hasVal {
 				next, ok := flagValue(args, i)
 				if !ok {
-					return r.fail(root, argErrf("exec",
-						"argument %s: expected one argument", name))
+					return nil, argErrf("exec",
+						"argument %s: expected one argument", name)
 				}
 				val, hasVal = next, true
 				i++
 			}
 			switch name {
 			case "--command":
-				command = val
+				pa.command = val
 			case "--profile":
-				profile = val
+				pa.profile = val
 			case "--workdir":
-				workdir = val
+				pa.workdir = val
 			case "--finding":
-				finding = val
+				pa.finding = val
 			case "--timeout":
-				n, err := strconv.ParseInt(strings.TrimSpace(val), 10, 64)
+				n, err := execTimeoutSecs(val)
 				if err != nil {
-					return r.fail(root, argErrf("exec",
-						"argument --timeout: invalid int value: %s",
-						validation.PyReprStr(val)))
+					return nil, err
 				}
-				// A zero or negative timeout cannot be honored: the
-				// sandbox clamps it to its 300s default, so the operator
-				// would silently get the opposite of what they asked
-				// (and the record would carry no trace of the request).
-				// Refuse at the boundary, name the state and the fix.
-				if n <= 0 {
-					return r.fail(root, argErrf("exec",
-						"argument --timeout: must be a positive number of "+
-							"seconds (got %d) — the sandbox cannot honor a "+
-							"zero or negative timeout; re-run with --timeout N "+
-							"where N >= 1", n))
-				}
-				// Absurdly large: past this bound the sandbox's kill
-				// timer wraps and the run would be killed instantly while
-				// the record claimed a timeout of the requested length —
-				// a lying record. Refuse the value instead.
-				if n > maxTimeoutSeconds || n > int64(^uint(0)>>1) {
-					return r.fail(root, argErrf("exec",
-						"argument --timeout: %d seconds exceeds the largest "+
-							"timeout the sandbox can honor (%d) — re-run with "+
-							"a smaller --timeout", n, int64(min(
-							maxTimeoutSeconds, int64(^uint(0)>>1)))))
-				}
-				timeout, haveTimeout = int(n), true
+				pa.timeout, pa.haveTimeout = n, true
 			case "--env":
-				env = append(env, sandbox.EnvVar{Key: val})
+				pa.env = append(pa.env, sandbox.EnvVar{Key: val})
 			}
 		case a == "-h" || a == "--help":
 			fmt.Fprint(r.Out, execHelp)
-			return 0
+			pa.helpSeen = true
+			return pa, nil
 		case strings.HasPrefix(a, "-"):
-			return r.fail(root, usageErrf("unrecognized arguments: %s", a))
+			return nil, usageErrf("unrecognized arguments: %s", a)
 		default:
-			pos = append(pos, a)
+			pa.pos = append(pa.pos, a)
 		}
 	}
-	_ = haveTimeout
-	if len(pos) > 1 {
-		return r.fail(root, usageErrf("unrecognized arguments: %s", pos[1]))
+	return pa, nil
+}
+
+// execCheckArgs applies argparse's post-loop checks: the positional overflow,
+// then the required campaign and --command.
+func execCheckArgs(args []string, pa *execArgs) error {
+	_ = pa.haveTimeout
+	if len(pa.pos) > 1 {
+		return usageErrf("unrecognized arguments: %s", pa.pos[1])
 	}
 	missing := []string{}
-	if len(pos) < 1 {
+	if len(pa.pos) < 1 {
 		missing = append(missing, "campaign")
 	}
 	if !haveFlag(args, "--command") {
 		missing = append(missing, "--command")
 	}
 	if len(missing) > 0 {
-		return r.fail(root, requiredErrf("exec", missing...))
+		return requiredErrf("exec", missing...)
 	}
-	c, err := state.Open(root, pos[0])
+	return nil
+}
+
+func runExec(root string, args []string, r *Runner) int {
+	ensureSeams()
+	pa, err := execParseArgs(args, r)
+	if err != nil {
+		return r.fail(root, err)
+	}
+	if pa.helpSeen {
+		return 0
+	}
+	if err := execCheckArgs(args, pa); err != nil {
+		return r.fail(root, err)
+	}
+	c, err := state.Open(root, pa.pos[0])
 	if err != nil {
 		return r.withErr(root, func() error { return err })
 	}
-	parsedEnv, err := parseEnvSpecs(env)
+	parsedEnv, err := parseEnvSpecs(pa.env)
 	if err != nil {
 		fmt.Fprintf(r.Err, "exec failed: %s\n", err)
 		return 2
 	}
-	if dryRun {
-		return execPreview(r, profile, command, workdir, parsedEnv)
+	if pa.dryRun {
+		return execPreview(r, pa.profile, pa.command, pa.workdir, parsedEnv)
 	}
-	return execRun(c, pos[0], profile, command, workdir, finding, timeout,
-		parsedEnv, r)
+	return execRun(c, pa.pos[0], pa.profile, pa.command, pa.workdir, pa.finding,
+		pa.timeout, parsedEnv, r)
 }
 
 // haveFlag reports whether an option appeared at all (argparse's required
@@ -295,26 +337,15 @@ var newExecSandbox = func(c *state.Campaign,
 	return sandbox.NewSandbox(c, profile)
 }
 
-// execRun is the preflight + Sandbox.run + result block.
-func execRun(c *state.Campaign, campaignID, profile, command, workdir,
-	finding string, timeout int, env []sandbox.EnvVar, r *Runner) int {
-	// r4 (critic) / r5 issue 4: the binding check FIRST — it is a cheap
-	// findings-dir read, and a dead binding must not be discovered only
-	// after the operator fixes an unrelated environment problem. A ledger
-	// row is forever; binding one to a finding that does not exist — or is
-	// dead (mint would then refuse it, leaving inert bookkeeping that looks
-	// like coverage) — is the lie the terminal-row law refuses everywhere.
-	if code, msg := execFindingBindingRefused(c, finding); code != 0 {
-		fmt.Fprint(r.Err, msg)
-		return code
-	}
-	var wd *string
-	if workdir != "" {
-		wd = &workdir
-	}
+// execSandboxPreflight runs the sandbox preflight, printing the FAIL issues
+// and the warnings; a non-zero code stops the run. The preflight may rewrite
+// the profile through its pointer, so the profile is passed by value and
+// the (possibly rewritten) value is returned.
+func execSandboxPreflight(c *state.Campaign, campaignID string, wd *string,
+	profile string, r *Runner) (string, int) {
 	pre, err := sandbox.SandboxPreflight(c, wd, &profile)
 	if err != nil {
-		return r.withErr(c.Dir, func() error { return err })
+		return "", r.withErr(c.Dir, func() error { return err })
 	}
 	if issues := validation.ObjAt(pre, "issues"); len(issues.A) > 0 {
 		for _, i := range issues.A {
@@ -323,31 +354,18 @@ func execRun(c *state.Campaign, campaignID, profile, command, workdir,
 		fmt.Fprintln(r.Err, "environment problem, not hypothesis problem — "+
 			"fix the above and re-run (re-check: webv2 doctor "+campaignID+" / "+
 			"webv2 env doctor "+campaignID+")")
-		return 2
+		return "", 2
 	}
 	for _, w := range validation.ObjAt(pre, "warnings").A {
 		fmt.Fprintf(r.Err, "exec preflight warn: %s\n", scalarStr(w))
 	}
-	sb, err := newExecSandbox(c, profile)
-	if err != nil {
-		fmt.Fprintf(r.Err, "exec failed: %s\n", err)
-		return 2
-	}
-	opts := sandbox.RunOpts{Timeout: timeout}
-	if wd != nil {
-		opts.Workdir = wd
-	}
-	if finding != "" {
-		opts.FindingID = &finding
-	}
-	if len(env) > 0 {
-		opts.Env = env
-	}
-	rec, err := sb.Run(command, opts)
-	if err != nil {
-		fmt.Fprintf(r.Err, "exec failed: %s\n", err)
-		return 2
-	}
+	return profile, 0
+}
+
+// execReport prints the exec record's summary lines and, on a non-zero
+// exit, the failure notes (the sandbox note, the capture note and the
+// failure classification).
+func execReport(rec validation.Value, campaignID string, r *Runner) {
 	fmt.Fprintf(r.Out, "%s  [%s] exit=%s %s\n", validation.ObjStr(rec, "exec_id"),
 		validation.ObjStr(rec, "profile"), scalarStr(validation.ObjAt(rec, "exit_status")),
 		pyHead(validation.ObjStr(rec, "command"), 70))
@@ -381,6 +399,50 @@ func execRun(c *state.Campaign, campaignID, profile, command, workdir,
 				validation.ObjStr(res, "note"), campaignID, validation.ObjStr(rec, "exec_id"))
 		}
 	}
+}
+
+// execRun is the preflight + Sandbox.run + result block.
+func execRun(c *state.Campaign, campaignID, profile, command, workdir,
+	finding string, timeout int, env []sandbox.EnvVar, r *Runner) int {
+	// r4 (critic) / r5 issue 4: the binding check FIRST — it is a cheap
+	// findings-dir read, and a dead binding must not be discovered only
+	// after the operator fixes an unrelated environment problem. A ledger
+	// row is forever; binding one to a finding that does not exist — or is
+	// dead (mint would then refuse it, leaving inert bookkeeping that looks
+	// like coverage) — is the lie the terminal-row law refuses everywhere.
+	if code, msg := execFindingBindingRefused(c, finding); code != 0 {
+		fmt.Fprint(r.Err, msg)
+		return code
+	}
+	var wd *string
+	if workdir != "" {
+		wd = &workdir
+	}
+	profile, code := execSandboxPreflight(c, campaignID, wd, profile, r)
+	if code != 0 {
+		return code
+	}
+	sb, err := newExecSandbox(c, profile)
+	if err != nil {
+		fmt.Fprintf(r.Err, "exec failed: %s\n", err)
+		return 2
+	}
+	opts := sandbox.RunOpts{Timeout: timeout}
+	if wd != nil {
+		opts.Workdir = wd
+	}
+	if finding != "" {
+		opts.FindingID = &finding
+	}
+	if len(env) > 0 {
+		opts.Env = env
+	}
+	rec, err := sb.Run(command, opts)
+	if err != nil {
+		fmt.Fprintf(r.Err, "exec failed: %s\n", err)
+		return 2
+	}
+	execReport(rec, campaignID, r)
 	return 0
 }
 
