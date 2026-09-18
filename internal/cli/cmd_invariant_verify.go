@@ -22,6 +22,7 @@ package cli
 // Go errors carry the bare message, so the CLI applies PyReprStr.
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -30,6 +31,33 @@ import (
 	"websec/internal/state"
 	"websec/internal/validation"
 )
+
+// unknownArtifactReason reports whether err is state's unknown-artifact
+// refusal (B6a). It is a TYPE test, not a copy match: the pinned text
+// ("unknown artifact '<id>'") is owned by the Python-parity tests in
+// internal/state, and this heal pointer must not break the day that copy is
+// ever reworded. errors.As walks the chain, so a future wrapper that %w's the
+// refusal still lands here.
+func unknownArtifactReason(err error) bool {
+	var uae *state.UnknownArtifactError
+	return errors.As(err, &uae)
+}
+
+// artifactRegistered reports whether the campaign's registry already holds a
+// row for id — B6a's second condition: the heal line tells the operator to
+// register a PATH, which is advice only for a value that is not already a
+// registered id. Today VerifyInvariantStatement probes c.Artifact FIRST
+// (internal/invariants/verify.go:78), so an unknown-artifact failure and an
+// unregistered id are one event; the check is kept as the belt-and-braces
+// half so a future reordering of that function cannot turn this line into
+// "register the artifact you already registered". A read failure answers
+// false, i.e. keeps the advice — that cannot be an unreadable store, since
+// the reason test above only fires for a refusal c.Artifact itself produced;
+// a failure here is a concurrent prune, and the advice is right for it.
+func artifactRegistered(c *state.Campaign, id string) bool {
+	_, err := c.Artifact(id)
+	return err == nil
+}
 
 func runInvariantVerify(root string, args []string, r *Runner) int {
 	if helpRequested(r.Out, "invariant-verify", args) {
@@ -98,8 +126,34 @@ func runInvariantVerify(root string, args []string, r *Runner) int {
 	}
 	entry, err := invariants.VerifyInvariantStatement(c, invID, artifact)
 	if err != nil {
+		// Byte-discipline: this line and its inner text are EXACT-pinned
+		// (state's KeyError copy, artifacts_test.go:339/:497/:612) — the
+		// heal pointer below is an APPENDED stderr line, never a reword.
 		fmt.Fprintf(r.Err, "invariant verify failed: %s\n",
 			validation.PyReprStr(err.Error()))
+		// B6a heal pointer: the operator named an artifact the registry does
+		// not hold, and `artifact-register` is the only sanctioned mint —
+		// the pin's own words ("unknown artifact 'X'") say what is wrong but
+		// not what to run. Printed only for THAT reason: an unknown
+		// invariant, a relevance refusal or an unreadable store is not a
+		// missing registration, and telling its operator to register a path
+		// would be advice about a different failure.
+		if unknownArtifactReason(err) && !artifactRegistered(c, artifact) {
+			// The value the operator passed is reproduced verbatim as the
+			// path argument (PyReprStr quotes it, so a spaced path stays
+			// copyable). The copy says "the artifact id it prints" and
+			// never names a prefix: the minted id's prefix follows the
+			// --kind (first3Upper(kind)+"-"+hex, state.RegisterArtifact),
+			// so `--kind invariants` returns an INV- id — promising an
+			// ART- shape here would have been a wrong copy (round-2
+			// review). `--kind invariants` is a value of the schema's
+			// closed kind enum (campaign_state.schema.json:75), which is
+			// also the discoverability fix for the flag B2 validates early.
+			fmt.Fprintf(r.Err, "invariant-verify: register it first — "+
+				"`webv2 artifact-register %s %s --kind invariants` — then "+
+				"pass the artifact id it prints\n", c.CampaignID,
+				validation.PyReprStr(artifact))
+		}
 		return 2
 	}
 	fmt.Fprintf(r.Out, "%s: CHECKED_AGAINST_CODE (artifact %s)\n", invID,

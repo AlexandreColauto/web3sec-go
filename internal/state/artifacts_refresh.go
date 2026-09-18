@@ -93,8 +93,10 @@ func (r *refreshArtCtx) findRow() error {
 		}
 	}
 	if idx < 0 {
-		return fmt.Errorf("unknown artifact %s",
-			validation.PyReprStr(r.artifactID))
+		// B6a: the typed refusal (message unchanged, see
+		// UnknownArtifactError) — the third and last producer of the copy
+		// artifacts_test.go pins.
+		return &UnknownArtifactError{ID: r.artifactID}
 	}
 	r.idx = idx
 	r.a = arts.A[idx]

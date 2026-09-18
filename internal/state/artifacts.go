@@ -118,8 +118,10 @@ func (c *Campaign) Artifact(artifactID string) (validation.Value, error) {
 			return a, nil
 		}
 	}
-	return validation.VNull(), fmt.Errorf("unknown artifact %s",
-		validation.PyReprStr(artifactID))
+	// B6a: the typed refusal, not a bare fmt.Errorf — the message is
+	// unchanged (see UnknownArtifactError), the type is what lets the CLI
+	// heal-pointer tell this reason from every other verify failure.
+	return validation.VNull(), &UnknownArtifactError{ID: artifactID}
 }
 
 // resolveArtifactPath is _resolve_artifact_path: stored absolute paths
@@ -165,8 +167,7 @@ func (c *Campaign) PruneArtifact(artifactID, reason string) (validation.Value, e
 		}
 	}
 	if idx < 0 {
-		return validation.VNull(), fmt.Errorf("unknown artifact %s",
-			validation.PyReprStr(artifactID))
+		return validation.VNull(), &UnknownArtifactError{ID: artifactID}
 	}
 	rec := arts.A[idx]
 	arts.A = append(arts.A[:idx], arts.A[idx+1:]...)
