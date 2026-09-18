@@ -36,10 +36,38 @@ import (
 // DOC.SNAPSHOT_FILE_WARN).
 var SnapshotFileWarn = 5000
 
+// stateHealthPendingNote is one note this run actually SHORTENS: the stage
+// key, the length read from the file before the write, and the capped text.
+// doctor reports what it staged here and nothing else — the r36b P2 finding
+// was a report of a repair that capNote's own over-cap output kept undoing.
+type stateHealthPendingNote struct {
+	stage  string
+	before int
+	capped string
+}
+
+// stateHealthCtx carries the shared context of one StateHealth run: the
+// projection being repaired, the notes the repair staged, and what the
+// events-mirror rebuild decided.
+type stateHealthCtx struct {
+	campaign          *state.Campaign
+	path              string
+	st                validation.Value
+	before            int64
+	after             int64
+	pending           []stateHealthPendingNote
+	artifactsRepaired int
+	mirrorRebuilt     bool
+	mirrorRefusal     string
+	mirrorDeltaNote   validation.Value
+}
+
 // StateHealth is state_health: report the state file size and repair
 // oversized stage notes. Rewrites the projection (campaign_state.json) with
 // every note capped; the event log is untouched.
 func StateHealth(campaign *state.Campaign) (validation.Value, error) {
+	sh := &stateHealthCtx{campaign: campaign,
+		mirrorDeltaNote: validation.VNull()}
 	// r15: doctor WRITES campaign_state (note caps, mirror rebuild) —
 	// it is a state writer like any other and takes the lock for its
 	// whole load->repair->write window; the raw WriteJson at the bottom
@@ -49,34 +77,56 @@ func StateHealth(campaign *state.Campaign) (validation.Value, error) {
 		return validation.VNull(), err
 	}
 	defer campaign.UnlockProcess()
-	path := campaign.StatePath
-	before := int64(0)
-	if fi, err := os.Stat(path); err == nil {
-		before = fi.Size()
-	}
+	sh.path = campaign.StatePath
+	sh.before = sh.stateHealthFileSize()
 	// r36b P2: keep the bytes we parse. They answer "is this file already the
 	// canonical projection?" without a second read of a state file that can
 	// be gigabytes (the 1.7 GB state the note cap exists for), and that answer
 	// is what decides whether a quiet run writes at all.
-	raw, err := os.ReadFile(path)
+	raw, err := os.ReadFile(sh.path)
 	if err != nil {
 		return validation.VNull(), err
 	}
-	st, err := validation.ParseOrdered(raw)
-	if err != nil {
+	if sh.st, err = validation.ParseOrdered(raw); err != nil {
 		return validation.VNull(), err
 	}
-	// pendingNote is one note this run actually SHORTENS: the stage key, the
-	// length read from the file before the write, and the capped text. doctor
-	// reports what it staged here and nothing else — the r36b P2 finding was a
-	// report of a repair that capNote's own over-cap output kept undoing.
-	type pendingNote struct {
-		stage  string
-		before int
-		capped string
+	sh.stateHealthCapStages()
+	sh.stateHealthCapArtifacts()
+	sh.stateHealthRebuildMirror()
+	if err := sh.stateHealthWriteIfChanged(raw); err != nil {
+		return validation.VNull(), err
 	}
-	var pending []pendingNote
-	if stages := validation.ObjAt(st, "stages"); stages.Kind == validation.Obj {
+	raw = nil // the file bytes were only needed for the canonicality test
+	sh.after = sh.stateHealthFileSize()
+	truncated := sh.stateHealthTruncated()
+	if err := sh.stateHealthJournal(); err != nil {
+		return validation.VNull(), err
+	}
+	return validation.VObj(
+		validation.KV{K: "state_path", V: validation.VStr(sh.path)},
+		validation.KV{K: "size_before", V: validation.VInt(sh.before)},
+		validation.KV{K: "size_after", V: validation.VInt(sh.after)},
+		validation.KV{K: "bytes_freed", V: validation.VInt(sh.before - sh.after)},
+		validation.KV{K: "notes_truncated", V: validation.VArr(truncated...)},
+		validation.KV{K: "repaired_at", V: validation.VStr(state.NowIso())},
+		validation.KV{K: "events_mirror_rebuilt", V: validation.VBool(sh.mirrorRebuilt)},
+		validation.KV{K: "events_mirror_delta", V: sh.mirrorDeltaNote},
+		validation.KV{K: "events_mirror_refused", V: sh.stateHealthRefusedValue()},
+	), nil
+}
+
+// stateHealthFileSize stats the state file; a failed stat folds to a size
+// of 0, exactly as the inline stat did.
+func (sh *stateHealthCtx) stateHealthFileSize() int64 {
+	if fi, err := os.Stat(sh.path); err == nil {
+		return fi.Size()
+	}
+	return 0
+}
+
+// stateHealthCapStages caps every oversized stage note in the projection.
+func (sh *stateHealthCtx) stateHealthCapStages() {
+	if stages := validation.ObjAt(sh.st, "stages"); stages.Kind == validation.Obj {
 		for i := range stages.O {
 			entry := stages.O[i].V
 			if entry.Kind != validation.Obj {
@@ -94,21 +144,25 @@ func StateHealth(campaign *state.Campaign) (validation.Value, error) {
 				// capNote's own output kept true forever).
 				continue
 			}
-			pending = append(pending, pendingNote{
+			sh.pending = append(sh.pending, stateHealthPendingNote{
 				stage:  stages.O[i].K,
 				before: runeLen(note),
 				capped: capped,
 			})
 			setKey(&stages.O[i].V, "note", validation.VStr(capped))
 		}
-		setKey(&st, "stages", stages)
+		setKey(&sh.st, "stages", stages)
 	}
-	// artifact notes ride the same rule (they are summaries too). They carry
-	// no stage key, so — as before — they stay out of the stage-keyed
-	// notes_truncated report; the fixed-point test is what keeps them from
-	// being re-capped on every run.
-	artifactsRepaired := 0
-	if arts := validation.ObjAt(st, "artifacts"); arts.Kind == validation.Arr {
+}
+
+// stateHealthCapArtifacts caps the artifact notes.
+//
+// artifact notes ride the same rule (they are summaries too). They carry
+// no stage key, so — as before — they stay out of the stage-keyed
+// notes_truncated report; the fixed-point test is what keeps them from
+// being re-capped on every run.
+func (sh *stateHealthCtx) stateHealthCapArtifacts() {
+	if arts := validation.ObjAt(sh.st, "artifacts"); arts.Kind == validation.Arr {
 		for i := range arts.A {
 			art := arts.A[i]
 			if art.Kind != validation.Obj {
@@ -123,25 +177,27 @@ func StateHealth(campaign *state.Campaign) (validation.Value, error) {
 				continue
 			}
 			setKey(&arts.A[i], "note", validation.VStr(capped))
-			artifactsRepaired++
+			sh.artifactsRepaired++
 		}
-		setKey(&st, "artifacts", arts)
+		setKey(&sh.st, "artifacts", arts)
 	}
-	// r14: the events mirror is a PROJECTION of the log, and an unflocked
-	// era (or the r13 twin-package race) can strand it mid-file — verify
-	// goes red forever with no verb to fix it. Doctor owns repairs of
-	// projection-only damage: rebuild the tail from the log (the log is
-	// never touched; its chain is the truth). Reported, never silent.
-	mirrorRebuilt := false
-	var mirrorRefusal string
-	mirrorDeltaNote := validation.VNull()
-	fresh, merr := campaign.EventsMirrorFromLog()
+}
+
+// stateHealthRebuildMirror repairs the events mirror.
+//
+// r14: the events mirror is a PROJECTION of the log, and an unflocked
+// era (or the r13 twin-package race) can strand it mid-file — verify
+// goes red forever with no verb to fix it. Doctor owns repairs of
+// projection-only damage: rebuild the tail from the log (the log is
+// never touched; its chain is the truth). Reported, never silent.
+func (sh *stateHealthCtx) stateHealthRebuildMirror() {
+	fresh, merr := sh.campaign.EventsMirrorFromLog()
 	if merr != nil {
 		// r15: a refused rebuild is DISCLOSED, never silent — but it
 		// does not veto the note-cap repair (an oversized note still
 		// gets capped; the mirror stays as-is, visible to verify).
-		mirrorRefusal = merr.Error()
-	} else if validation.CanonSpaced(validation.ObjAt(st, "events")) !=
+		sh.mirrorRefusal = merr.Error()
+	} else if validation.CanonSpaced(validation.ObjAt(sh.st, "events")) !=
 		validation.CanonSpaced(validation.Value{Kind: validation.Arr,
 			A: fresh}) {
 		// r16: capture the OLD mirror BEFORE cand is built —
@@ -149,8 +205,8 @@ func StateHealth(campaign *state.Campaign) (validation.Value, error) {
 		// so st["events"] reads the NEW value once cand exists (and a
 		// delta computed from st afterwards is zero by construction
 		// — it was, until a pin caught it).
-		oldMirror := validation.ObjAt(st, "events")
-		cand := st
+		oldMirror := validation.ObjAt(sh.st, "events")
+		cand := sh.st
 		cand.O = validation.SetOrAppend(cand.O, "events",
 			validation.Value{Kind: validation.Arr, A: fresh})
 		// The rebuild must not poison the file it repairs: if the
@@ -158,7 +214,7 @@ func StateHealth(campaign *state.Campaign) (validation.Value, error) {
 		// read as a whole), skip the rebuild rather than write a state
 		// NO verb can load afterward.
 		if verr := validation.Validate(cand, "campaign_state", 1); verr != nil {
-			mirrorRefusal = fmt.Sprintf("rebuilt state would not "+
+			sh.mirrorRefusal = fmt.Sprintf("rebuilt state would not "+
 				"validate: %v", verr)
 		} else {
 			// r16: the rebuild adopts the log's version of EVENTS —
@@ -170,9 +226,9 @@ func StateHealth(campaign *state.Campaign) (validation.Value, error) {
 			adopted, changed, dropped, added := mirrorDelta(
 				oldMirror,
 				validation.Value{Kind: validation.Arr, A: fresh})
-			st = cand
-			mirrorRebuilt = true
-			mirrorDeltaNote = validation.VObj(
+			sh.st = cand
+			sh.mirrorRebuilt = true
+			sh.mirrorDeltaNote = validation.VObj(
 				validation.KV{K: "kept", V: validation.VInt(adopted)},
 				validation.KV{K: "changed", V: validation.VInt(changed)},
 				validation.KV{K: "dropped_from_projection", V: validation.VInt(dropped)},
@@ -180,6 +236,10 @@ func StateHealth(campaign *state.Campaign) (validation.Value, error) {
 			)
 		}
 	}
+}
+
+// stateHealthWriteIfChanged rewrites the projection (campaign_state.json).
+func (sh *stateHealthCtx) stateHealthWriteIfChanged(raw []byte) error {
 	// no schema validation on the repair write: doctor's job is to make the
 	// file loadable again, not to re-judge its shape — a state that drifted
 	// from the schema must still be repairable (the audit is what judges).
@@ -192,33 +252,32 @@ func StateHealth(campaign *state.Campaign) (validation.Value, error) {
 	// apart from a working one. A hand-edited state is still re-serialized:
 	// the RUNBOOK's torn-tail recovery (python indent=2, then doctor) leaves
 	// bytes that differ from the canonical form the CLI writes.
-	writeNeeded := len(pending) > 0 || artifactsRepaired > 0 || mirrorRebuilt
+	writeNeeded := len(sh.pending) > 0 || sh.artifactsRepaired > 0 || sh.mirrorRebuilt
 	if !writeNeeded {
-		writeNeeded = string(raw) != validation.DumpIndented(st)+"\n"
+		writeNeeded = string(raw) != validation.DumpIndented(sh.st)+"\n"
 	}
-	raw = nil // the file bytes were only needed for the canonicality test
-	if writeNeeded {
-		if err := validation.WriteJson(path, st, ""); err != nil {
-			return validation.VNull(), err
-		}
+	if !writeNeeded {
+		return nil
 	}
-	after := int64(0)
-	if fi, err := os.Stat(path); err == nil {
-		after = fi.Size()
-	}
+	return validation.WriteJson(sh.path, sh.st, "")
+}
+
+// stateHealthTruncated builds the notes_truncated report for the notes this
+// run actually shortened.
+func (sh *stateHealthCtx) stateHealthTruncated() []validation.Value {
 	// r36b P2: the reported before/after are the REAL lengths. `before` was
 	// measured on the note as it was read from the file; `after` is measured
 	// on the note read BACK from the file this repair wrote — never on what
 	// capNote returned. A number nobody can check against the file is how
 	// "truncated note on stage X: 4,176 -> 4,176 chars" survived eight runs.
-	afterLens := make([]int, len(pending))
-	for i, p := range pending {
+	afterLens := make([]int, len(sh.pending))
+	for i, p := range sh.pending {
 		afterLens[i] = utf8.RuneCountInString(p.capped)
 	}
-	if len(pending) > 0 {
-		if persisted, perr := validation.ReadJson(path); perr == nil {
+	if len(sh.pending) > 0 {
+		if persisted, perr := validation.ReadJson(sh.path); perr == nil {
 			stages := validation.ObjAt(persisted, "stages")
-			for i, p := range pending {
+			for i, p := range sh.pending {
 				entry := validation.ObjAt(stages, p.stage)
 				if entry.Kind != validation.Obj {
 					continue
@@ -229,33 +288,42 @@ func StateHealth(campaign *state.Campaign) (validation.Value, error) {
 			}
 		}
 	}
-	truncated := make([]validation.Value, 0, len(pending))
-	for i, p := range pending {
+	truncated := make([]validation.Value, 0, len(sh.pending))
+	for i, p := range sh.pending {
 		truncated = append(truncated, validation.VObj(
 			validation.KV{K: "stage", V: validation.VStr(p.stage)},
 			validation.KV{K: "before", V: validation.VInt(int64(p.before))},
 			validation.KV{K: "after", V: validation.VInt(int64(afterLens[i]))},
 		))
 	}
+	return truncated
+}
+
+// stateHealthRefusedValue renders the mirror-refusal disclosure: null when
+// nothing was refused, the refusal text otherwise.
+func (sh *stateHealthCtx) stateHealthRefusedValue() validation.Value {
+	if sh.mirrorRefusal == "" {
+		return validation.VNull()
+	}
+	return validation.VStr(sh.mirrorRefusal)
+}
+
+// stateHealthJournal appends this run's mirror-repair record to the durable
+// doctor.json journal.
+func (sh *stateHealthCtx) stateHealthJournal() error {
 	// r17: the rebuild's own trace must OUTLIVE the run. The JSON delta
 	// printed once and vanished; verify then says green and `audit` says
 	// PASS over whatever the log became. campaigns/<C>/doctor.json keeps
 	// a durable (capped) journal of repairs — a truncation laundered to
 	// green still leaves the record that it happened and what moved.
-	if mirrorRebuilt || mirrorRefusal != "" {
+	if sh.mirrorRebuilt || sh.mirrorRefusal != "" {
 		entry := validation.VObj(
 			validation.KV{K: "at", V: validation.VStr(state.NowIso())},
-			validation.KV{K: "rebuilt", V: validation.VBool(mirrorRebuilt)},
-			validation.KV{K: "delta", V: mirrorDeltaNote},
-			validation.KV{K: "refused",
-				V: func() validation.Value {
-					if mirrorRefusal == "" {
-						return validation.VNull()
-					}
-					return validation.VStr(mirrorRefusal)
-				}()},
+			validation.KV{K: "rebuilt", V: validation.VBool(sh.mirrorRebuilt)},
+			validation.KV{K: "delta", V: sh.mirrorDeltaNote},
+			validation.KV{K: "refused", V: sh.stateHealthRefusedValue()},
 		)
-		journalPath := filepath.Join(campaign.Dir, "doctor.json")
+		journalPath := filepath.Join(sh.campaign.Dir, "doctor.json")
 		journal := []validation.Value{}
 		corruptTo := ""
 		if raw, jerr := os.ReadFile(journalPath); jerr == nil {
@@ -263,22 +331,7 @@ func StateHealth(campaign *state.Campaign) (validation.Value, error) {
 				v.Kind == validation.Arr {
 				journal = v.A
 			} else {
-				// r18 P2: corrupt-to-silence — an unreadable journal used
-				// to be replaced by a fresh one, quietly deleting every
-				// earlier disclosure while THIS rebuild laundered the
-				// truncation it was supposed to record. The bytes are
-				// rescued next to the journal and the salvage is named in
-				// the entry that overwrites it.
-				corruptTo = journalPath + ".corrupt"
-				for n := 1; n < 100; n++ {
-					if _, statErr := os.Stat(corruptTo); os.IsNotExist(statErr) {
-						break
-					}
-					corruptTo = fmt.Sprintf("%s.corrupt-%d", journalPath, n)
-				}
-				if werr := os.WriteFile(corruptTo, raw, 0o644); werr != nil {
-					corruptTo = "RESCUE FAILED: " + werr.Error()
-				}
+				corruptTo = stateHealthJournalRescue(journalPath, raw)
 			}
 		}
 		if corruptTo != "" {
@@ -293,26 +346,32 @@ func StateHealth(campaign *state.Campaign) (validation.Value, error) {
 		}
 		if jerr := validation.WriteJson(journalPath,
 			validation.VArr(journal...), ""); jerr != nil {
-			return validation.VNull(), jerr
+			return jerr
 		}
 	}
-	return validation.VObj(
-		validation.KV{K: "state_path", V: validation.VStr(path)},
-		validation.KV{K: "size_before", V: validation.VInt(before)},
-		validation.KV{K: "size_after", V: validation.VInt(after)},
-		validation.KV{K: "bytes_freed", V: validation.VInt(before - after)},
-		validation.KV{K: "notes_truncated", V: validation.VArr(truncated...)},
-		validation.KV{K: "repaired_at", V: validation.VStr(state.NowIso())},
-		validation.KV{K: "events_mirror_rebuilt", V: validation.VBool(mirrorRebuilt)},
-		validation.KV{K: "events_mirror_delta", V: mirrorDeltaNote},
-		validation.KV{K: "events_mirror_refused",
-			V: func() validation.Value {
-				if mirrorRefusal == "" {
-					return validation.VNull()
-				}
-				return validation.VStr(mirrorRefusal)
-			}()},
-	), nil
+	return nil
+}
+
+// stateHealthJournalRescue salvages the bytes of an unparseable doctor.json.
+//
+// r18 P2: corrupt-to-silence — an unreadable journal used
+// to be replaced by a fresh one, quietly deleting every
+// earlier disclosure while THIS rebuild laundered the
+// truncation it was supposed to record. The bytes are
+// rescued next to the journal and the salvage is named in
+// the entry that overwrites it.
+func stateHealthJournalRescue(journalPath string, raw []byte) string {
+	corruptTo := journalPath + ".corrupt"
+	for n := 1; n < 100; n++ {
+		if _, statErr := os.Stat(corruptTo); os.IsNotExist(statErr) {
+			break
+		}
+		corruptTo = fmt.Sprintf("%s.corrupt-%d", journalPath, n)
+	}
+	if werr := os.WriteFile(corruptTo, raw, 0o644); werr != nil {
+		corruptTo = "RESCUE FAILED: " + werr.Error()
+	}
+	return corruptTo
 }
 
 // runeLen is Python's len(str) for the note shapes doctor caps.
@@ -323,68 +382,115 @@ func runeLen(v validation.Value) int {
 	return 0
 }
 
+// snapScopeCtx carries the shared context of one SnapshotScope report: the
+// active pin, its manifest, and what the file walk found.
+type snapScopeCtx struct {
+	campaign *state.Campaign
+	sid      *string
+	meta     validation.Value
+	files    []string
+	total    int64
+}
+
 // SnapshotScope is snapshot_scope: what does the ACTIVE pin actually cover?
 // Ground truth for scope drift.
 func SnapshotScope(campaign *state.Campaign) (validation.Value, error) {
+	sc := &snapScopeCtx{campaign: campaign}
 	sid, err := campaign.ActiveSnapshotIDOrNone()
 	if err != nil {
 		return validation.VNull(), err
 	}
+	sc.sid = sid
 	if sid == nil {
-		cid := campaign.CampaignID
-		if cid == "" {
-			// A campaign in hand without an id keeps the documented
-			// metavariable rather than rendering a command with an empty hole.
-			cid = "<campaign>"
-		}
-		return validation.VObj(
-			validation.KV{K: "active_snapshot", V: validation.VNull()},
-			validation.KV{K: "note", V: validation.VStr("no snapshot pinned " +
-				"— run `webv2 snap " + cid + " <target>`")},
-		), nil
+		return sc.snapScopeNoPin(), nil
 	}
 	snapDir := filepath.Join(campaign.Dir, "snapshots", *sid)
 	fi, serr := os.Stat(snapDir)
 	if serr != nil && !os.IsNotExist(serr) {
-		// r44b P3-a: this used to be one branch — `if fi, err :=
-		// os.Stat(snapDir); err != nil || !fi.IsDir()` — so EVERY stat
-		// error, EACCES included, rendered as exists:false + "snapshot
-		// <id> directory missing". With `chmod 000 <c>/snapshots/` the
-		// directory is there but unreadable (stat needs +x on the parent):
-		// doctor said the pin was MISSING in both surfaces, which is a
-		// claim about absence drawn from a read failure. Doctor's rc stays
-		// 0 — its documented precedent: the bill discloses, it does not
-		// fail — so the REASON has to be the truth, and the note retracts
-		// the absence claim by name. A genuinely absent pin (NotExist)
-		// keeps the r37b shape below, message-for-message.
-		return validation.VObj(
-			validation.KV{K: "active_snapshot", V: validation.VStr(*sid)},
-			validation.KV{K: "exists", V: validation.VBool(false)},
-			validation.KV{K: "read_error", V: validation.VStr(serr.Error())},
-			validation.KV{K: "note", V: validation.VStr("the snapshot store " +
-				snapDir + " could not be read: " + serr.Error() +
-				" — a read failure is NOT proof the pin is absent; fix the " +
-				"permissions on snapshots/ and re-run")},
-		), nil
+		return sc.snapScopeUnreadable(snapDir, serr), nil
 	}
 	if serr != nil || !fi.IsDir() {
-		// Genuinely missing (NotExist), or a path occupied by something
-		// that is not a directory: the pin's directory is not there, which
-		// is what this shape has always said.
-		return validation.VObj(
-			validation.KV{K: "active_snapshot", V: validation.VStr(*sid)},
-			validation.KV{K: "exists", V: validation.VBool(false)},
-			validation.KV{K: "note", V: validation.VStr("snapshot " + *sid +
-				" directory missing")},
-		), nil
+		return sc.snapScopeMissing(snapDir), nil
 	}
+	if err := sc.snapScopeLoadMeta(snapDir); err != nil {
+		return validation.VNull(), err
+	}
+	topDirs, err := sc.snapScopeTally(snapDir)
+	if err != nil {
+		return validation.VNull(), err
+	}
+	return validation.VObj(
+		validation.KV{K: "active_snapshot", V: validation.VStr(*sc.sid)},
+		validation.KV{K: "source_root", V: sc.snapScopeRootV()},
+		validation.KV{K: "files", V: validation.VInt(int64(len(sc.files)))},
+		validation.KV{K: "bytes", V: validation.VInt(sc.total)},
+		validation.KV{K: "top_directories", V: validation.VArr(topDirs...)},
+		validation.KV{K: "file_count_warning", V: sc.snapScopeWarnV()},
+	), nil
+}
+
+// snapScopeNoPin renders the shape used when no snapshot is pinned.
+func (sc *snapScopeCtx) snapScopeNoPin() validation.Value {
+	cid := sc.campaign.CampaignID
+	if cid == "" {
+		// A campaign in hand without an id keeps the documented
+		// metavariable rather than rendering a command with an empty hole.
+		cid = "<campaign>"
+	}
+	return validation.VObj(
+		validation.KV{K: "active_snapshot", V: validation.VNull()},
+		validation.KV{K: "note", V: validation.VStr("no snapshot pinned " +
+			"— run `webv2 snap " + cid + " <target>`")},
+	)
+}
+
+// snapScopeUnreadable renders the shape for a pin whose store cannot be read.
+func (sc *snapScopeCtx) snapScopeUnreadable(snapDir string, serr error) validation.Value {
+	// r44b P3-a: this used to be one branch — `if fi, err :=
+	// os.Stat(snapDir); err != nil || !fi.IsDir()` — so EVERY stat
+	// error, EACCES included, rendered as exists:false + "snapshot
+	// <id> directory missing". With `chmod 000 <c>/snapshots/` the
+	// directory is there but unreadable (stat needs +x on the parent):
+	// doctor said the pin was MISSING in both surfaces, which is a
+	// claim about absence drawn from a read failure. Doctor's rc stays
+	// 0 — its documented precedent: the bill discloses, it does not
+	// fail — so the REASON has to be the truth, and the note retracts
+	// the absence claim by name. A genuinely absent pin (NotExist)
+	// keeps the r37b shape below, message-for-message.
+	return validation.VObj(
+		validation.KV{K: "active_snapshot", V: validation.VStr(*sc.sid)},
+		validation.KV{K: "exists", V: validation.VBool(false)},
+		validation.KV{K: "read_error", V: validation.VStr(serr.Error())},
+		validation.KV{K: "note", V: validation.VStr("the snapshot store " +
+			snapDir + " could not be read: " + serr.Error() +
+			" — a read failure is NOT proof the pin is absent; fix the " +
+			"permissions on snapshots/ and re-run")},
+	)
+}
+
+// snapScopeMissing renders the shape for a pin whose directory is absent.
+func (sc *snapScopeCtx) snapScopeMissing(snapDir string) validation.Value {
+	// Genuinely missing (NotExist), or a path occupied by something
+	// that is not a directory: the pin's directory is not there, which
+	// is what this shape has always said.
+	return validation.VObj(
+		validation.KV{K: "active_snapshot", V: validation.VStr(*sc.sid)},
+		validation.KV{K: "exists", V: validation.VBool(false)},
+		validation.KV{K: "note", V: validation.VStr("snapshot " + *sc.sid +
+			" directory missing")},
+	)
+}
+
+// snapScopeLoadMeta reads the pin's snapshot.json manifest when it is there.
+func (sc *snapScopeCtx) snapScopeLoadMeta(snapDir string) error {
 	metaPath := filepath.Join(snapDir, "snapshot.json")
-	meta := validation.VObj()
+	sc.meta = validation.VObj()
 	if _, metaErr := os.Stat(metaPath); metaErr == nil {
-		meta, err = validation.ReadJson(metaPath)
+		meta, err := validation.ReadJson(metaPath)
 		if err != nil {
-			return validation.VNull(), err
+			return err
 		}
+		sc.meta = meta
 	} else if !os.IsNotExist(metaErr) {
 		// r44b P3-a: this was `if pathExists(metaPath)`, and pathExists
 		// folded EVERY stat error into false — an unsearchable pin dir
@@ -392,13 +498,20 @@ func SnapshotScope(campaign *state.Campaign) (validation.Value, error) {
 		// carried source_root:null and the file walk below billed 0 files
 		// over a tree nobody could read. A manifest that cannot be stat'ed
 		// decides nothing: refuse with the path and the errno.
-		return validation.VNull(), fmt.Errorf(
+		return fmt.Errorf(
 			"the snapshot store %s cannot be read: %v", metaPath, metaErr)
 	}
+	return nil
+}
+
+// snapScopeTally walks the pin's files and accumulates the byte total and
+// the per-top-directory counts; it returns the sorted top_directories rows.
+func (sc *snapScopeCtx) snapScopeTally(snapDir string) ([]validation.Value, error) {
 	files, err := walkFiles(snapDir)
 	if err != nil {
-		return validation.VNull(), err
+		return nil, err
 	}
+	sc.files = files
 	total := int64(0)
 	counts := map[string]int{}
 	order := []string{}
@@ -420,6 +533,7 @@ func SnapshotScope(campaign *state.Campaign) (validation.Value, error) {
 		}
 		counts[top]++
 	}
+	sc.total = total
 	sort.SliceStable(order, func(i, j int) bool {
 		return counts[order[i]] > counts[order[j]]
 	})
@@ -431,25 +545,28 @@ func SnapshotScope(campaign *state.Campaign) (validation.Value, error) {
 		topDirs = append(topDirs, validation.VArr(validation.VStr(name),
 			validation.VInt(int64(counts[name]))))
 	}
+	return topDirs, nil
+}
+
+// snapScopeWarnV builds the scope-drift warning (null when the pin is small
+// enough).
+func (sc *snapScopeCtx) snapScopeWarnV() validation.Value {
 	var warnV validation.Value = validation.VNull()
-	if len(files) > SnapshotFileWarn {
-		warnV = validation.VStr("pin covers " + itoa(len(files)) + " files — " +
+	if len(sc.files) > SnapshotFileWarn {
+		warnV = validation.VStr("pin covers " + itoa(len(sc.files)) + " files — " +
 			"if the target is a small source tree, this pin has scope drift " +
 			"(it likely swallowed directories the target does not own); " +
 			"re-pin with --exclude or a tighter target")
 	}
-	var rootV validation.Value = validation.VNull()
-	if r := validation.ObjStr(validation.ObjAt(meta, "source"), "root"); r != "" {
-		rootV = validation.VStr(r)
+	return warnV
+}
+
+// snapScopeRootV reads source.root out of the manifest (null when absent).
+func (sc *snapScopeCtx) snapScopeRootV() validation.Value {
+	if r := validation.ObjStr(validation.ObjAt(sc.meta, "source"), "root"); r != "" {
+		return validation.VStr(r)
 	}
-	return validation.VObj(
-		validation.KV{K: "active_snapshot", V: validation.VStr(*sid)},
-		validation.KV{K: "source_root", V: rootV},
-		validation.KV{K: "files", V: validation.VInt(int64(len(files)))},
-		validation.KV{K: "bytes", V: validation.VInt(total)},
-		validation.KV{K: "top_directories", V: validation.VArr(topDirs...)},
-		validation.KV{K: "file_count_warning", V: warnV},
-	), nil
+	return validation.VNull()
 }
 
 // Doctor is doctor: the state repair, the snapshot scope report and the
