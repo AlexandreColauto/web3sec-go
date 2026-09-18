@@ -129,14 +129,18 @@ assert_has "3 stub exit 0: PASS" "$OUT" "security-check: PASS"
 assert_has "3 stub exit 0: scanner output forwarded" "$OUT" "no vulnerabilities found"
 assert_eq "3 stub exit 0: scanner argv" "$(read_log "$ARGV_LOG")" "./..."
 assert_eq "3 stub exit 0: scanner cwd is repository root" "$(read_log "$PWD_LOG")" "$ROOT"
-assert_has "3 stub exit 0: GOCACHE defaults under repo .scratch" \
+assert_has "3 stub exit 0: GOCACHE forced to repo .scratch" \
   "$(read_log "$ENV_LOG")" "GOCACHE=$ROOT/.scratch/gocache"
-assert_has "3 stub exit 0: GOPATH defaults under repo .scratch" \
+assert_has "3 stub exit 0: GOPATH forced to repo .scratch" \
   "$(read_log "$ENV_LOG")" "GOPATH=$ROOT/.scratch/gomod"
-assert_has "3 stub exit 0: GOMODCACHE defaults under repo .scratch" \
+assert_has "3 stub exit 0: GOMODCACHE forced to repo .scratch" \
   "$(read_log "$ENV_LOG")" "GOMODCACHE=$ROOT/.scratch/gomod/pkg/mod"
 
-# --- 3b. an operator-preset Go cache env is never clobbered -----------------
+# --- 3b. an inherited/preset Go cache env is OVERRIDDEN (mutation check) -----
+# The repo caches are plain exports, never `${VAR:-...}` defaults. A default
+# form loses to an inherited GOPATH (this harness exports a read-only one) and
+# the scan then resolves modules from a cache it cannot write — the Task 13
+# concern-2 mechanical failure. Restoring `${VAR:-...}` must turn this case red.
 ENV_ARGS=(
   GOCACHE="$TMP/preset-gocache"
   GOPATH="$TMP/preset-gopath"
@@ -144,12 +148,14 @@ ENV_ARGS=(
 )
 run_check "$STUB_PATH"
 assert_eq "3b preset Go env: exit status" "$STATUS" "0"
-assert_has "3b preset Go env: GOCACHE preserved" \
-  "$(read_log "$ENV_LOG")" "GOCACHE=$TMP/preset-gocache"
-assert_has "3b preset Go env: GOPATH preserved" \
-  "$(read_log "$ENV_LOG")" "GOPATH=$TMP/preset-gopath"
-assert_has "3b preset Go env: GOMODCACHE preserved" \
-  "$(read_log "$ENV_LOG")" "GOMODCACHE=$TMP/preset-modcache"
+assert_has "3b preset Go env: GOCACHE overridden by repo cache" \
+  "$(read_log "$ENV_LOG")" "GOCACHE=$ROOT/.scratch/gocache"
+assert_has "3b preset Go env: GOPATH overridden by repo cache" \
+  "$(read_log "$ENV_LOG")" "GOPATH=$ROOT/.scratch/gomod"
+assert_has "3b preset Go env: GOMODCACHE overridden by repo cache" \
+  "$(read_log "$ENV_LOG")" "GOMODCACHE=$ROOT/.scratch/gomod/pkg/mod"
+assert_lacks "3b preset Go env: preset paths never reach the scanner" \
+  "$(read_log "$ENV_LOG")" "$TMP/preset-"
 ENV_ARGS=()
 
 # --- 4. stub scanner exit 1 with a finding ----------------------------------

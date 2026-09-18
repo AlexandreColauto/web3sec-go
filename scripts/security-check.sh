@@ -51,11 +51,15 @@ fi
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root="$(cd "$script_dir/.." && pwd)"
 
-# Caches under .scratch so the scanner works in sandboxed environments where
-# $HOME is not writable (same rule as scripts/release.sh and verify-full.sh).
-export GOCACHE="${GOCACHE:-$root/.scratch/gocache}"
-export GOPATH="${GOPATH:-$root/.scratch/gomod}"
-export GOMODCACHE="${GOMODCACHE:-$GOPATH/pkg/mod}"
+# The Go caches live under .scratch so the script works in sandboxed
+# environments where $HOME is not writable. These are FORCED, not
+# `${VAR:-default}` fallbacks: an inherited GOPATH may point at a read-only
+# location (this harness exports GOPATH=$HOME/go), which would defeat the
+# convention and make the scanner die on a download lock instead of scanning.
+# Same plain-export rule as scripts/verify-full.sh.
+export GOCACHE="$root/.scratch/gocache"
+export GOPATH="$root/.scratch/gomod"
+export GOMODCACHE="$root/.scratch/gomod/pkg/mod"
 
 scanner="$(command -v govulncheck || true)"
 if [ -z "$scanner" ]; then
