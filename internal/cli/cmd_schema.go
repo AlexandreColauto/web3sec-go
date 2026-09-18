@@ -80,7 +80,7 @@ func schemaCmd(args []string, r *Runner) error {
 		return nil
 	}
 	if !slices.Contains(validation.KnownSchemas(), name) {
-		// The canonical unknown-schema text (schema.go:51) names every known
+		// The canonical unknown-schema text (loadSchema, internal/validation) names every known
 		// schema in contractual order; Validate reaches it in loadSchema
 		// before it looks at the instance, so the CLI reuses that renderer
 		// instead of re-spelling the list (which could drift from the one the
@@ -91,7 +91,7 @@ func schemaCmd(args []string, r *Runner) error {
 	raw, err := validation.ReadSchemaFile(name)
 	if err != nil {
 		// unreachable for a known name: the embedded FS is built from the
-		// same schema set (schema.go:56); reachable only for a SCHEMA_DIR
+		// same schema set (loadSchema's file-missing branch); reachable only for a SCHEMA_DIR
 		// override whose file disappeared between the two reads.
 		return fmt.Errorf("schema: reading %s: %w", name, err)
 	}

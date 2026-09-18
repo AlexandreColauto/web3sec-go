@@ -68,7 +68,8 @@ func TestSchemaPrintsRawEmbeddedBytes(t *testing.T) {
 }
 
 // TestSchemaUnknownNameExits2: the refusal reuses validation's canonical text
-// (schema.go:51) verbatim, on stderr, at exit 2, with stdout empty.
+// (loadSchema's unknown-schema error) verbatim, on stderr, at exit 2,
+// with stdout empty.
 func TestSchemaUnknownNameExits2(t *testing.T) {
 	code, out, errS := run(t, "schema", "bogus")
 	if code != 2 {

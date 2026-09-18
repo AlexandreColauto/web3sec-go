@@ -24,7 +24,7 @@ var knownSchemas = []string{
 }
 
 // KnownSchemas returns a copy of the schema-name list in its contractual
-// order — the order the unknown-schema error text renders (schema.go:51) and
+// order — the order loadSchema's unknown-schema error renders and
 // the order the schema files must be listed in. A copy, so a caller (the
 // `webv2 schema` verb) cannot reorder the list the error text depends on.
 func KnownSchemas() []string {
