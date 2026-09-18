@@ -174,10 +174,7 @@ func IndexPath(c *state.Campaign) string {
 
 // SaveIndex is save_index: require v3, validate against the schema, write.
 func SaveIndex(c *state.Campaign, index validation.Value) (string, error) {
-	if err := RequireParseVersion(index, "structural index"); err != nil {
-		return "", err
-	}
-	if err := validation.Validate(index, "structural_index", 1); err != nil {
+	if err := requireValidIndex(index); err != nil {
 		return "", err
 	}
 	out := IndexPath(c)
@@ -185,6 +182,57 @@ func SaveIndex(c *state.Campaign, index validation.Value) (string, error) {
 		return "", err
 	}
 	return out, nil
+}
+
+// requireValidIndex is the write gate SaveIndex and SaveIndexIfChanged share:
+// an index that is not v3 or not schema-legal must never reach the disk, and
+// must not be accepted as "already there" either.
+func requireValidIndex(index validation.Value) error {
+	if err := RequireParseVersion(index, "structural index"); err != nil {
+		return err
+	}
+	return validation.Validate(index, "structural_index", 1)
+}
+
+// SameIndexContent reports whether two index documents differ only by the
+// build clock (created_at) — the one field a rebuild stamps that is not a fact
+// about the tree, the pin or the campaign. Every other field, snapshot_id
+// included (derived reports copy it from here), is a claim the bytes make and
+// therefore a reason to rewrite them.
+func SameIndexContent(a, b validation.Value) bool {
+	drop := func(v validation.Value) validation.Value {
+		if v.Kind != validation.Obj {
+			return v
+		}
+		out := make([]validation.KV, 0, len(v.O))
+		for _, kv := range v.O {
+			if kv.K == "created_at" {
+				continue
+			}
+			out = append(out, kv)
+		}
+		return validation.VObj(out...)
+	}
+	return validation.CanonCompact(drop(a)) == validation.CanonCompact(drop(b))
+}
+
+// SaveIndexIfChanged is save_index for a REBUILD: the bytes are written only
+// when the index actually differs from the one on disk (modulo the build
+// clock). An unchanged tree therefore leaves the artifact, its mtime and its
+// registry row untouched — the Task 6 law reads "the command changed the
+// bytes" from exactly this comparison, so a rebuild that changed nothing must
+// not look like one that did. A missing, unreadable or stale file is always a
+// change: the rebuild is what heals it.
+func SaveIndexIfChanged(c *state.Campaign, index validation.Value) (string, error) {
+	if err := requireValidIndex(index); err != nil {
+		return "", err
+	}
+	out := IndexPath(c)
+	if existing, err := validation.ReadJson(out); err == nil &&
+		SameIndexContent(existing, index) {
+		return out, nil
+	}
+	return SaveIndex(c, index)
 }
 
 // EnsureFreshIndex is ensure_fresh_index: the stored index is reused ONLY

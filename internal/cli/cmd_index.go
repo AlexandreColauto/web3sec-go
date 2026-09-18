@@ -39,7 +39,21 @@ func runIndex(root string, args []string, r *Runner) int {
 		if err != nil {
 			return err
 		}
-		idxPath, err := structidx.SaveIndex(c, idx)
+		// Task 6: the rebuild is ONE unit. The campaign lock spans the
+		// whole window (r15/r16: load->edit->write is one unit, and a
+		// refused ledger event unwinds the state write), so no sibling
+		// writer can slip between the bytes and the row that pins them,
+		// and ten concurrent rebuilds of one changed tree emit exactly
+		// one artifact.refreshed — not one per goroutine. An unchanged
+		// tree writes nothing (SaveIndexIfChanged), and a row already
+		// pinning the bytes on disk is left alone
+		// (RegisterOrRefreshIfChanged): a rebuild that changed nothing
+		// must not look like one that did.
+		if err := c.LockProcess(); err != nil {
+			return err
+		}
+		defer c.UnlockProcess()
+		idxPath, err := structidx.SaveIndexIfChanged(c, idx)
 		if err != nil {
 			return err
 		}
@@ -55,8 +69,8 @@ func runIndex(root string, args []string, r *Runner) int {
 		if snapID != "" && snapID != "unpinned" {
 			snapRef = &snapID
 		}
-		if _, err := c.RegisterOrRefresh("structural-index", idxPath, "",
-			snapRef, "structural index rebuilt"); err != nil {
+		if _, _, err := c.RegisterOrRefreshIfChanged("structural-index", idxPath,
+			"", snapRef, "structural index rebuilt"); err != nil {
 			return err
 		}
 		if asJSON {

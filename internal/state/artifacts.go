@@ -978,6 +978,81 @@ func artifactExecPins(rec validation.Value, dig string) bool {
 	return false
 }
 
+// RegisterOrRefreshIfChanged is RegisterOrRefresh for a command that
+// REGENERATES an artifact: when the registry already pins exactly the bytes on
+// disk at this (resolved) path — same sha256, same kind — the call does
+// nothing at all: no row write, no artifact.refreshed event. Anything else
+// takes the RegisterOrRefresh path (mint the row, migrate the kind, refresh),
+// so an unchanged regeneration cannot manufacture a refresh event for bytes
+// nobody changed.
+//
+// It is deliberately NOT the behaviour of RegisterOrRefresh itself: the
+// explicit operator verbs (RefreshArtifact, artifact-register) keep logging a
+// hash-equal refresh, because re-registering or re-hashing IS an act whose
+// provenance must land (r12 note on refreshArtifact). A rebuild command is the
+// other case — the act is conditional on the bytes moving.
+//
+// refreshed reports whether the registry was actually touched. The caller is
+// expected to hold the campaign lock across the write and this call (the
+// lock is re-entrant, counted), so the bytes and the row that pins them are
+// one window.
+func (c *Campaign) RegisterOrRefreshIfChanged(kind, path, note string,
+	snapshotID *string, reason string) (id string, refreshed bool, err error) {
+	if err := c.LockProcess(); err != nil {
+		return "", false, err
+	}
+	defer c.UnlockProcess()
+	currentID, current, err := c.artifactRowCurrent(kind, path)
+	if err != nil {
+		return "", false, err
+	}
+	if current {
+		return currentID, false, nil
+	}
+	got, _, err := c.RegisterOrRefreshKeptGhosts(kind, path, note, snapshotID,
+		reason)
+	if err != nil {
+		return "", false, err
+	}
+	return got, true, nil
+}
+
+// artifactRowCurrent reports whether the registry already pins the bytes on
+// disk at path, and returns the id of the row RegisterOrRefresh would have
+// refreshed (the latest at the resolved path — the same selection, tie-break
+// included, that RegisterOrRefreshKeptGhosts makes). A requested kind that
+// differs from the row's is NOT current: the D3 kind migration is a real
+// change and must still land.
+func (c *Campaign) artifactRowCurrent(kind, path string) (string, bool, error) {
+	resolved := resolvePath(path)
+	st, err := c.State()
+	if err != nil {
+		return "", false, err
+	}
+	latest := validation.VNull()
+	for _, a := range objAt(st, "artifacts").A {
+		if resolvePath(c.resolveArtifactPath(a)) != resolved {
+			continue
+		}
+		if latest.Kind != validation.Obj ||
+			objStr(a, "registered_at") > objStr(latest, "registered_at") {
+			latest = a
+		}
+	}
+	if latest.Kind != validation.Obj {
+		return "", false, nil
+	}
+	if kind != "" && objStr(latest, "kind") != kind {
+		return objStr(latest, "artifact_id"), false, nil
+	}
+	sha, err := validation.Sha256File(path)
+	if err != nil {
+		return objStr(latest, "artifact_id"), false, nil
+	}
+	return objStr(latest, "artifact_id"),
+		sha != "" && objStr(latest, "sha256") == sha, nil
+}
+
 // ReconcileArtifacts re-hashes every registered row against its file: a row
 // whose file changed since registration is refreshed (reason "reconcile after
 // external rewrite"), a row whose file is gone is reported as missing, and an
