@@ -107,33 +107,118 @@ import (
 	"websec/internal/sandbox"
 )
 
+// harnessResultBind carries one --harness-result bind's shared context;
+// the extracted stages below are its methods, called by the orchestrator
+// in the original body's order.
+type harnessResultBind struct {
+	c *state.Campaign
+	a *verifyArgs
+	r *Runner
+
+	links    validation.Value
+	entry    validation.Value
+	kind     harness.Kind
+	rec      validation.Value
+	execDir  string
+	raw      []byte
+	scaffold []byte
+
+	pin                string
+	pinSource          string
+	pinNamedUnresolved string
+	reported           []string
+
+	timedOut   bool
+	exitStatus int
+	k          int
+	ruleName   string
+	inv        validation.Value
+	rung       string
+	summary    string
+	proof      validation.Value
+	boundedK   *int
+	hrunData   validation.Value
+}
+
 // verifyHarnessResult is cmd_verify's --harness-result branch.
 func verifyHarnessResult(c *state.Campaign, a *verifyArgs, r *Runner) error {
-	if a.execID == "" {
+	s := &harnessResultBind{c: c, a: a, r: r}
+	if err := s.harnessResultCheckExec(); err != nil {
+		return err
+	}
+	if err := s.harnessResultLoadEntry(); err != nil {
+		return err
+	}
+	if err := s.harnessResultResolveKind(); err != nil {
+		return err
+	}
+	if err := s.harnessResultLoadStdout(); err != nil {
+		return err
+	}
+	if err := s.harnessResultLoadScaffold(); err != nil {
+		return err
+	}
+	if err := s.harnessResultCheckCompiler(); err != nil {
+		return err
+	}
+	s.harnessResultMapRung()
+	s.harnessResultStampProof()
+	s.harnessResultStageBind()
+	if err := s.harnessResultCommit(); err != nil {
+		return err
+	}
+	if err := s.harnessResultWritePoc(); err != nil {
+		return err
+	}
+	s.harnessResultPrint()
+	return nil
+}
+
+func (s *harnessResultBind) harnessResultCheckExec() error {
+	if s.a.execID == "" {
 		return t14ExitErr(2,
 			"verify --harness-result needs --exec EXEC-...\n")
 	}
-	links, err := invariants.LoadLinks(c)
+	return nil
+}
+
+func (s *harnessResultBind) harnessResultLoadEntry() error {
+	links, err := invariants.LoadLinks(s.c)
 	if err != nil {
 		return err
 	}
-	entry, found := harnessInvEntry(links, a.harnessResult)
+	s.links = links
+	entry, found := harnessInvEntry(links, s.a.harnessResult)
 	if !found {
 		return t14ExitErr(2, "verify: unknown invariant %s\n",
-			validation.PyReprStr(a.harnessResult))
+			validation.PyReprStr(s.a.harnessResult))
 	}
-	kind, err := harnessKindFor(c, a.harnessResult, a.kind)
+	s.entry = entry
+	return nil
+}
+
+func (s *harnessResultBind) harnessResultResolveKind() error {
+	kind, err := harnessKindFor(s.c, s.a.harnessResult, s.a.kind)
 	if err != nil {
 		return err
 	}
-	rec, execDir, err := harnessExecRecord(c, a.execID)
+	s.kind = kind
+	return nil
+}
+
+// harnessResultLoadStdout loads the exec record and its captured stdout,
+// refusing a truncated stdout capture outright.
+func (s *harnessResultBind) harnessResultLoadStdout() error {
+	rec, execDir, err := harnessExecRecord(s.c, s.a.execID)
 	if err != nil {
 		return err
 	}
+	s.rec, s.execDir = rec, execDir
 	raw, err := harnessExecStdout(execDir, rec)
 	if err != nil {
 		return err
 	}
+	s.raw = raw
 	// P2-2: a run whose stdout the record marks TRUNCATED never binds a
 	// rung — not from the kept bytes, and not from their content. The
 	// mapper's verdict lines could sit past the cap in either direction:
@@ -149,12 +234,24 @@ func verifyHarnessResult(c *state.Campaign, a *verifyArgs, r *Runner) error {
 			"(their absence AND their presence are unprovable), so no "+
 			"rung is bound from a truncated capture; re-run the harness "+
 			"with output under the capture cap\n",
-			validation.PyReprStr(a.execID), tc.Accounting())
+			validation.PyReprStr(s.a.execID), tc.Accounting())
 	}
-	scaffold, err := harnessScaffoldBytes(c, a.harnessResult, kind)
+	return nil
+}
+
+// harnessResultLoadScaffold loads the T17 scaffold artifact bytes.
+func (s *harnessResultBind) harnessResultLoadScaffold() error {
+	scaffold, err := harnessScaffoldBytes(s.c, s.a.harnessResult, s.kind)
 	if err != nil {
 		return err
 	}
+	s.scaffold = scaffold
+	return nil
+}
+
+// harnessResultCheckCompiler resolves the exec's compiler pin and refuses
+// a run whose reported solc disagrees with it.
+func (s *harnessResultBind) harnessResultCheckCompiler() error {
 	// r18 (A2, §6.2 of the integration doc): provenance was RECORDED but
 	// never ENFORCED — a run compiled by a different solc than the
 	// campaign's exec record pins bound its rung today. Now the mapper
@@ -163,11 +260,13 @@ func verifyHarnessResult(c *state.Campaign, a *verifyArgs, r *Runner) error {
 	// record's tool_versions row) and REFUSES a mismatch. When no pin
 	// is visible from either source the run proceeds, marked UNCHECKED
 	// in the proof — honest, not silent.
-	pin, pinSource, pinNamedUnresolved, pinErr := harnessCompilerPin(rec)
+	pin, pinSource, pinNamedUnresolved, pinErr := harnessCompilerPin(s.rec)
 	if pinErr != nil {
 		return pinErr
 	}
-	reported := harnessReportedCompilers(raw)
+	s.pin, s.pinSource, s.pinNamedUnresolved = pin, pinSource, pinNamedUnresolved
+	reported := harnessReportedCompilers(s.raw)
+	s.reported = reported
 	if pin != "" && len(reported) > 0 {
 		for _, v := range reported {
 			if v != pin {
@@ -176,10 +275,16 @@ func verifyHarnessResult(c *state.Campaign, a *verifyArgs, r *Runner) error {
 						"reports solc %s, the exec pinned solc %s (%s); "+
 						"rerun with a matching compiler (the provenance "+
 						"is recorded, now it is also enforced)\n",
-					a.harnessResult, v, pin, pinSource)
+					s.a.harnessResult, v, pin, pinSource)
 			}
 		}
 	}
+	return nil
+}
+
+// harnessResultMapRung reads the run's status bits and asks the ONE home
+// in package harness for the rung (harnessMapBound).
+func (s *harnessResultBind) harnessResultMapRung() {
 	// The minicertora mapper is exit-status aware: an int exit_status is
 	// the run's own report, anything else (absent/null/big) is "unknown"
 	// (-2), and MapMinicertora's negative floor refuses it — a run that
@@ -188,8 +293,8 @@ func verifyHarnessResult(c *state.Campaign, a *verifyArgs, r *Runner) error {
 	// r28b F2: BOTH readings now come from the one home in package
 	// harness, so the audit's re-derivation cannot hold a second opinion
 	// about an absent exit status (it read 0 there, the bind reads -2).
-	timedOut := harnessTimedOut(rec)
-	exitStatus := harness.RecordExitStatus(rec)
+	s.timedOut = harnessTimedOut(s.rec)
+	s.exitStatus = harness.RecordExitStatus(s.rec)
 	// r32 F1/F2/F8: the invocation bound is read from the record by the ONE
 	// reader — the command field's SHAPE first (a present non-string is an
 	// unreadable invocation, never an absent one), then the parse shaped by
@@ -197,15 +302,20 @@ func verifyHarnessResult(c *state.Campaign, a *verifyArgs, r *Runner) error {
 	// ints, and a foreign bound flag as a floor). harness.DecideBound
 	// re-reads the same record through the same reader, so the bind and
 	// section 11's re-derivation cannot disagree about any of it.
-	k := harness.RecordInvocationBound(kind, rec)
-	_ = pinSource
-	ruleName := harness.MspecRuleName(a.harnessResult)
+	s.k = harness.RecordInvocationBound(s.kind, s.rec)
+	_ = s.pinSource
+	s.ruleName = harness.MspecRuleName(s.a.harnessResult)
 	// Validate renders from the same value the scaffold command rendered
 	// from, so the re-render can only differ where the bytes really moved.
-	inv := harnessInvValue(a.harnessResult, entry)
-	rung, summary, proof, boundedK := harnessMapBound(kind, inv, raw, rec,
-		scaffold, timedOut, k, exitStatus, ruleName)
-	if proof.Kind == validation.Obj {
+	s.inv = harnessInvValue(s.a.harnessResult, s.entry)
+	s.rung, s.summary, s.proof, s.boundedK = harnessMapBound(s.kind, s.inv,
+		s.raw, s.rec, s.scaffold, s.timedOut, s.k, s.exitStatus, s.ruleName)
+}
+
+// harnessResultStampProof writes the compiler_pin state line onto the
+// proof sidecar (when one exists).
+func (s *harnessResultBind) harnessResultStampProof() {
+	if s.proof.Kind == validation.Obj {
 		// r19 P1 #3: there are THREE states, not two. A pin with NO
 		// report lines carrying solc_version compared NOTHING — stamping
 		// "checked against pinned" there was the same lie in reverse
@@ -215,98 +325,118 @@ func verifyHarnessResult(c *state.Campaign, a *verifyArgs, r *Runner) error {
 		// solc_version agreed with the pin — a foreign rule line's
 		// version checked the RUN, not this proof.
 		avOK := false
-		if proof.Kind == validation.Obj {
+		if s.proof.Kind == validation.Obj {
 			// r21 F4: an EMPTY solc_version is exactly "carries no
 			// version" — Kind alone resurrected the "checked" lie.
-			if v := validation.ObjAt(proof, "solc_version"); v.Kind == validation.Str &&
+			if v := validation.ObjAt(s.proof, "solc_version"); v.Kind == validation.Str &&
 				v.S != "" {
 				avOK = true
 			}
 		}
 		switch {
-		case pin != "" && len(reported) > 0 && avOK:
-			state = "checked against pinned solc " + pin
-		case pin != "" && len(reported) > 0 && !avOK:
-			state = "checked at run level against pinned solc " + pin +
+		case s.pin != "" && len(s.reported) > 0 && avOK:
+			state = "checked against pinned solc " + s.pin
+		case s.pin != "" && len(s.reported) > 0 && !avOK:
+			state = "checked at run level against pinned solc " + s.pin +
 				" (the attributed line carries no solc_version of its own)"
-		case pin != "":
-			state = "unchecked (pin " + pin + " from " + pinSource +
+		case s.pin != "":
+			state = "unchecked (pin " + s.pin + " from " + s.pinSource +
 				"; the attributed report lines carry no solc_version to " +
 				"compare — nothing was verified)"
 		}
-		if pinNamedUnresolved != "" {
+		if s.pinNamedUnresolved != "" {
 			state += " [note: the exec names --solc-path " +
-				pinNamedUnresolved + " in a form this check could not " +
+				s.pinNamedUnresolved + " in a form this check could not " +
 				"resolve; the pin above is NOT that binary]"
 		}
-		proof.O = validation.SetOrAppend(proof.O, "compiler_pin",
+		s.proof.O = validation.SetOrAppend(s.proof.O, "compiler_pin",
 			validation.VStr(state))
 	}
-	entry.O = validation.SetOrAppend(entry.O, "verification",
-		validation.VObj(harnessField(kind, rung, a.execID, boundedK,
-			summary, proof)))
-	hrunData := validation.VObj(
+}
+
+// harnessResultStageBind stamps verification.harness onto the entry and
+// builds the harness_run event payload.
+func (s *harnessResultBind) harnessResultStageBind() {
+	s.entry.O = validation.SetOrAppend(s.entry.O, "verification",
+		validation.VObj(harnessField(s.kind, s.rung, s.a.execID, s.boundedK,
+			s.summary, s.proof)))
+	s.hrunData = validation.VObj(
 		// r21: kind rides the event so the audit backstop can back-check
 		// the slot's kind too (additive to the event payload).
-		validation.KV{K: "kind", V: validation.VStr(string(kind))},
-		validation.KV{K: "rung", V: validation.VStr(rung)},
-		validation.KV{K: "exec", V: validation.VStr(a.execID)},
-		validation.KV{K: "invariant", V: validation.VStr(a.harnessResult)},
-		validation.KV{K: "summary", V: validation.VStr(summary)},
+		validation.KV{K: "kind", V: validation.VStr(string(s.kind))},
+		validation.KV{K: "rung", V: validation.VStr(s.rung)},
+		validation.KV{K: "exec", V: validation.VStr(s.a.execID)},
+		validation.KV{K: "invariant", V: validation.VStr(s.a.harnessResult)},
+		validation.KV{K: "summary", V: validation.VStr(s.summary)},
 		// r22 F3: the backstop can only back-check what the event
 		// carries — k rides too (null = the run stated no bound).
 		validation.KV{K: "bounded_k", V: func() validation.Value {
-			if boundedK != nil {
-				return validation.VInt(int64(*boundedK))
+			if s.boundedK != nil {
+				return validation.VInt(int64(*s.boundedK))
 			}
 			return validation.VNull()
 		}()},
 		// r23 F1: the proof subtree's fingerprint rides the event — k=
 		// and poc: render FROM it, so "backed" must mean it too.
 		validation.KV{K: "proof_sha256",
-			V: validation.VStr(harnessProofDigest(proof))},
+			V: validation.VStr(harnessProofDigest(s.proof))},
 	)
-	if err := linksThenLog(c, func() error {
-		return harnessSaveEntry(c, links, a.harnessResult, entry)
+}
+
+// harnessResultCommit lands the rung atomically (linksThenLog).
+func (s *harnessResultBind) harnessResultCommit() error {
+	if err := linksThenLog(s.c, func() error {
+		return harnessSaveEntry(s.c, s.links, s.a.harnessResult, s.entry)
 	}, func() error {
-		_, lerr := c.Log("harness_run", &a.harnessResult, &hrunData)
+		_, lerr := s.c.Log("harness_run", &s.a.harnessResult, &s.hrunData)
 		return lerr
 	}); err != nil {
 		return err
 	}
+	return nil
+}
+
+// harnessResultWritePoc is the L4 consumption seam on the run path: the
+// rung (entry + event) is on record before the derived artifact is
+// attempted, so a refusal to bridge must never cost the record of the run.
+func (s *harnessResultBind) harnessResultWritePoc() error {
 	// The rung (entry + event) is on record before the derived artifact is
 	// attempted: the PoC is a view of the rung, so a refusal to bridge must
 	// never cost the record of the run, and an I/O error here leaves a
 	// campaign whose re-verify reproduces the file byte-for-byte.
-	if kind == harness.MiniCertora && rung == harness.RungCounterexample {
-		if err := harnessWriteBridgedPoc(c, a.harnessResult, raw, ruleName,
-			r); err != nil {
+	if s.kind == harness.MiniCertora && s.rung == harness.RungCounterexample {
+		if err := harnessWriteBridgedPoc(s.c, s.a.harnessResult, s.raw, s.ruleName,
+			s.r); err != nil {
 			return err
 		}
 	}
+	return nil
+}
+
+// harnessResultPrint is the pinned stdout record of the bound rung.
+func (s *harnessResultBind) harnessResultPrint() {
 	switch {
-	case rung == harness.RungProvedBounded && boundedK != nil:
-		fmt.Fprintf(r.Out, "%s: %s (%s, k=%d, %s)\n", a.harnessResult,
-			rung, string(kind), *boundedK, a.execID)
-	case rung == harness.RungProvedBounded:
+	case s.rung == harness.RungProvedBounded && s.boundedK != nil:
+		fmt.Fprintf(s.r.Out, "%s: %s (%s, k=%d, %s)\n", s.a.harnessResult,
+			s.rung, string(s.kind), *s.boundedK, s.a.execID)
+	case s.rung == harness.RungProvedBounded:
 		// The display k is sidecar-first: proved-bounded with a nil
 		// bounded_k is a *valid* outcome (bounds.loop_bound absent,
 		// non-int or too large for int64 — the mapper keeps its own
 		// copy in proof.bounds), so read it from there instead of
 		// dereferencing the convenience pointer. The k-less form below
 		// is the last resort: same print shape as every other rung.
-		if k, ok := proofLoopBoundText(proof); ok {
-			fmt.Fprintf(r.Out, "%s: %s (%s, k=%s, %s)\n",
-				a.harnessResult, rung, string(kind), k, a.execID)
+		if k, ok := proofLoopBoundText(s.proof); ok {
+			fmt.Fprintf(s.r.Out, "%s: %s (%s, k=%s, %s)\n",
+				s.a.harnessResult, s.rung, string(s.kind), k, s.a.execID)
 		} else {
-			fmt.Fprintf(r.Out, "%s: %s (%s, %s)\n", a.harnessResult,
-				rung, string(kind), a.execID)
+			fmt.Fprintf(s.r.Out, "%s: %s (%s, %s)\n", s.a.harnessResult,
+				s.rung, string(s.kind), s.a.execID)
 		}
 	default:
-		fmt.Fprintf(r.Out, "%s: %s (%s, %s)\n", a.harnessResult, rung,
-			string(kind), a.execID)
+		fmt.Fprintf(s.r.Out, "%s: %s (%s, %s)\n", s.a.harnessResult, s.rung,
+			string(s.kind), s.a.execID)
 	}
-	return nil
 }
 
 // proofLoopBoundText is the proved-bounded display k read off the proof

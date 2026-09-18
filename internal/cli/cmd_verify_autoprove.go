@@ -42,20 +42,76 @@ import (
 // a write onto the report path (r23 swap rail).
 var AutoproveSwapSeam func()
 
+// autoproveBind carries one verifyAutoprove invocation's shared bind
+// context; the extracted stages below are its methods, called by the
+// orchestrator in the original body's order.
+type autoproveBind struct {
+	c   *state.Campaign
+	a   *verifyArgs
+	r   *Runner
+	raw []byte
+
+	rep     validation.Value
+	digest  string
+	links   validation.Value
+	entry   validation.Value
+	rung    string
+	summary string
+	bk      *int
+	outcome string
+	exec    string
+	prior   string
+	artID   string
+}
+
 func verifyAutoprove(c *state.Campaign, a *verifyArgs, r *Runner) error {
-	if a.property == "" {
+	s := &autoproveBind{c: c, a: a, r: r}
+	if err := s.autoproveCheckFlags(); err != nil {
+		return err
+	}
+	if err := s.autoproveLoadReport(); err != nil {
+		return err
+	}
+	if err := s.autoproveResolveEntry(); err != nil {
+		return err
+	}
+	if err := s.autoproveCheckHolder(); err != nil {
+		return err
+	}
+	if err := s.autoproveResolveExec(); err != nil {
+		return err
+	}
+	if err := s.autoproveDecide(); err != nil {
+		return err
+	}
+	s.autoproveStageEntry()
+	if err := s.autoproveRegisterArtifact(); err != nil {
+		return err
+	}
+	if err := s.autoproveBindEvent(); err != nil {
+		return err
+	}
+	s.autoprovePrintResult()
+	return nil
+}
+
+func (s *autoproveBind) autoproveCheckFlags() error {
+	if s.a.property == "" {
 		return t14ExitErr(2,
 			"verify --autoprove needs --property <exact title the prover "+
 				"gave the property> — attribution is exact-match by "+
 				"design (property titles are agent-authored; a guessed "+
 				"binding attributes one property's proof to another)\n")
 	}
-	if a.report == "" {
+	if s.a.report == "" {
 		return t14ExitErr(2,
 			"verify --autoprove needs --report PATH (the run's "+
 				"reports/report.json)\n")
 	}
-	raw, err := os.ReadFile(a.report)
+	return nil
+}
+func (s *autoproveBind) autoproveLoadReport() error {
+	raw, err := os.ReadFile(s.a.report)
 	if err != nil {
 		return t14ExitErr(2, "verify --autoprove cannot read the report: %v\n",
 			err)
@@ -64,9 +120,10 @@ func verifyAutoprove(c *state.Campaign, a *verifyArgs, r *Runner) error {
 	if perr != nil || rep.Kind != validation.Obj {
 		return t14ExitErr(2, "verify --autoprove: %s does not parse as one "+
 			"JSON object — reports/report.json is the machine contract; "+
-			"the run directory or a tampered copy is not\n", a.report)
+			"the run directory or a tampered copy is not\n", s.a.report)
 	}
-	digest := validation.Sha256Hex(raw)
+	s.raw, s.rep = raw, rep
+	s.digest = validation.Sha256Hex(raw)
 	// r33 F3: the schema gate is harness.DecideReportSchema — the FIRST
 	// gate of the one shared decision (harness.DecideReport), asked here so
 	// that this verb refuses a report it cannot read BEFORE it loads links,
@@ -79,15 +136,27 @@ func verifyAutoprove(c *state.Campaign, a *verifyArgs, r *Runner) error {
 	if dec := harness.DecideReportSchema(rep); dec.Gate != harness.GateNone {
 		return t14ExitErr(2, "verify --autoprove: %s", dec.Refusal)
 	}
-	links, err := invariants.LoadLinks(c)
+	return nil
+}
+
+func (s *autoproveBind) autoproveResolveEntry() error {
+	links, err := invariants.LoadLinks(s.c)
 	if err != nil {
 		return err
 	}
-	entry, found := harnessInvEntry(links, a.autoprove)
+	s.links = links
+	entry, found := harnessInvEntry(links, s.a.autoprove)
 	if !found {
 		return t14ExitErr(2, "verify: unknown invariant %s\n",
-			validation.PyReprStr(a.autoprove))
+			validation.PyReprStr(s.a.autoprove))
 	}
+	s.entry = entry
+	return nil
+}
+
+// autoproveCheckHolder is the double-credit rail: the (report, property)
+// pair must not already be bound to another invariant.
+func (s *autoproveBind) autoproveCheckHolder() error {
 	// r20 F9: a proof is a property's, and a property proves ONE
 	// invariant — binding the same (report, property) to a second
 	// ledger row would duplicate credit for one proof (the double-count
@@ -98,19 +167,25 @@ func verifyAutoprove(c *state.Campaign, a *verifyArgs, r *Runner) error {
 	// a trailing newline churned the sha and re-registered the same
 	// proof for a second invariant clean. A property is a named claim —
 	// the name is the identity; the digest is F10's freshness concern.
-	if holder, first := autoprovePropertyHolder(c, a.property); holder != "" && holder != a.autoprove {
+	if holder, first := autoprovePropertyHolder(s.c, s.a.property); holder != "" && holder != s.a.autoprove {
 		return t14ExitErr(2, "verify --autoprove: property %s was already "+
 			"bound to %s (%s) — one property's proof binds one invariant; "+
 			"give the second invariant its OWN property (digest churn is "+
 			"not a new proof)\n",
-			validation.PyReprStr(a.property), holder, first)
+			validation.PyReprStr(s.a.property), holder, first)
 	}
-	exec := a.execID
+	return nil
+}
+
+// autoproveResolveExec picks the provenance row's exec: the operator's
+// --exec when given (checked), else the content-addressed report label.
+func (s *autoproveBind) autoproveResolveExec() error {
+	exec := s.a.execID
 	if exec != "" {
 		// r20 F7: a provenance row naming a nonexistent EXEC is a
 		// fabricated witness — the same harnessExecRecord check the
 		// minicertora mapper refuses with.
-		if _, _, eerr := harnessExecRecord(c, exec); eerr != nil {
+		if _, _, eerr := harnessExecRecord(s.c, exec); eerr != nil {
 			return eerr
 		}
 	}
@@ -124,8 +199,15 @@ func verifyAutoprove(c *state.Campaign, a *verifyArgs, r *Runner) error {
 		// same function, so a forged "REPORT-000000000000" over a
 		// different digest burns instead of printing itself as the
 		// witness.
-		exec = harness.ReportExecLabel(digest)
+		exec = harness.ReportExecLabel(s.digest)
 	}
+	s.exec = exec
+	return nil
+}
+
+// autoproveDecide runs the run-level gates and the mid-run swap rail,
+// then records the mapped rung/summary/bounded_k/outcome.
+func (s *autoproveBind) autoproveDecide() error {
 	// The run-level gates FIRST: a rollup over a run the prover itself
 	// refuses to publish is not evidence of anything.
 	//
@@ -137,11 +219,12 @@ func verifyAutoprove(c *state.Campaign, a *verifyArgs, r *Runner) error {
 	// report rung (a SUSPECT finding, published:false) that a fresh bind of
 	// those very bytes refuses. One implementation, one sentence: the
 	// Refusal is this verb's own text, byte for byte.
-	dec := harness.DecideReport(rep, a.property)
+	dec := harness.DecideReport(s.rep, s.a.property)
 	if dec.Gate != harness.GateNone {
 		return t14ExitErr(2, "verify --autoprove: %s", dec.Refusal)
 	}
-	rung, summary, bk := dec.Rung, dec.Summary, dec.BoundedK
+	s.rung, s.summary, s.bk, s.outcome = dec.Rung, dec.Summary,
+		dec.BoundedK, dec.Outcome
 	if AutoproveSwapSeam != nil {
 		AutoproveSwapSeam() // test-only: write the file post-parse
 	}
@@ -149,26 +232,37 @@ func verifyAutoprove(c *state.Campaign, a *verifyArgs, r *Runner) error {
 	// then and the bind makes the event's report_sha256 a name for bytes
 	// the registry never hashed. Refuse mid-run swaps BEFORE the bind —
 	// nothing to unwind, the re-run maps whatever is current.
-	if cur, rerr := os.ReadFile(a.report); rerr != nil ||
-		validation.Sha256Hex(cur) != digest {
+	if cur, rerr := os.ReadFile(s.a.report); rerr != nil ||
+		validation.Sha256Hex(cur) != s.digest {
 		return t14ExitErr(2, "verify --autoprove: the report changed on "+
 			"disk while being mapped (parse-time sha %s, now different) — "+
 			"a bind must name the exact bytes it read; re-run against the "+
-			"current file\n", digest[:12])
+			"current file\n", s.digest[:12])
 	}
+	return nil
+}
+
+// autoproveStageEntry stamps the verification.harness field onto the
+// invariant entry and captures the prior bind's digest baseline.
+func (s *autoproveBind) autoproveStageEntry() {
 	// proof sidecar is minicertora-only BY SCHEMA ("ABSENT for other
 	// kinds") — the report itself is registered as the artifact instead:
 	// its hash rides the event, and the campaign store keeps the bytes.
-	entry.O = validation.SetOrAppend(entry.O, "verification",
-		validation.VObj(harnessField(harness.Kind("miniprover"), rung, exec,
-			bk, summary, validation.VNull())))
+	s.entry.O = validation.SetOrAppend(s.entry.O, "verification",
+		validation.VObj(harnessField(harness.Kind("miniprover"), s.rung, s.exec,
+			s.bk, s.summary, validation.VNull())))
 	// r20 F3: the rung is campaign STATE — links + event land together or
 	// not at all (linksThenLog, the same law the minicertora path got).
 	// The artifact registers AFTER the bind: a refused pair must not
 	// leave a registered-but-never-logged report behind.
 	// (F10: the PRIOR digest is captured BEFORE this bind's event exists
 	// — asking after the append would always "find" the current run.)
-	prior := autoprovePriorDigest(c, a.autoprove)
+	s.prior = autoprovePriorDigest(s.c, s.a.autoprove)
+}
+
+// autoproveRegisterArtifact registers the content-addressed report copy
+// and refuses when the registry's own hash disagrees with the bind.
+func (s *autoproveBind) autoproveRegisterArtifact() error {
 	// r24 F1 (critic F1): REGISTER FIRST and let the registry's own
 	// hash vote on the bind. The old order (bind, then register) left
 	// the event naming bytes the registry might never have held — a
@@ -180,12 +274,12 @@ func verifyAutoprove(c *state.Campaign, a *verifyArgs, r *Runner) error {
 	// refused linksThenLog likewise prunes: no registered-but-unlogged
 	// ghost in either direction.
 	rebindReason := "autoprove result re-bound"
-	if prior != "" && prior != digest {
+	if s.prior != "" && s.prior != s.digest {
 		rebindReason = fmt.Sprintf("autoprove re-bound over a CHANGED "+
-			"report: prior event sha %s, this file %s", prior, digest)
-		fmt.Fprintln(r.Err, "  WARNING: "+a.autoprove+" was previously "+
-			"bound from a DIFFERENT report digest ("+prior[:12]+"… -> "+
-			digest[:12]+"…) — "+rebindReason)
+			"report: prior event sha %s, this file %s", s.prior, s.digest)
+		fmt.Fprintln(s.r.Err, "  WARNING: "+s.a.autoprove+" was previously "+
+			"bound from a DIFFERENT report digest ("+s.prior[:12]+"… -> "+
+			s.digest[:12]+"…) — "+rebindReason)
 	}
 	// r25 F4: bind a CONTENT-ADDRESSED COPY under the campaign, not the
 	// mutable operator path. Refresh-overwrite is the destructive act:
@@ -196,41 +290,48 @@ func verifyAutoprove(c *state.Campaign, a *verifyArgs, r *Runner) error {
 	// reconcile can never substitute a foreign byte into a pinned sha
 	// (the copy IS the store), and the registry hash that VOTES on the
 	// bind hashes exactly what the event names.
-	copyPath, cerr := storeReportCopy(c, digest, raw)
+	copyPath, cerr := storeReportCopy(s.c, s.digest, s.raw)
 	if cerr != nil {
 		return t14ExitErr(2, "verify --autoprove: cannot store the "+
 			"report copy: %v\n", cerr)
 	}
-	artID, err := c.RegisterOrRefresh("harness", copyPath,
-		"miniprover report bound to "+a.autoprove+" (property "+
-			a.property+", rollup "+dec.Outcome+")", nil,
+	artID, err := s.c.RegisterOrRefresh("harness", copyPath,
+		"miniprover report bound to "+s.a.autoprove+" (property "+
+			s.a.property+", rollup "+s.outcome+")", nil,
 		rebindReason)
 	if err != nil {
 		return err
 	}
+	s.artID = artID
 	regDig := ""
-	if row, aerr := c.Artifact(artID); aerr == nil {
+	if row, aerr := s.c.Artifact(artID); aerr == nil {
 		regDig = validation.ObjStr(row, "sha256")
 	}
-	if regDig != digest {
-		_, _ = c.PruneArtifact(artID,
+	if regDig != s.digest {
+		_, _ = s.c.PruneArtifact(artID,
 			"pruned: registry digest does not match the mapped report "+
 				"bytes at bind time")
 		return t14ExitErr(2, "verify --autoprove: the registry hashed "+
 			"the report as %s but this bind maps %s — the bytes differ, "+
 			"and an event would name evidence the store does not hold; "+
-			"refused, artifact row pruned\n", regDig, digest)
+			"refused, artifact row pruned\n", regDig, s.digest)
 	}
-	if err := linksThenLog(c, func() error {
-		return harnessSaveEntry(c, links, a.autoprove, entry)
+	return nil
+}
+
+// autoproveBindEvent lands the rung atomically (linksThenLog) and, on a
+// refusal, prunes the fresh artifact row only when no live bind cites it.
+func (s *autoproveBind) autoproveBindEvent() error {
+	if err := linksThenLog(s.c, func() error {
+		return harnessSaveEntry(s.c, s.links, s.a.autoprove, s.entry)
 	}, func() error {
 		bkV := validation.VNull()
-		if bk != nil {
-			bkV = validation.VInt(int64(*bk))
+		if s.bk != nil {
+			bkV = validation.VInt(int64(*s.bk))
 		}
-		edata := autoproveEventData(a.autoprove, rung, exec, summary,
-			a.property, digest, bkV, rep)
-		_, lerr := c.Log("harness_run", &a.autoprove, &edata)
+		edata := autoproveEventData(s.a.autoprove, s.rung, s.exec, s.summary,
+			s.a.property, s.digest, bkV, s.rep)
+		_, lerr := s.c.Log("harness_run", &s.a.autoprove, &edata)
 		return lerr
 	}); err != nil {
 		// r25 F4: NEVER destroy evidence a LIVE bind still cites. The
@@ -240,33 +341,38 @@ func verifyAutoprove(c *state.Campaign, a *verifyArgs, r *Runner) error {
 		// operator hiccup that touched nothing of theirs. Cite-check
 		// first, BY ROW ID (r35 F1: the id is what an id-shaped
 		// citation names), and prune only an orphan.
-		if cited, cerr := artifactCitedByLiveBinds(c, artID); cerr == nil &&
+		if cited, cerr := artifactCitedByLiveBinds(s.c, s.artID); cerr == nil &&
 			!cited {
-			_, perr := c.PruneArtifact(artID,
+			_, perr := s.c.PruneArtifact(s.artID,
 				"pruned: bind refused — "+err.Error())
 			if perr != nil {
 				return fmt.Errorf("%w (AND the artifact row %s could not "+
 					"be pruned: %v — a registered-but-unbound report; "+
-					"reconcile by hand)", err, artID, perr)
+					"reconcile by hand)", err, s.artID, perr)
 			}
 		} else {
-			fmt.Fprintf(r.Err, "  NOTE: artifact %s stays: a live bind "+
+			fmt.Fprintf(s.r.Err, "  NOTE: artifact %s stays: a live bind "+
 				"cites its bytes; this refused bind left no event\n",
-				artID)
+				s.artID)
 		}
 		return err
 	}
-	fmt.Fprintf(r.Out, "%s: %s — %s\n", a.autoprove, rung, summary)
-	if !t26Truthy(rep, "review_independent") {
-		fmt.Fprintln(r.Out, "  note: review was NOT independent (same or "+
+	return nil
+}
+
+// autoprovePrintResult is the success output: the pinned one-line rung
+// summary plus the two degradation notes.
+func (s *autoproveBind) autoprovePrintResult() {
+	fmt.Fprintf(s.r.Out, "%s: %s — %s\n", s.a.autoprove, s.rung, s.summary)
+	if !t26Truthy(s.rep, "review_independent") {
+		fmt.Fprintln(s.r.Out, "  note: review was NOT independent (same or "+
 			"no reviewer model) — the rollup rides one model's opinion")
 	}
-	if cm := validation.ObjAt(rep, "capabilities_missing"); len(objKVs(cm)) > 0 {
-		fmt.Fprintf(r.Out, "  verifier gaps at run time: %d capabilities "+
+	if cm := validation.ObjAt(s.rep, "capabilities_missing"); len(objKVs(cm)) > 0 {
+		fmt.Fprintf(s.r.Out, "  verifier gaps at run time: %d capabilities "+
 			"missing (degraded run; see tools/minicertora_conformance.py)\n",
 			len(objKVs(cm)))
 	}
-	return nil
 }
 
 func objKVs(o validation.Value) []validation.KV {

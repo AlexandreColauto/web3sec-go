@@ -21,11 +21,65 @@ import (
 // under the cap the list is printed whole (Task 8).
 const excludedInlineCap = 10
 
+// snapCmd carries one runSnap invocation's parsed arguments and staged
+// snapshot; the extracted stages below are its methods, called by the
+// orchestrator in the original body's order.
+type snapCmd struct {
+	root       string
+	stdout     io.Writer
+	pos        []string
+	deployment string
+	chain      string
+	excludes   []string
+	dryRun     bool
+	asJSON     bool
+	extra      []string
+	c          *state.Campaign
+	snap       validation.Value
+}
+
 func runSnap(root string, args []string, stdout io.Writer) error {
 	if helpRequested(stdout, "snap", args) {
 		return nil
 	}
+	sc := &snapCmd{root: root, stdout: stdout}
+	if err := sc.snapParseArgs(args); err != nil {
+		return err
+	}
+	if err := sc.snapOpenCampaign(); err != nil {
+		return err
+	}
+	sc.snapSplitExcludes()
+	// M2: dry-run stages, prunes and hashes exactly like the pin and
+	// reports the preview — recording nothing (no snapshot dir, no
+	// manifest, no events).
+	if sc.dryRun {
+		return snapDryRun(stdout, sc.pos[1], sc.extra, sc.deployment, sc.chain, sc.asJSON)
+	}
+	if err := sc.snapRefuseEmptyPin(); err != nil {
+		return err
+	}
+	if err := sc.snapPinTarget(); err != nil {
+		return err
+	}
+	if err := sc.snapRefuseZeroFiles(); err != nil {
+		return err
+	}
+	sc.snapPrintPinned()
+	sc.snapPrintSymlinkNote()
+	sc.snapPrintToolchain()
+	sc.snapPrintExcluded()
+	if err := sc.snapAttachDeploymentFlag(); err != nil {
+		return err
+	}
+	if err := sc.snapAttachChainFlag(); err != nil {
+		return err
+	}
+	sc.snapPrintUntracked()
+	return nil
+}
 
+func (sc *snapCmd) snapParseArgs(args []string) error {
 	var pos []string
 	var deployment, chain string
 	var excludes []string
@@ -68,24 +122,36 @@ func runSnap(root string, args []string, stdout io.Writer) error {
 	if asJSON && !dryRun {
 		return usageErrf("--json applies to snap --dry-run only")
 	}
-	c, err := state.Open(root, pos[0])
+	sc.pos, sc.deployment, sc.chain = pos, deployment, chain
+	sc.excludes = excludes
+	sc.dryRun, sc.asJSON = dryRun, asJSON
+	return nil
+}
+
+func (sc *snapCmd) snapOpenCampaign() error {
+	c, err := state.Open(sc.root, sc.pos[0])
 	if err != nil {
 		return err
 	}
+	sc.c = c
+	return nil
+}
+
+func (sc *snapCmd) snapSplitExcludes() {
 	var extra []string
-	for _, spec := range excludes {
+	for _, spec := range sc.excludes {
 		for _, s := range strings.Split(spec, ",") {
 			if s = strings.TrimSpace(s); s != "" {
 				extra = append(extra, s)
 			}
 		}
 	}
-	// M2: dry-run stages, prunes and hashes exactly like the pin and
-	// reports the preview — recording nothing (no snapshot dir, no
-	// manifest, no events).
-	if dryRun {
-		return snapDryRun(stdout, pos[1], extra, deployment, chain, asJSON)
-	}
+	sc.extra = extra
+}
+
+// snapRefuseEmptyPin is the R3 pre-scan refusal: a pin that provably pins
+// zero files is refused before anything is staged or recorded.
+func (sc *snapCmd) snapRefuseEmptyPin() error {
 	// R3 (critic): the zero-file refusal must PRECEDE the pin — a refused
 	// operation may not leave snapshot dirs, events, or an active_snapshot
 	// projection behind. The pre-scan is a conservative lower bound on the
@@ -95,33 +161,46 @@ func runSnap(root string, args []string, stdout io.Writer) error {
 	// be disproved here — the post-pin check below stays as the backstop
 	// and prints the honest "refused after staging" line instead of a
 	// silent success if the lower bound was wrong).
-	if pre, perr := snapshot.PinWillBeEmpty(pos[1], extra); perr == nil && pre {
+	if pre, perr := snapshot.PinWillBeEmpty(sc.pos[1], sc.extra); perr == nil && pre {
 		return fmt.Errorf("target pins 0 files — empty tree or every entry " +
 			"matched --exclude (excludes are exact base names, not globs); " +
 			"nothing was recorded")
 	}
-	snap, err := snapshot.PinSourceSnapshot(c, pos[1], nil, extra)
+	return nil
+}
+
+// snapPinTarget stages the pin and echoes the --exclude patterns that
+// matched nothing (the R2 rail against silently pinning nothing-pruned).
+func (sc *snapCmd) snapPinTarget() error {
+	snap, err := snapshot.PinSourceSnapshot(sc.c, sc.pos[1], nil, sc.extra)
 	if err != nil {
 		return err
 	}
+	sc.snap = snap
 	// R2 (critic): --exclude matches EXACT base names (the ported
 	// ignore-pattern law), so a glob-looking or typo'd pattern can silently
 	// pin nothing-pruned. Echo what matched; name what matched nothing.
-	if len(extra) > 0 {
-		matched := snapshot.MatchedExcludes(pos[1], extra)
+	if len(sc.extra) > 0 {
+		matched := snapshot.MatchedExcludes(sc.pos[1], sc.extra)
 		var silent []string
-		for _, x := range extra {
+		for _, x := range sc.extra {
 			if !matched[x] {
 				silent = append(silent, x)
 			}
 		}
 		if len(silent) > 0 {
-			fmt.Fprintf(stdout, "note: --exclude matched nothing: %s "+
+			fmt.Fprintf(sc.stdout, "note: --exclude matched nothing: %s "+
 				"(patterns are exact file/dir BASE names, not globs)\n",
 				strings.Join(silent, ", "))
 		}
 	}
-	src := validation.ObjAt(snap, "source")
+	return nil
+}
+
+// snapRefuseZeroFiles is the R2-2 post-pin backstop: a pin that captured
+// zero files is refused with the residue disclosed.
+func (sc *snapCmd) snapRefuseZeroFiles() error {
+	src := validation.ObjAt(sc.snap, "source")
 	// R2-2 (critic): a pin that captures zero files proves nothing about
 	// any target — empty tree or over-broad excludes. Python stored the
 	// empty snapshot; this CLI refuses it (divergence is a refusal, never
@@ -134,8 +213,19 @@ func runSnap(root string, args []string, stdout io.Writer) error {
 			"entry matched --exclude; the snapshot was staged and recorded, " +
 			"delete it with `webv2 doctor` review before re-pinning")
 	}
-	fmt.Fprintf(stdout, "pinned %s (%s, %d files)\n",
-		validation.ObjStr(snap, "snapshot_id"), validation.ObjStr(src, "ladder"), objInt(src, "file_count"))
+	return nil
+}
+
+// snapPrintPinned is the one-line pin summary.
+func (sc *snapCmd) snapPrintPinned() {
+	src := validation.ObjAt(sc.snap, "source")
+	fmt.Fprintf(sc.stdout, "pinned %s (%s, %d files)\n",
+		validation.ObjStr(sc.snap, "snapshot_id"), validation.ObjStr(src, "ladder"), objInt(src, "file_count"))
+}
+
+// snapPrintSymlinkNote names every escaping link the pin took as a link.
+func (sc *snapCmd) snapPrintSymlinkNote() {
+	src := validation.ObjAt(sc.snap, "source")
 	if root := validation.ObjStr(src, "root"); root != "" {
 		if links, err := snapshot.PinnedSymlinks(root); err == nil && len(links) > 0 {
 			// r14/r15: custody is a claim, so the pin says exactly what
@@ -152,17 +242,27 @@ func runSnap(root string, args []string, stdout io.Writer) error {
 				shown = append(append([]string{}, shown[:5]...),
 					fmt.Sprintf("… and %d more", len(links)-5))
 			}
-			fmt.Fprintf(stdout, "  note: %d pinned %s symlinked (copied "+
+			fmt.Fprintf(sc.stdout, "  note: %d pinned %s symlinked (copied "+
 				"as links, hashed as links — outside bytes are NOT in "+
 				"custody; relative targets resolve from the store): "+
 				"%s\n  materialize (cp -rL) first if the pin must stand "+
 				"alone\n", len(links), word, strings.Join(shown, ", "))
 		}
 	}
-	if cfg := validation.ObjAt(snap, "config"); cfg.Kind == validation.Obj && len(cfg.O) > 0 {
-		fmt.Fprintf(stdout, "  toolchain: %s — solc %s (detected from the pinned tree)\n",
+}
+
+// snapPrintToolchain names the build system and compiler detected from the
+// pinned tree.
+func (sc *snapCmd) snapPrintToolchain() {
+	if cfg := validation.ObjAt(sc.snap, "config"); cfg.Kind == validation.Obj && len(cfg.O) > 0 {
+		fmt.Fprintf(sc.stdout, "  toolchain: %s — solc %s (detected from the pinned tree)\n",
 			validation.ObjStr(cfg, "build_system"), validation.ObjStr(cfg, "compiler"))
 	}
+}
+
+// snapPrintExcluded renders the prune list under the console cap (Task 8).
+func (sc *snapCmd) snapPrintExcluded() {
+	src := validation.ObjAt(sc.snap, "source")
 	if excl := validation.ObjAt(src, "excluded"); excl.Kind == validation.Arr && len(excl.A) > 0 {
 		var names []string
 		for _, e := range excl.A {
@@ -178,7 +278,7 @@ func runSnap(root string, args []string, stdout io.Writer) error {
 		// source.excluded, mirrored by the snapshot.excluded event). At or
 		// under the cap nothing is hidden: every path is named inline.
 		if len(names) > excludedInlineCap {
-			fmt.Fprintf(stdout, "  EXCLUDED from the pin (bulk defaults + "+
+			fmt.Fprintf(sc.stdout, "  EXCLUDED from the pin (bulk defaults + "+
 				"--exclude): %d paths excluded (first %d): %s (+%d more — "+
 				"the full list is in the record's source.excluded) — the "+
 				"pin does NOT cover these; re-pin without the prune if any "+
@@ -186,46 +286,63 @@ func runSnap(root string, args []string, stdout io.Writer) error {
 				strings.Join(names[:excludedInlineCap], ", "),
 				len(names)-excludedInlineCap)
 		} else {
-			fmt.Fprintf(stdout, "  EXCLUDED from the pin (bulk defaults + "+
+			fmt.Fprintf(sc.stdout, "  EXCLUDED from the pin (bulk defaults + "+
 				"--exclude): %s — the pin does NOT cover these; re-pin "+
 				"without the prune if any of them is in scope\n",
 				strings.Join(names, ", "))
 		}
 	}
-	if deployment != "" {
-		snap, err = attachDeployment(c, snap, deployment)
+}
+
+// snapAttachDeploymentFlag attaches the --deployment file and prints its
+// summary line.
+func (sc *snapCmd) snapAttachDeploymentFlag() error {
+	if sc.deployment != "" {
+		snap, err := attachDeployment(sc.c, sc.snap, sc.deployment)
 		if err != nil {
 			return err
 		}
+		sc.snap = snap
 		dep := validation.ObjAt(snap, "deployment")
 		n := 0
 		if contracts := validation.ObjAt(dep, "contracts"); contracts.Kind == validation.Arr {
 			n = len(contracts.A)
 		}
-		fmt.Fprintf(stdout, "  deployment: %s (%d contracts)\n", validation.ObjStr(dep, "network"), n)
+		fmt.Fprintf(sc.stdout, "  deployment: %s (%d contracts)\n", validation.ObjStr(dep, "network"), n)
 	}
-	if chain != "" {
-		snap, err = attachChain(c, snap, chain)
+	return nil
+}
+
+// snapAttachChainFlag attaches the --chain file and prints its summary line.
+func (sc *snapCmd) snapAttachChainFlag() error {
+	if sc.chain != "" {
+		snap, err := attachChain(sc.c, sc.snap, sc.chain)
 		if err != nil {
 			return err
 		}
+		sc.snap = snap
 		ch := validation.ObjAt(snap, "chain")
-		fmt.Fprintf(stdout, "  chain: %s @ %s\n", scalarStr(validation.ObjAt(ch, "chain_id")), scalarStr(validation.ObjAt(ch, "fork_block")))
+		fmt.Fprintf(sc.stdout, "  chain: %s @ %s\n", scalarStr(validation.ObjAt(ch, "chain_id")), scalarStr(validation.ObjAt(ch, "fork_block")))
 	}
+	return nil
+}
+
+// snapPrintUntracked is the M5 disclosure: untracked files inside the
+// pinned tree, covered or not by the pin's ladder.
+func (sc *snapCmd) snapPrintUntracked() {
 	// M5: untracked files inside the pinned tree. Covered by copytree
 	// pins, silently dropped by the git-clean worktree — either way the
 	// operator names what the pin did with them.
-	if total, names := untrackedSummary(snapshot.UntrackedInTarget(pos[1], extra)); total > 0 {
+	if total, names := untrackedSummary(snapshot.UntrackedInTarget(sc.pos[1], sc.extra)); total > 0 {
 		covered := "covered by this pin but not in git"
-		if validation.ObjStr(validation.ObjAt(snap, "source"), "ladder") == "git-clean" {
+		if validation.ObjStr(validation.ObjAt(sc.snap, "source"), "ladder") == "git-clean" {
 			covered = "NOT covered by this git-clean pin (the worktree " +
 				"pins the commit, not the workdir)"
 		}
-		fmt.Fprintf(stdout, "  WARNING: %d untracked file(s) in the target: "+
+		fmt.Fprintf(sc.stdout, "  WARNING: %d untracked file(s) in the target: "+
 			"%s — %s; re-pin after cleanup if any is litter (or evidence "+
 			"you meant to keep)\n", total, names, covered)
 	}
-	return nil
 }
 
 // snapDryRun renders the M2 preview: ladder, would-be id, prune set,
