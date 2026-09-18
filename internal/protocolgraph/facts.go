@@ -57,6 +57,20 @@ func ApplyFacts(model, facts validation.Value) (validation.Value, error) {
 	return out, err
 }
 
+// applyFactsSlot is the per-component attachment being assembled for this call.
+type applyFactsSlot struct {
+	dns, dep       validation.Value
+	hasDNS, hasDep bool
+}
+
+// applyFactsState carries the merge state ApplyFactsCounted accumulates as it
+// walks the fact list.
+type applyFactsState struct {
+	counts FactCounts
+	slots  map[int]*applyFactsSlot
+	comps  validation.Value
+}
+
 // ApplyFactsCounted is ApplyFacts plus the tally the CLI's summary line
 // needs (the counts cannot be recovered from the merged model alone).
 func ApplyFactsCounted(model, facts validation.Value) (validation.Value,
@@ -75,95 +89,125 @@ func ApplyFactsCounted(model, facts validation.Value) (validation.Value,
 		return validation.VNull(), counts,
 			fmt.Errorf("operator facts: document carries no facts list")
 	}
-
-	// slot is the per-component attachment being assembled for this call.
-	type slot struct {
-		dns, dep       validation.Value
-		hasDNS, hasDep bool
+	st := &applyFactsState{
+		slots: map[int]*applyFactsSlot{},
+		comps: validation.ObjAt(model, "components"),
 	}
-	slots := map[int]*slot{}
-	comps := validation.ObjAt(model, "components")
 	for _, f := range factList.A {
 		if f.Kind != validation.Obj {
-			return validation.VNull(), counts,
+			return validation.VNull(), st.counts,
 				fmt.Errorf("operator facts: fact is not an object")
 		}
-		target := validation.ObjAt(f, "target")
-		kind := validation.ObjAt(target, "kind").S
-		field, identity := "", ""
-		if url := validation.ObjAt(target, "url"); url.Kind == validation.Str && url.S != "" {
-			field, identity = "url", url.S
-		} else if path := validation.ObjAt(target, "path"); path.Kind == validation.Str &&
-			path.S != "" {
-			field, identity = "path", path.S
-		} else {
-			return validation.VNull(), counts, fmt.Errorf(
-				"operator facts: target kind=%s carries neither url nor path",
-				kind)
+		kind, field, identity, err := st.applyFactsTarget(f)
+		if err != nil {
+			return validation.VNull(), st.counts, err
 		}
-		matched, n := -1, 0
-		if comps.Kind == validation.Arr {
-			for i, c := range comps.A {
-				if c.Kind != validation.Obj || validation.ObjAt(c, "kind").S != kind {
-					continue
-				}
-				if v := validation.ObjAt(c, field); v.Kind != validation.Str ||
-					v.S != identity {
-					continue
-				}
-				matched, n = i, n+1
-			}
+		matched, err := st.applyFactsMatch(kind, field, identity)
+		if err != nil {
+			return validation.VNull(), st.counts, err
 		}
-		if n == 0 {
-			return validation.VNull(), counts, fmt.Errorf(
-				"operator facts: no component matches kind=%s %s=%s",
-				kind, field, identity)
+		if err := st.applyFactsAttach(matched, f, kind, field, identity); err != nil {
+			return validation.VNull(), st.counts, err
 		}
-		if n > 1 {
-			return validation.VNull(), counts, fmt.Errorf(
-				"operator facts: target kind=%s %s=%s matches %d components",
-				kind, field, identity, n)
-		}
-		s := slots[matched]
-		if s == nil {
-			s = &slot{}
-			slots[matched] = s
-		}
-		if dns, ok := lookup(f, "dns"); ok {
-			if s.hasDNS {
-				return validation.VNull(), counts, fmt.Errorf(
-					"operator facts: duplicate dns fact for component kind=%s %s=%s",
-					kind, field, identity)
-			}
-			s.dns, s.hasDNS = dns, true
-			counts.DNS++
-		}
-		if dep, ok := lookup(f, "dependency"); ok {
-			if s.hasDep {
-				return validation.VNull(), counts, fmt.Errorf(
-					"operator facts: duplicate dependency fact for component "+
-						"kind=%s %s=%s", kind, field, identity)
-			}
-			s.dep, s.hasDep = dep, true
-			counts.Dependency++
-		}
-		counts.Applied++
 	}
-	if len(slots) == 0 {
+	if len(st.slots) == 0 {
 		// no facts: the model is returned verbatim (presence-gated callers
 		// never see a byte move)
-		return model, counts, nil
+		return model, st.counts, nil
 	}
-	counts.Components = len(slots)
+	st.counts.Components = len(st.slots)
+	return st.applyFactsRebuild(model), st.counts, nil
+}
 
-	// Rebuild only components[]: the component order is the original array's
-	// order, every other top-level entry is reused verbatim, and inside a
-	// matched component only the two fact keys move (an existing key keeps
-	// its position, a new one is appended — that is what makes a second
-	// apply a no-op).
+// applyFactsTarget resolves a fact's target: the (kind, url|path) identity
+// the join keys on.
+func (st *applyFactsState) applyFactsTarget(f validation.Value) (string,
+	string, string, error) {
+	target := validation.ObjAt(f, "target")
+	kind := validation.ObjAt(target, "kind").S
+	if url := validation.ObjAt(target, "url"); url.Kind == validation.Str && url.S != "" {
+		return kind, "url", url.S, nil
+	} else if path := validation.ObjAt(target, "path"); path.Kind == validation.Str &&
+		path.S != "" {
+		return kind, "path", path.S, nil
+	}
+	return kind, "", "", fmt.Errorf(
+		"operator facts: target kind=%s carries neither url nor path",
+		kind)
+}
+
+// applyFactsMatch locates the ONE component the identity targets; matching
+// zero or two components is a data defect.
+func (st *applyFactsState) applyFactsMatch(kind, field,
+	identity string) (int, error) {
+	matched, n := -1, 0
+	if st.comps.Kind == validation.Arr {
+		for i, c := range st.comps.A {
+			if c.Kind != validation.Obj || validation.ObjAt(c, "kind").S != kind {
+				continue
+			}
+			if v := validation.ObjAt(c, field); v.Kind != validation.Str ||
+				v.S != identity {
+				continue
+			}
+			matched, n = i, n+1
+		}
+	}
+	if n == 0 {
+		return -1, fmt.Errorf(
+			"operator facts: no component matches kind=%s %s=%s",
+			kind, field, identity)
+	}
+	if n > 1 {
+		return matched, fmt.Errorf(
+			"operator facts: target kind=%s %s=%s matches %d components",
+			kind, field, identity, n)
+	}
+	return matched, nil
+}
+
+// applyFactsAttach attaches the fact's dns/dependency sub-objects to its
+// component's slot, counting as it goes.
+func (st *applyFactsState) applyFactsAttach(matched int, f validation.Value,
+	kind, field, identity string) error {
+	s := st.slots[matched]
+	if s == nil {
+		s = &applyFactsSlot{}
+		st.slots[matched] = s
+	}
+	if dns, ok := lookup(f, "dns"); ok {
+		if s.hasDNS {
+			return fmt.Errorf(
+				"operator facts: duplicate dns fact for component kind=%s %s=%s",
+				kind, field, identity)
+		}
+		s.dns, s.hasDNS = dns, true
+		st.counts.DNS++
+	}
+	if dep, ok := lookup(f, "dependency"); ok {
+		if s.hasDep {
+			return fmt.Errorf(
+				"operator facts: duplicate dependency fact for component "+
+					"kind=%s %s=%s", kind, field, identity)
+		}
+		s.dep, s.hasDep = dep, true
+		st.counts.Dependency++
+	}
+	st.counts.Applied++
+	return nil
+}
+
+// applyFactsRebuild rebuilds only components[]: the component order is the
+// original array's order, every other top-level entry is reused verbatim, and
+// inside a matched component only the two fact keys move (an existing key
+// keeps its position, a new one is appended — that is what makes a second
+// apply a no-op).
+func (st *applyFactsState) applyFactsRebuild(
+	model validation.Value) validation.Value {
+	comps := st.comps
 	newComps := make([]validation.Value, len(comps.A))
 	copy(newComps, comps.A)
-	for i, s := range slots {
+	for i, s := range st.slots {
 		o := append([]validation.KV(nil), newComps[i].O...)
 		if s.hasDNS {
 			o = setKey(o, "dns", s.dns)
@@ -175,7 +219,7 @@ func ApplyFactsCounted(model, facts validation.Value) (validation.Value,
 	}
 	top := append([]validation.KV(nil), model.O...)
 	top = setKey(top, "components", validation.VArr(newComps...))
-	return validation.VObj(top...), counts, nil
+	return validation.VObj(top...)
 }
 
 // setKey is `o[key] = v`: replace in place when the key exists (position

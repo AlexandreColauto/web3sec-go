@@ -22,9 +22,31 @@ var assumptionDetailFields = []string{
 	"validator_set", "threshold", "separator",
 }
 
+// assumptionTableState carries the chains[]/chain_assumptions[] inputs
+// AssumptionTable projects.
+type assumptionTableState struct {
+	chains      []string
+	assumptions []validation.Value
+}
+
 // AssumptionTable is the G10 projection: one row per chains[] entry in
 // declared order, plus deduped gaps sorted by hop then chain then reason.
 func AssumptionTable(model validation.Value) ([]validation.Value, []validation.Value) {
+	st := &assumptionTableState{
+		chains:      assumptionTableChains(model),
+		assumptions: assumptionTableAssumptions(model),
+	}
+	rows := []validation.Value{}
+	for _, name := range st.chains {
+		rows = append(rows, st.assumptionTableRow(name))
+	}
+	gaps := st.assumptionTableGaps(model)
+	assumptionTableSortGaps(gaps)
+	return rows, gaps
+}
+
+// assumptionTableChains extracts the declared chain names in order.
+func assumptionTableChains(model validation.Value) []string {
 	chains := []string{}
 	if v := validation.ObjAt(model, "chains"); v.Kind == validation.Arr {
 		for _, c := range v.A {
@@ -33,36 +55,51 @@ func AssumptionTable(model validation.Value) ([]validation.Value, []validation.V
 			}
 		}
 	}
+	return chains
+}
+
+// assumptionTableAssumptions extracts the chain_assumptions[] entries.
+func assumptionTableAssumptions(model validation.Value) []validation.Value {
 	var assumptions []validation.Value
 	if v := validation.ObjAt(model, "chain_assumptions"); v.Kind == validation.Arr {
 		assumptions = v.A
 	}
-	// findEntry is the assumption lookup: first item whose chain equals.
-	findEntry := func(name string) (validation.Value, bool) {
-		for _, a := range assumptions {
-			if c := validation.ObjAt(a, "chain"); c.Kind == validation.Str && c.S == name {
-				return a, true
-			}
-		}
-		return validation.VNull(), false
-	}
+	return assumptions
+}
 
-	rows := []validation.Value{}
-	for _, name := range chains {
-		entry, found := findEntry(name)
-		pairs := []validation.KV{kv("chain", validation.VStr(name))}
-		for _, f := range assumptionDetailFields {
-			val := validation.VNull()
-			if found {
-				// objAt is Null when absent: the declared-none rule emits
-				// nulls, never empty strings.
-				val = validation.ObjAt(entry, f)
-			}
-			pairs = append(pairs, kv(f, val))
+// assumptionTableFindEntry is the assumption lookup: first item whose chain
+// equals.
+func (st *assumptionTableState) assumptionTableFindEntry(
+	name string) (validation.Value, bool) {
+	for _, a := range st.assumptions {
+		if c := validation.ObjAt(a, "chain"); c.Kind == validation.Str && c.S == name {
+			return a, true
 		}
-		rows = append(rows, validation.VObj(pairs...))
 	}
+	return validation.VNull(), false
+}
 
+// assumptionTableRow renders one chain's assumption row.
+func (st *assumptionTableState) assumptionTableRow(
+	name string) validation.Value {
+	entry, found := st.assumptionTableFindEntry(name)
+	pairs := []validation.KV{kv("chain", validation.VStr(name))}
+	for _, f := range assumptionDetailFields {
+		val := validation.VNull()
+		if found {
+			// objAt is Null when absent: the declared-none rule emits
+			// nulls, never empty strings.
+			val = validation.ObjAt(entry, f)
+		}
+		pairs = append(pairs, kv(f, val))
+	}
+	return validation.VObj(pairs...)
+}
+
+// assumptionTableGaps derives the deduped gap rows over the BRIDGES
+// relations.
+func (st *assumptionTableState) assumptionTableGaps(
+	model validation.Value) []validation.Value {
 	type gapKey struct{ hop, chain, reason string }
 	seen := map[gapKey]struct{}{}
 	gaps := []validation.Value{}
@@ -72,14 +109,14 @@ func AssumptionTable(model validation.Value) ([]validation.Value, []validation.V
 		}
 		from, to, via := validation.PyStr(validation.ObjAt(r, "from")), validation.PyStr(validation.ObjAt(r, "to")), validation.PyStr(validation.ObjAt(r, "via"))
 		hop := from + "->" + to
-		for _, name := range chains {
+		for _, name := range st.chains {
 			if name == "" {
 				continue
 			}
 			if !strings.Contains(from, name) && !strings.Contains(to, name) && !strings.Contains(via, name) {
 				continue
 			}
-			entry, found := findEntry(name)
+			entry, found := st.assumptionTableFindEntry(name)
 			reason := ""
 			switch {
 			case !found:
@@ -103,6 +140,11 @@ func AssumptionTable(model validation.Value) ([]validation.Value, []validation.V
 			))
 		}
 	}
+	return gaps
+}
+
+// assumptionTableSortGaps orders the gaps by hop then chain then reason.
+func assumptionTableSortGaps(gaps []validation.Value) {
 	sort.Slice(gaps, func(i, j int) bool {
 		gi, gj := gaps[i], gaps[j]
 		if hi, hj := validation.ObjAt(gi, "hop").S, validation.ObjAt(gj, "hop").S; hi != hj {
@@ -113,5 +155,4 @@ func AssumptionTable(model validation.Value) ([]validation.Value, []validation.V
 		}
 		return validation.ObjAt(gi, "reason").S < validation.ObjAt(gj, "reason").S
 	})
-	return rows, gaps
 }

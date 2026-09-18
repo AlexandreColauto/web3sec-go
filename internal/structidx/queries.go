@@ -280,13 +280,43 @@ func witnessPath(fwd map[string]map[string]bool, src, dst string,
 	return nil, false
 }
 
+// backwardSliceState carries the graphs and lookups BackwardSlice builds once
+// for the whole sink sweep.
+type backwardSliceState struct {
+	index    validation.Value
+	maxDepth int
+	rev      map[string]map[string]bool
+	fwd      map[string]map[string]bool
+	fns      map[string]validation.Value
+}
+
+// backwardSliceEP is one entry point in a sink's slice with its authz guard
+// state.
+type backwardSliceEP struct {
+	id, name string
+	guarded  bool
+}
+
 // BackwardSlice is backward_slice: for every sink, the reverse closure, the
 // entry points in it (with their authz guard state) and the state variables
 // read along one witness path per entry point.
 func BackwardSlice(index validation.Value, maxDepth int) []validation.Value {
+	st := &backwardSliceState{index: index, maxDepth: maxDepth}
+	st.backwardSliceBuildGraph()
+	st.backwardSliceBuildFns()
+	out := []validation.Value{}
+	for _, s := range SinkFunctions(index) {
+		out = append(out, st.backwardSliceSinkRow(s))
+	}
+	return out
+}
+
+// backwardSliceBuildGraph indexes the internal call edges as forward and
+// reverse sets.
+func (st *backwardSliceState) backwardSliceBuildGraph() {
 	rev := map[string]map[string]bool{}
 	fwd := map[string]map[string]bool{}
-	for _, e := range edgesOf(index) {
+	for _, e := range edgesOf(st.index) {
 		to := validation.ObjStr(e, "to")
 		if validation.ObjStr(e, "rel") != "calls" || hasPrefix2(to, "*#") {
 			continue
@@ -301,83 +331,119 @@ func BackwardSlice(index validation.Value, maxDepth int) []validation.Value {
 		}
 		fwd[from][to] = true
 	}
+	st.rev, st.fwd = rev, fwd
+}
+
+// backwardSliceBuildFns maps function id -> function node.
+func (st *backwardSliceState) backwardSliceBuildFns() {
 	fns := map[string]validation.Value{}
-	for _, n := range nodesOf(index, "function") {
+	for _, n := range nodesOf(st.index, "function") {
 		fns[validation.ObjStr(n, "id")] = n
 	}
-	out := []validation.Value{}
-	for _, s := range SinkFunctions(index) {
-		fid := validation.ObjStr(s, "function_id")
-		seen := map[string]bool{fid: true}
-		frontier := []string{fid}
-		for depth := 0; len(frontier) > 0 && depth < maxDepth; depth++ {
-			nxt := map[string]bool{}
-			for _, node := range frontier {
-				for caller := range rev[node] {
-					if !seen[caller] {
-						seen[caller] = true
-						nxt[caller] = true
-					}
-				}
-			}
-			frontier = validation.SortedKeys(nxt)
-		}
-		type ep struct {
-			id, name string
-			guarded  bool
-		}
-		entryPoints := []ep{}
-		for _, n := range ExternalSurface(index) {
-			id := validation.ObjStr(n, "id")
-			if !seen[id] {
-				continue
-			}
-			guarded := false
-			for _, m := range nodeGuardedBy(n) {
-				if isAuthzGuard(m) {
-					guarded = true
-					break
-				}
-			}
-			entryPoints = append(entryPoints, ep{id, validation.ObjStr(n, "name"), guarded})
-		}
-		sort.SliceStable(entryPoints, func(i, j int) bool {
-			return entryPoints[i].id < entryPoints[j].id
-		})
-		varsRead := map[string]bool{}
-		for _, e := range entryPoints {
-			if path, ok := witnessPath(fwd, e.id, fid, maxDepth); ok {
-				for _, pid := range path {
-					for _, v := range strList(validation.ObjAt(fns[pid], "reads_storage")) {
-						varsRead[v] = true
-					}
+	st.fns = fns
+}
+
+// backwardSliceReverseClosure is the depth-bounded reverse closure of fid
+// over the reverse call edges.
+func (st *backwardSliceState) backwardSliceReverseClosure(
+	fid string) map[string]bool {
+	seen := map[string]bool{fid: true}
+	frontier := []string{fid}
+	for depth := 0; len(frontier) > 0 && depth < st.maxDepth; depth++ {
+		nxt := map[string]bool{}
+		for _, node := range frontier {
+			for caller := range st.rev[node] {
+				if !seen[caller] {
+					seen[caller] = true
+					nxt[caller] = true
 				}
 			}
 		}
-		epVals := make([]validation.Value, 0, len(entryPoints))
-		unguarded := []string{}
-		for _, e := range entryPoints {
-			epVals = append(epVals, validation.VObj(
-				validation.KV{K: "id", V: validation.VStr(e.id)},
-				validation.KV{K: "name", V: validation.VStr(e.name)},
-				validation.KV{K: "authz_guarded", V: validation.VBool(e.guarded)},
-			))
-			if !e.guarded {
-				unguarded = append(unguarded, e.id)
-			}
-		}
-		out = append(out, validation.VObj(
-			validation.KV{K: "sink_function", V: validation.VStr(fid)},
-			validation.KV{K: "sink_calls", V: validation.ObjAt(s, "sink_calls")},
-			validation.KV{K: "reachable_functions",
-				V: validation.StrArr(validation.SortedKeys(seen))},
-			validation.KV{K: "entry_points", V: validation.VArr(epVals...)},
-			validation.KV{K: "unguarded_entry_points", V: validation.StrArr(unguarded)},
-			validation.KV{K: "state_vars_read_on_paths",
-				V: validation.StrArr(validation.SortedKeys(varsRead))},
-		))
+		frontier = validation.SortedKeys(nxt)
 	}
-	return out
+	return seen
+}
+
+// backwardSliceEntryPoints lists the reachable entry points (id-sorted) with
+// their authz guard state.
+func (st *backwardSliceState) backwardSliceEntryPoints(
+	seen map[string]bool) []backwardSliceEP {
+	entryPoints := []backwardSliceEP{}
+	for _, n := range ExternalSurface(st.index) {
+		id := validation.ObjStr(n, "id")
+		if !seen[id] {
+			continue
+		}
+		guarded := false
+		for _, m := range nodeGuardedBy(n) {
+			if isAuthzGuard(m) {
+				guarded = true
+				break
+			}
+		}
+		entryPoints = append(entryPoints,
+			backwardSliceEP{id, validation.ObjStr(n, "name"), guarded})
+	}
+	sort.SliceStable(entryPoints, func(i, j int) bool {
+		return entryPoints[i].id < entryPoints[j].id
+	})
+	return entryPoints
+}
+
+// backwardSliceVarsRead collects the state variables read along one witness
+// path per entry point.
+func (st *backwardSliceState) backwardSliceVarsRead(
+	entryPoints []backwardSliceEP, fid string) map[string]bool {
+	varsRead := map[string]bool{}
+	for _, e := range entryPoints {
+		if path, ok := witnessPath(st.fwd, e.id, fid, st.maxDepth); ok {
+			for _, pid := range path {
+				for _, v := range strList(validation.ObjAt(st.fns[pid], "reads_storage")) {
+					varsRead[v] = true
+				}
+			}
+		}
+	}
+	return varsRead
+}
+
+// backwardSliceEPValues serializes the entry points and lists the unguarded
+// ones.
+func backwardSliceEPValues(entryPoints []backwardSliceEP) (
+	[]validation.Value, []string) {
+	epVals := make([]validation.Value, 0, len(entryPoints))
+	unguarded := []string{}
+	for _, e := range entryPoints {
+		epVals = append(epVals, validation.VObj(
+			validation.KV{K: "id", V: validation.VStr(e.id)},
+			validation.KV{K: "name", V: validation.VStr(e.name)},
+			validation.KV{K: "authz_guarded", V: validation.VBool(e.guarded)},
+		))
+		if !e.guarded {
+			unguarded = append(unguarded, e.id)
+		}
+	}
+	return epVals, unguarded
+}
+
+// backwardSliceSinkRow builds one sink's backward-slice row.
+func (st *backwardSliceState) backwardSliceSinkRow(
+	s validation.Value) validation.Value {
+	fid := validation.ObjStr(s, "function_id")
+	seen := st.backwardSliceReverseClosure(fid)
+	entryPoints := st.backwardSliceEntryPoints(seen)
+	varsRead := st.backwardSliceVarsRead(entryPoints, fid)
+	epVals, unguarded := backwardSliceEPValues(entryPoints)
+	return validation.VObj(
+		validation.KV{K: "sink_function", V: validation.VStr(fid)},
+		validation.KV{K: "sink_calls", V: validation.ObjAt(s, "sink_calls")},
+		validation.KV{K: "reachable_functions",
+			V: validation.StrArr(validation.SortedKeys(seen))},
+		validation.KV{K: "entry_points", V: validation.VArr(epVals...)},
+		validation.KV{K: "unguarded_entry_points", V: validation.StrArr(unguarded)},
+		validation.KV{K: "state_vars_read_on_paths",
+			V: validation.StrArr(validation.SortedKeys(varsRead))},
+	)
 }
 
 // ValueFlowReport is value_flow_report: the campaign-level backward-slice
