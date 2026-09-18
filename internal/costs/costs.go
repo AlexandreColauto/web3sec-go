@@ -194,51 +194,78 @@ func LoadCosts(c *state.Campaign) ([]validation.Value, error) {
 // was recorded — zero-cost confirmed value is a reporting gap, not infinite
 // yield).
 func YieldReport(c *state.Campaign) (validation.Value, error) {
-	byTraj := []validation.KV{}
-	index := map[string]int{}
-	row := func(traj string) *validation.Value {
-		if i, ok := index[traj]; ok {
-			return &byTraj[i].V
-		}
-		d := zeroRow()
-		d.O = append(d.O, validation.KV{K: "trajectory",
-			V: validation.VStr(traj)})
-		byTraj = append(byTraj, validation.KV{K: traj, V: d})
-		index[traj] = len(byTraj) - 1
-		return &byTraj[len(byTraj)-1].V
-	}
+	y := &yieldReport{c: c, index: map[string]int{}}
 	costs, err := LoadCosts(c)
 	if err != nil {
 		return validation.VNull(), err
 	}
+	y.yieldFoldCosts(costs)
+	all, err := findings.LoadAllFindings(c)
+	if err != nil {
+		return validation.VNull(), err
+	}
+	y.yieldFoldConfirmed(all)
+	rows, totalCost := y.yieldRenderRows()
+	return y.yieldRenderTotals(rows, totalCost), nil
+}
+
+// yieldReport carries the state YieldReport accumulates: byTraj is the
+// per-trajectory row list in first-seen order, index maps each trajectory
+// to its slot (the dict ordering the report relies on), and the
+// confirmation totals feed the totals block.
+type yieldReport struct {
+	c                 *state.Campaign
+	byTraj            []validation.KV
+	index             map[string]int
+	confirmedCount    int64
+	confirmedValue    float64
+	criticConfirmed   int64
+	evidenceConfirmed int64
+}
+
+// yieldRow is _row: the per-trajectory accumulator in Python's key
+// order — first touch appends a zero row, later touches return it.
+func (y *yieldReport) yieldRow(traj string) *validation.Value {
+	if i, ok := y.index[traj]; ok {
+		return &y.byTraj[i].V
+	}
+	d := zeroRow()
+	d.O = append(d.O, validation.KV{K: "trajectory",
+		V: validation.VStr(traj)})
+	y.byTraj = append(y.byTraj, validation.KV{K: traj, V: d})
+	y.index[traj] = len(y.byTraj) - 1
+	return &y.byTraj[len(y.byTraj)-1].V
+}
+
+// yieldFoldCosts adds every cost row's amount to its trajectory's
+// accumulator (rows without a trajectory land on "unattributed").
+func (y *yieldReport) yieldFoldCosts(costs []validation.Value) {
 	for _, e := range costs {
 		traj := validation.ObjStr(e, "trajectory")
 		if traj == "" {
 			traj = "unattributed"
 		}
-		d := row(traj)
+		d := y.yieldRow(traj)
 		kind := validation.ObjStr(e, "kind")
 		cur := floatField(*d, kind)
 		setKey(d, kind, validation.VFloat(cur+floatField(e, "amount_usd")))
 	}
+}
 
-	confirmedCount := int64(0)
-	confirmedValue := 0.0
-	all, err := findings.LoadAllFindings(c)
-	if err != nil {
-		return validation.VNull(), err
-	}
-	// G13 cost attribution (advisory-only): the per-confirmed denominators
-	// reuse the report precision block's vocabulary verbatim —
-	// critic-confirmed is verification.critic_verdict == "confirmed" and
-	// evidence-confirmed is a cleared CONFIRMED evidence floor
-	// (findings.EvidenceDeficit == nil), both counted over the same live
-	// set the precision block ranks (DUPLICATE / OUT_OF_SCOPE /
-	// SUPERSEDED excluded). ADVISORY LAW: these quotients render and roll
-	// up only — grep the tree and you will find no gate, completion
-	// check, or policy consuming cost_per_* or lens_yield anywhere.
-	criticConfirmed := int64(0)
-	evidenceConfirmed := int64(0)
+// yieldFoldConfirmed folds the findings set over the accumulators: first
+// the G13 advisory attribution counters, then the confirmed findings and
+// their confirmed value.
+//
+// G13 cost attribution (advisory-only): the per-confirmed denominators
+// reuse the report precision block's vocabulary verbatim —
+// critic-confirmed is verification.critic_verdict == "confirmed" and
+// evidence-confirmed is a cleared CONFIRMED evidence floor
+// (findings.EvidenceDeficit == nil), both counted over the same live
+// set the precision block ranks (DUPLICATE / OUT_OF_SCOPE /
+// SUPERSEDED excluded). ADVISORY LAW: these quotients render and roll
+// up only — grep the tree and you will find no gate, completion
+// check, or policy consuming cost_per_* or lens_yield anywhere.
+func (y *yieldReport) yieldFoldConfirmed(all []validation.Value) {
 	for _, f := range all {
 		if s := validation.ObjStr(f, "status"); s == "DUPLICATE" ||
 			s == "OUT_OF_SCOPE" || s == "SUPERSEDED" {
@@ -246,39 +273,44 @@ func YieldReport(c *state.Campaign) (validation.Value, error) {
 		}
 		if validation.ObjStr(validation.ObjAt(f, "verification"), "critic_verdict") ==
 			"confirmed" {
-			criticConfirmed++
+			y.criticConfirmed++
 		}
-		if findings.EvidenceDeficit(f, "CONFIRMED", c) == nil {
-			evidenceConfirmed++
+		if findings.EvidenceDeficit(f, "CONFIRMED", y.c) == nil {
+			y.evidenceConfirmed++
 		}
 	}
 	for _, f := range all {
 		if validation.ObjStr(f, "status") != "CONFIRMED" {
 			continue
 		}
-		confirmedCount++
+		y.confirmedCount++
 		value := floatField(validation.ObjAt(f, "economic_impact"), "extractable_usd")
-		confirmedValue += value
+		y.confirmedValue += value
 		traj := validation.ObjStr(f, "trajectory")
 		if traj == "" {
 			traj = "unattributed"
 		}
-		d := row(traj)
+		d := y.yieldRow(traj)
 		setKey(d, "confirmed_findings", validation.VInt(
 			intField(*d, "confirmed_findings")+1))
 		setKey(d, "confirmed_value_usd", validation.VFloat(
 			floatField(*d, "confirmed_value_usd")+value))
 	}
+}
 
-	names := make([]string, 0, len(byTraj))
-	for _, kv := range byTraj {
+// yieldRenderRows sorts the trajectories by name and renders one row per
+// trajectory: its per-kind total cost and its yield (null when no cost
+// was recorded).
+func (y *yieldReport) yieldRenderRows() ([]validation.Value, float64) {
+	names := make([]string, 0, len(y.byTraj))
+	for _, kv := range y.byTraj {
 		names = append(names, kv.K)
 	}
 	sort.Strings(names)
 	rows := []validation.Value{}
 	totalCost := 0.0
 	for _, traj := range names {
-		d := *row(traj)
+		d := *y.yieldRow(traj)
 		total := 0.0
 		for _, k := range CostKinds {
 			total += floatField(d, k)
@@ -292,9 +324,16 @@ func YieldReport(c *state.Campaign) (validation.Value, error) {
 		totalCost += total
 		rows = append(rows, d)
 	}
+	return rows, totalCost
+}
+
+// yieldRenderTotals assembles the campaign-level totals block and the
+// report's outer object.
+func (y *yieldReport) yieldRenderTotals(rows []validation.Value,
+	totalCost float64) validation.Value {
 	var totalYield validation.Value = validation.VNull()
 	if totalCost > 0 {
-		totalYield = validation.VFloat(confirmedValue / totalCost)
+		totalYield = validation.VFloat(y.confirmedValue / totalCost)
 	}
 	// sum() over NO rows at all is the INT 0 (Python), so an empty campaign
 	// reports totals.total_cost_usd as 0, not 0.0 — the JSON dump shows it.
@@ -308,20 +347,20 @@ func YieldReport(c *state.Campaign) (validation.Value, error) {
 	// renderers round to 2 decimals.
 	var perCritic, perEvidence validation.Value = validation.VNull(),
 		validation.VNull()
-	if criticConfirmed > 0 {
-		perCritic = validation.VFloat(totalCost / float64(criticConfirmed))
+	if y.criticConfirmed > 0 {
+		perCritic = validation.VFloat(totalCost / float64(y.criticConfirmed))
 	}
-	if evidenceConfirmed > 0 {
-		perEvidence = validation.VFloat(totalCost / float64(evidenceConfirmed))
+	if y.evidenceConfirmed > 0 {
+		perEvidence = validation.VFloat(totalCost / float64(y.evidenceConfirmed))
 	}
 	return validation.VObj(
 		validation.KV{K: "trajectories", V: validation.VArr(rows...)},
 		validation.KV{K: "totals", V: validation.VObj(
 			validation.KV{K: "total_cost_usd", V: totalCostV},
 			validation.KV{K: "confirmed_findings",
-				V: validation.VInt(confirmedCount)},
+				V: validation.VInt(y.confirmedCount)},
 			validation.KV{K: "confirmed_value_usd",
-				V: validation.VFloat(confirmedValue)},
+				V: validation.VFloat(y.confirmedValue)},
 			validation.KV{K: "yield_usd_per_usd", V: totalYield},
 			validation.KV{K: "cost_per_critic_confirmed_usd",
 				V: perCritic},
@@ -330,7 +369,7 @@ func YieldReport(c *state.Campaign) (validation.Value, error) {
 		validation.KV{K: "note", V: validation.VStr("value = confirmed " +
 			"extractable_usd (never the 1-10 risk band); costs are " +
 			"operator-reported; yield is advisory and gates nothing")},
-	), nil
+	)
 }
 
 // LensYield is the G13 per-lens attribution table: one row per lens in
@@ -361,86 +400,141 @@ func YieldReport(c *state.Campaign) (validation.Value, error) {
 // ADVISORY LAW (see YieldReport): this renders and rolls up only — no
 // gate, completion check, or policy may consume it.
 func LensYield(c *state.Campaign) ([]validation.Value, error) {
-	costRows, err := LoadCosts(c)
-	if err != nil {
+	l := &lensYield{c: c}
+	if err := l.lensFoldCosts(); err != nil {
 		return nil, err
 	}
-	lensCost := map[string]float64{}
-	unattributedCost := 0.0
-	unattributedRows := 0
-	hasLensCosts := false
+	l.lensLoadPlan()
+	if !l.hasLensCosts && len(l.planLens) == 0 {
+		return nil, nil
+	}
+	ids := l.lensIDs()
+	if err := l.lensFoldPriorities(ids); err != nil {
+		return nil, err
+	}
+	return l.lensRender(ids), nil
+}
+
+// lensYield carries LensYield's attribution state: the per-lens cost
+// fold from costs.jsonl, the leniently-read plan and its lens ids, and
+// the planned/confirmed counters the render step emits.
+type lensYield struct {
+	c                *state.Campaign
+	lensCost         map[string]float64
+	unattributedCost float64
+	unattributedRows int
+	hasLensCosts     bool
+	plan             validation.Value
+	planOK           bool
+	planLens         []string
+	known            map[string]bool
+	planned          map[string]int64
+	confirmed        map[string]int64
+}
+
+// lensFoldCosts loads the cost rows and bills each to its lens; rows
+// carrying no lens accumulate in the unattributed bucket.
+func (l *lensYield) lensFoldCosts() error {
+	costRows, err := LoadCosts(l.c)
+	if err != nil {
+		return err
+	}
+	l.lensCost = map[string]float64{}
 	for _, e := range costRows {
 		lens := validation.ObjStr(e, "lens")
 		if lens == "" {
-			unattributedCost += floatField(e, "amount_usd")
-			unattributedRows++
+			l.unattributedCost += floatField(e, "amount_usd")
+			l.unattributedRows++
 			continue
 		}
-		hasLensCosts = true
-		lensCost[lens] += floatField(e, "amount_usd")
+		l.hasLensCosts = true
+		l.lensCost[lens] += floatField(e, "amount_usd")
 	}
-	plan, planOK := loadPlanLenient(c)
-	planLens := []string{}
-	if planOK {
-		planLens = PlanLensIDs(plan)
+	return nil
+}
+
+// lensLoadPlan reads the campaign plan leniently and collects the lens
+// ids it plans for (empty when the plan is absent or unparseable).
+func (l *lensYield) lensLoadPlan() {
+	plan, ok := loadPlanLenient(l.c)
+	l.plan, l.planOK = plan, ok
+	l.planLens = []string{}
+	if ok {
+		l.planLens = PlanLensIDs(plan)
 	}
-	if !hasLensCosts && len(planLens) == 0 {
-		return nil, nil
-	}
-	ids := append([]string{}, planLens...)
-	if !planOK {
-		for lens := range lensCost {
+}
+
+// lensIDs assembles the table's row order: the plan's lens ids
+// ascending; when the plan is absent, the observed cost lens ids sorted.
+func (l *lensYield) lensIDs() []string {
+	ids := append([]string{}, l.planLens...)
+	if !l.planOK {
+		for lens := range l.lensCost {
 			ids = append(ids, lens)
 		}
 		sort.Strings(ids)
 	}
+	return ids
+}
+
+// lensFoldPriorities counts, per lens bucket, the plan's priorities and
+// the subset closed as answered whose closed_ref names a finding that
+// clears the full confirmation bar.
+func (l *lensYield) lensFoldPriorities(ids []string) error {
 	// The probe-surface join (shared with the planner's G17 gate and the
 	// briefing's batting-average render — one source, costs owns it).
-	rowLens := ProbeRowLens(c)
-	known := map[string]bool{}
+	rowLens := ProbeRowLens(l.c)
+	l.known = map[string]bool{}
 	for _, id := range ids {
-		known[id] = true
+		l.known[id] = true
 	}
-	planned := map[string]int64{}
-	confirmed := map[string]int64{}
+	l.planned = map[string]int64{}
+	l.confirmed = map[string]int64{}
+	if !l.planOK {
+		return nil
+	}
 	byFinding := map[string]validation.Value{}
-	if planOK {
-		all, err := findings.LoadAllFindings(c)
-		if err != nil {
-			return nil, err
-		}
-		for _, f := range all {
-			byFinding[validation.ObjStr(f, "finding_id")] = f
-		}
-		for _, p := range listOf(plan, "priorities") {
-			bucket := PrioLensBucket(p, rowLens, known)
-			planned[bucket]++
-			if validation.ObjStr(p, "status") != "answered" {
-				continue
-			}
-			ref := strings.TrimSpace(validation.ObjStr(p, "closed_ref"))
-			if !strings.HasPrefix(ref, "F-") {
-				continue
-			}
-			f, ok := byFinding[strings.Fields(ref)[0]]
-			if !ok {
-				continue
-			}
-			if !LensConfirmed(f, c) {
-				continue
-			}
-			confirmed[bucket]++
-		}
+	all, err := findings.LoadAllFindings(l.c)
+	if err != nil {
+		return err
 	}
+	for _, f := range all {
+		byFinding[validation.ObjStr(f, "finding_id")] = f
+	}
+	for _, p := range listOf(l.plan, "priorities") {
+		bucket := PrioLensBucket(p, rowLens, l.known)
+		l.planned[bucket]++
+		if validation.ObjStr(p, "status") != "answered" {
+			continue
+		}
+		ref := strings.TrimSpace(validation.ObjStr(p, "closed_ref"))
+		if !strings.HasPrefix(ref, "F-") {
+			continue
+		}
+		f, ok := byFinding[strings.Fields(ref)[0]]
+		if !ok {
+			continue
+		}
+		if !LensConfirmed(f, l.c) {
+			continue
+		}
+		l.confirmed[bucket]++
+	}
+	return nil
+}
+
+// lensRender emits one row per lens id plus, when warranted, the
+// unattributed bucket for cost rows that carry no (known) lens.
+func (l *lensYield) lensRender(ids []string) []validation.Value {
 	out := []validation.Value{}
 	for _, id := range ids {
 		out = append(out, validation.VObj(
 			validation.KV{K: "lens", V: validation.VStr(id)},
-			validation.KV{K: "n_planned", V: validation.VInt(planned[id])},
+			validation.KV{K: "n_planned", V: validation.VInt(l.planned[id])},
 			validation.KV{K: "n_confirmed",
-				V: validation.VInt(confirmed[id])},
+				V: validation.VInt(l.confirmed[id])},
 			validation.KV{K: "cost_usd",
-				V: validation.VFloat(lensCost[id])},
+				V: validation.VFloat(l.lensCost[id])},
 		))
 	}
 	// The unattributed bucket exists for cost rows lacking lens. When the
@@ -448,19 +542,19 @@ func LensYield(c *state.Campaign) ([]validation.Value, error) {
 	// unattributed spend still lands here. Planned-count arm: a priority
 	// with no resolvable lens buckets to "unattributed" even when every
 	// cost row is lensed — emitting no row there would drop the count.
-	if unattributedRows > 0 || !planOK || planned["unattributed"] > 0 {
+	if l.unattributedRows > 0 || !l.planOK || l.planned["unattributed"] > 0 {
 		out = append(out, validation.VObj(
 			validation.KV{K: "lens", V: validation.VStr("unattributed")},
 			validation.KV{K: "n_planned",
-				V: validation.VInt(planned["unattributed"])},
+				V: validation.VInt(l.planned["unattributed"])},
 			validation.KV{K: "n_confirmed",
-				V: validation.VInt(confirmed["unattributed"])},
+				V: validation.VInt(l.confirmed["unattributed"])},
 			validation.KV{K: "cost_usd",
-				V: validation.VFloat(unattributedCost +
-					unbilledLens(lensCost, known))},
+				V: validation.VFloat(l.unattributedCost +
+					unbilledLens(l.lensCost, l.known))},
 		))
 	}
-	return out, nil
+	return out
 }
 
 // unbilledLens is the spend on lens ids the plan does not know: operator
@@ -692,15 +786,64 @@ func setKey(v *validation.Value, key string, val validation.Value) {
 // trusted their own file). Presence-gated: quiet campaigns and fully
 // consistent ones return nothing.
 func CostMirrorProblems(c *state.Campaign) []string {
-	evts, err := c.Events()
+	m := &mirrorProblems{
+		c:     c,
+		byID:  map[string]mirrorLedger{},
+		count: map[string]int{},
+		sum:   map[string]float64{},
+		kinds: map[string]map[string]bool{},
+	}
+	costEvts, done := m.mirrorLoadEvents()
+	if done {
+		return m.problems
+	}
+	rows, done := m.mirrorLoadRows()
+	if done {
+		return m.problems
+	}
+	if len(costEvts) == 0 && len(rows) == 0 {
+		return nil
+	}
+	m.mirrorFoldLedger(costEvts)
+	m.mirrorFoldRows(rows)
+	m.mirrorCompare()
+	return m.problems
+}
+
+// mirrorProblems carries CostMirrorProblems' cross-check state: the
+// ledger's per-id aggregate and the file's per-id aggregate, compared in
+// both directions by mirrorCompare.
+type mirrorProblems struct {
+	c        *state.Campaign
+	problems []string
+	byID     map[string]mirrorLedger
+	count    map[string]int
+	sum      map[string]float64
+	kinds    map[string]map[string]bool
+}
+
+// mirrorLedger is the per-cost-id aggregate of the ledger's
+// cost.recorded events: event count, summed amounts, every kind seen.
+type mirrorLedger struct {
+	n     int
+	sum   float64
+	kinds map[string]bool
+}
+
+// mirrorLoadEvents reads the ledger and keeps the cost.recorded events
+// (with their refs). It reports done when the ledger is unreadable and
+// the problem has been recorded.
+func (m *mirrorProblems) mirrorLoadEvents() ([]validation.Value, bool) {
+	evts, err := m.c.Events()
 	if err != nil {
 		// r17 P2: an UNREADABLE ledger is strictly worse than a damaged
 		// mirror — returning nil here priced spend off the rows alone
 		// while verify screamed red ("cost: $42.00 spent" on a GARBAGE
 		// log). "The ledger verdict belongs to verify" justified
 		// silence, not authority to evaluate spend against nothing.
-		return []string{"the event ledger is unreadable, so recorded " +
-			"costs cannot be cross-checked: " + err.Error()}
+		m.problems = append(m.problems, "the event ledger is unreadable, so recorded "+
+			"costs cannot be cross-checked: "+err.Error())
+		return nil, true
 	}
 	var costEvts []validation.Value
 	refs := map[string]bool{}
@@ -710,37 +853,41 @@ func CostMirrorProblems(c *state.Campaign) []string {
 			refs[validation.ObjStr(e, "ref")] = true
 		}
 	}
-	rows, rerr := LoadCosts(c)
+	return costEvts, false
+}
+
+// mirrorLoadRows reads costs.jsonl; it reports done when the file is
+// unreadable and the problem has been recorded.
+func (m *mirrorProblems) mirrorLoadRows() ([]validation.Value, bool) {
+	rows, rerr := LoadCosts(m.c)
 	if rerr != nil {
-		return []string{fmt.Sprintf("costs.jsonl unreadable: %v", rerr)}
+		m.problems = append(m.problems,
+			fmt.Sprintf("costs.jsonl unreadable: %v", rerr))
+		return nil, true
 	}
-	if len(costEvts) == 0 && len(rows) == 0 {
-		return nil
-	}
-	var out []string
-	// r16 P1-1: the law is about SPEND, not id-existence — comparing
-	// cost_id strings alone let one appended duplicate-id row double the
-	// booked amount (audit PASS while budget priced phantom money) and
-	// let an amount rewrite hide under its own id. Per id the ledger and
-	// the file must agree on COUNT and on the SUM of amounts (and every
-	// kind the id carries): twin stores legitimately repeat an id across
-	// rows — uuid4 is per-row but the pinned fixtures prove identity is
-	// not the invariant — so equality is aggregated, and that catches
-	// inflation, dodging, and edits alike.
-	type ledger struct {
-		n     int
-		sum   float64
-		kinds map[string]bool
-	}
-	byID := map[string]ledger{}
+	return rows, false
+}
+
+// mirrorFoldLedger aggregates the ledger's cost.recorded events per cost
+// id, flagging events that carry no ref.
+// r16 P1-1: the law is about SPEND, not id-existence — comparing
+// cost_id strings alone let one appended duplicate-id row double the
+// booked amount (audit PASS while budget priced phantom money) and
+// let an amount rewrite hide under its own id. Per id the ledger and
+// the file must agree on COUNT and on the SUM of amounts (and every
+// kind the id carries): twin stores legitimately repeat an id across
+// rows — uuid4 is per-row but the pinned fixtures prove identity is
+// not the invariant — so equality is aggregated, and that catches
+// inflation, dodging, and edits alike.
+func (m *mirrorProblems) mirrorFoldLedger(costEvts []validation.Value) {
 	for _, e := range costEvts {
 		id := validation.ObjStr(e, "ref")
 		if id == "" {
-			out = append(out, "a cost.recorded event carries no ref — "+
+			m.problems = append(m.problems, "a cost.recorded event carries no ref — "+
 				"spend the ledger cannot attribute")
 			continue
 		}
-		l := byID[id]
+		l := m.byID[id]
 		l.n++
 		if a := validation.ObjAt(validation.ObjAt(e, "data"), "amount_usd"); a.Kind == validation.Flt ||
 			a.Kind == validation.Int {
@@ -753,70 +900,78 @@ func CostMirrorProblems(c *state.Campaign) []string {
 		if k := validation.ObjStr(validation.ObjAt(e, "data"), "kind"); k != "" {
 			l.kinds[k] = true
 		}
-		byID[id] = l
+		m.byID[id] = l
 	}
-	count := map[string]int{}
-	sum := map[string]float64{}
-	kinds := map[string]map[string]bool{}
+}
+
+// mirrorFoldRows aggregates costs.jsonl's rows per cost id, flagging
+// rows that carry no cost_id.
+func (m *mirrorProblems) mirrorFoldRows(rows []validation.Value) {
 	for _, r := range rows {
 		id := validation.ObjStr(r, "cost_id")
 		if id == "" {
-			out = append(out, "costs.jsonl has a row with no cost_id — "+
+			m.problems = append(m.problems, "costs.jsonl has a row with no cost_id — "+
 				"spend that cannot be attributed cannot be audited")
 			continue
 		}
-		count[id]++
+		m.count[id]++
 		if a := validation.ObjAt(r, "amount_usd"); a.Kind == validation.Flt ||
 			a.Kind == validation.Int {
 			f, _ := numberValue(a)
-			sum[id] += f
+			m.sum[id] += f
 		}
-		if kinds[id] == nil {
-			kinds[id] = map[string]bool{}
+		if m.kinds[id] == nil {
+			m.kinds[id] = map[string]bool{}
 		}
 		if k := validation.ObjStr(r, "kind"); k != "" {
-			kinds[id][k] = true
+			m.kinds[id][k] = true
 		}
 	}
-	for id, l := range byID {
-		if count[id] == 0 {
-			out = append(out, fmt.Sprintf("the ledger records cost %s (%s) "+
+}
+
+// mirrorCompare cross-checks the two aggregates in both directions:
+// every ledger id must exist in the file with the same count, the same
+// summed amount, and the same kinds; every file id must exist in the
+// ledger.
+func (m *mirrorProblems) mirrorCompare() {
+	for id, l := range m.byID {
+		if m.count[id] == 0 {
+			m.problems = append(m.problems, fmt.Sprintf("the ledger records cost %s (%s) "+
 				"but costs.jsonl has no row for it", id,
 				pyReprValue(validation.VFloat(l.sum))))
 			continue
 		}
-		if count[id] != l.n {
-			out = append(out, fmt.Sprintf(
+		if m.count[id] != l.n {
+			m.problems = append(m.problems, fmt.Sprintf(
 				"costs.jsonl carries %d rows for cost %s but the ledger "+
 					"recorded %d — spend was duplicated or events lost",
-				count[id], id, l.n))
+				m.count[id], id, l.n))
 			continue
 		}
-		if sum[id] != l.sum {
-			out = append(out, fmt.Sprintf(
+		if m.sum[id] != l.sum {
+			m.problems = append(m.problems, fmt.Sprintf(
 				"costs.jsonl books $%s under cost %s but the ledger "+
 					"events sum to $%s — the recorded amounts were "+
-					"edited in the file", format2(sum[id]), id,
+					"edited in the file", format2(m.sum[id]), id,
 				format2(l.sum)))
 			continue
 		}
 		for k := range l.kinds {
-			if !kinds[id][k] {
-				out = append(out, fmt.Sprintf(
+			if !m.kinds[id][k] {
+				m.problems = append(m.problems, fmt.Sprintf(
 					"the ledger says cost %s was kind %s but no costs.jsonl "+
 						"row for it is — the recorded kind was edited", id, k))
 			}
 		}
 	}
-	for id := range count {
-		if _, ok := byID[id]; !ok {
-			out = append(out, fmt.Sprintf("costs.jsonl row(s) for cost %s "+
+	for id := range m.count {
+		if _, ok := m.byID[id]; !ok {
+			m.problems = append(m.problems, fmt.Sprintf("costs.jsonl row(s) for cost %s "+
 				"were never recorded in the ledger — ghost spend inflates "+
 				"the budget silently; costs are owed through `webv2 cost`, "+
 				"not by editing the file", id))
 		}
 	}
-	return out
 }
 
 // sameSpend compares ledger vs row numbers the way Python's == would
