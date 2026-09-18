@@ -300,11 +300,24 @@ func TestAGrandfatheredBriefDoesNotGainPhaseGuidance(t *testing.T) {
 		t.Fatalf("len(actions) = %d, want 4: %v", len(actions), actions)
 	}
 	divLines := 0
+	// Task 7 moved the phase guidance from Python-API pseudo-calls
+	// ("orchestrator.…") to copyable `webv2 …` commands, so the old prefix is
+	// no longer the marker. Membership in this campaign's own
+	// orchestrator.NextActions output is the exact test — strictly stronger
+	// than the prefix it replaces, since a look-alike line cannot pass.
+	leaked, err := orchestrator.NextActions(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	guidance := map[string]bool{}
+	for _, g := range strListOf(leaked) {
+		guidance[g] = true
+	}
 	for _, a := range actions {
 		if strings.HasPrefix(a, "divergence gate open — L-") {
 			divLines++
 		}
-		if strings.HasPrefix(a, "orchestrator.") {
+		if guidance[a] {
 			t.Fatalf("phase guidance leaked into a grandfathered brief: %v",
 				actions)
 		}
@@ -357,12 +370,23 @@ func TestAttentionDebtDoesNotSuppressThePhaseGuidanceFallback(t *testing.T) {
 		t.Fatalf("attention lead appears %d times, want 1: %v", count, actions)
 	}
 	divLines := 0
+	// Task 7 re-shaped the guidance into copyable `webv2 …` commands; the
+	// fallback is identified by exact membership in orchestrator.NextActions
+	// for this campaign (the old "orchestrator." prefix marker is gone).
+	wantGuidance, err := orchestrator.NextActions(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	guidance := map[string]bool{}
+	for _, g := range strListOf(wantGuidance) {
+		guidance[g] = true
+	}
 	phase := []string{}
 	for _, a := range actions {
 		if strings.HasPrefix(a, "divergence gate open — ") {
 			divLines++
 		}
-		if strings.HasPrefix(a, "orchestrator.") {
+		if guidance[a] {
 			phase = append(phase, a)
 		}
 	}

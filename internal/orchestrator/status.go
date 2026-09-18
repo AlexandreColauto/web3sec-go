@@ -115,17 +115,32 @@ func statusStages(st validation.Value, verbose bool) ([]validation.KV, error) {
 //
 // The PHASE decides which stage we are in (the skeleton); the stage's
 // COMPLETION PROOF decides what is actually missing (the teeth). A proof that
-// holds means the operator can just pipeline.run() — the stage auto-completes
-// from its artifacts. And when the phase says COMPLETE or HALTED while an
-// authoritative proof is still open, the open proofs are surfaced: the phase
-// is a projection, the proof is the truth.
+// holds means the operator can just run the pipeline — the stage
+// auto-completes from its artifacts. And when the phase says COMPLETE or
+// HALTED while an authoritative proof is still open, the open proofs are
+// surfaced: the phase is a projection, the proof is the truth.
+//
+// LAW (Task 7): every line this function returns is a COPYABLE command —
+// `webv2 <verb> …`, verb in the CLI's dispatch registry, no parenthesised
+// Python-API pseudo-call, no prose. The list is read by an operator (and by
+// `webv2 brief`) as a work order; a line that cannot be pasted into a shell is
+// bookkeeping friction, which is exactly what this guidance exists to remove.
+// The consequence is deliberate: the per-item proof detail the old catalog
+// printed inline ("[discovery missing] Q-001: …") is no longer inlined — the
+// proof command the line names (`webv2 prove <campaign> --stage <stage>`)
+// prints it verbatim, and a trailing `# n missing` comment keeps the size of
+// the gap visible without breaking copyability.
 func NextActions(c *state.Campaign) (validation.Value, error) {
 	st, err := c.State()
 	if err != nil {
 		return validation.VNull(), err
 	}
 	phase := strAt(st, "phase")
-	actions := phaseActions(phase)
+	cid := c.CampaignID
+	if cid == "" {
+		cid = "<campaign>"
+	}
+	actions := phaseActions(phase, cid)
 
 	// proof teeth for the stage the phase is in
 	if stage, ok := stageForPhase(phase); ok {
@@ -135,16 +150,11 @@ func NextActions(c *state.Campaign) (validation.Value, error) {
 		}
 		if proof.Kind == validation.Obj {
 			if pyTruthyBigNonEmpty(objAt(proof, "done")) {
-				actions = append(actions, "["+stage+"] completion proof holds — "+
-					"pipeline.run() auto-completes the stage")
+				actions = append(actions, "webv2 run "+cid+"  # "+stage+
+					" proof holds; the stage auto-completes")
 			} else {
-				missing := listAt(proof, "missing")
-				if len(missing) > 4 {
-					missing = missing[:4]
-				}
-				for _, m := range missing {
-					actions = append(actions, "["+stage+" missing] "+pyStr(m))
-				}
+				actions = append(actions, proofCommand(cid, stage,
+					len(listAt(proof, "missing"))))
 			}
 		}
 	}
@@ -164,16 +174,12 @@ func NextActions(c *state.Campaign) (validation.Value, error) {
 				pyTruthyBigNonEmpty(objAt(pr.V, "done")) {
 				continue
 			}
-			missing := listAt(pr.V, "missing")
-			if len(missing) > 2 {
-				missing = missing[:2]
-			}
-			openProofs = append(openProofs, "["+pr.K+" open] "+
-				joinActions(strList(missing)))
+			openProofs = append(openProofs, proofCommand(cid, pr.K,
+				len(listAt(pr.V, "missing"))))
 		}
 		if len(openProofs) > 0 {
-			actions = append([]string{"phase says done but completion proofs " +
-				"are open — close them (or waive with a reason) first:"}, actions...)
+			actions = append([]string{"webv2 prove " + cid +
+				"  # phase says done but completion proofs are open"}, actions...)
 			if len(openProofs) > 6 {
 				openProofs = openProofs[:6]
 			}
@@ -183,56 +189,79 @@ func NextActions(c *state.Campaign) (validation.Value, error) {
 	return strArr(actions), nil
 }
 
-// phaseActions is the phase -> action-sentence catalog of next_actions.
-func phaseActions(phase string) []string {
+// proofCommand is one copyable proof line: the command that prints the exact
+// missing items, plus the count so the size of the gap is visible at a glance.
+func proofCommand(cid, stage string, missing int) string {
+	return "webv2 prove " + cid + " --stage " + stage + "  # " +
+		itoa(missing) + " missing"
+}
+
+// phaseActions is the phase -> copyable-command catalog of next_actions.
+//
+// Every entry is a `webv2` command an operator can paste; the campaign id is
+// interpolated so the line needs no editing. Metavariables in angle brackets
+// are the arguments the operator must supply (the same house style the lens
+// routing lines use); the flags and positional shapes are the ones the CLI's
+// own parsers accept — `internal/orchestrator/next_actions_cli_test.go` feeds
+// each emitted line back through the dispatcher to prove it.
+func phaseActions(phase, cid string) []string {
 	switch phase {
 	case "SCOPE":
-		return []string{"orchestrator.scope(policy_path=...)",
-			"orchestrator.snapshot(target=...)"}
+		return []string{"webv2 scope " + cid + " --policy <policy.json>",
+			"webv2 snap " + cid + " <target>"}
 	case "SNAPSHOT":
-		return []string{"orchestrator.snapshot(target=...)"}
+		return []string{"webv2 snap " + cid + " <target>"}
 	case "STRUCTURAL_INDEX":
-		return []string{"orchestrator.build_structural_index()"}
+		return []string{"webv2 index " + cid + " --src <src>"}
 	case "PROTOCOL_INTELLIGENCE":
-		return []string{"run protocol-model prompt via adapter.build_context",
-			"orchestrator.load_protocol_model(model_dict)"}
+		return []string{"webv2 run " + cid,
+			"webv2 model " + cid + " <model.json>"}
 	case "CAMPAIGN_PLANNING":
-		return []string{"orchestrator.plan()"}
+		return []string{"webv2 plan " + cid + " <plan.json>"}
 	case "DISCOVERY":
 		return []string{
-			"orchestrator.discovery_context(stage=...) per queued priority",
-			"orchestrator.ingest(payload) per specialist result",
-			"orchestrator.triage_all()"}
+			"webv2 plan " + cid,
+			"webv2 ingest " + cid + " --json-file <payload.json>",
+			"webv2 prioritize " + cid}
 	case "CANDIDATE_INTEL":
-		return []string{"orchestrator.run_dedup()",
-			"LLM normalization pass, then dedup.resolve_candidate(...) per " +
-				"flagged pair"}
+		return []string{"webv2 dedup " + cid,
+			"webv2 resolve-candidate " + cid + " <finding> <other>" +
+				" --verdict <same|distinct> --note <note>"}
 	case "HOSTILE_REVIEW":
-		return []string{"orchestrator.critic_context()",
-			"findings.set_critic_verdict(...) per candidate"}
+		return []string{"webv2 run " + cid,
+			"webv2 verdict " + cid + " <finding> --verdict <verdict>" +
+				" --reason <reason>"}
 	case "REPRODUCTION":
-		return []string{"orchestrator.reproduction_queue()",
-			"reproduction.record_attempt(...) / mint_repro_evidence(...)"}
+		return []string{"webv2 repro-queue " + cid,
+			"webv2 mint " + cid + " <finding> --exec <EXEC-id>" +
+				" --description <description>"}
 	case "CHAINING":
-		return []string{"orchestrator.chaining()",
-			"chain_engine.materialize_chain(...) on confirmed sets"}
+		return []string{"webv2 chains " + cid,
+			"webv2 chain " + cid + " <finding> <other>"}
 	case "MAXIMAL_EXPLOITATION":
-		return []string{"run the maximal-exploitation prompt via " +
-			"adapter.build_context",
-			"webv2 ladder start/add/explore/repro/set-maximal/complete per " +
-				"CONFIRMED finding (or webv2 ladder waive with a written reason)"}
+		return []string{"webv2 run " + cid,
+			"webv2 ladder " + cid + " start <finding>",
+			"webv2 ladder " + cid + " waive <finding> --reason <reason>" +
+				" --actor <actor>"}
+	case "INDEPENDENT_VERIFICATION":
+		return []string{"webv2 run " + cid,
+			"webv2 mint " + cid + " <finding> --exec <EXEC-id>" +
+				" --description <description>"}
 	case "RISK_CALIBRATION":
-		return []string{"orchestrator.calibrate_all()"}
+		return []string{"webv2 rank " + cid}
+	case "MAINNET_FORK_POC":
+		return []string{"webv2 exec " + cid + " --command <command>" +
+			" --profile <profile>"}
 	case "BOUNTY_GATE":
-		return []string{"orchestrator.bounty_gate_all()",
-			"`webv2 gate explain <check>` for any failing check"}
+		return []string{"webv2 gate " + cid,
+			"webv2 gate --explain <check>"}
 	case "REPORTING":
-		return []string{"report.generate(campaign)"}
+		return []string{"webv2 report " + cid}
 	case "LEARNING":
-		return []string{"learning.queue_memory(...) then human approve_memory()",
-			"learning.reflection_entry(...)"}
+		return []string{"webv2 memory " + cid + " --reflect <text>",
+			"webv2 memory " + cid + " --approve <memory-id>"}
 	}
-	return []string{"campaign complete or halted"}
+	return []string{"webv2 status " + cid + "  # campaign complete or halted"}
 }
 
 // stageForPhase is next((sid for sid, _, ph in STAGES if ph == phase), None).

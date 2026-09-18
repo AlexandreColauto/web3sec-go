@@ -393,7 +393,7 @@
     {
      "op": "next_actions",
      "args": {},
-     "oracle": "[\n  \"orchestrator.scope(policy_path=...)\",\n  \"orchestrator.snapshot(target=...)\"\n]"
+     "oracle": "[\n  \"webv2 scope C-oracle00001 --policy <policy.json>\",\n  \"webv2 snap C-oracle00001 <target>\"\n]"
     },
     {
      "op": "status",
@@ -478,7 +478,7 @@
     {
      "op": "next_actions",
      "args": {},
-     "oracle": "[\n  \"orchestrator.scope(policy_path=...)\",\n  \"orchestrator.snapshot(target=...)\"\n]"
+     "oracle": "[\n  \"webv2 scope C-oracle00001 --policy <policy.json>\",\n  \"webv2 snap C-oracle00001 <target>\"\n]"
     },
     {
      "op": "status",
@@ -520,7 +520,7 @@
     {
      "op": "next_actions",
      "args": {},
-     "oracle": "[\n  \"orchestrator.build_structural_index()\"\n]"
+     "oracle": "[\n  \"webv2 index C-oracle00001 --src <src>\"\n]"
     },
     {
      "op": "status",
@@ -608,7 +608,7 @@
     {
      "op": "next_actions",
      "args": {},
-     "oracle": "[\n  \"run protocol-model prompt via adapter.build_context\",\n  \"orchestrator.load_protocol_model(model_dict)\",\n  \"[protocol-model] completion proof holds — pipeline.run() auto-completes the stage\"\n]"
+     "oracle": "[\n  \"webv2 run C-oracle00001\",\n  \"webv2 model C-oracle00001 <model.json>\",\n  \"webv2 run C-oracle00001  # protocol-model proof holds; the stage auto-completes\"\n]"
     },
     {
      "op": "status",
@@ -672,7 +672,7 @@
     {
      "op": "next_actions",
      "args": {},
-     "oracle": "[\n  \"orchestrator.discovery_context(stage=...) per queued priority\",\n  \"orchestrator.ingest(payload) per specialist result\",\n  \"orchestrator.triage_all()\",\n  \"[discovery missing] Q-001: Can the drain-capable roles (governor) be reached or capture\",\n  \"[discovery missing] Q-002: Can upgrade authorization be captured, front-run, or exercis\",\n  \"[discovery missing] Q-013: Within its stated constraints (timelocked=yes, threshold=n/a\",\n  \"[discovery missing] Q-003: Is the unvalidated trust boundary user -> Vault (user-suppli\"\n]"
+     "oracle": "[\n  \"webv2 plan C-oracle00001\",\n  \"webv2 ingest C-oracle00001 --json-file <payload.json>\",\n  \"webv2 prioritize C-oracle00001\",\n  \"webv2 prove C-oracle00001 --stage discovery  # 18 missing\"\n]"
     },
     {
      "op": "status",
@@ -784,7 +784,7 @@
     {
      "op": "next_actions",
      "args": {},
-     "oracle": "[\n  \"orchestrator.reproduction_queue()\",\n  \"reproduction.record_attempt(...) / mint_repro_evidence(...)\",\n  \"[reproduction] completion proof holds — pipeline.run() auto-completes the stage\"\n]"
+     "oracle": "[\n  \"webv2 repro-queue C-oracle00001\",\n  \"webv2 mint C-oracle00001 <finding> --exec <EXEC-id> --description <description>\",\n  \"webv2 run C-oracle00001  # reproduction proof holds; the stage auto-completes\"\n]"
     },
     {
      "op": "ingest",
@@ -919,7 +919,7 @@
     {
      "op": "next_actions",
      "args": {},
-     "oracle": "[\n  \"orchestrator.run_dedup()\",\n  \"LLM normalization pass, then dedup.resolve_candidate(...) per flagged pair\",\n  \"[dedup] completion proof holds — pipeline.run() auto-completes the stage\"\n]"
+     "oracle": "[\n  \"webv2 dedup C-oracle00001\",\n  \"webv2 resolve-candidate C-oracle00001 <finding> <other> --verdict <same|distinct> --note <note>\",\n  \"webv2 run C-oracle00001  # dedup proof holds; the stage auto-completes\"\n]"
     }
    ],
    "finding_placeholders": [],
@@ -1966,7 +1966,7 @@
     {
      "op": "next_actions",
      "args": {},
-     "oracle": "[\n  \"orchestrator.bounty_gate_all()\",\n  \"`webv2 gate explain <check>` for any failing check\",\n  \"[bounty-gate] completion proof holds — pipeline.run() auto-completes the stage\"\n]"
+     "oracle": "[\n  \"webv2 gate C-oracle00001\",\n  \"webv2 gate --explain <check>\",\n  \"webv2 run C-oracle00001  # bounty-gate proof holds; the stage auto-completes\"\n]"
     },
     {
      "op": "calibrate_all",
@@ -2517,133 +2517,133 @@
      "args": {
       "phase": "SCOPE"
      },
-     "oracle": "[\n  \"orchestrator.scope(policy_path=...)\",\n  \"orchestrator.snapshot(target=...)\"\n]"
+     "oracle": "[\n  \"webv2 scope C-oracle00001 --policy <policy.json>\",\n  \"webv2 snap C-oracle00001 <target>\"\n]"
     },
     {
      "op": "next_actions",
      "args": {
       "phase": "SNAPSHOT"
      },
-     "oracle": "[\n  \"orchestrator.snapshot(target=...)\"\n]"
+     "oracle": "[\n  \"webv2 snap C-oracle00001 <target>\"\n]"
     },
     {
      "op": "next_actions",
      "args": {
       "phase": "STRUCTURAL_INDEX"
      },
-     "oracle": "[\n  \"orchestrator.build_structural_index()\"\n]"
+     "oracle": "[\n  \"webv2 index C-oracle00001 --src <src>\"\n]"
     },
     {
      "op": "next_actions",
      "args": {
       "phase": "PROTOCOL_INTELLIGENCE"
      },
-     "oracle": "[\n  \"run protocol-model prompt via adapter.build_context\",\n  \"orchestrator.load_protocol_model(model_dict)\",\n  \"[protocol-model] completion proof holds — pipeline.run() auto-completes the stage\"\n]"
+     "oracle": "[\n  \"webv2 run C-oracle00001\",\n  \"webv2 model C-oracle00001 <model.json>\",\n  \"webv2 run C-oracle00001  # protocol-model proof holds; the stage auto-completes\"\n]"
     },
     {
      "op": "next_actions",
      "args": {
       "phase": "CAMPAIGN_PLANNING"
      },
-     "oracle": "[\n  \"orchestrator.plan()\",\n  \"[campaign-planning] completion proof holds — pipeline.run() auto-completes the stage\"\n]"
+     "oracle": "[\n  \"webv2 plan C-oracle00001 <plan.json>\",\n  \"webv2 run C-oracle00001  # campaign-planning proof holds; the stage auto-completes\"\n]"
     },
     {
      "op": "next_actions",
      "args": {
       "phase": "DISCOVERY"
      },
-     "oracle": "[\n  \"orchestrator.discovery_context(stage=...) per queued priority\",\n  \"orchestrator.ingest(payload) per specialist result\",\n  \"orchestrator.triage_all()\",\n  \"[discovery missing] Q-001: Can the drain-capable roles (governor) be reached or capture\",\n  \"[discovery missing] Q-002: Can upgrade authorization be captured, front-run, or exercis\",\n  \"[discovery missing] Q-013: Within its stated constraints (timelocked=yes, threshold=n/a\",\n  \"[discovery missing] Q-003: Is the unvalidated trust boundary user -> Vault (user-suppli\"\n]"
+     "oracle": "[\n  \"webv2 plan C-oracle00001\",\n  \"webv2 ingest C-oracle00001 --json-file <payload.json>\",\n  \"webv2 prioritize C-oracle00001\",\n  \"webv2 prove C-oracle00001 --stage discovery  # 17 missing\"\n]"
     },
     {
      "op": "next_actions",
      "args": {
       "phase": "CANDIDATE_INTEL"
      },
-     "oracle": "[\n  \"orchestrator.run_dedup()\",\n  \"LLM normalization pass, then dedup.resolve_candidate(...) per flagged pair\",\n  \"[dedup] completion proof holds — pipeline.run() auto-completes the stage\"\n]"
+     "oracle": "[\n  \"webv2 dedup C-oracle00001\",\n  \"webv2 resolve-candidate C-oracle00001 <finding> <other> --verdict <same|distinct> --note <note>\",\n  \"webv2 run C-oracle00001  # dedup proof holds; the stage auto-completes\"\n]"
     },
     {
      "op": "next_actions",
      "args": {
       "phase": "HOSTILE_REVIEW"
      },
-     "oracle": "[\n  \"orchestrator.critic_context()\",\n  \"findings.set_critic_verdict(...) per candidate\",\n  \"[hostile-review missing] F-<ID2>: no critic verdict\",\n  \"[hostile-review missing] F-<ID7>: no critic verdict\",\n  \"[hostile-review missing] F-<ID3>: no critic verdict\",\n  \"[hostile-review missing] F-<ID1>: no critic verdict\"\n]"
+     "oracle": "[\n  \"webv2 run C-oracle00001\",\n  \"webv2 verdict C-oracle00001 <finding> --verdict <verdict> --reason <reason>\",\n  \"webv2 prove C-oracle00001 --stage hostile-review  # 5 missing\"\n]"
     },
     {
      "op": "next_actions",
      "args": {
       "phase": "REPRODUCTION"
      },
-     "oracle": "[\n  \"orchestrator.reproduction_queue()\",\n  \"reproduction.record_attempt(...) / mint_repro_evidence(...)\",\n  \"[reproduction] completion proof holds — pipeline.run() auto-completes the stage\"\n]"
+     "oracle": "[\n  \"webv2 repro-queue C-oracle00001\",\n  \"webv2 mint C-oracle00001 <finding> --exec <EXEC-id> --description <description>\",\n  \"webv2 run C-oracle00001  # reproduction proof holds; the stage auto-completes\"\n]"
     },
     {
      "op": "next_actions",
      "args": {
       "phase": "CHAINING"
      },
-     "oracle": "[\n  \"orchestrator.chaining()\",\n  \"chain_engine.materialize_chain(...) on confirmed sets\"\n]"
+     "oracle": "[\n  \"webv2 chains C-oracle00001\",\n  \"webv2 chain C-oracle00001 <finding> <other>\"\n]"
     },
     {
      "op": "next_actions",
      "args": {
       "phase": "MAXIMAL_EXPLOITATION"
      },
-     "oracle": "[\n  \"run the maximal-exploitation prompt via adapter.build_context\",\n  \"webv2 ladder start/add/explore/repro/set-maximal/complete per CONFIRMED finding (or webv2 ladder waive with a written reason)\",\n  \"[maximal-exploitation missing] F-<ID4>: no variant ladder — webv2 ladder start F-<ID4>\",\n  \"[maximal-exploitation missing] F-<ID5>: no variant ladder — webv2 ladder start F-<ID5>\",\n  \"[maximal-exploitation missing] F-<ID9>: no variant ladder — webv2 ladder start F-<ID9>\",\n  \"[maximal-exploitation missing] F-<ID6>: no variant ladder — webv2 ladder start F-<ID6>\"\n]"
+     "oracle": "[\n  \"webv2 run C-oracle00001\",\n  \"webv2 ladder C-oracle00001 start <finding>\",\n  \"webv2 ladder C-oracle00001 waive <finding> --reason <reason> --actor <actor>\",\n  \"webv2 prove C-oracle00001 --stage maximal-exploitation  # 4 missing\"\n]"
     },
     {
      "op": "next_actions",
      "args": {
       "phase": "INDEPENDENT_VERIFICATION"
      },
-     "oracle": "[\n  \"campaign complete or halted\",\n  \"[independent-verification missing] F-<ID4>: no E6 independent reproduction (run the independent-verification stage; mint with webv2 verify --exec ...)\",\n  \"[independent-verification missing] F-<ID5>: no E6 independent reproduction (run the independent-verification stage; mint with webv2 verify --exec ...)\",\n  \"[independent-verification missing] F-<ID9>: no E6 independent reproduction (run the independent-verification stage; mint with webv2 verify --exec ...)\",\n  \"[independent-verification missing] F-<ID6>: no E6 independent reproduction (run the independent-verification stage; mint with webv2 verify --exec ...)\"\n]"
+     "oracle": "[\n  \"webv2 run C-oracle00001\",\n  \"webv2 mint C-oracle00001 <finding> --exec <EXEC-id> --description <description>\",\n  \"webv2 prove C-oracle00001 --stage independent-verification  # 4 missing\"\n]"
     },
     {
      "op": "next_actions",
      "args": {
       "phase": "RISK_CALIBRATION"
      },
-     "oracle": "[\n  \"orchestrator.calibrate_all()\",\n  \"[risk-calibration missing] F-<ID4>: not calibrated (no risk.validated.band)\",\n  \"[risk-calibration missing] F-<ID5>: not calibrated (no risk.validated.band)\",\n  \"[risk-calibration missing] F-<ID9>: not calibrated (no risk.validated.band)\",\n  \"[risk-calibration missing] F-<ID6>: not calibrated (no risk.validated.band)\"\n]"
+     "oracle": "[\n  \"webv2 rank C-oracle00001\",\n  \"webv2 prove C-oracle00001 --stage risk-calibration  # 4 missing\"\n]"
     },
     {
      "op": "next_actions",
      "args": {
       "phase": "MAINNET_FORK_POC"
      },
-     "oracle": "[\n  \"campaign complete or halted\",\n  \"[mainnet-fork-poc missing] F-<ID4>: evidence claims fork-level but no E5/E6 item traces to a SUCCEEDED fork-runner exec in the ledger — unit-harness evidence (E4) proves semantics, not mainnet\",\n  \"[mainnet-fork-poc missing] F-<ID5>: no fork-level evidence (E5/E6) — run the PoC on the pinned mainnet fork (webv2 exec --profile fork-runner) and mint it (webv2 mint --type fork-test)\",\n  \"[mainnet-fork-poc missing] F-<ID9>: no fork-level evidence (E5/E6) — run the PoC on the pinned mainnet fork (webv2 exec --profile fork-runner) and mint it (webv2 mint --type fork-test)\",\n  \"[mainnet-fork-poc missing] F-<ID6>: evidence claims fork-level but no E5/E6 item traces to a SUCCEEDED fork-runner exec in the ledger — unit-harness evidence (E4) proves semantics, not mainnet\"\n]"
+     "oracle": "[\n  \"webv2 exec C-oracle00001 --command <command> --profile <profile>\",\n  \"webv2 prove C-oracle00001 --stage mainnet-fork-poc  # 4 missing\"\n]"
     },
     {
      "op": "next_actions",
      "args": {
       "phase": "BOUNTY_GATE"
      },
-     "oracle": "[\n  \"orchestrator.bounty_gate_all()\",\n  \"`webv2 gate explain <check>` for any failing check\",\n  \"[bounty-gate missing] F-<ID4>: bounty gate never evaluated\",\n  \"[bounty-gate missing] F-<ID5>: bounty gate never evaluated\",\n  \"[bounty-gate missing] F-<ID9>: bounty gate never evaluated\",\n  \"[bounty-gate missing] F-<ID6>: bounty gate never evaluated\"\n]"
+     "oracle": "[\n  \"webv2 gate C-oracle00001\",\n  \"webv2 gate --explain <check>\",\n  \"webv2 prove C-oracle00001 --stage bounty-gate  # 4 missing\"\n]"
     },
     {
      "op": "next_actions",
      "args": {
       "phase": "REPORTING"
      },
-     "oracle": "[\n  \"report.generate(campaign)\",\n  \"[report missing] report.md — report.generate()\"\n]"
+     "oracle": "[\n  \"webv2 report C-oracle00001\",\n  \"webv2 prove C-oracle00001 --stage report  # 1 missing\"\n]"
     },
     {
      "op": "next_actions",
      "args": {
       "phase": "LEARNING"
      },
-     "oracle": "[\n  \"learning.queue_memory(...) then human approve_memory()\",\n  \"learning.reflection_entry(...)\",\n  \"[learning missing] F-<ID4>: no memory entry for this terminal finding (learning.queue_memory)\",\n  \"[learning missing] F-<ID5>: no memory entry for this terminal finding (learning.queue_memory)\",\n  \"[learning missing] F-<ID9>: no memory entry for this terminal finding (learning.queue_memory)\",\n  \"[learning missing] F-<ID6>: no memory entry for this terminal finding (learning.queue_memory)\"\n]"
+     "oracle": "[\n  \"webv2 memory C-oracle00001 --reflect <text>\",\n  \"webv2 memory C-oracle00001 --approve <memory-id>\",\n  \"webv2 prove C-oracle00001 --stage learning  # 5 missing\"\n]"
     },
     {
      "op": "next_actions",
      "args": {
       "phase": "HALTED"
      },
-     "oracle": "[\n  \"phase says done but completion proofs are open — close them (or waive with a reason) first:\",\n  \"campaign complete or halted\",\n  \"[discovery open] Q-001: Can the drain-capable roles (governor) be reached or capture; Q-002: Can upgrade authorization be captured, front-run, or exercis\",\n  \"[hostile-review open] F-<ID2>: no critic verdict; F-<ID7>: no critic verdict\",\n  \"[maximal-exploitation open] F-<ID4>: no variant ladder — webv2 ladder start F-<ID4>; F-<ID5>: no variant ladder — webv2 ladder start F-<ID5>\",\n  \"[independent-verification open] F-<ID4>: no E6 independent reproduction (run the independent-verification stage; mint with webv2 verify --exec ...); F-<ID5>: no E6 independent reproduction (run the independent-verification stage; mint with webv2 verify --exec ...)\",\n  \"[mainnet-fork-poc open] F-<ID4>: evidence claims fork-level but no E5/E6 item traces to a SUCCEEDED fork-runner exec in the ledger — unit-harness evidence (E4) proves semantics, not mainnet; F-<ID5>: no fork-level evidence (E5/E6) — run the PoC on the pinned mainnet fork (webv2 exec --profile fork-runner) and mint it (webv2 mint --type fork-test)\",\n  \"[learning open] F-<ID4>: no memory entry for this terminal finding (learning.queue_memory); F-<ID5>: no memory entry for this terminal finding (learning.queue_memory)\"\n]"
+     "oracle": "[\n  \"webv2 prove C-oracle00001  # phase says done but completion proofs are open\",\n  \"webv2 status C-oracle00001  # campaign complete or halted\",\n  \"webv2 prove C-oracle00001 --stage discovery  # 17 missing\",\n  \"webv2 prove C-oracle00001 --stage hostile-review  # 5 missing\",\n  \"webv2 prove C-oracle00001 --stage maximal-exploitation  # 4 missing\",\n  \"webv2 prove C-oracle00001 --stage independent-verification  # 4 missing\",\n  \"webv2 prove C-oracle00001 --stage mainnet-fork-poc  # 4 missing\",\n  \"webv2 prove C-oracle00001 --stage learning  # 5 missing\"\n]"
     },
     {
      "op": "next_actions",
      "args": {
       "phase": "COMPLETE"
      },
-     "oracle": "[\n  \"phase says done but completion proofs are open — close them (or waive with a reason) first:\",\n  \"campaign complete or halted\",\n  \"[discovery open] Q-001: Can the drain-capable roles (governor) be reached or capture; Q-002: Can upgrade authorization be captured, front-run, or exercis\",\n  \"[hostile-review open] F-<ID2>: no critic verdict; F-<ID7>: no critic verdict\",\n  \"[maximal-exploitation open] F-<ID4>: no variant ladder — webv2 ladder start F-<ID4>; F-<ID5>: no variant ladder — webv2 ladder start F-<ID5>\",\n  \"[independent-verification open] F-<ID4>: no E6 independent reproduction (run the independent-verification stage; mint with webv2 verify --exec ...); F-<ID5>: no E6 independent reproduction (run the independent-verification stage; mint with webv2 verify --exec ...)\",\n  \"[mainnet-fork-poc open] F-<ID4>: evidence claims fork-level but no E5/E6 item traces to a SUCCEEDED fork-runner exec in the ledger — unit-harness evidence (E4) proves semantics, not mainnet; F-<ID5>: no fork-level evidence (E5/E6) — run the PoC on the pinned mainnet fork (webv2 exec --profile fork-runner) and mint it (webv2 mint --type fork-test)\",\n  \"[learning open] F-<ID4>: no memory entry for this terminal finding (learning.queue_memory); F-<ID5>: no memory entry for this terminal finding (learning.queue_memory)\"\n]"
+     "oracle": "[\n  \"webv2 prove C-oracle00001  # phase says done but completion proofs are open\",\n  \"webv2 status C-oracle00001  # campaign complete or halted\",\n  \"webv2 prove C-oracle00001 --stage discovery  # 17 missing\",\n  \"webv2 prove C-oracle00001 --stage hostile-review  # 5 missing\",\n  \"webv2 prove C-oracle00001 --stage maximal-exploitation  # 4 missing\",\n  \"webv2 prove C-oracle00001 --stage independent-verification  # 4 missing\",\n  \"webv2 prove C-oracle00001 --stage mainnet-fork-poc  # 4 missing\",\n  \"webv2 prove C-oracle00001 --stage learning  # 5 missing\"\n]"
     }
    ],
    "finding_placeholders": [
