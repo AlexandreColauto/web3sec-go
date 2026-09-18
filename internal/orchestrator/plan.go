@@ -45,6 +45,18 @@ func (o *Orchestrator) Plan(plan, model validation.Value,
 	return o.writePlan(resolved, planPath, existing, model)
 }
 
+// AdversarialLifecycleMachines is the exported handle for the planner's
+// adversarial-lifecycle selection (Task 2, defect 4): the sorted names of the
+// model's state machines whose name + transition action names carry >= 2
+// distinct adversarial-vocabulary tokens. The MINTING lives in
+// planner.DefaultPlanFromModel (the plan builder); the planner cannot import
+// this package, so this re-export is the package-independent name the plan
+// documents for downstream consumers. Match on the machine NAME — the LC-%03d
+// row ids are positional and display-only.
+func AdversarialLifecycleMachines(model validation.Value) []string {
+	return planner.AdversarialLifecycleMachines(model)
+}
+
 // planReadOnly computes the view from the plan on disk and writes NOTHING.
 func (o *Orchestrator) planReadOnly(plan, model validation.Value,
 	planPath string) (validation.Value, error) {

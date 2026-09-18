@@ -412,8 +412,8 @@
     "size": 7642
    },
    "campaign_plan.schema.json": {
-    "sha256": "eaadacffb17e78e87f96c92b7b468680d68cd4d5b519f0a3f59afe1f372fa235",
-    "size": 10631
+    "sha256": "3a021cb7551a74ae05aecd002a35f402bf426c8db2c178fc6fcde77667a506f1",
+    "size": 10636
    },
    "campaign_state.schema.json": {
     "sha256": "1b71da8673c16e0de7f4a6d794f17348719329e973094812e2d4bd0bbc1f8291",

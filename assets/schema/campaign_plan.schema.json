@@ -20,7 +20,7 @@
         "additionalProperties": false,
         "required": ["id", "question", "risk", "trajectories"],
         "properties": {
-          "id":       { "type": "string", "pattern": "^Q-[0-9]{3}$" },
+          "id":       { "type": "string", "pattern": "^(Q|LC)-[0-9]{3}$" },
           "question": { "type": "string", "minLength": 15 },
           "risk":     { "type": "number", "minimum": 0, "maximum": 1 },
           "components": { "type": "array", "items": { "type": "string" } },
