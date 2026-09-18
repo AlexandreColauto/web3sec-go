@@ -263,6 +263,18 @@ func loadManifest() (validation.Value, error) {
 	return validation.ReadJson(p)
 }
 
+// addBaselineOp carries one AddBaseline's shared context: the validated
+// name/source pair, the resolved destination paths, and the caller's
+// optional metadata pointers.
+type addBaselineOp struct {
+	name      string
+	srcPath   string
+	sourceURL *string
+	licenseID *string
+	destRoot  string
+	destSrc   string
+}
+
 // AddBaseline is add_baseline: register a version-pinned baseline tree.
 // Copies the source into baselines/<name>/src/ and records its fingerprint —
 // the COPY is what gets matched against and drift-audited.
@@ -272,106 +284,162 @@ func loadManifest() (validation.Value, error) {
 // copy can never gut an existing baseline. A source that overlaps the
 // destination tree is refused up front for the same reason.
 func AddBaseline(name, srcPath string, sourceURL, licenseID *string) (validation.Value, error) {
-	if err := checkName(name); err != nil {
+	op := &addBaselineOp{name: name, srcPath: srcPath,
+		sourceURL: sourceURL, licenseID: licenseID}
+	if err := op.addBaselineCheckSource(); err != nil {
 		return validation.VNull(), err
 	}
-	st, err := os.Stat(srcPath)
-	if err != nil || !st.IsDir() {
-		return validation.VNull(), fmt.Errorf(
-			"baseline source not a directory: %s", srcPath)
+	if err := op.addBaselineResolve(); err != nil {
+		return validation.VNull(), err
 	}
-	destRoot := filepath.Join(BaselinesDir, name)
-	destSrc := filepath.Join(destRoot, "src")
-	srcRes, err := filepath.Abs(srcPath)
+	fp, err := op.addBaselineInstall()
 	if err != nil {
 		return validation.VNull(), err
+	}
+	meta, err := op.addBaselineWriteMeta(fp)
+	if err != nil {
+		return validation.VNull(), err
+	}
+	if err := op.addBaselineUpdateManifest(); err != nil {
+		return validation.VNull(), err
+	}
+	return meta, nil
+}
+
+// addBaselineCheckSource validates the name and that the source is a
+// directory, before anything is resolved or written.
+func (op *addBaselineOp) addBaselineCheckSource() error {
+	if err := checkName(op.name); err != nil {
+		return err
+	}
+	st, err := os.Stat(op.srcPath)
+	if err != nil || !st.IsDir() {
+		return fmt.Errorf(
+			"baseline source not a directory: %s", op.srcPath)
+	}
+	return nil
+}
+
+// addBaselineResolve computes the destination paths and refuses a source
+// that overlaps the destination tree (either direction), resolved through
+// symlinks.
+func (op *addBaselineOp) addBaselineResolve() error {
+	op.destRoot = filepath.Join(BaselinesDir, op.name)
+	op.destSrc = filepath.Join(op.destRoot, "src")
+	srcRes, err := filepath.Abs(op.srcPath)
+	if err != nil {
+		return err
 	}
 	if r, err := filepath.EvalSymlinks(srcRes); err == nil {
 		srcRes = r
 	}
-	destRes, err := filepath.Abs(destRoot)
+	destRes, err := filepath.Abs(op.destRoot)
 	if err != nil {
-		return validation.VNull(), err
+		return err
 	}
 	if r, err := filepath.EvalSymlinks(destRes); err == nil {
 		destRes = r
 	}
 	if srcRes == destRes || isAncestor(srcRes, destRes) || isAncestor(destRes, srcRes) {
-		return validation.VNull(), fmt.Errorf(
+		return fmt.Errorf(
 			"baseline source %s overlaps the destination %s: refusing a "+
-				"self-referential add", srcPath, destSrc)
+				"self-referential add", op.srcPath, op.destSrc)
 	}
+	return nil
+}
+
+// addBaselineInstall stages the copy in a temporary sibling directory,
+// fingerprints it, and swaps it over the live tree.
+func (op *addBaselineOp) addBaselineInstall() (validation.Value, error) {
 	if err := os.MkdirAll(BaselinesDir, 0o755); err != nil {
 		return validation.VNull(), err
 	}
-	if err := os.MkdirAll(destRoot, 0o755); err != nil {
+	if err := os.MkdirAll(op.destRoot, 0o755); err != nil {
 		return validation.VNull(), err
 	}
-	staging, err := os.MkdirTemp(filepath.Dir(destRoot), "."+name+".tmp-")
+	staging, err := os.MkdirTemp(filepath.Dir(op.destRoot), "."+op.name+".tmp-")
 	if err != nil {
 		return validation.VNull(), err
 	}
 	defer os.RemoveAll(staging)
 	stagedSrc := filepath.Join(staging, "src")
-	if err := copyTree(srcPath, stagedSrc); err != nil {
+	if err := copyTree(op.srcPath, stagedSrc); err != nil {
 		return validation.VNull(), err
 	}
 	fp, err := FingerprintTree(stagedSrc)
 	if err != nil {
 		return validation.VNull(), err
 	}
-	if _, err := os.Lstat(destSrc); err == nil {
-		backup := filepath.Join(filepath.Dir(destRoot), "."+name+".bak")
+	if err := op.addBaselineSwap(stagedSrc); err != nil {
+		return validation.VNull(), err
+	}
+	return fp, nil
+}
+
+// addBaselineSwap moves the staged tree over the live src/, backing up and
+// restoring the old tree when one already exists.
+func (op *addBaselineOp) addBaselineSwap(stagedSrc string) error {
+	if _, err := os.Lstat(op.destSrc); err == nil {
+		backup := filepath.Join(filepath.Dir(op.destRoot), "."+op.name+".bak")
 		if _, err := os.Lstat(backup); err == nil {
 			if err := os.RemoveAll(backup); err != nil {
-				return validation.VNull(), err
+				return err
 			}
 		}
-		if err := os.Rename(destSrc, backup); err != nil {
-			return validation.VNull(), err
+		if err := os.Rename(op.destSrc, backup); err != nil {
+			return err
 		}
-		if err := os.Rename(stagedSrc, destSrc); err != nil {
-			_ = os.Rename(backup, destSrc) // restore the old tree
-			return validation.VNull(), err
+		if err := os.Rename(stagedSrc, op.destSrc); err != nil {
+			_ = os.Rename(backup, op.destSrc) // restore the old tree
+			return err
 		}
 		_ = os.RemoveAll(backup)
 	} else {
-		if err := os.Rename(stagedSrc, destSrc); err != nil {
-			return validation.VNull(), err
+		if err := os.Rename(stagedSrc, op.destSrc); err != nil {
+			return err
 		}
 	}
+	return nil
+}
+
+// addBaselineWriteMeta records the baseline's metadata (name, clock, source,
+// license, fingerprint) as baseline.json inside the destination.
+func (op *addBaselineOp) addBaselineWriteMeta(fp validation.Value) (validation.Value, error) {
 	meta := validation.VObj(
-		validation.KV{K: "name", V: validation.VStr(name)},
+		validation.KV{K: "name", V: validation.VStr(op.name)},
 		validation.KV{K: "added_at", V: validation.VStr(state.NowIso())},
-		validation.KV{K: "source_url", V: optStr(sourceURL)},
-		validation.KV{K: "license", V: optStr(licenseID)},
+		validation.KV{K: "source_url", V: optStr(op.sourceURL)},
+		validation.KV{K: "license", V: optStr(op.licenseID)},
 		validation.KV{K: "fingerprint", V: fp},
 		validation.KV{K: "fingerprint_sha256", V: validation.VStr(FingerprintSha256(fp))},
 	)
-	if err := validation.WriteJson(filepath.Join(destRoot, "baseline.json"),
+	if err := validation.WriteJson(filepath.Join(op.destRoot, "baseline.json"),
 		meta, ""); err != nil {
 		return validation.VNull(), err
 	}
+	return meta, nil
+}
+
+// addBaselineUpdateManifest appends the name to the manifest's baselines
+// list (idempotently) and stamps the manifest's updated_at.
+func (op *addBaselineOp) addBaselineUpdateManifest() error {
 	man, err := loadManifest()
 	if err != nil {
-		return validation.VNull(), err
+		return err
 	}
 	names := strs(man, "baselines")
 	found := false
 	for _, n := range names {
-		if n == name {
+		if n == op.name {
 			found = true
 		}
 	}
 	if !found {
-		names = append(names, name)
+		names = append(names, op.name)
 	}
 	man = setKey(man, "baselines", validation.StrArr(names))
 	man = setKey(man, "updated_at", validation.VStr(state.NowIso()))
-	if err := validation.WriteJson(manifestPath(), man, ""); err != nil {
-		return validation.VNull(), err
-	}
-	return meta, nil
+	return validation.WriteJson(manifestPath(), man, "")
 }
 
 func optStr(s *string) validation.Value {

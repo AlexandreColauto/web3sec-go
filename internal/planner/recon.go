@@ -54,98 +54,138 @@ const prescreenFile = "archetype_prescreen.json"
 // different tree than the prescreen's is not the recon this attestation
 // covers. The demand is unconditional: recon is cheap by design, so skipping
 // it is never the honest exit.
+// reconStampCheck carries one checkReconStamps evaluation's shared context:
+// the accumulating missing[]/commands lists, the command literals, and the
+// per-half verdicts the same-tree check consumes.
+type reconStampCheck struct {
+	campaign     *state.Campaign
+	prescreenCmd string
+	sinksCmd     string
+	missing      []string
+	commands     []string
+	sid          string
+	sidOK        bool
+	sinksOK      bool
+	sinks        validation.Value
+}
+
 func checkReconStamps(campaign *state.Campaign) error {
-	var missing, commands []string
-	prescreenCmd := "webv2 prescreen " + campaign.CampaignID + " --src SRC"
-	sinksCmd := "webv2 sinks " + campaign.CampaignID + " --src SRC"
-	// prescreen half: the artifact must exist, carry its snapshot_id, and
-	// that id must be the campaign's active pin (when one is pinned) — the
-	// staleness check runPrescreen itself applies.
-	sid, sidOK := prescreenSnapshotOnRecord(campaign)
-	active, err := campaign.ActiveSnapshotIDOrNone()
+	chk := &reconStampCheck{
+		campaign:     campaign,
+		prescreenCmd: "webv2 prescreen " + campaign.CampaignID + " --src SRC",
+		sinksCmd:     "webv2 sinks " + campaign.CampaignID + " --src SRC",
+	}
+	if err := chk.checkReconPrescreenHalf(); err != nil {
+		return err
+	}
+	if err := chk.checkReconSinksHalf(); err != nil {
+		return err
+	}
+	if err := chk.checkReconSameTree(); err != nil {
+		return err
+	}
+	if len(chk.missing) == 0 {
+		return nil
+	}
+	return errValue("lens L-04 attests primitive-symmetry over the " +
+		"divergence rows, but this campaign has no recorded recon to " +
+		"attest over — " + strings.Join(chk.missing, "; ") + ". The gate " +
+		"reads the mechanical recon, never the operator's memory, and " +
+		"recon is cheap by design: run the owed recon over the " +
+		"campaign's source tree, then re-attest:\n  " +
+		strings.Join(chk.commands, "\n  "))
+}
+
+// checkReconPrescreenHalf is the prescreen half: the artifact must exist,
+// carry its snapshot_id, and that id must be the campaign's active pin (when
+// one is pinned) — the staleness check runPrescreen itself applies.
+func (chk *reconStampCheck) checkReconPrescreenHalf() error {
+	sid, sidOK := prescreenSnapshotOnRecord(chk.campaign)
+	active, err := chk.campaign.ActiveSnapshotIDOrNone()
 	if err != nil {
 		return err
 	}
 	if !sidOK {
-		missing = append(missing, "no archetype prescreen on record "+
+		chk.missing = append(chk.missing, "no archetype prescreen on record "+
 			"(artifacts/"+prescreenFile+" is missing, unreadable or "+
 			"carries no snapshot_id)")
-		commands = append(commands, prescreenCmd)
+		chk.commands = append(chk.commands, chk.prescreenCmd)
 	} else if active != nil && sid != *active {
-		missing = append(missing, "the archetype prescreen on record is from "+
+		chk.missing = append(chk.missing, "the archetype prescreen on record is from "+
 			"snapshot "+sid+", not the active pin "+*active+" — re-pinning "+
 			"invalidated it, and an attestation over rows a stale prescreen "+
 			"never saw is prose")
-		commands = append(commands, prescreenCmd)
-	} else if cid := prescreenCampaignOnRecord(campaign); cid != "" &&
-		cid != campaign.CampaignID {
+		chk.commands = append(chk.commands, chk.prescreenCmd)
+	} else if cid := prescreenCampaignOnRecord(chk.campaign); cid != "" &&
+		cid != chk.campaign.CampaignID {
 		// FIX-E binding symmetry: the sinks half refuses a foreign-campaign
 		// stamp; the prescreen half must do the same. The artifact carries
 		// its campaign id since FIX-E (prescreen writes it); one without it
 		// is a pre-binding artifact and stays accepted — the snapshot_id
 		// binding above is its whole evidence — a copy from another
 		// campaign's artifacts directory is not.
-		missing = append(missing, "the archetype prescreen on record names "+
-			"campaign "+cid+", not this campaign ("+campaign.CampaignID+
+		chk.missing = append(chk.missing, "the archetype prescreen on record names "+
+			"campaign "+cid+", not this campaign ("+chk.campaign.CampaignID+
 			") — the artifact was not run here")
-		commands = append(commands, prescreenCmd)
+		chk.commands = append(chk.commands, chk.prescreenCmd)
 	}
-	// sinks half: the stamp must exist, name the tree and the clock it ran
-	// under, and name THIS campaign — a stamp without a campaign binding (a
-	// pre-FIX-C stamp) or copied from another campaign's state is not this
-	// campaign's recon.
-	sinks, err := campaign.ReconStamp("sinks")
+	chk.sid, chk.sidOK = sid, sidOK
+	return nil
+}
+
+// checkReconSinksHalf is the sinks half: the stamp must exist, name the tree
+// and the clock it ran under, and name THIS campaign — a stamp without a
+// campaign binding (a pre-FIX-C stamp) or copied from another campaign's
+// state is not this campaign's recon.
+func (chk *reconStampCheck) checkReconSinksHalf() error {
+	sinks, err := chk.campaign.ReconStamp("sinks")
 	if err != nil {
 		return err
 	}
-	sinksOK := false
+	chk.sinks = sinks
 	switch {
 	case sinks.Kind != validation.Obj || validation.ObjStr(sinks, "src") == "" ||
 		validation.ObjStr(sinks, "at") == "":
-		missing = append(missing, "no `webv2 sinks` run on record "+
+		chk.missing = append(chk.missing, "no `webv2 sinks` run on record "+
 			"(the campaign state carries no recon.sinks stamp)")
-		commands = append(commands, sinksCmd)
+		chk.commands = append(chk.commands, chk.sinksCmd)
 	case validation.ObjStr(sinks, "campaign_id") == "":
-		missing = append(missing, "the `webv2 sinks` stamp on record does "+
+		chk.missing = append(chk.missing, "the `webv2 sinks` stamp on record does "+
 			"not name the campaign it ran under, so it cannot be bound to "+
 			"this campaign (a stamp written before the campaign binding "+
 			"existed)")
-		commands = append(commands, sinksCmd)
-	case validation.ObjStr(sinks, "campaign_id") != campaign.CampaignID:
-		missing = append(missing, "the `webv2 sinks` stamp on record names "+
+		chk.commands = append(chk.commands, chk.sinksCmd)
+	case validation.ObjStr(sinks, "campaign_id") != chk.campaign.CampaignID:
+		chk.missing = append(chk.missing, "the `webv2 sinks` stamp on record names "+
 			"campaign "+validation.ObjStr(sinks, "campaign_id")+", not this campaign ("+
-			campaign.CampaignID+") — the stamp was not run here")
-		commands = append(commands, sinksCmd)
+			chk.campaign.CampaignID+") — the stamp was not run here")
+		chk.commands = append(chk.commands, chk.sinksCmd)
 	default:
-		sinksOK = true
+		chk.sinksOK = true
 	}
-	// same-tree assumption: when a prescreen snapshot exists and the
-	// prescreen verb stamped its src, the sinks run must have seen the same
-	// tree — one attestation, one tree.
-	if sidOK && sinksOK {
-		pre, err := campaign.ReconStamp("prescreen")
-		if err != nil {
-			return err
-		}
-		if preSrc := validation.ObjStr(pre, "src"); preSrc != "" &&
-			preSrc != validation.ObjStr(sinks, "src") {
-			missing = append(missing, "the recon runs disagree about the "+
-				"tree: `webv2 sinks` ran over "+validation.ObjStr(sinks, "src")+
-				", the prescreen over "+preSrc+" — the L-04 attestation "+
-				"reconciles divergence rows both recon runs read together")
-			commands = append(commands, prescreenCmd, sinksCmd)
-		}
-	}
-	if len(missing) == 0 {
+	return nil
+}
+
+// checkReconSameTree enforces the same-tree assumption: when a prescreen
+// snapshot exists and the prescreen verb stamped its src, the sinks run must
+// have seen the same tree — one attestation, one tree.
+func (chk *reconStampCheck) checkReconSameTree() error {
+	if !chk.sidOK || !chk.sinksOK {
 		return nil
 	}
-	return errValue("lens L-04 attests primitive-symmetry over the " +
-		"divergence rows, but this campaign has no recorded recon to " +
-		"attest over — " + strings.Join(missing, "; ") + ". The gate " +
-		"reads the mechanical recon, never the operator's memory, and " +
-		"recon is cheap by design: run the owed recon over the " +
-		"campaign's source tree, then re-attest:\n  " +
-		strings.Join(commands, "\n  "))
+	pre, err := chk.campaign.ReconStamp("prescreen")
+	if err != nil {
+		return err
+	}
+	if preSrc := validation.ObjStr(pre, "src"); preSrc != "" &&
+		preSrc != validation.ObjStr(chk.sinks, "src") {
+		chk.missing = append(chk.missing, "the recon runs disagree about the "+
+			"tree: `webv2 sinks` ran over "+validation.ObjStr(chk.sinks, "src")+
+			", the prescreen over "+preSrc+" — the L-04 attestation "+
+			"reconciles divergence rows both recon runs read together")
+		chk.commands = append(chk.commands, chk.prescreenCmd, chk.sinksCmd)
+	}
+	return nil
 }
 
 // prescreenCampaignOnRecord reads the prescreen artifact's campaign_id (the

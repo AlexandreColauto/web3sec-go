@@ -76,6 +76,20 @@ var severityBands = map[string]bool{
 	"high": true, "medium": true, "low": true,
 }
 
+// runState carries one Run's shared context across its staged helpers: the
+// exclusion scan, the partition split, and the two rendering passes over the
+// scorecard builder.
+type runState struct {
+	cases                []validation.Value
+	top                  int
+	excluded             map[string]bool
+	temporalN, nearDupN  int
+	problems             []string
+	adjudicated, skipped int
+	dev, held            []validation.Value
+	b                    strings.Builder
+}
+
 // Run scores the held-out partition twice and renders the scorecard.
 // top is the caller's --top AFTER validation (top >= 1; the CLI rejects
 // --top 0 or negative as an argparse usage error before calling here).
@@ -96,53 +110,68 @@ var severityBands = map[string]bool{
 // only if B.lo > A.lo (Wilson lower bounds, strict); regress only if
 // A.lo > B.lo; else "indistinguishable".
 func Run(cases []validation.Value, top int) (string, int) {
-	excluded := map[string]bool{}
-	temporalN, nearDupN := 0, 0
-	var problems []string
-	for _, e := range evalstore.PartitionHealthFull(cases).Excluded {
+	rs := &runState{cases: cases, top: top}
+	rs.runCollectExcluded()
+	if !rs.runPartition() {
+		return EmptyMessage, 2
+	}
+	devPriors, devGlobal := risk.AcceptancePriorsFrom(rs.dev, risk.DefaultMinN)
+	rs.runWriteHead()
+	rs.runWriteVerdict(devPriors, devGlobal)
+	return rs.b.String(), 0
+}
+
+// runCollectExcluded gathers the held-out rows the PartitionHealthFull filter
+// refuses, with per-reason counts and the raw problem lines (the I1b filter).
+func (rs *runState) runCollectExcluded() {
+	rs.excluded = map[string]bool{}
+	for _, e := range evalstore.PartitionHealthFull(rs.cases).Excluded {
 		if orStr(validation.ObjAt(e.Case, "partition")) != "held-out" {
 			continue
 		}
-		excluded[orStr(validation.ObjAt(e.Case, "case_id"))] = true
+		rs.excluded[orStr(validation.ObjAt(e.Case, "case_id"))] = true
 		switch e.Reason {
 		case evalstore.ReasonTemporal:
-			temporalN++
+			rs.temporalN++
 		case evalstore.ReasonNearDup:
-			nearDupN++
+			rs.nearDupN++
 		}
 		if e.Problem != "" {
-			problems = append(problems, e.Problem)
+			rs.problems = append(rs.problems, e.Problem)
 		}
 	}
+}
 
-	adjudicated, skipped := 0, 0
-	var dev, held []validation.Value
-	for _, c := range cases {
+// runPartition splits the adjudicated rows into dev and held partitions,
+// dropping the excluded held-out rows. It returns false when the held-out
+// leg is empty — the existing EmptyMessage path answers, unchanged.
+func (rs *runState) runPartition() bool {
+	for _, c := range rs.cases {
 		if !risk.IsAdjudicated(orStr(validation.ObjAt(validation.ObjAt(c, "gold"), "outcome"))) {
-			skipped++
+			rs.skipped++
 			continue
 		}
-		adjudicated++
+		rs.adjudicated++
 		switch orStr(validation.ObjAt(c, "partition")) {
 		case "held-out":
-			if excluded[orStr(validation.ObjAt(c, "case_id"))] {
+			if rs.excluded[orStr(validation.ObjAt(c, "case_id"))] {
 				continue
 			}
-			held = append(held, c)
+			rs.held = append(rs.held, c)
 		case "dev", "":
-			dev = append(dev, c)
+			rs.dev = append(rs.dev, c)
 		}
 	}
-	if len(held) == 0 {
-		return EmptyMessage, 2
-	}
-	devPriors, devGlobal := risk.AcceptancePriorsFrom(dev, risk.DefaultMinN)
+	return len(rs.held) > 0
+}
 
-	var b strings.Builder
-	b.WriteString(HeaderLine + "\n")
-	b.WriteString(BandLine + "\n")
-	fmt.Fprintf(&b, "eval store: %d adjudicated, %d skipped\n",
-		adjudicated, skipped)
+// runWriteHead renders the scorecard's fixed header, the store counts, the
+// presence-gated exclusion lines, and the band-coverage line.
+func (rs *runState) runWriteHead() {
+	rs.b.WriteString(HeaderLine + "\n")
+	rs.b.WriteString(BandLine + "\n")
+	fmt.Fprintf(&rs.b, "eval store: %d adjudicated, %d skipped\n",
+		rs.adjudicated, rs.skipped)
 	// Presence-gated: a clean store's scorecard keeps its exact bytes.
 	// The counts are ROWS by reason (the locked exclusion semantics), not
 	// problem lines — one row is excluded for exactly one reason. The set
@@ -153,30 +182,36 @@ func Run(cases []validation.Value, top int) (string, int) {
 	// count explains it: an unparseable deployed_at is excluded without
 	// being temporal or a duplicate, and a scorecard that silently shrinks
 	// by a row is exactly the failure the count line exists to prevent.
-	if temporalN+nearDupN+len(problems) > 0 {
-		fmt.Fprintf(&b, "held-out excluded: %d temporal, %d near-dup\n",
-			temporalN, nearDupN)
-		for _, p := range problems {
-			fmt.Fprintf(&b, "held-out problem: %s\n", p)
+	if rs.temporalN+rs.nearDupN+len(rs.problems) > 0 {
+		fmt.Fprintf(&rs.b, "held-out excluded: %d temporal, %d near-dup\n",
+			rs.temporalN, rs.nearDupN)
+		for _, p := range rs.problems {
+			fmt.Fprintf(&rs.b, "held-out problem: %s\n", p)
 		}
 	}
-	fmt.Fprintf(&b, "band coverage: %d/%d rows contributed\n",
-		bandContrib(held), len(held))
-	k := top
-	if k > len(held) {
-		fmt.Fprintf(&b, "note: --top %d clamped to %d held-out cases\n",
-			top, len(held))
-		k = len(held)
+	fmt.Fprintf(&rs.b, "band coverage: %d/%d rows contributed\n",
+		bandContrib(rs.held), len(rs.held))
+}
+
+// runWriteVerdict renders the --top clamp note, both methods' precision
+// blocks, and the final verdict line.
+func (rs *runState) runWriteVerdict(devPriors map[string]risk.Prior,
+	devGlobal risk.Prior) {
+	k := rs.top
+	if k > len(rs.held) {
+		fmt.Fprintf(&rs.b, "note: --top %d clamped to %d held-out cases\n",
+			rs.top, len(rs.held))
+		k = len(rs.held)
 	}
 	accepted := 0
-	for _, c := range held {
+	for _, c := range rs.held {
 		if orStr(validation.ObjAt(validation.ObjAt(c, "gold"), "outcome")) ==
 			"confirmed-exploitable" {
 			accepted++
 		}
 	}
-	hitsA := rankHits(held, nil, risk.Prior{}, k)
-	hitsB := rankHits(held, devPriors, devGlobal, k)
+	hitsA := rankHits(rs.held, nil, risk.Prior{}, k)
+	hitsB := rankHits(rs.held, devPriors, devGlobal, k)
 	loA, _ := wilson.Interval(hitsA, k)
 	loB, _ := wilson.Interval(hitsB, k)
 	// Verdict rule (the two-experiments-same-data law from G3):
@@ -189,16 +224,15 @@ func Run(cases []validation.Value, top int) (string, int) {
 	case loA > loB:
 		verdict = "regresses"
 	}
-	fmt.Fprintf(&b, "method A (severity-only):\n%s\nselected accepted: %d\n"+
+	fmt.Fprintf(&rs.b, "method A (severity-only):\n%s\nselected accepted: %d\n"+
 		"accepted available: %d\n",
 		wilson.Format(hitsA, k, fmt.Sprintf("top-%d precision", k)),
 		hitsA, accepted)
-	fmt.Fprintf(&b, "method B (with dev priors):\n%s\nselected accepted: %d\n"+
+	fmt.Fprintf(&rs.b, "method B (with dev priors):\n%s\nselected accepted: %d\n"+
 		"accepted available: %d\n",
 		wilson.Format(hitsB, k, fmt.Sprintf("top-%d precision", k)),
 		hitsB, accepted)
-	fmt.Fprintf(&b, "verdict: %s\n", verdict)
-	return b.String(), 0
+	fmt.Fprintf(&rs.b, "verdict: %s\n", verdict)
 }
 
 // bandContrib counts the held-out rows whose gold severity maps to a

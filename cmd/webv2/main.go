@@ -43,6 +43,33 @@ import (
 
 func init() {
 	// dedup -> findings duplicate helpers (Python: dedup imports findings).
+	initWireDedup()
+	initWireInvariantGuard()
+	initWireReproduction()
+	initWireSequencePOC()
+	// T26 seams: env (D17), costs, and the structural index that
+	// histmining's recency scores read. Same targets as cli.ensureSeams,
+	// which the command handlers call for in-process callers.
+	initWireT26()
+	// Task 9 (G11 scope): the post-patch plant check seam (same target as
+	// cli.ensureSeams installs for in-process callers).
+	archetypes.WireScopePlant()
+	// T28 seams: learning (D18 memory queue), relations, shared_memory.
+	cli.WireT28Seams()
+	// T33 seams: eval_store (trajectory/metrics case_partition, corpus
+	// class_inventory).
+	cli.WireT33Seams()
+	// T34 seam: the DeFiHackLabs record loader (corpus_surface attribution
+	// + the WEBV2_POC_ROOT root patch).
+	cli.WireT34Seams()
+	initPinFindingIDs()
+	initPinCostIDs()
+	initPinBaselinesDir()
+}
+
+// initWireDedup wires dedup to findings and taxonomy to dedup's compat-class
+// tables (Python import-time module access).
+func initWireDedup() {
 	dedup.SetMarkDuplicate(findings.MarkDuplicate)
 	dedup.SetFlagPossibleDuplicate(findings.FlagPossibleDuplicate)
 	dedup.SetFoldIntoLineage(findings.FoldIntoLineage)
@@ -58,8 +85,17 @@ func init() {
 		}
 		return out
 	})
-	// invariants 2.1 guardrail (Python: _assert_invariants_verified).
+}
+
+// initWireInvariantGuard installs the invariants 2.1 guardrail
+// (Python: _assert_invariants_verified).
+func initWireInvariantGuard() {
 	findings.SetInvariantGuard(invariants.AssertInvariantsVerified)
+}
+
+// initWireReproduction wires reproduction into findings and the orchestrator
+// (Python import-time module access).
+func initWireReproduction() {
 	// reproduction -> findings/orchestrator (Python: import-time module
 	// access). Without this the tier ladder is invisible to the gate and E6
 	// minting is the absent-module refusal.
@@ -71,6 +107,11 @@ func init() {
 		NextTier:                reproduction.NextTier,
 		MintIndependentEvidence: reproduction.MintIndependentEvidence,
 	})
+}
+
+// initWireSequencePOC wires sequence_poc into findings, forkpoc and the
+// orchestrator (Python import-time module access).
+func initWireSequencePOC() {
 	// sequence_poc -> findings/forkpoc/orchestrator (Python: import-time
 	// module access). Without this the sequence gate is fail-open on the
 	// CONFIRMED path and the queue never flags a multi-tx finding.
@@ -81,9 +122,11 @@ func init() {
 	orchestrator.SetSequencePOC(orchestrator.SequencePOCAPI{
 		IsSequenceRequired: sequencepoc.IsSequenceRequired,
 	})
-	// T26 seams: env (D17), costs, and the structural index that
-	// histmining's recency scores read. Same targets as cli.ensureSeams,
-	// which the command handlers call for in-process callers.
+}
+
+// initWireT26 wires the T26 seam group: sandbox failure classification, the
+// costs API, the structural index, and forkdiff.
+func initWireT26() {
 	sandbox.SetClassifyFailure(envgo.ClassifyFailure)
 	sandbox.SetSandboxPreflight(envgo.SandboxPreflight)
 	sandbox.SetDockerImageProbe(envgo.DockerImageProbe)
@@ -94,17 +137,11 @@ func init() {
 		SinkFunctions:    structidx.SinkFunctions,
 	})
 	forkdiff.Wire()
-	// Task 9 (G11 scope): the post-patch plant check seam (same target as
-	// cli.ensureSeams installs for in-process callers).
-	archetypes.WireScopePlant()
-	// T28 seams: learning (D18 memory queue), relations, shared_memory.
-	cli.WireT28Seams()
-	// T33 seams: eval_store (trajectory/metrics case_partition, corpus
-	// class_inventory).
-	cli.WireT33Seams()
-	// T34 seam: the DeFiHackLabs record loader (corpus_surface attribution
-	// + the WEBV2_POC_ROOT root patch).
-	cli.WireT34Seams()
+}
+
+// initPinFindingIDs pins finding ids to the golden suite's deterministic
+// sha256 stream when WEBV2_FINDING_IDS=pin.
+func initPinFindingIDs() {
 	// Golden-suite hook: a finding id is a raw uuid4, so the WEBV2_UUID pin
 	// never reaches it and a replay would mint fresh ids on every run. The
 	// golden recipe sets WEBV2_FINDING_IDS=pin plus WEBV2_FINDING_ID_SEQ
@@ -122,6 +159,11 @@ func init() {
 			return "F-" + hex.EncodeToString(sum[:])[:12]
 		})
 	}
+}
+
+// initPinCostIDs pins cost ids to the same deterministic sha256 stream when
+// WEBV2_COST_IDS=pin.
+func initPinCostIDs() {
 	// Same hook for cost ids (costs.record_cost mints a RAW uuid4 too):
 	// WEBV2_COST_IDS=pin + WEBV2_COST_ID_SEQ draws the identical
 	// sha256("<seed>:fid:<n>")[:12] stream the Python shim patches into
@@ -136,6 +178,11 @@ func init() {
 			return "COST-" + hex.EncodeToString(sum[:])[:12]
 		})
 	}
+}
+
+// initPinBaselinesDir repoints the baseline store when WEBV2_BASELINES_DIR is
+// set (the golden recipe pins it at one scratch dir).
+func initPinBaselinesDir() {
 	// Same seam for the baseline store: the reference hangs it off its own
 	// package root (the retired reference kept its store inside the package
 	// root, D24) while Go uses cwd/baselines. The golden recipe pins it at

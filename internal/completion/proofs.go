@@ -220,62 +220,28 @@ var livenessOwedStatuses = append(append([]string{}, OpenStatuses...),
 // in LivenessClasses, or economic_impact.kind == "liveness", or a granted
 // liveness-terminal capability) — no prose heuristics. It only refuses the
 // exit; recording stays the setter's job, so no event is duplicated.
+// proofDiscoveryState carries one proofDiscovery evaluation's shared context:
+// the collected missing[] items, the liveness clause items with their waiver
+// map, and the counts the final note is chosen from.
+type proofDiscoveryState struct {
+	campaign   *state.Campaign
+	items      []proofItem
+	queueN     int
+	divMissing []validation.Value
+	agItems    []proofItem
+	agWaived   map[string]validation.Value
+}
+
 func proofDiscovery(c *state.Campaign) (validation.Value, error) {
 	plan, found, err := loadPlan(c)
 	if err != nil {
 		return validation.VNull(), err
 	}
 	if !found {
-		// r12: a waiver is a recorded disposition, and it must be able to
-		// waive THIS deficit — the early return used to precede the
-		// waiverMap read, so `waive discovery --subject '*'` printed
-		// "waived" and then the proof refused anyway: an inert waiver
-		// that silently satisfied nothing. The waiver consult comes
-		// before the refusal, stage-wide or a plan-subject row.
-		wmap, werr := waiverMap(c, "discovery")
-		if werr != nil {
-			return validation.VNull(), werr
-		}
-		if _, ok := wmap["*"]; !ok {
-			if _, ok := wmap["campaign plan (discovery consumes its queue)"]; !ok {
-				return proofResult(false,
-					[]string{"campaign plan (discovery consumes its queue)"},
-					"no plan"), nil
-			}
-		}
-		actor := "operator"
-		if w, ok := wmap["*"]; ok {
-			actor = validation.ObjStr(w, "actor")
-		} else if w, ok := wmap["campaign plan (discovery consumes "+
-			"its queue)"]; ok {
-			actor = validation.ObjStr(w, "actor")
-		}
-		return proofResult(true, []string{},
-			"no plan — waived by "+actor), nil
+		return proofDiscoveryNoPlan(c)
 	}
-	queue, err := planner.WorkQueue(c, plan, validation.VObj(), false)
-	if err != nil {
-		return validation.VNull(), err
-	}
-	items := make([]proofItem, 0, len(queue))
-	for _, w := range queue {
-		items = append(items, proofItem{validation.ObjStr(w, "priority_id"),
-			headRunes(validation.ObjStr(w, "question"), 60)})
-	}
-	divergence, err := planner.DivergenceStatusFor(c, plan, nil)
-	if err != nil {
-		return validation.VNull(), err
-	}
-	divMissing := listAt(divergence, "missing")
-	for _, m := range divMissing {
-		items = append(items, proofItem{validation.ObjStr(m, "subject"), validation.ObjStr(m, "what")})
-	}
-	live, err := findingsWith(c, livenessOwedStatuses)
-	if err != nil {
-		return validation.VNull(), err
-	}
-	agWaived, err := waiverMap(c, "adversarial-game")
-	if err != nil {
+	s := &proofDiscoveryState{campaign: c}
+	if err := s.proofDiscoveryCollect(plan); err != nil {
 		return validation.VNull(), err
 	}
 	cid := c.CampaignID
@@ -284,7 +250,80 @@ func proofDiscovery(c *state.Campaign) (validation.Value, error) {
 		// empty hole where the campaign belongs.
 		cid = "<campaign>"
 	}
-	agItems := []proofItem{}
+	if err := s.proofDiscoveryLiveness(cid); err != nil {
+		return validation.VNull(), err
+	}
+	return s.proofDiscoveryFinish()
+}
+
+// proofDiscoveryNoPlan is the absent-plan branch: the r12 waiver consult
+// comes before the refusal, so a recorded waiver can satisfy the deficit.
+func proofDiscoveryNoPlan(c *state.Campaign) (validation.Value, error) {
+	// r12: a waiver is a recorded disposition, and it must be able to
+	// waive THIS deficit — the early return used to precede the
+	// waiverMap read, so `waive discovery --subject '*'` printed
+	// "waived" and then the proof refused anyway: an inert waiver
+	// that silently satisfied nothing. The waiver consult comes
+	// before the refusal, stage-wide or a plan-subject row.
+	wmap, werr := waiverMap(c, "discovery")
+	if werr != nil {
+		return validation.VNull(), werr
+	}
+	if _, ok := wmap["*"]; !ok {
+		if _, ok := wmap["campaign plan (discovery consumes its queue)"]; !ok {
+			return proofResult(false,
+				[]string{"campaign plan (discovery consumes its queue)"},
+				"no plan"), nil
+		}
+	}
+	actor := "operator"
+	if w, ok := wmap["*"]; ok {
+		actor = validation.ObjStr(w, "actor")
+	} else if w, ok := wmap["campaign plan (discovery consumes "+
+		"its queue)"]; ok {
+		actor = validation.ObjStr(w, "actor")
+	}
+	return proofResult(true, []string{},
+		"no plan — waived by "+actor), nil
+}
+
+// proofDiscoveryCollect gathers the queue's remaining priorities and the
+// divergence gate's missing rows into the item list.
+func (s *proofDiscoveryState) proofDiscoveryCollect(plan validation.Value) error {
+	queue, err := planner.WorkQueue(s.campaign, plan, validation.VObj(), false)
+	if err != nil {
+		return err
+	}
+	s.queueN = len(queue)
+	s.items = make([]proofItem, 0, len(queue))
+	for _, w := range queue {
+		s.items = append(s.items, proofItem{validation.ObjStr(w, "priority_id"),
+			headRunes(validation.ObjStr(w, "question"), 60)})
+	}
+	divergence, err := planner.DivergenceStatusFor(s.campaign, plan, nil)
+	if err != nil {
+		return err
+	}
+	s.divMissing = listAt(divergence, "missing")
+	for _, m := range s.divMissing {
+		s.items = append(s.items, proofItem{validation.ObjStr(m, "subject"), validation.ObjStr(m, "what")})
+	}
+	return nil
+}
+
+// proofDiscoveryLiveness collects the live liveness findings that owe their
+// adversarial_game clause, with the adversarial-game waiver map.
+func (s *proofDiscoveryState) proofDiscoveryLiveness(cid string) error {
+	live, err := findingsWith(s.campaign, livenessOwedStatuses)
+	if err != nil {
+		return err
+	}
+	agWaived, err := waiverMap(s.campaign, "adversarial-game")
+	if err != nil {
+		return err
+	}
+	s.agWaived = agWaived
+	s.agItems = []proofItem{}
 	for _, f := range live {
 		if !findings.IsLivenessFinding(f) {
 			continue
@@ -293,21 +332,27 @@ func proofDiscovery(c *state.Campaign) (validation.Value, error) {
 		if len(deficits) == 0 {
 			continue
 		}
-		agItems = append(agItems, proofItem{validation.ObjStr(f, "finding_id"),
+		s.agItems = append(s.agItems, proofItem{validation.ObjStr(f, "finding_id"),
 			livenessClauseWhat(cid, validation.ObjStr(f, "finding_id"), deficits)})
 	}
-	wmap, err := waiverMap(c, "discovery")
+	return nil
+}
+
+// proofDiscoveryFinish applies both waiver maps and renders the final
+// proof result and note.
+func (s *proofDiscoveryState) proofDiscoveryFinish() (validation.Value, error) {
+	wmap, err := waiverMap(s.campaign, "discovery")
 	if err != nil {
 		return validation.VNull(), err
 	}
-	missing := unwaived(items, wmap, func(s, m string) string { return s + ": " + m })
-	clauseMissing := unwaived(agItems, agWaived,
+	missing := unwaived(s.items, wmap, func(s, m string) string { return s + ": " + m })
+	clauseMissing := unwaived(s.agItems, s.agWaived,
 		func(s, m string) string { return s + ": " + m })
 	missing = append(missing, clauseMissing...)
 	note := "work queue drained; divergence gate closed"
-	if len(queue) > 0 {
-		note = fmt.Sprintf("%d queued priorities remain", len(queue))
-	} else if len(divMissing) > 0 {
+	if s.queueN > 0 {
+		note = fmt.Sprintf("%d queued priorities remain", s.queueN)
+	} else if len(s.divMissing) > 0 {
 		note = "work queue drained but the divergence gate is open"
 	} else if len(clauseMissing) > 0 {
 		note = "work queue drained, divergence gate closed — a live liveness " +
