@@ -427,6 +427,27 @@ drift between README/§2c and collection — the fast tier collects 165 here,
 not 164; (6) the abort-line convention ("no `rule` key") deserves a bolded
 line in §2a because integrators key on it (we do — L2 rule 1).
 
+**Status, re-checked 2026-09-17** against the verifier tree at HEAD
+`be14d3a` (this is a list about the TOOL's tree, so it goes stale on the
+tool's commits, not ours):
+
+- (1) **CLOSED — and this errata item was itself wrong.** `<label>_initial`
+  is a real, implemented spec feature (the pre-state read in a summary's
+  `post`, lowered in `vcgen/summaries.py` and `vcgen/translate.py`), not a
+  pseudo-builtin: the README's `balanceOf_initial(to)` example is
+  grammar-legal. The inventory that produced this list misread the
+  grammar.
+- (3) **CLOSED.** `--prune-phis` and `pruned_arms` are gone from the tree
+  entirely (the 2026-09-16 over-engineering audit removed the flag and its
+  ledger row) — there is no longer an inert flag to document.
+- (5) **CLOSED.** The README now carries a measured tier table that sums:
+  fast 318 + cli 501 + differential 254 + corpus 192 + conformance 42 +
+  matrix_regen 1 = 1308, with the partition-identity check spelled out.
+- (6) **CLOSED.** §2a now bolds the convention: an abort line has **no
+  `rule` key**.
+- (2) and (4) were **not re-measured** in this refresh; treat them as still
+  open until someone runs the check.
+
 ## 8. Operational loop (the "second pass", made a system)
 
 Per campaign, after `plan`:

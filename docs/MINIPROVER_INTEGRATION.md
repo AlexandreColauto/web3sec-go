@@ -6,6 +6,18 @@ LLM agents analyse a contract, author `.mspec` properties, and drive
 verify/revise loop until the spec publishes. web3sec-go is the **control
 plane**: it decides what counts as evidence and keeps the ledger.
 
+> **The tool's own operator guide is `python -m miniprover.guide`** (env
+> contract: `python -m miniprover.guide --env`). It ships inside the
+> package and is pinned against the real `--help` and the real report
+> schema by `tests/test_agent_guide.py`, so it cannot drift the way prose
+> can. This file is the webv2-side half — what the host may assume and what
+> it must refuse; the guide is the tool-side half. Where they disagree, the
+> guide is right about the tool and this file is right about the bind.
+> **Refreshed 2026-09-17** against the prover tree at HEAD `9c997b3`: the
+> report is now `report_revision: 3` (§5), the run writes artifacts this
+> guide had never named (§5.2), and the ledger mode that closes the
+> webv2→prover gap has shipped (§5.1).
+
 Three services, three contracts between them — no repo merging, no shared
 state beyond files each service OWNS:
 
@@ -70,6 +82,40 @@ export MINIPROVER_MODEL_REVIEW=<a DIFFERENT id>         # independence is the po
 export MINIPROVER_API_KEY=...   # omit for local servers
 ```
 
+Two more variables are printed by `python -m miniprover.guide --env`
+(measured 2026-09-17):
+
+```
+MINIPROVER_TIMEOUT_S=<seconds per request>
+MINIPROVER_HEADERS=<NAME:VALUE, comma- or newline-separated; --header replaces it>
+```
+
+and two more are documented by the guide's invocation rules and `--help`
+(they are NOT in the `--env` output, so read them from the guide):
+
+```
+MINIPROVER_MAX_TOKENS=<ceiling on the whole run; 0/unset = none>
+MINIPROVER_MAX_TOKENS_PER_PROPERTY=<ceiling on one authoring agent; 0/unset = none>
+```
+
+Two of these are host-relevant and new since this guide was written:
+
+- **`MINIPROVER_HEADERS` / `--header NAME:VALUE`** is how a gateway that
+  wants more than a Bearer token is reached (a routing key, a session id, a
+  tenant). Pairs split on the FIRST colon; `--header` REPLACES the
+  environment's list and the CLI says so on stderr when both are set;
+  `Authorization` is refused from either surface, because the credential
+  comes from `MINIPROVER_API_KEY` and a header that could clobber it would
+  send the request under a key nobody gave. A header value is a credential:
+  the transport redacts it from every error string, and the report records
+  NAMES only (`transport.extra_headers`, `[]` when none was configured).
+- **`--max-tokens` / `--max-tokens-per-property`** bound the money. Both are
+  off by default and both are recorded, so a run that stopped for money is
+  distinguishable from one that stopped for difficulty: read
+  `cost.budget_stopped`, and the property's own `token-budget` status. A
+  property the ceiling stopped before an agent ran is a named
+  `budget-gap`-routed gap, never a failure.
+
 A run with no endpoint configured fails fast naming the variables —
 that failure is an honest `INCONCLUSIVE(tool-error)` rollup, not a verdict.
 
@@ -80,14 +126,28 @@ control plane enforces elsewhere:
 
 1. **Exit codes never decide a verdict.** `0` = published, `2` = not
    published, `1` = usage error — run-level tripwires only. Per-property
-   truth is `reports/report.json`.
+   truth is `reports/report.json`. Revision 3 sharpens what `0` means:
+   **every property was accounted for AND at least one property
+   DELIVERED** (a decided, non-vacuous, declared rule) — never that
+   anything was verified. A run that decided nothing about the contract
+   (every property skipped, or every declared rule undecided or vacuous)
+   publishes `false` and exits `2`, however honest its skips were.
+   `VIOLATED` publishes; so does a property whose rules were all decided.
 2. **A rule with no verifier line is never PROVEN** — it is `REFUSED` or
    `UNATTRIBUTED`. webv2 maps only `rule`-keyed outcomes.
 3. `OUT_OF_FRAGMENT` / `INCONCLUSIVE` are **gaps, not passes**: mapped to
    the inconclusive rung shape, recorded, and they gate nothing silently.
+   The same is true of the two outcomes revision 3 added:
+   `PROVEN_VACUOUS` (the rule held because it exercised nothing — it is
+   reported and it does not publish) and `PROVEN_CONDITIONAL`. webv2's
+   mapper blesses a literal `PROVEN`/`VIOLATED` rollup and nothing else.
 4. **A gate that did not run says `unavailable`.** Capability probes
    (`--parse-only`, `--check-only`, `--project-root`, the `rules` field —
-   the R11–R14 v0.4 contract) degrade runs, they do not fake them.
+   the R11–R14 v0.4 contract) degrade runs, they do not fake them. The
+   report carries two lists that mean different things:
+   `capabilities_missing` (the installed verifier lacks the flag — an
+   honest degradation) and `capabilities_unmeasured` (the probe could not
+   ask — not a failure and not a pass).
 5. `review_independent: false` is recorded when the budget could not buy a
    DIFFERENT model for review — one model's opinion is never presented twice.
 6. **PROVEN next to a SUSPECT review finding is the most expensive state
@@ -143,17 +203,33 @@ compared it — a mismatched-compiler run bound its rung. Shipped (r18):
 
 ## 5. The `verify --autoprove` mapper (SHIPPED)
 
-Machine input is ONE file: the run's `reports/report.json` (schema
-versioned; unknown versions refuse). Mapping law, per invariant — note
-the mapper checks per-rule VALUES, not just the rollup, and refuses any
-report carrying non-empty `publish_problems` even if `published` is set:
+Machine input to the BIND is ONE file: the run's `reports/report.json`
+(schema versioned; unknown versions refuse). Mapping law, per invariant —
+note the mapper checks per-rule VALUES, not just the rollup, and refuses
+any report carrying non-empty `publish_problems` even if `published` is
+set:
 
 | prover state | webv2 rung |
 |---|---|
 | published, every attributed rule PROVEN | PROVEN-BOUNDED (k from flags) |
 | any VIOLATED attributed to the property | counterexample (params + failed assertion carried) |
 | OUT_OF_FRAGMENT / INCONCLUSIVE / REFUSED / UNATTRIBUTED | inconclusive — recorded, never passed |
+| `PROVEN_VACUOUS` / `PROVEN_CONDITIONAL` (rev 3) | inconclusive — the mapper's default arm blesses a literal `PROVEN`/`VIOLATED` rollup only |
 | published=false, or PROVEN + SUSPECT review finding | **not blessed** — mapper exits 2 like the compiler check |
+
+**The report is `report_revision: 3` (measured 2026-09-17).** Its top-level
+`schema_version` is still `"1.0"`, which is what the bind gates on
+(`harness.ReportSchemaMajor` speaks the whole `1.x` family), and the two
+keys the mapper reads per property — `property_outcomes[name].outcome` and
+`.per_rule` — are unchanged, so the bind did not move. What rev 3 added is
+the operator's context: `properties[]` (one row per property with
+`outcome`, `rules_declared`, `rules_stale`, `rules_observed`, and
+`routing` when there is no outcome), a `rules` block carrying each rule's
+`reason` and the `requirement` a refusal routes to, `coverage`
+(`properties` / `delivered` / `skipped` — the one-line answer to "how much
+of the contract did this run decide something about"), `cost`, `fragment`,
+`attribution`, `transport`, and `declined_by_probe`. webv2 reads none of
+those for a rung; they are what the operator acts on.
 
 Usage (attribution is exact-match; `--property` names the prover's
 agent-authored title verbatim):
@@ -163,13 +239,19 @@ webv2 verify <C> --autoprove INV-1 --property total_monotonic_after_add        -
 # INV-1: proved-bounded — autoproved bounded (k=4, 1 rules)
 ```
 
-That gap line is CONDITIONAL and is absent against the installed v0.4: the
-bind prints it only when the report's `capabilities_missing` is non-empty
-(`cmd_verify_autoprove.go`), and §7 records that the v0.4 probe is fully
-green — so a clean bind prints exactly the one line above. A pre-v0.4 run
-adds `  verifier gaps at run time: N capabilities missing (degraded run;
+That gap line is CONDITIONAL and is absent against the installed verifier
+(R1–R24, §7): the bind prints it only when the report's
+`capabilities_missing` is non-empty (`cmd_verify_autoprove.go`), and §7
+records that the probe is fully green — so a clean bind prints exactly the
+one line above. A run against a verifier that was missing rows adds
+`  verifier gaps at run time: N capabilities missing (degraded run;
 see tools/minicertora_conformance.py)`: a shorter stdout, never a
-different verdict.
+different verdict. **The bind does not read `capabilities_unmeasured` at
+all** (measured 2026-09-17: the key appears nowhere in
+`cmd_verify_autoprove.go`), so a run whose probe could not ask still binds
+silently — "unmeasured" is not a gap the host reports. Read that key from
+the artifact if you need it; it is an honest omission on the bind's side,
+recorded here rather than papered over.
 
 Live-verified against the prover's committed counter evidence (all three
 arms): a genuine PROVEN rollup bound `proved-bounded` with the run's
@@ -187,18 +269,84 @@ context only: the deliverable is what SURVIVED in the final spec, and the
 runbook for a real campaign should read rule count and decision count as
 different numbers on purpose.
 
-**Report contract as of v0.4 (re-verified 2026-09-16).** The prover-side
+**Report contract as of v0.4 (re-verified 2026-09-16; still true at
+`report_revision: 3`, re-checked 2026-09-17).** The prover-side
 `schema_version` is still `"1.0"`, so this section's gate (major "1."
-speaks) is untouched by the v0.4 landing. v0.4 `report.json` adds ONE block
-we do not read: `verifier`, carrying the schema/tool/spec/solc versions the
+speaks) is untouched by either landing. `report.json` adds ONE block we do
+not read: `verifier`, carrying the schema/tool/spec/solc versions the
 verifier stamped on its own output lines (the committed v0.4 run:
-`0.2.0 / 0.1.0 / v0.3 / 0.8.36`). Verified rather than assumed:
+`0.2.0 / 0.1.0 / v0.3 / 0.8.36`; the round-2 run carries the same block
+under `report_revision: 3`). Verified rather than assumed:
 `cmd_verify_autoprove.go` and `harness/reportmap.go` never key on it, so a
 report carrying the block binds exactly as before. It is the prover
 recording its own provenance, NOT a claim webv2 checks — the compiler
 comparison that does gate a bind is §4's, resolved from the exec record.
 Keys are omitted rather than defaulted when no line carried them, so a run
 that observed nothing carries `{}` instead of invented versions.
+
+### 5.1 Ledger mode: the host's INV ledger, consumed directly (SHIPPED)
+
+`--invariants PATH` replaces P1's guesswork with the host's own list, and
+the shape it accepts is **the shape `webv2 model` already writes**:
+`{"invariants": [...]}` at top level (a wrapped `{"protocol_model": {...}}`
+is accepted too, and hand-written files are usually bare). Verified rather
+than assumed on 2026-09-17 by feeding this repo's `protocol_model.json`
+shape to the prover's own loader (`miniprover.pipeline.extraction.load_invariants`)
+— the field mapping is:
+
+| `protocol_model.json` | prover property |
+|---|---|
+| `invariants[].id` | the property TITLE, verbatim (and so the name the bind's exact-match `--property` takes) |
+| `invariants[].statement` | `description`; a missing/blank one is REFUSED by name — the tool does not invent the claim |
+| `invariants[].applies_to` | the entry points the property names |
+| `invariants[].severity_if_broken` | `rationale` / `risk` |
+
+```bash
+webv2 model $CID model.json        # LOADS the operator's protocol_model.json
+                                   # → campaigns/$CID/artifacts/protocol_model.json
+miniprover path/to/Contract.sol:ContractName --project-root . \
+  --invariants campaigns/$CID/artifacts/protocol_model.json --run-dir runs/INV-1
+# report.json: attribution.mode == "ledger", properties[].title == "INV-1"
+webv2 verify $CID --autoprove INV-1 --property INV-1 \
+  --report runs/INV-1/reports/report.json
+```
+
+In ledger mode `--max-properties` is ignored with a printed note (the
+ledger IS the list of record), `attribution.mode` is `ledger` rather than
+`extracted`, and `denominator_source` says which total the gap count
+subtracted from (`ledger`, `p1-guess`, or `none`) — read `not_attempted`
+directly, because no P1 guess happened. This is what closed §7's old
+"DESIGN.md by hand" edge: the properties no longer have to be guessed, and
+the id the ledger minted is the title the bind names.
+
+### 5.2 The run's artifacts (what to read, in order)
+
+The bind needs one file; an OPERATOR needs to know what the rest mean,
+because "the run exited 0" is not "the contract was verified":
+
+1. **`reports/feasibility.json` FIRST** — `feasible` / `infeasible` /
+   `not_checked`, with the refusal's own `reason`, `details` and (when it
+   maps) a `requirement`. An infeasible target stops the run before any
+   model is called; `not_checked` means the tool could not ask the
+   question, which is NOT a statement about the target.
+2. **`reports/report.json`** — `published` / `publish_problems`, `coverage`
+   (0/n means not a deliverable whatever the rule count says), then
+   `properties[]` and `rules`.
+3. **`reports/reach.md` + `reach.json`** — the gap/finding inventory grouped
+   by reason, cost and requirement, plus the `## Fragment probe` table: one
+   row per entry point measured BEFORE any author was paid. A row whose
+   requirement column says "requirement unmapped" is a fact nobody has
+   routed yet — fix the mapping table, not the contract.
+4. **`reports/fragment.json`** — the verbatim per-entry-point refusals
+   behind that table.
+5. **`specs/final.mspec`** — the deliverable, and `transcripts/` — the
+   measured record the cost decision is recomputable from.
+
+Two artifacts are new since this guide was written and both matter:
+`feasibility.json` (step 1) and `fragment.json` (step 4). `reach.json`
+carries `denominator_source` and the same `capabilities_*` lists as the
+report, so a gap count can always be traced to the total it subtracted
+from.
 
 ## 6. Troubleshooting matrix
 
@@ -212,6 +360,10 @@ that observed nothing carries `{}` instead of invented versions.
 | `toolchain-mismatch` on a harness result | the run's solc ≠ the pin | re-exec with `--solc-path` pointing at the reported version, or fix PATH solc |
 | doctor row says `probe TIMED OUT after 5s` | a PATH binary hangs on `--version` | the row IS the diagnosis — fix the shim; EVERY host probe is now bounded (doctor 5s+WaitDelay, EXEC probes group-kill+grace, docker 20s+group-kill, compiler-pin 10s): a probe reports a hang, it never joins it |
 | autoprove says `report-contradiction` | rollup claims PROVEN while per_rule values disagree | per-rule lines are the authority (law 3); file a prover bug if the rollup really disagreed |
+| a property's `status` is `token-budget`, `notes` says it stopped on the ceiling | the run's token ceiling stopped it before an agent ran | read `cost.budget_stopped`; raise `--max-tokens`/`--max-tokens-per-property` if the property is worth the money |
+| every property `NOT_ATTEMPTED`, `declined_by_probe` names them | each named entry point was MEASURED unwritable (out of fragment) | the work item is the `requirement` id in the skip reason, not the contract — the probe already answered "can we even write this" |
+| `published: false` with `coverage` 0/n and honest skips | the run decided nothing about the contract | that is the gate working: nothing binds (exit 2). A skip is not a result — re-plan, do not re-bind |
+| a gateway 401s naming neither the header nor the key | `Authorization` was attempted as a header (refused by design) | put the credential in `MINIPROVER_API_KEY` and use `--header`/`MINIPROVER_HEADERS` for routing keys only |
 
 ## 7. What is NOT integrated (open edges, honest list)
 
@@ -220,39 +372,69 @@ that observed nothing carries `{}` instead of invented versions.
   of `MINIPROVER_*` — strictly wider than the read-only `minicertora`
   profile. Until it exists, miniprover runs are launched by the operator
   and only their artifacts are consumed; the E3 host cap is unaffected.
-- DESIGN.md generation FROM the INV ledger (webv2 → prover input) is not
-  wired; today the operator passes `--design` by hand.
+- ~~DESIGN.md generation FROM the INV ledger (webv2 → prover input) is not
+  wired; today the operator passes `--design` by hand.~~ The PROPERTIES side
+  CLOSED 2026-09-17: `--invariants` ledger mode eats `protocol_model.json`
+  directly (§5.1, verified against the prover's own loader). DESIGN.md (the
+  prose design document, `--design`) is still passed by hand — the ledger
+  replaced P1's property guessing, not the human's design notes.
 - **`--cache-dir`: the verifier side is wired, MiniProver's own cache is
   not.** The operator's `--cache-dir` now reaches minicertora as
   `<cache-dir>/minicertora` (R15), for both the run and the commit gate, and
   is dropped with one warning when the binary has no such flag. What remains
   unwired is MiniProver's OWN content-addressed store (`ArtifactStore.put`/
   `get`): no phase result is reused, so no webv2-side assumption may depend
-  on caching either way.
-- **minicertora v0.4 (R1–R15) is INSTALLED and verified green** — this
-  bullet said "unshipped" until 2026-09-16, when the probe below was re-run
-  against the installed binary. The conformance table remains the source of
-  truth for what the installed verifier can do; re-run it rather than
-  trusting this snapshot.
+  on caching either way. Re-measured 2026-09-17 by call-site search: the
+  store is constructed in the run context and used for `write_json` /
+  `write_text`, but nothing in the package calls `put`/`get`.
+- **minicertora R1–R24 are INSTALLED and verified green** — this bullet
+  said "v0.4 (R1–R15) unshipped" until 2026-09-16 and "R1–R15 installed"
+  until 2026-09-17, when the verifier's tree was measured at HEAD
+  `be14d3a`: R16–R24 landed on 2026-09-16/17 (`MINICERTORA_INTEGRATION.md`
+  §2.1, §7). The conformance table below remains the source of truth for
+  what the installed verifier can do; re-run it rather than trusting this
+  snapshot.
 
-### Installed verifier, re-verified 2026-09-16
+### Installed verifier, re-verified 2026-09-17
 
 `tools/minicertora_conformance.py` (in the MiniProver repo) prints two
-tables, both fully green against the installed binary:
+tables, both fully green against the installed binary — quoted verbatim
+from this box:
 
 ```
-capability (flag presence + rules field)     behavioural (§1 semantics)
-PASS    R2  --project-root                   PASS  R14 --parse-only
-PASS    R14 --parse-only                     PASS  R2  project-root compile of an import
-PASS    R12 --check-only                     PASS  R12 clean document is silent
-PASS    R13 --list-rules                     PASS  R14 parse-only == the full parser
-PASS    R15 --cache-dir                      PASS  R13 --list-rules shape
-PASS    R13 --require-solc-version           PASS  R11 rules names the rule
-PASS    R11 rules field                      PASS  R12 no verdict line under --check-only
-                                             PASS  R13 --require-solc-version pin
+minicertora capability probe (flag names + the rules field)
+-----------------------------------------------------------
+PASS    R2 --project-root
+PASS    R14 --parse-only
+PASS    R12 --check-only
+PASS    R13 --list-rules
+PASS    R15 --cache-dir
+PASS    R16 --solc-path
+PASS    R13 --require-solc-version
+PASS    R11 rules field
+
+minicertora behavioural probe (§1 semantics, not flag names)
+------------------------------------------------------------
+PASS  R14  --parse-only
+PASS  R2   project-root compile of an import
+PASS  R12  clean document is silent
+PASS  R14  parse-only == the full parser
+PASS  R12  check-only accepts nothing the full run refuses
+PASS  R14  parse-only is silent only on refusals it cannot reach
+PASS  R13  --list-rules shape
+PASS  R11  rules names the rule
+PASS  R12  no verdict line under --check-only
+PASS  R13  --require-solc-version pin
 
 every requirement present and every behavioural check passed
 ```
+
+Two rows are new since the previous snapshot: `R16 --solc-path` (the
+compiler pin §4 enforces) and the two parity rows R12/R14, which the probe
+now asks only what each cheap gate can actually reach (prover commit
+`9c997b3`). Both parity rows PASS here — MiniProver's own guide still lists
+the R14 accept-drift row as failing, but its "Known limits" section is
+dated 2026-09-16; the probe is the authority.
 
 The two tables answer different questions and both are needed: a flag
 existing does not mean it MEANS what the contract says. The `rules` row

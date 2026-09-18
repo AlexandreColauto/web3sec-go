@@ -37,7 +37,11 @@ install -m755 dist/webv2 ~/.local/bin/webv2
 Tooling expected on PATH (**absence degrades capability, does not block**):
 `git`; `forge`/`cast` (Foundry); the bounded prover shim `minicertora`
 (`--scaffold minicertora` lane; install and trust rails:
-docs/MINICERTORA_INTEGRATION.md in the source tree); `docker` with a **running** daemon (E4+
+docs/MINICERTORA_INTEGRATION.md in the source tree); the auto-prover shim
+`miniprover` (operator-launched — web3sec consumes its
+`reports/report.json` through `verify --autoprove`, and the prover's
+`--invariants` mode eats this campaign's own `protocol_model.json`;
+install and trust rails: docs/MINIPROVER_INTEGRATION.md); `docker` with a **running** daemon (E4+
 evidence — the container profiles execute a real `docker run` in
 `$WEBV2_DOCKER_IMAGE`, default `ghcr.io/foundry-rs/foundry:latest`); an
 optional `gvisor` and a fork-RPC endpoint for `fork-runner` (point
@@ -83,7 +87,9 @@ The command string names an ABSOLUTE `--solc-path` (the corpus pins a solc
 per target; the shim on PATH keeps argv reviewable). Exit codes are the
 verdict worst-case: **0** every rule PROVEN, **1** a counterexample, **2**
 undecided/refusal/tool error — the tool's own JSON line per rule carries
-`tool_version`/`spec_version`/`solc_version`; `verify --harness-result`
+`tool_version`/`spec_version`/`solc_version`, plus `rules` (the declaration
+the line reports) and `evm_version` (what the compile really used, R17);
+`verify --harness-result`
 (§harness notes) maps it to the rung, and a run captured under a relative
 `--root` reads back fine (the canonical `<execs>/EXEC-*/stdout.log`
 location is derived, never trusted from the record's stored path).

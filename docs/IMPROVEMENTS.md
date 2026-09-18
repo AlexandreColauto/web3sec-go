@@ -1,5 +1,61 @@
 # web3sec-go Improvement Plan — post morph-campaign review
 
+## 2026-09-17 — both tool guides were a snapshot behind; re-measured against HEAD and corrected
+
+`docs/MINICERTORA_INTEGRATION.md` and `docs/MINIPROVER_INTEGRATION.md` were
+accurate for the tool state of 2026-09-16 and stale for the state of this box.
+The verifier's tree had landed **R16–R24** (`feat(r17)`…`feat(r24)`,
+2026-09-16/17) and re-synced its contract mirror byte-for-byte; the prover's
+tree had landed round 2: `report_revision: 3`, `reports/feasibility.json`, the
+per-entry-point fragment probe, token ceilings, `--invariants` ledger mode,
+`MINIPROVER_HEADERS`, and a packaged operator guide (`python -m miniprover.guide`,
+pinned against the real `--help` and report schema). Both guides now carry the
+date of the measurement and the commit they were measured at, so the next
+reader knows what "up to date" meant.
+
+What the refresh changed:
+
+- **MINICERTORA_INTEGRATION.md** — new §2.4 capability table (R16 `--solc-path`
+  through R24 packed-slot geometry, each with a discriminating corpus target),
+  the conformance table re-quoted from a green run on this box (the R16 row and
+  the two R12/R14 parity rows are new, and both parity rows PASS — MiniProver's
+  own guide still lists one of them as failing, and its "Known limits" is dated
+  2026-09-16), the suite count corrected 976 → **1308** (318 in the fast tier,
+  measured with `--collect-only`), the troubleshooting matrix re-derived, and
+  §7 recording that `MINIPROVER_REQUIREMENTS.md` is now a **tracked mirror**
+  (the MiniProver copy is authoritative) rather than an untracked sketch.
+- **MINIPROVER_INTEGRATION.md** — the report contract is now described as
+  `report_revision: 3` with the honest split: the keys the BIND reads
+  (`schema_version` still `"1.0"`, `published`, `publish_problems`,
+  `review_error`, `review_findings`, `flags.loop_bound`,
+  `property_outcomes[].outcome`/`.per_rule`) are unchanged, so no bind moved;
+  everything rev 3 added (`properties[]`, `rules`, `coverage`, `cost`,
+  `fragment`, `attribution`, `transport`, `declined_by_probe`) is operator
+  context. New §5.1 documents the **ledger mode that closes the old
+  "properties by hand" edge** — verified, not assumed, by feeding this repo's
+  `protocol_model.json` shape to the prover's own `load_invariants`. New §5.2
+  gives the artifact read order (`feasibility.json` FIRST). The env contract is
+  quoted from `python -m miniprover.guide --env`, and the mapping table and
+  exit-code law now name `PROVEN_VACUOUS` / `PROVEN_CONDITIONAL`.
+- **Residual recorded, not fixed:** the bind never reads
+  `capabilities_unmeasured` (the key appears nowhere in
+  `cmd_verify_autoprove.go`), so a run whose probe could not ask still binds
+  silently. Written into §5 as an honest omission instead of being papered over.
+- **MINICERTORA_ARCHITECTURE.md §7** — errata status re-checked: item (1) was
+  **wrong** (`_initial` is a real implemented pre-state read, lowered in
+  `vcgen/summaries.py`; the inventory misread the grammar), items (3), (5) and
+  (6) are closed upstream, (2) and (4) were not re-measured and stay open.
+- **assets/runbook/RUNBOOK.md** — the tooling list names the auto-prover shim
+  and its two consumption paths, and the report-line keys now include `rules`
+  and `evm_version`. The embedded-asset manifest was regenerated with
+  `scripts/sync-asset-manifest.py`; `TestAssetPackManifest` is green.
+
+Evidence, all run in this session: `tools/minicertora_conformance.py` exit 0
+with both tables green; a real `wrap-unchecked` corpus run whose line carries 24
+keys (the new one being `evm_version`); the round-2 live report's shape; the
+prover's `--help` and `guide --env`; and `--collect-only` for the test counts.
+Nothing here changed code, so no bind, gate or event moved.
+
 ## 2026-09-16 — MiniProver v0.4 landed: the integration guide's §7 was stale, and one of my own sentences was wrong
 
 MiniProver finished the minicertora v0.4 contract and committed it (`f82316f` code, `95d7724` evidence, `9abd38b` docs in
