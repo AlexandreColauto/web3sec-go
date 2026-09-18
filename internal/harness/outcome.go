@@ -993,105 +993,153 @@ func boundFromArgv(toks []shToken, kind Kind) (int, string) {
 	if why := ambiguousOptionArity(toks); why != "" {
 		return BoundUnreadable, "option arity is ambiguous (" + why + ")"
 	}
-	var occs []boundFlagOcc
-	pending := -1  // occs index of a bound flag awaiting the NEXT element
-	value := false // the last element was an option that may take a value
-	endOpts := false
-	// argv[0] is the program name and click never parses it — but the
-	// callers also pass bare flag fragments ("--loop-bound 8"), and a
-	// program name never begins with '-', so only a first element that
-	// does not begin with '-' is treated as the program. (`--` included:
-	// a leading terminator must keep ending options.)
-	first := -1
-	if len(toks) > 0 && !strings.HasPrefix(toks[0].text, "-") {
-		first = 0
+	sc := newBoundArgvScan(toks)
+	if k, why := sc.collect(); why != "" {
+		return k, why
 	}
-	for i, t := range toks {
-		if i == first {
+	if len(sc.occs) == 0 {
+		return 0, ""
+	}
+	if k, why, hit := boundArgvForeign(toks, sc.occs, kind); hit {
+		return k, why
+	}
+	if k, why, hit := boundArgvMixed(sc.occs); hit {
+		return k, why
+	}
+	return boundArgvBind(sc.occs)
+}
+
+// boundArgvScan carries the state of the argv walk that collects a
+// command's bound-flag occurrences in command order (boundFromArgv's
+// scan loop).
+type boundArgvScan struct {
+	toks    []shToken
+	occs    []boundFlagOcc
+	first   int
+	pending int  // occs index of a bound flag awaiting the NEXT element
+	value   bool // the last element was an option that may take a value
+	endOpts bool
+}
+
+// newBoundArgvScan seeds the walk. argv[0] is the program name and click
+// never parses it — but the callers also pass bare flag fragments
+// ("--loop-bound 8"), and a program name never begins with '-', so only a
+// first element that does not begin with '-' is treated as the program.
+// (`--` included: a leading terminator must keep ending options.)
+func newBoundArgvScan(toks []shToken) *boundArgvScan {
+	s := &boundArgvScan{toks: toks, first: -1, pending: -1}
+	if len(toks) > 0 && !strings.HasPrefix(toks[0].text, "-") {
+		s.first = 0
+	}
+	return s
+}
+
+// collect walks the argv and records every bound-flag occurrence, in
+// command order. It returns a floor (BoundUnreadable and the construct)
+// when an element's text is not derivable where an option or a bound
+// value could sit; otherwise it returns (0, "") and leaves the
+// occurrences in s.occs.
+func (s *boundArgvScan) collect() (int, string) {
+	for i, t := range s.toks {
+		if i == s.first {
 			continue
 		}
-		if pending >= 0 {
+		if s.pending >= 0 {
 			if t.unknown {
 				return BoundUnreadable, "shell expansion in the " +
-					occs[pending].name + " value (" +
+					s.occs[s.pending].name + " value (" +
 					oneLine(t.text, 20) + ")"
 			}
-			occs[pending].value, occs[pending].has = t.text, true
-			pending, value = -1, false
+			s.occs[s.pending].value, s.occs[s.pending].has = t.text, true
+			s.pending, s.value = -1, false
 			continue
 		}
-		if endOpts {
+		if s.endOpts {
 			continue // positional: click is not looking for options
 		}
 		if t.unknown {
-			if value {
+			if s.value {
 				// The element before it is an option, so this is that
 				// option's value — and a VALUE is never an option.
-				value = false
+				s.value = false
 				continue
 			}
 			return BoundUnreadable, "shell expansion (" +
 				oneLine(t.text, 20) + ") where an option could be"
 		}
 		if t.text == "--" {
-			endOpts, value = true, false
+			s.endOpts, s.value = true, false
 			continue
 		}
 		if !isOptionWord(t.text) {
-			value = false
+			s.value = false
 			continue
 		}
 		if name, val, hasVal, bound := boundOptionWord(t.text); bound {
-			occs = append(occs, boundFlagOcc{name: name, value: val,
+			s.occs = append(s.occs, boundFlagOcc{name: name, value: val,
 				has: hasVal})
 			if !hasVal {
-				pending = len(occs) - 1
+				s.pending = len(s.occs) - 1
 			}
 			// A bound flag never leaves the non-bound "awaiting a
 			// value" flag set: without an inline value it takes the
 			// NEXT element as its value (pending above), whatever that
 			// element looks like — click does the same.
-			value = false
+			s.value = false
 			continue
 		}
 		// Some other option: with an inline value it consumed its own
 		// (`--opt=v`), without one it takes the next element (`--opt v`).
-		value = !strings.Contains(t.text, "=")
+		s.value = !strings.Contains(t.text, "=")
 	}
-	if len(occs) == 0 {
-		return 0, ""
-	}
-	// r32 F2: a bound-looking flag that ANOTHER family owns is a flag the
-	// tool named by the kind (or by argv[0], for the kind-free reader)
-	// does not have, and its argument parser refuses the whole command:
-	// `forge test --loop 3` -> "error: unexpected argument '--loop'
-	// found", `halmos --fuzz-runs 500` -> "unrecognized arguments",
-	// `minicertora --fuzz-runs 200` -> "No such option". The old guard
-	// fired only when TWO of the known bound flags appeared together, so
-	// a LONE foreign flag bound proved-bounded (forge-fuzz, k=3) for a
-	// run real forge never started. The floor names the flag and the tool
-	// (the one that would refuse), and it stays a FLOOR rather than
-	// last-wins: there is no single tool whose parameter these
-	// occurrences could all be.
+	return 0, ""
+}
+
+// boundArgvForeign names the foreign-flag floor (r32 F2): a bound-looking
+// flag that ANOTHER family owns is a flag the tool named by the kind (or
+// by argv[0], for the kind-free reader) does not have, and its argument
+// parser refuses the whole command: `forge test --loop 3` -> "error:
+// unexpected argument '--loop' found", `halmos --fuzz-runs 500` ->
+// "unrecognized arguments", `minicertora --fuzz-runs 200` -> "No such
+// option". The old guard fired only when TWO of the known bound flags
+// appeared together, so a LONE foreign flag bound proved-bounded
+// (forge-fuzz, k=3) for a run real forge never started. The floor names
+// the flag and the tool (the one that would refuse), and it stays a FLOOR
+// rather than last-wins: there is no single tool whose parameter these
+// occurrences could all be. hit=false when no foreign flag is present.
+func boundArgvForeign(toks []shToken, occs []boundFlagOcc,
+	kind Kind) (int, string, bool) {
 	if want, known := invocationToolOf(toks, occs, kind); known {
 		for _, o := range occs {
 			if owner, bound := toolForBoundFlag(o.name); bound &&
 				owner != want {
 				return BoundDegenerate, want.String() + " has no " +
-					o.name + " option (" + toolRefusal(want) + ")"
+					o.name + " option (" + toolRefusal(want) + ")", true
 			}
 		}
 	}
+	return 0, "", false
+}
+
+// boundArgvMixed names the floor for two different tools' bound flags in
+// one command, when not even the program name settles which tool ran:
+// whatever it was, it refused one of them, so no execution exists under
+// this invocation to carry a bound. hit=false when every occurrence names
+// the same flag.
+func boundArgvMixed(occs []boundFlagOcc) (int, string, bool) {
 	for _, o := range occs[1:] {
 		if o.name != occs[0].name {
-			// Two tools' bound flags in one command, and not even the
-			// program name settles which tool ran: whatever it was,
-			// it refused one of them, so no execution exists under
-			// this invocation to carry a bound.
 			return BoundDegenerate, "two tools' bound flags in one " +
-				"command (" + occs[0].name + " and " + o.name + ")"
+				"command (" + occs[0].name + " and " + o.name + ")", true
 		}
 	}
+	return 0, "", false
+}
+
+// boundArgvBind binds the LAST occurrence the way its owning tool would:
+// last-wins is the Python tools' rule, and the degenerate arms below are
+// the refusals their parsers (and forge's clap) produce.
+func boundArgvBind(occs []boundFlagOcc) (int, string) {
 	last := occs[len(occs)-1]
 	tool, _ := toolForBoundFlag(last.name)
 	if !last.has {

@@ -293,6 +293,7 @@ type ReportDecision struct {
 // refuses. The bind's bytes are unchanged for every shape the report
 // contract can carry.
 func DecideReport(rep validation.Value, property string) ReportDecision {
+	c := decRepCtx{rep: rep, property: property}
 	// r33 F3: the schema gate is the FIRST gate, because it is the first
 	// gate at the bind's own door (cli.verifyAutoprove checks it before it
 	// loads links or scans the ledger). A report whose contract this build
@@ -300,15 +301,60 @@ func DecideReport(rep validation.Value, property string) ReportDecision {
 	if dec := DecideReportSchema(rep); dec.Gate != GateNone {
 		return dec
 	}
-	probsPre := objAtRP(rep, "publish_problems")
+	if dec, refused := c.decRepPublishShape(); refused {
+		return dec
+	}
+	if dec, refused := c.decRepProblems(); refused {
+		return dec
+	}
+	if dec, refused := c.decRepPublished(); refused {
+		return dec
+	}
+	if dec, refused := c.decRepOutcomes(); refused {
+		return dec
+	}
+	prop, dec, refused := c.decRepProperty()
+	if refused {
+		return dec
+	}
+	if dec, refused := c.decRepReviewError(); refused {
+		return dec
+	}
+	if dec, refused := c.decRepFindings(); refused {
+		return dec
+	}
+	if dec, refused := c.decRepSuspect(); refused {
+		return dec
+	}
+	return c.decRepBound(prop)
+}
+
+// decRepCtx carries the report and the property DecideReport's gates read,
+// so each gate is one method over the same shared inputs.
+type decRepCtx struct {
+	rep      validation.Value
+	property string
+}
+
+// decRepPublishShape is the publish_problems SHAPE gate: the veto list is
+// a LIST by contract, so a scalar there refuses before it is read.
+func (c decRepCtx) decRepPublishShape() (ReportDecision, bool) {
+	probsPre := objAtRP(c.rep, "publish_problems")
 	if probsPre.Kind != validation.Null && probsPre.Kind != validation.Arr {
 		// r20 F6: the veto list is a LIST by contract — a scalar there is
 		// either a lie or a bug; both refuse better than bind.
 		return ReportDecision{Gate: GatePublishProblemsShape,
 			Refusal: fmt.Sprintf("malformed publish_problems (kind %v, "+
 				"contract: array) — the veto list is machine-authored; "+
-				"refusing to read a broken contract\n", probsPre.Kind)}
+				"refusing to read a broken contract\n", probsPre.Kind)}, true
 	}
+	return ReportDecision{}, false
+}
+
+// decRepProblems is the veto gate: a report that CARRIES problems refuses
+// whatever its published flag says.
+func (c decRepCtx) decRepProblems() (ReportDecision, bool) {
+	probsPre := objAtRP(c.rep, "publish_problems")
 	if len(rpEntries(probsPre)) > 0 {
 		// r19 P2: publish_problems is the prover's own veto list — binding
 		// a rollup over a report that carries problems (even with published
@@ -324,69 +370,109 @@ func DecideReport(rep validation.Value, property string) ReportDecision {
 				true: " while claiming published — internally " +
 					"contradictory; nothing binds",
 				false: " — the run is unpublished; nothing binds",
-			}[reportPublished(rep)])}
+			}[reportPublished(c.rep)])}, true
 	}
-	if !reportPublished(rep) {
+	return ReportDecision{}, false
+}
+
+// decRepPublished is the published gate: an unpublished run blesses
+// nothing, and its refusal names the (empty-dash) problems.
+func (c decRepCtx) decRepPublished() (ReportDecision, bool) {
+	if !reportPublished(c.rep) {
 		probs := []string{}
-		for _, p := range objAtRP(rep, "publish_problems").A {
+		for _, p := range objAtRP(c.rep, "publish_problems").A {
 			probs = append(probs, rpScalar(p))
 		}
 		return ReportDecision{Gate: GatePublished,
 			Refusal: fmt.Sprintf("the prover did NOT publish this run — "+
 				"nothing is blessed (problems: %s)\n",
-				rpJoinOrDash(probs))}
+				rpJoinOrDash(probs))}, true
 	}
-	po := objAtRP(rep, "property_outcomes")
+	return ReportDecision{}, false
+}
+
+// decRepOutcomes is the property_outcomes SHAPE gate: a report without the
+// map cannot attribute any rule.
+func (c decRepCtx) decRepOutcomes() (ReportDecision, bool) {
+	po := objAtRP(c.rep, "property_outcomes")
 	if po.Kind != validation.Obj {
 		return ReportDecision{Gate: GatePropertyOutcomes,
 			Refusal: "report carries no property_outcomes map — " +
-				"contract broken\n"}
+				"contract broken\n"}, true
 	}
-	prop, ok := ReportProperty(rep, property)
+	return ReportDecision{}, false
+}
+
+// decRepProperty resolves the bound property with ReportProperty's exact
+// lookup and refuses, naming the attempted properties, when it is absent.
+func (c decRepCtx) decRepProperty() (validation.Value, ReportDecision,
+	bool) {
+	prop, ok := ReportProperty(c.rep, c.property)
 	if !ok {
 		names := []string{}
-		for _, kv := range po.O {
+		for _, kv := range objAtRP(c.rep, "property_outcomes").O {
 			names = append(names, kv.K)
 		}
-		return ReportDecision{Gate: GateProperty,
+		return validation.VNull(), ReportDecision{Gate: GateProperty,
 			Refusal: fmt.Sprintf("property %s is not in this run (the "+
 				"prover attempted: %s) — exact-match only\n",
-				validation.PyReprStr(property), rpJoinOrDash(names))}
+				validation.PyReprStr(c.property), rpJoinOrDash(names))}, true
 	}
+	return prop, ReportDecision{}, false
+}
+
+// decRepReviewError is the review_error gate.
+func (c decRepCtx) decRepReviewError() (ReportDecision, bool) {
 	// r22 F2: the prover records review_error precisely so "no findings"
 	// and "no review" never look alike — a run whose review role CRASHED
 	// carries an EMPTY findings list that means nothing. Law: an unmade
 	// check is never a cleared check.
-	if re := rpObjStr(rep, "review_error"); re != "" {
+	if re := rpObjStr(c.rep, "review_error"); re != "" {
 		return ReportDecision{Gate: GateReviewError,
 			Refusal: fmt.Sprintf("the independent review NEVER RAN (%s) — "+
 				"PROVEN binds without it only by inattention; "+
-				"refusing\n", re)}
+				"refusing\n", re)}, true
 	}
-	if v := objAtRP(rep, "review_findings"); v.Kind != validation.Arr {
+	return ReportDecision{}, false
+}
+
+// decRepFindings is the review_findings SHAPE gate.
+func (c decRepCtx) decRepFindings() (ReportDecision, bool) {
+	if v := objAtRP(c.rep, "review_findings"); v.Kind != validation.Arr {
 		// r22 F5: the twin ALWAYS emits an array — null, absent, or scalar
 		// are all foreign contracts. An unreadable gate input reads as
 		// "nothing flagged" to nothing: refuse.
 		return ReportDecision{Gate: GateReviewFindingsShape,
 			Refusal: fmt.Sprintf("malformed review_findings (kind %v, "+
 				"contract: array) — the gate reads the review's output; "+
-				"a broken one is never empty enough to pass\n", v.Kind)}
+				"a broken one is never empty enough to pass\n", v.Kind)}, true
 	}
-	if sus := ReportSuspects(rep, property); sus != "" {
+	return ReportDecision{}, false
+}
+
+// decRepSuspect is the SUSPECT-attribution gate.
+func (c decRepCtx) decRepSuspect() (ReportDecision, bool) {
+	if sus := ReportSuspects(c.rep, c.property); sus != "" {
 		return ReportDecision{Gate: GateSuspect,
 			Refusal: fmt.Sprintf("the independent review flagged property "+
 				"%s as SUSPECT — %s — a PROVEN verdict next to a suspect "+
 				"review is the most expensive state there is; the rung "+
 				"is refused, fix the rule or waive with reason\n",
-				property, sus)}
+				c.property, sus)}, true
 	}
+	return ReportDecision{}, false
+}
+
+// decRepBound reads the typed loop_bound and maps the property's rollup
+// through MapReport — the decision's non-refusing tail.
+func (c decRepCtx) decRepBound(prop validation.Value) ReportDecision {
 	// r24 F3: the bound is READ TYPED — a float is truncation, a
 	// string/big is a foreign shape, and the twin's VerifierFlags raises
 	// for loop_bound<1 (measured 2026-09-13 against miniprover 0.1.0:
 	// `miniprover --loop-bound 0 …` dies with "loop_bound must be >= 1;
 	// minicertora refuses degenerate flags"), so 0 is by definition NOT
 	// twin output.
-	k, kStated, kOK, kWhy := BoundFromFlags(objAtRP(rep, "flags"))
+	k, kStated, kOK, kWhy := BoundFromFlags(objAtRP(c.rep, "flags"))
 	if !kOK {
 		return ReportDecision{Gate: GateLoopBound,
 			Refusal: fmt.Sprintf("flags.loop_bound %s; this report is not "+
