@@ -190,7 +190,13 @@ around them — record each firing you see.
       "applies_to": ["message_queue"]}]}
    ```
 
-   Verbatim output from a scratch campaign, 2026-09-18 (exit 2):
+   Load this variant in a **fresh campaign**. In the §3.1 → §3.2-1 sequence the
+   skeleton's synthesized `INV-1` liveness template already covers
+   `rollup_finalization`; the variant's `INV-1` refreshes that row in place, its
+   `applies_to` never lands, and the gate instead names the *other* machine —
+   `state machine(s) message_queue have no liveness invariant` (reproduced
+   2026-09-18). Verbatim output from a fresh scratch campaign, 2026-09-18
+   (exit 2):
 
    ```
    model load failed: protocol model: state machine(s) rollup_finalization have no liveness invariant (one per machine — stage 37)
