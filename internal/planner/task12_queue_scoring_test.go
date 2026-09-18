@@ -129,3 +129,96 @@ func TestQueueScoreIsAdditiveNotMultiplicative(t *testing.T) {
 			"(additive, never multiplicative)", got)
 	}
 }
+
+// task12OpenQModel is the F5 fixture (critic round 1): ONE unresolved open
+// question whose `blocks` list names TWO components of the same row (Rollup and
+// Zeta, both in scope; the coverage ledger above marks Zeta swept and Rollup
+// untouched).
+const task12OpenQModel = `{
+ "contracts": [
+  {"name": "Aardvark", "path": "src/Aardvark.sol", "in_scope": true},
+  {"name": "Alpha", "path": "src/Alpha.sol", "in_scope": true},
+  {"name": "Rollup", "path": "src/Rollup.sol", "in_scope": true},
+  {"name": "Zeta", "path": "src/Zeta.sol", "in_scope": true}
+ ],
+ "invariants": [
+  {"id": "INV-001", "statement": "only the sequencer may propose a root",
+   "applies_to": ["Rollup", "Zeta"], "severity_if_broken": "critical"}
+ ],
+ "open_questions": [
+  {"question": "does the rollup root follow the sequencer?",
+   "blocks": ["Rollup", "Zeta"]}
+ ]
+}`
+
+// TestQueueOpenQuestionCountedOncePerRow is the F5 witness: `openQuestionCount`
+// is DISTINCT QUESTIONS PER ROW, not (question, component) pairs. One question
+// naming two components of the same row contributes W3 once — the same as one
+// question naming one component — so a row cannot buy rank by how many of its
+// components a single question happens to name. Direction, documented: the
+// count-once rule can only LOWER a row's weight relative to summing per
+// component, so no row is ever promoted by it; that is the conservative
+// direction for a cockpit that must not inflate a duplicated signal.
+func TestQueueOpenQuestionCountedOncePerRow(t *testing.T) {
+	camp := task12Campaign(t)
+	model := jsonValue(t, task12OpenQModel)
+	sig, err := buildQueueSignals(camp, model)
+	if err != nil {
+		t.Fatalf("buildQueueSignals: %v", err)
+	}
+	two := jsonValue(t, `{"priority_id":"Q-002","question":"two-component spelling",
+	 "components":["Rollup","Zeta"],"invariant_ids":[]}`)
+	if got := sig.scoreRow(two).openQ; got != 1 {
+		t.Fatalf("one question naming TWO components of one row scored "+
+			"openQ=%d, want 1 (counted once per row)", got)
+	}
+	one := jsonValue(t, `{"priority_id":"Q-001","question":"one-component spelling",
+	 "components":["Rollup"],"invariant_ids":[]}`)
+	if got := sig.scoreRow(one).openQ; got != 1 {
+		t.Fatalf("one question naming ONE component scored openQ=%d, want 1", got)
+	}
+	// The other two score parts are untouched by the count-once rule.
+	if got := sig.scoreRow(two); got.untouched != 1 || got.severity != 3 {
+		t.Fatalf("two-component row = %+v, want untouched=1 severity=3", got)
+	}
+	if a, b := sig.scoreRow(one).weight(), sig.scoreRow(two).weight(); a != b {
+		t.Fatalf("weights differ (%v vs %v) — one question must not weigh "+
+			"more for naming two components of the same row", a, b)
+	}
+}
+
+// TestQueueMultiComponentQuestionDoesNotInflateRank drives the same fixture
+// through the real WorkQueue: two rows with identical untouched/severity
+// signals, one spelled with a single component and one with two components the
+// single question names. Before the F5 fix the two-component row collected W3
+// twice and led; now the rows tie and fall back to alphabetical order.
+func TestQueueMultiComponentQuestionDoesNotInflateRank(t *testing.T) {
+	camp := task12Campaign(t)
+	model := jsonValue(t, task12OpenQModel)
+	plan := jsonValue(t, `{"priorities":[
+	 {"id":"Q-001","question":"the one-component spelling","risk":0.6,
+	  "components":["Rollup"],"trajectories":["code"],
+	  "status":"open","budget_class":"cheap"},
+	 {"id":"Q-002","question":"the two-component spelling","risk":0.6,
+	  "components":["Rollup","Zeta"],"trajectories":["code"],
+	  "status":"open","budget_class":"cheap"}]}`)
+	queue, err := WorkQueue(camp, plan, model, false)
+	if err != nil {
+		t.Fatalf("work_queue: %v", err)
+	}
+	got := task12IDs(queue)
+	if len(got) != 2 || got[0] != "Q-001" {
+		t.Fatalf("queue order = %v — a row whose single open question names "+
+			"two components must not outrank the one-component spelling of "+
+			"the same question (counted once per row)", got)
+	}
+	for i := 0; i < 25; i++ {
+		again, err := WorkQueue(camp, plan, model, false)
+		if err != nil {
+			t.Fatalf("work_queue run %d: %v", i, err)
+		}
+		if now := task12IDs(again); strings.Join(now, ",") != strings.Join(got, ",") {
+			t.Fatalf("run %d order = %v, want %v", i, now, got)
+		}
+	}
+}

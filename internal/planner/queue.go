@@ -158,6 +158,15 @@ func WorkQueue(campaign *state.Campaign, plan, model validation.Value,
 //
 //	Score = (untouchedCount * W1) + (severityScore * W2) + (openQuestionCount * W3)
 //
+// openQuestionCount is DISTINCT QUESTIONS PER ROW, not (question, component)
+// pairs: one unresolved open question that names two components of the same row
+// contributes W3 once (critic round 1, F5). Summing per component inflated a
+// single question into N and let a row out-rank an otherwise identical row
+// purely by how many of its components that one question happened to name. The
+// count-once rule can only LOWER a row's weight relative to the per-component
+// sum — no row is ever promoted by it — which is the conservative direction for
+// a cockpit that must not rank work on a duplicated signal.
+//
 // ponytail: additive, NEVER multiplicative — a product zeroes out a critical
 // consensus contract the moment one factor is 0 (already swept, or no open
 // question names it) and drops it below alphabetical zero-signal entries,
@@ -179,7 +188,7 @@ var queueSeverityBands = map[string]float64{
 type queueScore struct {
 	untouched int
 	severity  float64
-	openQ     int
+	openQ     int // DISTINCT unresolved open questions naming this row
 }
 
 // weight is the additive score. Never a product (see the constants above).
@@ -196,7 +205,12 @@ type queueSignals struct {
 	touched  map[string]bool    // coverage path -> swept (worked at least once)
 	severity map[string]float64 // contract reference -> max severity band
 	invSev   map[string]float64 // invariant id -> severity band
-	openQ    map[string]int     // contract reference -> open questions naming it
+	// openQ maps a contract reference to the ORDINALS of the unresolved open
+	// questions naming it, in model declaration order. Identity — not a tally —
+	// is what lets scoreRow count one question once even when it names several
+	// components of the same row (F5); the slices are ordered, so nothing here
+	// is map-ranged.
+	openQ map[string][]int
 }
 
 // rankQueue orders the assembled rows: slot class first (the DecisionRule
@@ -256,7 +270,7 @@ func buildQueueSignals(campaign *state.Campaign,
 		touched:  map[string]bool{},
 		severity: map[string]float64{},
 		invSev:   map[string]float64{},
-		openQ:    map[string]int{},
+		openQ:    map[string][]int{},
 	}
 	for _, c := range listOf(model, "contracts") {
 		if !pyTruthyBigNonEmpty(objAt(c, "in_scope")) {
@@ -285,12 +299,16 @@ func buildQueueSignals(campaign *state.Campaign,
 			}
 		}
 	}
-	for _, q := range listOf(model, "open_questions") {
+	for ord, q := range listOf(model, "open_questions") {
 		if pyTruthyBigNonEmpty(objAt(q, "resolved")) {
 			continue
 		}
+		// ord identifies the question: one model entry is one question, however
+		// many of a row's components it names (F5). A repeated ref inside one
+		// question is already dropped by openQuestionRefs, so no ref can carry
+		// the same ordinal twice.
 		for _, ref := range openQuestionRefs(q) {
-			s.openQ[ref]++
+			s.openQ[ref] = append(s.openQ[ref], ord)
 		}
 	}
 	covPath := filepath.Join(campaign.ArtifactsDir, "coverage.json")
@@ -332,9 +350,13 @@ func coverageSwept(row validation.Value) bool {
 
 // scoreRow is one queue row's score: untouched contracts, the worst severity
 // band of the invariants that apply to them (or that the row names directly),
-// and how many unresolved open questions name them.
+// and how many DISTINCT unresolved open questions name them. One question that
+// names two of the row's components counts once (F5): the weight measures how
+// many questions are open about the row, not how many ways one question can
+// spell the row's surface.
 func (s *queueSignals) scoreRow(row validation.Value) queueScore {
 	out := queueScore{}
+	named := map[int]bool{} // question ordinals already counted for this row
 	for _, c := range listOf(row, "components") {
 		ref := pyStr(c)
 		path, ok := s.inScope[ref]
@@ -347,8 +369,12 @@ func (s *queueSignals) scoreRow(row validation.Value) queueScore {
 		if v := s.severity[ref]; v > out.severity {
 			out.severity = v
 		}
-		out.openQ += s.openQ[ref]
+		for _, ord := range s.openQ[ref] {
+			named[ord] = true
+		}
 	}
+	// len() of a set: never ranged, so no map order can reach the score.
+	out.openQ = len(named)
 	for _, id := range listOf(row, "invariant_ids") {
 		if v := s.invSev[pyStr(id)]; v > out.severity {
 			out.severity = v
