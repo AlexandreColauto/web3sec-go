@@ -7,7 +7,10 @@ import (
 	"websec/internal/validation"
 )
 
-// dispositionedStatuses is planner.ProbeRowDispositioned: the plan statuses
+// dispositionedStatuses copies planner.ProbeRowDispositioned (anchorlink is
+// a leaf package: importing planner here would cycle through findings, so
+// the copy stands and internal/findings' gate pin guards its drift).
+// The plan statuses
 // that mean a probe row has been discharged. It is copied rather than
 // imported so this read-side join stays a leaf package; a test pins the copy
 // against the planner's list, so drift fails the build instead of silently

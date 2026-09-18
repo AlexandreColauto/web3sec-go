@@ -4,7 +4,6 @@ import (
 	"slices"
 	"testing"
 
-	"websec/internal/planner"
 	"websec/internal/validation"
 )
 
@@ -168,18 +167,6 @@ func TestConvergencesIgnoreUncitableMembers(t *testing.T) {
 	findings := []validation.Value{finding("", "contracts/l1/rollup/Rollup.sol", "commitBatch", 204)}
 	if got := s.Convergences([]validation.Value{row}, nil, findings); len(got) != 0 {
 		t.Fatalf("uncitable members converged: %+v", got)
-	}
-}
-
-// TestDispositionStatusesMatchPlanner pins the copied status list against the
-// planner's, so drift fails the build rather than re-labelling rows.
-func TestDispositionStatusesMatchPlanner(t *testing.T) {
-	got := slices.Clone(dispositionedStatuses)
-	want := slices.Clone(planner.ProbeRowDispositioned)
-	slices.Sort(got)
-	slices.Sort(want)
-	if !slices.Equal(got, want) {
-		t.Fatalf("dispositionedStatuses = %v, planner.ProbeRowDispositioned = %v", got, want)
 	}
 }
 
