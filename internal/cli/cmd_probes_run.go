@@ -48,11 +48,17 @@ func probesRun(a *probesArgs, c *state.Campaign, r *Runner) error {
 	for _, line := range probeAxisLines(surface, nil, true) {
 		fmt.Fprintln(r.Out, line)
 	}
+	// B5(b) / r35 F1 convention (the kept-ghost disclosure,
+	// cmd_artifact_register.go): the quota disclosures are warnings, not
+	// results — they ride stderr so a caller
+	// piping stdout gets the surface summary alone. The axis lines, the two
+	// count lines and the emit summary stay on stdout. Bytes per line are
+	// unchanged; only the destination stream moved.
 	for _, line := range probeWarningLines(surface) {
-		fmt.Fprintln(r.Out, line)
+		fmt.Fprintln(r.Err, line)
 	}
 	for _, m := range t14List(surface, "missing").A {
-		fmt.Fprintf(r.Out, "  missing: %s\n", validation.ObjStr(m, "reason"))
+		fmt.Fprintf(r.Err, "  missing: %s\n", validation.ObjStr(m, "reason"))
 	}
 	if !a.emit {
 		fmt.Fprintf(r.Out, "next: webv2 probes %s run --emit  (turn the rows "+

@@ -206,8 +206,13 @@ func probesListTable(lv *probesListView) {
 	for _, line := range probeAxisLines(*surface, axisFilter, lv.a.all) {
 		fmt.Fprintln(out, line)
 	}
+	// B5(b) / r35 F1 convention (the kept-ghost disclosure,
+	// cmd_artifact_register.go): the quota disclosures are warnings, so
+	// they ride stderr and stdout keeps the
+	// summary, the axis lines and the row table alone. Byte-identical per
+	// line — only the destination stream moved.
 	for _, line := range probeWarningLines(*surface) {
-		fmt.Fprintln(out, line)
+		fmt.Fprintln(lv.r.Err, line)
 	}
 	// The console table is capped: a surface is an obligation list, not a
 	// transcript. The summary line points at the complete machine-readable

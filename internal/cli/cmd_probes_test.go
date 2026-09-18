@@ -1009,10 +1009,11 @@ func TestProbesRunAndListSurfaceTheFloorOverrunWarning(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit %d: out=%q err=%q", code, out, errS)
 	}
+	// B5(b): the quota disclosures ride stderr; stdout keeps the results.
 	for _, want := range []string{"warning: floor reserve 3",
 		"exceeds --total 2", "Raise --total to >= 3"} {
-		if !strings.Contains(out, want) {
-			t.Errorf("run output missing %q: %q", want, out)
+		if !strings.Contains(errS, want) {
+			t.Errorf("run stderr missing %q: %q", want, errS)
 		}
 	}
 	surface, err := probes.CampaignSurface(c)
@@ -1031,8 +1032,8 @@ func TestProbesRunAndListSurfaceTheFloorOverrunWarning(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("list exit %d: out=%q err=%q", code, out, errS)
 	}
-	if !strings.Contains(out, "warning: floor reserve 3") {
-		t.Fatalf("list output missing the warning: %q", out)
+	if !strings.Contains(errS, "warning: floor reserve 3") {
+		t.Fatalf("list stderr missing the warning: %q", errS)
 	}
 	// A bare re-run repairs the surface it has and would adopt the recorded
 	// --total 2 (and its warning) back, so the winning ceiling is explicit.
@@ -1041,8 +1042,8 @@ func TestProbesRunAndListSurfaceTheFloorOverrunWarning(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("re-run exit %d: out=%q err=%q", code, out, errS)
 	}
-	if strings.Contains(out, "warning:") {
-		t.Fatalf("a ceiling that can win is silent: %q", out)
+	if strings.Contains(out, "warning:") || strings.Contains(errS, "warning:") {
+		t.Fatalf("a ceiling that can win is silent: out=%q err=%q", out, errS)
 	}
 }
 
