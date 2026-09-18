@@ -2067,6 +2067,77 @@ func noParens(s string) string {
 	return strings.NewReplacer("(", "[", ")", "]").Replace(s)
 }
 
+// boxLocalCap is the box's E-cap for the reachability line: E4 — the local
+// execution ceiling the environment records. envgo's profileMaxLevel gives
+// every isolated container profile E4 and the doctor's e4_capable list names
+// exactly those profiles; E5+ is a fork run, which is what the line's "fork
+// required" clause names. Read, not probed: `docker info` inside a pure view
+// would turn the cockpit host-dependent and hang it for up to the probe's
+// 20s timeout on a wedged daemon — `webv2 env doctor` is the probe.
+//
+// ponytail: constant, not a live probe; wire envgo's e4_capable in when the
+// brief gains a cached environment block (the value only moves on a box that
+// cannot run containers at all, which `env doctor` already reports).
+const boxLocalCap = "E4"
+
+// openFindingClasses is the set of bug classes the campaign's open findings
+// carry: the classes a CONFIRMED move could still target. findings.IsTerminal
+// is the shared dead-row predicate, so a disproved or superseded row is not
+// open work. The read is not fail-soft — the brief already fails on the same
+// store (Reachability).
+func openFindingClasses(campaign *state.Campaign) ([]string, error) {
+	all, err := findings.LoadAllFindings(campaign)
+	if err != nil {
+		return nil, err
+	}
+	seen := map[string]bool{}
+	classes := []string{}
+	for _, f := range all {
+		if findings.IsTerminal(objStr(f, "status")) {
+			continue
+		}
+		cls := objStr(objAt(f, "root_cause"), "class")
+		if cls == "" || seen[cls] {
+			continue
+		}
+		seen[cls] = true
+		classes = append(classes, cls)
+	}
+	return classes, nil
+}
+
+// ReachabilityLine renders the evidence-reachability advisory: which of the
+// campaign's open bug classes can reach CONFIRMED on this box (floor at or
+// below cap) and which need a fork. Reachable classes lead, fork-required
+// classes follow, each group alphabetized, one class per clause with its own
+// floor. An empty class list renders nothing. Pure prose, advisory only: no
+// gate, proof or phase transition reads it.
+func ReachabilityLine(classes []string, cap string) string {
+	reachable, forked := []string{}, []string{}
+	for _, c := range classes {
+		if findings.ReachableLocally(c, cap) {
+			reachable = append(reachable, c)
+		} else {
+			forked = append(forked, c)
+		}
+	}
+	sort.Strings(reachable)
+	sort.Strings(forked)
+	clauses := make([]string, 0, len(classes))
+	for _, c := range reachable {
+		clauses = append(clauses, "CONFIRMED locally reachable for "+c+
+			" (floor "+findings.ClassConfirmFloor(c)+")")
+	}
+	for _, c := range forked {
+		clauses = append(clauses, "fork required for "+c+
+			" (floor "+findings.ClassConfirmFloor(c)+" > "+cap+")")
+	}
+	if len(clauses) == 0 {
+		return ""
+	}
+	return "evidence reachability: " + strings.Join(clauses, "; ")
+}
+
 // NextActions is _next_actions: the prioritized, concrete work list.
 func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, error) {
 	actions := []string{}
@@ -2139,6 +2210,22 @@ func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, er
 				"webv2 probes "+cid+" run --emit",
 				"cold probe surface — DISCOVERY is running with no probe "+
 					"emit on record, so the mechanical surface is unprobed"))
+		}
+	}
+
+	// Task 3 (defect 5): evidence reachability. G-01's accepted classes floor
+	// at E4 (dos-griefing, logic-error) and this box reaches E4 locally — the
+	// cockpit never said so, so CONFIRMED read as out of reach when it was
+	// not. Rendered immediately after the cold-probe warning; advisory only
+	// (no gate, proof or phase transition reads it) and silent when no open
+	// finding carries a class.
+	if campaign != nil {
+		classes, err := openFindingClasses(campaign)
+		if err != nil {
+			return nil, err
+		}
+		if line := ReachabilityLine(classes, boxLocalCap); line != "" {
+			actions = append(actions, line)
 		}
 	}
 

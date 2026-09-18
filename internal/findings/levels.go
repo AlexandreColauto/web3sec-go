@@ -176,6 +176,33 @@ func RequiredLevelFor(status, bugClass string) string {
 	return "E0"
 }
 
+// ClassConfirmFloor is class_confirm_floor: the class's CONFIRMED floor from
+// CLASS_CONFIRM_FLOOR, or the CONFIRMED default (E5) for a class the map does
+// not carry — the same conservative default RequiredLevelFor applies. A pure
+// read: it gates nothing.
+func ClassConfirmFloor(class string) string {
+	if f, ok := CLASS_CONFIRM_FLOOR[class]; ok {
+		return f
+	}
+	return STATUS_FLOOR["CONFIRMED"]
+}
+
+// ReachableLocally reports whether CONFIRMED for *class* can be reached in a
+// local harness: its floor sits at or below *cap* on the E0-E7 ladder. An
+// unknown cap has no ladder position, so nothing is reachable against it —
+// the same refusal LevelIndex makes instead of guessing an index.
+func ReachableLocally(class, cap string) bool {
+	floor, err := LevelIndex(ClassConfirmFloor(class))
+	if err != nil {
+		return false
+	}
+	limit, err := LevelIndex(cap)
+	if err != nil {
+		return false
+	}
+	return floor <= limit
+}
+
 // RequiredLevelForCampaign is required_level_for_campaign: the evidence
 // floor that applies IN THIS CAMPAIGN — the instance-level override when
 // the operator set one (floors.set_floor_policy: data, actor, written
