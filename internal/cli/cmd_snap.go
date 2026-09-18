@@ -15,6 +15,12 @@ import (
 	"websec/internal/validation"
 )
 
+// excludedInlineCap bounds the exclusion SUMMARY a pin/re-pin prints: past
+// this many pruned paths the console names the exact count and the first
+// excludedInlineCap paths and leaves the rest to the record object. At or
+// under the cap the list is printed whole (Task 8).
+const excludedInlineCap = 10
+
 func runSnap(root string, args []string, stdout io.Writer) error {
 	if helpRequested(stdout, "snap", args) {
 		return nil
@@ -164,8 +170,27 @@ func runSnap(root string, args []string, stdout io.Writer) error {
 				names = append(names, e.S)
 			}
 		}
-		fmt.Fprintf(stdout, "  EXCLUDED from the pin (bulk defaults + --exclude): %s — the pin does NOT cover these; "+
-			"re-pin without the prune if any of them is in scope\n", strings.Join(names, ", "))
+		// Task 8: the prune list is SCOPE, not a console dump — a monorepo
+		// re-pin can match hundreds of paths, and one line holding all of
+		// them is unreadable. Past excludedInlineCap the console prints the
+		// exact count and the first cap paths, and points at the record;
+		// the complete list stays in the record object (snapshot.json
+		// source.excluded, mirrored by the snapshot.excluded event). At or
+		// under the cap nothing is hidden: every path is named inline.
+		if len(names) > excludedInlineCap {
+			fmt.Fprintf(stdout, "  EXCLUDED from the pin (bulk defaults + "+
+				"--exclude): %d paths excluded (first %d): %s (+%d more — "+
+				"the full list is in the record's source.excluded) — the "+
+				"pin does NOT cover these; re-pin without the prune if any "+
+				"of them is in scope\n", len(names), excludedInlineCap,
+				strings.Join(names[:excludedInlineCap], ", "),
+				len(names)-excludedInlineCap)
+		} else {
+			fmt.Fprintf(stdout, "  EXCLUDED from the pin (bulk defaults + "+
+				"--exclude): %s — the pin does NOT cover these; re-pin "+
+				"without the prune if any of them is in scope\n",
+				strings.Join(names, ", "))
+		}
 	}
 	if deployment != "" {
 		snap, err = attachDeployment(c, snap, deployment)
