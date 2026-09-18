@@ -457,6 +457,52 @@ def recipe(state: dict) -> list[dict]:
     # ids are minted reference these and are never reached until they are.
     cid3 = state.get("cid3") or "<C3?>"
     snap2 = state.get("snap2") or "<SNAP2?>"
+    # The halves below each return their contiguous block of steps,
+    # concatenated in the same order as the single list this used to be.
+    ids = {"cid": cid, "f": f, "art": art, "ex": ex, "rung": rung,
+           "blind": blind, "mem": mem, "prc": prc, "dr": dr, "dr2": dr2,
+           "drsym": drsym, "snap_src": snap_src, "cid2": cid2,
+           "cid3": cid3, "snap2": snap2}
+    return (
+        recipe_p0(state, ids)
+        + recipe_p1_model(state, ids)
+            + recipe_p1_ingest(state, ids)
+            + recipe_p1_resolve(state, ids)
+            + recipe_p1_floors(state, ids)
+            + recipe_p1_gate(state, ids)
+            + recipe_p1_artifact(state, ids)
+            + recipe_p1_h5(state, ids)
+            + recipe_p1_h6(state, ids)
+            + recipe_p1_h7(state, ids)
+            + recipe_p1_close(state, ids)
+            + recipe_p2_exec(state, ids)
+            + recipe_p2_mint(state, ids)
+            + recipe_p2_ladder_start(state, ids)
+            + recipe_p2_ladder_explore(state, ids)
+            + recipe_p2_ladder_repro(state, ids)
+            + recipe_p2_ladder_disprove(state, ids)
+            + recipe_p2_chains(state, ids)
+            + recipe_p2_impact(state, ids)
+            + recipe_p3_index(state, ids)
+            + recipe_p3_probes(state, ids)
+            + recipe_p3_dismissal(state, ids)
+            + recipe_p3_dismissal_override(state, ids)
+            + recipe_p3_relations(state, ids)
+            + recipe_p3_memory(state, ids)
+            + recipe_p3_brief(state, ids)
+            + recipe_p3_baseline(state, ids)
+            + recipe_p3_economics(state, ids)
+            + recipe_p3_finish(state, ids)
+            + recipe_closing(state, ids)
+            + recipe_d19(state, ids)
+            + recipe_p4_sft(state, ids)
+            + recipe_p5_surface2(state, ids)
+    )
+
+
+def recipe_p0(state: dict, ids: dict) -> list[dict]:
+    """The P0 half: verbatim golden v1 steps."""
+    cid = ids['cid']
     return [
         {"name": "init", "exit": 0, "argv": ["init", "--program", "Golden"]},
         # ---- P0 half: verbatim golden v1 (docs/gates/P0-gate.md) ----------
@@ -472,6 +518,14 @@ def recipe(state: dict) -> list[dict]:
         {"name": "audit", "exit": 0, "argv": ["audit", cid]},
         {"name": "status2", "exit": 0, "argv": ["status", cid]},
         {"name": "audit-json", "exit": 0, "argv": ["audit", cid, "--json"]},
+
+    ]
+
+
+def recipe_p1_model(state: dict, ids: dict) -> list[dict]:
+    """P1 opening: model load/show, plan, and scope."""
+    cid = ids['cid']
+    return [
         # ---- P1 half -----------------------------------------------------
         {"name": "model-load", "exit": 0, "argv": ["model", cid, f"{FIX}/model.json"]},
         {"name": "model-show", "exit": 0, "argv": ["model", cid]},
@@ -482,6 +536,14 @@ def recipe(state: dict) -> list[dict]:
             "exit": 0,
             "argv": ["scope", cid, "--policy", f"{FIX}/policy.json"],
         },
+
+    ]
+
+
+def recipe_p1_ingest(state: dict, ids: dict) -> list[dict]:
+    """P1 findings: the four ingestions and dedup."""
+    cid = ids['cid']
+    return [
         {
             "name": "ingest-h1",
             "exit": 0,
@@ -543,6 +605,15 @@ def recipe(state: dict) -> list[dict]:
             ],
         },
         {"name": "dedup", "exit": 0, "argv": ["dedup", cid]},
+
+    ]
+
+
+def recipe_p1_resolve(state: dict, ids: dict) -> list[dict]:
+    """P1 candidate resolution, prioritization, repro queue."""
+    cid = ids['cid']
+    f = ids['f']
+    return [
         {
             "name": "resolve-same",
             "exit": 0,
@@ -573,6 +644,15 @@ def recipe(state: dict) -> list[dict]:
         },
         {"name": "prioritize", "exit": 0, "argv": ["prioritize", cid]},
         {"name": "repro-queue", "exit": 0, "argv": ["repro-queue", cid]},
+
+    ]
+
+
+def recipe_p1_floors(state: dict, ids: dict) -> list[dict]:
+    """P1 floors lifecycle, answered-priority, and plan pinning."""
+    cid = ids['cid']
+    f = ids['f']
+    return [
         {
             "name": "floors-set",
             "exit": 0,
@@ -622,6 +702,15 @@ def recipe(state: dict) -> list[dict]:
         },
         {"name": "plan-readonly", "exit": 0, "argv": ["plan", cid]},
         {"name": "plan-rebuild", "exit": 0, "argv": ["plan", cid, "--rebuild"]},
+
+    ]
+
+
+def recipe_p1_gate(state: dict, ids: dict) -> list[dict]:
+    """P1 gating: verdicts, recalls, gate runs, prove/waive."""
+    cid = ids['cid']
+    f = ids['f']
+    return [
         {
             "name": "verdict-h1",
             "exit": 0,
@@ -686,6 +775,14 @@ def recipe(state: dict) -> list[dict]:
             "exit": 0,
             "argv": ["prove", cid, "--stage", "learning"],
         },
+
+    ]
+
+
+def recipe_p1_artifact(state: dict, ids: dict) -> list[dict]:
+    """P1 artifact registration and listing."""
+    cid = ids['cid']
+    return [
         {
             "name": "artifact-register",
             "exit": 0,
@@ -706,6 +803,15 @@ def recipe(state: dict) -> list[dict]:
             "exit": 0,
             "argv": ["artifact-list", cid, "--kind", "report"],
         },
+
+    ]
+
+
+def recipe_p1_h5(state: dict, ids: dict) -> list[dict]:
+    """P1 h5: the finding ingested in a gate-passing state, moved to CONFIRMED."""
+    cid = ids['cid']
+    f = ids['f']
+    return [
         # h5 is ingested in a state the CONFIRMED gate accepts: a
         # reproduced attempt plus an E7 evidence item bound to the artifact
         # registered above. Its `gate` dry-run therefore PASSES (exit 0) —
@@ -776,6 +882,15 @@ def recipe(state: dict) -> list[dict]:
                 "golden",
             ],
         },
+
+    ]
+
+
+def recipe_p1_h6(state: dict, ids: dict) -> list[dict]:
+    """P1 h6: the capability GRANT, moved to CONFIRMED."""
+    cid = ids['cid']
+    f = ids['f']
+    return [
         # h6 GRANTS the pause capability and h7 REQUIRES it; both carry the
         # same gate-passing shape as h5 (reproduced attempt + E7 evidence
         # bound to the registered artifact), so both can be moved to
@@ -844,6 +959,15 @@ def recipe(state: dict) -> list[dict]:
                 "golden",
             ],
         },
+
+    ]
+
+
+def recipe_p1_h7(state: dict, ids: dict) -> list[dict]:
+    """P1 h7: the capability REQUIRE, moved to CONFIRMED."""
+    cid = ids['cid']
+    f = ids['f']
+    return [
         {
             "name": "ingest-h7",
             "exit": 0,
@@ -907,6 +1031,16 @@ def recipe(state: dict) -> list[dict]:
                 "golden",
             ],
         },
+
+    ]
+
+
+def recipe_p1_close(state: dict, ids: dict) -> list[dict]:
+    """P1 closing: invariants, budget, hint, answered lens."""
+    cid = ids['cid']
+    f = ids['f']
+    art = ids['art']
+    return [
         {
             "name": "invariant-verify",
             "exit": 0,
@@ -961,6 +1095,16 @@ def recipe(state: dict) -> list[dict]:
                 "golden",
             ],
         },
+
+    ]
+
+
+def recipe_p2_exec(state: dict, ids: dict) -> list[dict]:
+    """P2 exec ledger: dry-run, host run, failing run, views, classifier."""
+    cid = ids['cid']
+    f = ids['f']
+    ex = ids['ex']
+    return [
         {
             "name": "exec-dry",
             "exit": 0,
@@ -994,6 +1138,15 @@ def recipe(state: dict) -> list[dict]:
         {"name": "execs-json", "exit": 0, "argv": ["execs", cid, "--json"]},
         {"name": "execs-id", "exit": 0, "argv": ["execs", cid, "--id", ex[0]]},
         {"name": "classify", "exit": 0, "argv": ["classify", cid, ex[1]]},
+
+    ]
+
+
+def recipe_p2_mint(state: dict, ids: dict) -> list[dict]:
+    """P2 harness-seeded exec record and the mint path."""
+    cid = ids['cid']
+    f = ids['f']
+    return [
         # An out-of-band E4 exec record (harness-seeded: the default suite
         # stays docker-free) and the mint path that records an ATT-<6>
         # attempt plus an EV-<8> evidence item on h1.
@@ -1022,6 +1175,15 @@ def recipe(state: dict) -> list[dict]:
                 "foundry-test",
             ],
         },
+
+    ]
+
+
+def recipe_p2_ladder_start(state: dict, ids: dict) -> list[dict]:
+    """P2 variant ladder: start, show, first rung."""
+    cid = ids['cid']
+    f = ids['f']
+    return [
         # the full variant ladder lifecycle on the CONFIRMED h5: start ->
         # add_variant -> the five axes -> reproduce_rung (a seeded E4 record)
         # -> set_maximal -> complete -> report.
@@ -1050,6 +1212,15 @@ def recipe(state: dict) -> list[dict]:
                 "victim stakes",
             ],
         },
+
+    ]
+
+
+def recipe_p2_ladder_explore(state: dict, ids: dict) -> list[dict]:
+    """P2 variant ladder: the four explore axes."""
+    cid = ids['cid']
+    f = ids['f']
+    return [
         {
             "name": "ladder-explore-cap-saturation",
             "exit": 0,
@@ -1092,6 +1263,16 @@ def recipe(state: dict) -> list[dict]:
                 "considered, not applicable here",
             ],
         },
+
+    ]
+
+
+def recipe_p2_ladder_repro(state: dict, ids: dict) -> list[dict]:
+    """P2 variant ladder: last explore, seeded repro."""
+    cid = ids['cid']
+    f = ids['f']
+    rung = ids['rung']
+    return [
         {
             "name": "ladder-explore-ordering-permutation",
             "exit": 0,
@@ -1127,6 +1308,16 @@ def recipe(state: dict) -> list[dict]:
                 seeded_exec_id(1),
             ],
         },
+
+    ]
+
+
+def recipe_p2_ladder_disprove(state: dict, ids: dict) -> list[dict]:
+    """P2 variant ladder: both disprove GUARD branches, set-maximal, complete, report."""
+    cid = ids['cid']
+    f = ids['f']
+    rung = ids['rung']
+    return [
         # disprove: only the two GUARD branches are byte-comparable. The
         # happy path queues negative memory, which the reference writes as a
         # campaigns/<cid>/memory/MEM-*.json row PLUS a memory.queued event —
@@ -1162,6 +1353,15 @@ def recipe(state: dict) -> list[dict]:
             "argv": ["ladder", cid, "complete", f[4]],
         },
         {"name": "ladder-report", "exit": 0, "argv": ["ladder", cid, "report", f[4]]},
+
+    ]
+
+
+def recipe_p2_chains(state: dict, ids: dict) -> list[dict]:
+    """P2 capability graph, terminals, privileged, sequence coverage."""
+    cid = ids['cid']
+    f = ids['f']
+    return [
         # capability graph: h6 grants the pause capability h7 requires, so
         # the chain engine links them and proposes the pair. NOTE: `chains`
         # computes and REPORTS; it materializes nothing, and the reference
@@ -1181,6 +1381,15 @@ def recipe(state: dict) -> list[dict]:
             "exit": 0,
             "argv": ["sequence", "verify", cid, f[4]],
         },
+
+    ]
+
+
+def recipe_p2_impact(state: dict, ids: dict) -> list[dict]:
+    """P2 impact: priced, priced+artifact, UNPRICEABLE, incomplete refusal."""
+    cid = ids['cid']
+    f = ids['f']
+    return [
         # impact: priced, priced + E7 artifact mint, the UNPRICEABLE named
         # decision, and the documented exit-2 refusal of an incomplete one.
         {
@@ -1241,6 +1450,15 @@ def recipe(state: dict) -> list[dict]:
                 "no defensible USD figure",
             ],
         },
+
+    ]
+
+
+def recipe_p3_index(state: dict, ids: dict) -> list[dict]:
+    """P3 structural surface: index, sinks, prescreen over the snapshot."""
+    cid = ids['cid']
+    snap_src = ids['snap_src']
+    return [
         # ---- P3 half (golden v4, docs/gates/golden-v4.md) ----------------
         # Structural surface: index / sinks / prescreen over the target's
         # real Solidity (src/ + the probes/ fixture trees make_target
@@ -1263,6 +1481,15 @@ def recipe(state: dict) -> list[dict]:
             "exit": 0,
             "argv": ["prescreen", cid, "--src", snap_src, "--json"],
         },
+
+    ]
+
+
+def recipe_p3_probes(state: dict, ids: dict) -> list[dict]:
+    """P3 probe surface: run, list views, blank attestation, --emit."""
+    cid = ids['cid']
+    blind = ids['blind']
+    return [
         # Mechanical candidate surface: run (rows + published BLIND keys),
         # the operator view (all / one axis / json), the named blank
         # attestation that closes a BLIND axis, and --emit (plan
@@ -1323,6 +1550,17 @@ def recipe(state: dict) -> list[dict]:
             "argv": ["probes", cid, "run", "--emit"],
         },
         {"name": "plan-after-emit", "exit": 0, "argv": ["plan", cid]},
+
+    ]
+
+
+def recipe_p3_dismissal(state: dict, ids: dict) -> list[dict]:
+    """P3 B4/D1 disposition gate: the structural closure pair."""
+    cid = ids['cid']
+    dr = ids['dr']
+    dr2 = ids['dr2']
+    drsym = ids['drsym']
+    return [
         {
             "name": "probes-highrisk-json",
             "exit": 0,
@@ -1381,6 +1619,15 @@ def recipe(state: dict) -> list[dict]:
                 "golden",
             ],
         },
+
+    ]
+
+
+def recipe_p3_dismissal_override(state: dict, ids: dict) -> list[dict]:
+    """P3 B4/D1 disposition gate: dismissal refusal and the reasoned override."""
+    cid = ids['cid']
+    dr = ids['dr']
+    return [
         {
             "name": "answered-dismissal-refused",
             "exit": 2,
@@ -1444,6 +1691,15 @@ def recipe(state: dict) -> list[dict]:
                 "golden",
             ],
         },
+
+    ]
+
+
+def recipe_p3_relations(state: dict, ids: dict) -> list[dict]:
+    """P3 relations, resemble, corpus sweep."""
+    cid = ids['cid']
+    f = ids['f']
+    return [
         # Research memory graph (typed edges) + the derived capability delta.
         {
             "name": "relations-rebuild",
@@ -1459,6 +1715,17 @@ def recipe(state: dict) -> list[dict]:
         # pins the class-probe layer, the exposure ordering and the report
         # artifact byte-for-byte.
         {"name": "corpus-surface", "exit": 0, "argv": ["corpus-surface", cid]},
+
+    ]
+
+
+def recipe_p3_memory(state: dict, ids: dict) -> list[dict]:
+    """P3 negative memory: disprove, queue, approve, publish, globalize, shared."""
+    cid = ids['cid']
+    f = ids['f']
+    rung = ids['rung']
+    mem = ids['mem']
+    return [
         # Negative knowledge -> memory queue -> human approval -> publish to
         # the shared store -> globalize -> both-tier view. A fresh rung on
         # the CONFIRMED h7 is disproved (its ladder is untouched by P2), so
@@ -1517,6 +1784,15 @@ def recipe(state: dict) -> list[dict]:
         },
         {"name": "shared", "exit": 0, "argv": ["shared"]},
         {"name": "shared-verify", "exit": 0, "argv": ["shared", "--verify"]},
+
+    ]
+
+
+def recipe_p3_brief(state: dict, ids: dict) -> list[dict]:
+    """P3 operator cockpit: brief, report, recency."""
+    cid = ids['cid']
+    snap_src = ids['snap_src']
+    return [
         # Operator cockpit + report + recency.
         {"name": "brief", "exit": 0, "argv": ["brief", cid]},
         {"name": "brief-json", "exit": 0, "argv": ["brief", cid, "--json"]},
@@ -1540,6 +1816,15 @@ def recipe(state: dict) -> list[dict]:
                 "--json",
             ],
         },
+
+    ]
+
+
+def recipe_p3_baseline(state: dict, ids: dict) -> list[dict]:
+    """P3 baseline store lifecycle and forkdiff."""
+    cid = ids['cid']
+    snap_src = ids['snap_src']
+    return [
         # Baseline store: full lifecycle against ONE scratch store pinned by
         # WEBV2_BASELINES_DIR (D24: the reference hangs the store off its
         # own package root off cwd; the harness points it at
@@ -1585,6 +1870,16 @@ def recipe(state: dict) -> list[dict]:
             "argv": ["baseline", "remove", "golden-baseline"],
         },
         {"name": "baseline-list-after", "exit": 0, "argv": ["baseline", "list"]},
+
+    ]
+
+
+def recipe_p3_economics(state: dict, ids: dict) -> list[dict]:
+    """P3 economics: costs, yields, price table, price basis."""
+    cid = ids['cid']
+    f = ids['f']
+    prc = ids['prc']
+    return [
         # Economics: operator-reported costs, yield, the price table and the
         # price-basis pin.
         {
@@ -1640,6 +1935,14 @@ def recipe(state: dict) -> list[dict]:
         },
         {"name": "price-table", "exit": 0, "argv": ["price", cid, "table"]},
         {"name": "price-basis", "exit": 0, "argv": ["price-basis", cid, f[0], prc[0]]},
+
+    ]
+
+
+def recipe_p3_finish(state: dict, ids: dict) -> list[dict]:
+    """P3 env/doctor, the run halt, and campaign completion."""
+    cid = ids['cid']
+    return [
         # Environment + health, then the pipeline walk. `doctor --json`
         # reports campaign_state.json's byte size, which embeds the model
         # stage's prompt path (D25: the Go embed mirror adds an `assets/`
@@ -1669,12 +1972,28 @@ def recipe(state: dict) -> list[dict]:
                 "all golden passes closed with evidence",
             ],
         },
+
+    ]
+
+
+def recipe_closing(state: dict, ids: dict) -> list[dict]:
+    """Closing P0 verbs, now over the P1 state."""
+    cid = ids['cid']
+    return [
         # ---- closing half: same P0 verbs again, now over the P1 state ----
         {"name": "status-final", "exit": 0, "argv": ["status", cid]},
         {"name": "audit-final", "exit": 0, "argv": ["audit", cid]},
         {"name": "audit-json-final", "exit": 0, "argv": ["audit", cid, "--json"]},
         {"name": "log-tail", "exit": 0, "argv": ["log", cid, "--tail", "5"]},
         {"name": "verify-final", "exit": 0, "argv": ["verify", cid]},
+
+    ]
+
+
+def recipe_d19(state: dict, ids: dict) -> list[dict]:
+    """D19: a second campaign with deployment/chain pins."""
+    cid2 = ids['cid2']
+    return [
         {
             "name": "init-c2",
             "exit": 0,
@@ -1705,6 +2024,15 @@ def recipe(state: dict) -> list[dict]:
         {"name": "status-c2", "exit": 0, "argv": ["status", cid2]},
         {"name": "audit-c2", "exit": 0, "argv": ["audit", cid2]},
         {"name": "verify-c2", "exit": 0, "argv": ["verify", cid2]},
+
+    ]
+
+
+def recipe_p4_sft(state: dict, ids: dict) -> list[dict]:
+    """P4 sft verb group over the committed fixture store."""
+    cid = ids['cid']
+    f = ids['f']
+    return [
         # ---- P4 golden coverage (v5, T38) --------------------------------
         # The sft verb group over the committed fixture store (WEBV2_SFT_STORE
         # -> <root>/sft-store/examples.json, a per-twin copy). The store
@@ -1756,6 +2084,15 @@ def recipe(state: dict) -> list[dict]:
             "argv": ["sft", "export", "--partition", "training"],
         },
         {"name": "sft-backfill", "exit": 0, "argv": ["sft", "backfill", cid, f[0]]},
+
+    ]
+
+
+def recipe_p5_surface2(state: dict, ids: dict) -> list[dict]:
+    """P5 (G16): the second probe-surface campaign."""
+    cid3 = ids['cid3']
+    snap2 = ids['snap2']
+    return [
         {
             "name": "init-s2",
             "exit": 0,
@@ -1800,7 +2137,10 @@ def recipe(state: dict) -> list[dict]:
         {"name": "audit-s2", "exit": 0, "argv": ["audit", cid3]},
         {"name": "audit-json-s2", "exit": 0, "argv": ["audit", cid3, "--json"]},
         {"name": "verify-s2", "exit": 0, "argv": ["verify", cid3]},
+
     ]
+
+
 
 
 FID_RE = re.compile(r"ingested (F-[0-9a-f]+)")
@@ -1912,13 +2252,331 @@ def check_surface2(
     )
 
 
+def main_run_twin(twin: str, root: Path, target: Path, target2: Path,
+                  acc: dict) -> None:
+    """One twin's capture pass: fresh root, seeded stores, every step,
+    archived tree."""
+    roots = acc["roots"]
+    trees = acc["trees"]
+    captures = acc["captures"]
+    declared = acc["declared"]
+    states = acc["states"]
+    shutil.rmtree(root, ignore_errors=True)
+    root.mkdir(parents=True)
+    # The baseline store is pinned (WEBV2_BASELINES_DIR) at ONE scratch
+    # path so both twins print the same store path; reset it per twin
+    # so each starts from the same empty store.
+    shutil.rmtree(WORK / "baselines", ignore_errors=True)
+    # Golden v5 (T38): the per-twin sft store is a copy of the fixture
+    # inside the run root, so `sft split` mutates a throwaway file and
+    # the bytes after the split are archived + compared with the
+    # campaign tree. The shared-memory store is reset to the fixture's
+    # 20 published prior rows per twin, so publish/globalize/shared see
+    # the same starting store in both twins (previously the Go run saw
+    # the Python run's leftovers).
+    sft_store = root / "sft-store" / "examples.json"
+    sft_store.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(GO_ROOT / P4_SFT / "examples.json", sft_store)
+    shutil.rmtree(WORK / "shared-memory", ignore_errors=True)
+    shutil.copytree(GO_ROOT / P4_FIX / "shared-memory", WORK / "shared-memory")
+    roots[twin] = str(root)
+    caps = WORK / "captures" / twin
+    caps.mkdir(parents=True)
+    captures[twin] = []
+    declared[twin] = []
+    state = {
+        "cid": "",
+        "findings": [],
+        "artifacts": [],
+        "execs": [],
+        "rungs": [],
+        "target": str(target),
+        "snapshot": "",
+        "cid2": "",
+        "blind": [],
+        "mem": [],
+        "prc": [],
+        "dr": "",
+        "dr2": "",
+        "drsym": "",
+    }
+    # P5 (G16): the second surface campaign's target + ids. Appended
+    # keys only — every P0-P4 placeholder above resolves exactly as
+    # before, so no existing capture moves.
+    state["target2"] = str(target2)
+    state["snap2"] = ""
+    state["cid3"] = ""
+    states[twin] = state
+    main_run_steps(twin, root, sft_store, caps, state, acc)
+    archived = WORK / f"tree-{twin}"
+    shutil.rmtree(archived, ignore_errors=True)
+    shutil.move(str(root), str(archived))
+    trees[twin] = str(archived)
+
+
+def main_run_steps(twin: str, root: Path, sft_store: Path, caps: Path,
+                   state: dict, acc: dict) -> None:
+    """Rebuild the recipe per step, run it, capture it, and harvest the
+    ids it minted."""
+    captures = acc["captures"]
+    declared = acc["declared"]
+    # The step LIST is state-independent, but each step's argv embeds ids
+    # the pinned stream mints while the run proceeds, so it is rebuilt
+    # from the live state before every step.
+    n_steps = len(recipe(state))
+    i = 0
+    fid_base = 0
+    while i < n_steps:
+        st = recipe(state)[i]
+        argv = [str(a) for a in st.get("argv", [])]
+        name = st["name"]
+        if st.get("render"):
+            render_gate_pass_payload(state["artifacts"][0], st["render"])
+        if st.get("seed_exec"):
+            # Harness input, not twin output: the SAME externally-reported
+            # E4 record is written into both trees at this step (see the
+            # seed_exec docstring). The capture is a synthetic note so the
+            # step list stays parallel.
+            info = st["seed_exec"]
+            eid = seeded_exec_id(info["n"])
+            seed_exec(
+                root,
+                state["cid"],
+                i,
+                info["n"],
+                state["findings"][info["finding"]],
+                info["command"],
+                eid,
+            )
+            code = 0
+            err = ""
+            out = (
+                f"seeded externally-reported exec {eid} "
+                f"(profile docker-networkless, exit 0)\n"
+            )
+        else:
+            code, out, err = run_step(twin, root, argv, i, fid_base, str(sft_store))
+        (caps / f"{i:02d}-{name}.out").write_text(out)
+        (caps / f"{i:02d}-{name}.err").write_text(err)
+        (caps / f"{i:02d}-{name}.exit").write_text(str(code))
+        captures[twin].append(
+            {
+                "name": name,
+                "argv": argv,
+                "exit": code,
+                "expect_exit": st.get("exit", 0),
+            }
+        )
+        declared[twin].append(
+            {"err": st.get("err") or [], "out": st.get("out") or []}
+        )
+        main_harvest_ids(twin, i, out, st, state)
+        if st.get("findings"):
+            fid_base += st["findings"]
+        main_harvest_snapshots(twin, i, out, st, state, root)
+        main_harvest_views(twin, i, out, st, state)
+        main_harvest_tail(twin, i, out, st, state)
+        if code != st.get("exit", 0):
+            print(
+                f"[warn] {twin} step {i:02d}-{name}: exit {code}, "
+                f"expected {st['exit']}: {err.strip()[:200]}"
+            )
+        i += 1
+
+
+def main_harvest_ids(twin: str, i: int, out: str, st: dict,
+                     state: dict) -> None:
+    """Harvest the pinned-stream ids a step's stdout minted
+    (findings/artifacts/execs/rungs/campaigns)."""
+    name = st["name"]
+    if st.get("findings"):
+        for _ in range(st["findings"]):
+            m = FID_RE.search(out)
+            if not m:
+                sys.exit(
+                    f"{twin} step {i:02d}-{name}: no finding id in stdout:\n{out}"
+                )
+            state["findings"].append(m.group(1))
+    if st.get("artifacts"):
+        for _ in range(st["artifacts"]):
+            m = ART_RE.search(out)
+            if not m:
+                sys.exit(
+                    f"{twin} step {i:02d}-{name}: no artifact id in stdout:\n{out}"
+                )
+            state["artifacts"].append(m.group(1))
+    if st.get("execs"):
+        for _ in range(st["execs"]):
+            m = EXEC_RE.search(out)
+            if not m:
+                sys.exit(
+                    f"{twin} step {i:02d}-{name}: no exec id in stdout:\n{out}"
+                )
+            state["execs"].append(m.group(1))
+    if st.get("rungs"):
+        for _ in range(st["rungs"]):
+            m = RUNG_RE.search(out)
+            if not m:
+                sys.exit(
+                    f"{twin} step {i:02d}-{name}: no rung id in stdout:\n{out}"
+                )
+            state["rungs"].append(m.group(1))
+    if st.get("cid2"):
+        m = re.search(r"C-[0-9a-f]+", out)
+        if not m:
+            sys.exit(
+                f"{twin} step {i:02d}-{name}: no campaign id in stdout:\n{out}"
+            )
+        state["cid2"] = m.group(0)
+    if st.get("cid3"):
+        # P5 (G16): the third campaign's id, minted by init-s2 from
+        # the pinned per-step stream (deterministic across runs).
+        m = re.search(r"C-[0-9a-f]+", out)
+        if not m:
+            sys.exit(
+                f"{twin} step {i:02d}-{name}: no campaign id in stdout:\n{out}"
+            )
+        state["cid3"] = m.group(0)
+
+
+def main_harvest_snapshots(twin: str, i: int, out: str, st: dict,
+                           state: dict, root: Path) -> None:
+    """Resolve the content-addressed snapshot roots and run the surface2
+    rot gate."""
+    name = st["name"]
+    if st.get("snapshot2"):
+        # P5 (G16): the surface2 snapshot root (content-addressed,
+        # under the THIRD campaign): the canonical --src for the P5
+        # index step.
+        snap_dir = root / "campaigns" / state["cid3"] / "snapshots"
+        snaps = sorted(p for p in snap_dir.iterdir() if p.is_dir())
+        if not snaps:
+            sys.exit(
+                f"{twin} step {i:02d}-{name}: no snapshot dir under {snap_dir}"
+            )
+        state["snap2"] = str(snaps[-1])
+    if st.get("surface2"):
+        # P5 (G16): the rot gate — every axis carries >=1 row and
+        # the artifact validates against probe_surface.schema.json,
+        # or the run dies here naming the dark axis.
+        check_surface2(twin, i, name, out, root, state["cid3"])
+    if st.get("snapshot"):
+        # The active snapshot root (content-addressed, identical in
+        # both twins): the canonical --src for every index-consuming
+        # step, and the tree the closing audit re-indexes.
+        snap_dir = root / "campaigns" / state["cid"] / "snapshots"
+        snaps = sorted(p for p in snap_dir.iterdir() if p.is_dir())
+        if not snaps:
+            sys.exit(
+                f"{twin} step {i:02d}-{name}: no snapshot dir under {snap_dir}"
+            )
+        state["snapshot"] = str(snaps[-1])
+
+
+def main_harvest_views(twin: str, i: int, out: str, st: dict,
+                       state: dict) -> None:
+    """Read the probe JSON views back into state (the blind axis, the
+    high-risk rows)."""
+    name = st["name"]
+    if st.get("blind"):
+        # The BLIND axis the probes view published: the FIRST axis
+        # (in the report's fixed order) whose status is "blind" and
+        # which published at least one key. Both twins must select
+        # the same one, or `probes blank` diverges immediately.
+        try:
+            doc = json.loads(out)
+        except ValueError as exc:
+            sys.exit(f"{twin} step {i:02d}-{name}: not JSON: {exc}")
+        for ax in doc.get("axes") or []:
+            keys = ax.get("blind") or []
+            if ax.get("status") == "blind" and keys:
+                state["blind"] = [ax.get("axis"), keys[0].get("key")]
+                break
+        if not state["blind"]:
+            sys.exit(
+                f"{twin} step {i:02d}-{name}: no blind axis "
+                f"published:\n{out[:400]}"
+            )
+    if st.get("dr"):
+        # The first high-risk probe row's plan priority, in surface
+        # order: tier 0 (the probe's most serious claim) or
+        # assertion_gap >= 3 (the row asserts far beyond its
+        # evidence). Both are what checkDismissalGate protects, so a
+        # surface that stopped producing one means this block of the
+        # recipe lost its subject — fail loudly rather than silently
+        # driving the gate with a harmless row.
+        try:
+            doc = json.loads(out)
+        except ValueError as exc:
+            sys.exit(f"{twin} step {i:02d}-{name}: not JSON: {exc}")
+        for row in doc.get("surface_rows") or []:
+            tier = row.get("tier") or 0
+            gap = row.get("assertion_gap") or 0
+            if not ((tier == 0 or gap >= 3) and row.get("priority_id")):
+                continue
+            if not state.get("dr"):
+                state["dr"] = row["priority_id"]
+                # the row's own code, taken from the citation the row
+                # publishes: the v3 closure below has to name it, so a
+                # surface that stopped exposing anchors fails here
+                # rather than silently weakening the step.
+                for anchor in row.get("anchors") or []:
+                    base = anchor.split("/")[-1].split("#")[0]
+                    if base.endswith(".sol"):
+                        state["drsym"] = base[: -len(".sol")]
+                        break
+            elif not state.get("dr2"):
+                state["dr2"] = row["priority_id"]
+        if not state.get("dr"):
+            sys.exit(
+                f"{twin} step {i:02d}-{name}: no high-risk probe "
+                f"row in the surface:\n{out[:400]}"
+            )
+        if not state.get("dr2"):
+            sys.exit(
+                f"{twin} step {i:02d}-{name}: the surface carries "
+                f"only one high-risk row, so the v3 accept step "
+                f"has no second subject:\n{out[:400]}"
+            )
+        if not state.get("drsym"):
+            sys.exit(
+                f"{twin} step {i:02d}-{name}: the high-risk row "
+                f"publishes no .sol anchor to cite:\n{out[:400]}"
+            )
+
+
+def main_harvest_tail(twin: str, i: int, out: str, st: dict,
+                      state: dict) -> None:
+    """Harvest the remaining id families (memory, price) and the init
+    campaign id."""
+    name = st["name"]
+    if st.get("memory"):
+        m = re.search(r"MEM-[0-9a-f]+", out)
+        if not m:
+            sys.exit(
+                f"{twin} step {i:02d}-{name}: no memory id in stdout:\n{out}"
+            )
+        state["mem"].append(m.group(0))
+    if st.get("price"):
+        m = re.search(r"PRC-[0-9a-f]+", out)
+        if not m:
+            sys.exit(
+                f"{twin} step {i:02d}-{name}: no price id in stdout:\n{out}"
+            )
+        state["prc"].append(m.group(0))
+    if name == "init":
+        m = re.search(r"C-[0-9a-f]+", out)
+        if not m:
+            sys.exit(f"{twin} init did not print a campaign id:\n{out}")
+        state["cid"] = m.group(0)
+
+
 def main() -> None:
     shutil.rmtree(WORK, ignore_errors=True)
     (WORK / "captures").mkdir(parents=True)
     build_go()
     target = make_target()
     target2 = make_surface2_target()
-
     roots: dict[str, str] = {}
     trees: dict[str, str] = {}
     captures: dict[str, list] = {}
@@ -1926,6 +2584,8 @@ def main() -> None:
     # recipe steps and check-golden's check_steps).
     declared: dict[str, list] = {}
     states: dict[str, dict] = {}
+    acc = {"roots": roots, "trees": trees, "captures": captures,
+           "declared": declared, "states": states}
     # GO-ONLY (Python twin retired — Go is the source of truth). The single
     # Go run uses one root path; every event hash covers absolute artifact
     # paths, so the archived tree is self-consistent. The run is captured
@@ -1933,272 +2593,7 @@ def main() -> None:
     # to validate against the recipe's declared exit codes.
     root = WORK / "root"
     for twin in ("go",):
-        shutil.rmtree(root, ignore_errors=True)
-        root.mkdir(parents=True)
-        # The baseline store is pinned (WEBV2_BASELINES_DIR) at ONE scratch
-        # path so both twins print the same store path; reset it per twin
-        # so each starts from the same empty store.
-        shutil.rmtree(WORK / "baselines", ignore_errors=True)
-        # Golden v5 (T38): the per-twin sft store is a copy of the fixture
-        # inside the run root, so `sft split` mutates a throwaway file and
-        # the bytes after the split are archived + compared with the
-        # campaign tree. The shared-memory store is reset to the fixture's
-        # 20 published prior rows per twin, so publish/globalize/shared see
-        # the same starting store in both twins (previously the Go run saw
-        # the Python run's leftovers).
-        sft_store = root / "sft-store" / "examples.json"
-        sft_store.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(GO_ROOT / P4_SFT / "examples.json", sft_store)
-        shutil.rmtree(WORK / "shared-memory", ignore_errors=True)
-        shutil.copytree(GO_ROOT / P4_FIX / "shared-memory", WORK / "shared-memory")
-        roots[twin] = str(root)
-        caps = WORK / "captures" / twin
-        caps.mkdir(parents=True)
-        captures[twin] = []
-        declared[twin] = []
-        state = {
-            "cid": "",
-            "findings": [],
-            "artifacts": [],
-            "execs": [],
-            "rungs": [],
-            "target": str(target),
-            "snapshot": "",
-            "cid2": "",
-            "blind": [],
-            "mem": [],
-            "prc": [],
-            "dr": "",
-            "dr2": "",
-            "drsym": "",
-        }
-        # P5 (G16): the second surface campaign's target + ids. Appended
-        # keys only — every P0-P4 placeholder above resolves exactly as
-        # before, so no existing capture moves.
-        state["target2"] = str(target2)
-        state["snap2"] = ""
-        state["cid3"] = ""
-        states[twin] = state
-        # The step LIST is state-independent, but each step's argv embeds ids
-        # the pinned stream mints while the run proceeds, so it is rebuilt
-        # from the live state before every step.
-        n_steps = len(recipe(state))
-        i = 0
-        fid_base = 0
-        while i < n_steps:
-            st = recipe(state)[i]
-            argv = [str(a) for a in st.get("argv", [])]
-            name = st["name"]
-            if st.get("render"):
-                render_gate_pass_payload(state["artifacts"][0], st["render"])
-            if st.get("seed_exec"):
-                # Harness input, not twin output: the SAME externally-reported
-                # E4 record is written into both trees at this step (see the
-                # seed_exec docstring). The capture is a synthetic note so the
-                # step list stays parallel.
-                info = st["seed_exec"]
-                eid = seeded_exec_id(info["n"])
-                seed_exec(
-                    root,
-                    state["cid"],
-                    i,
-                    info["n"],
-                    state["findings"][info["finding"]],
-                    info["command"],
-                    eid,
-                )
-                code = 0
-                err = ""
-                out = (
-                    f"seeded externally-reported exec {eid} "
-                    f"(profile docker-networkless, exit 0)\n"
-                )
-            else:
-                code, out, err = run_step(twin, root, argv, i, fid_base, str(sft_store))
-            (caps / f"{i:02d}-{name}.out").write_text(out)
-            (caps / f"{i:02d}-{name}.err").write_text(err)
-            (caps / f"{i:02d}-{name}.exit").write_text(str(code))
-            captures[twin].append(
-                {
-                    "name": name,
-                    "argv": argv,
-                    "exit": code,
-                    "expect_exit": st.get("exit", 0),
-                }
-            )
-            declared[twin].append(
-                {"err": st.get("err") or [], "out": st.get("out") or []}
-            )
-            if st.get("findings"):
-                for _ in range(st["findings"]):
-                    m = FID_RE.search(out)
-                    if not m:
-                        sys.exit(
-                            f"{twin} step {i:02d}-{name}: no finding id in stdout:\n{out}"
-                        )
-                    state["findings"].append(m.group(1))
-                fid_base += st["findings"]
-            if st.get("artifacts"):
-                for _ in range(st["artifacts"]):
-                    m = ART_RE.search(out)
-                    if not m:
-                        sys.exit(
-                            f"{twin} step {i:02d}-{name}: no artifact id in stdout:\n{out}"
-                        )
-                    state["artifacts"].append(m.group(1))
-            if st.get("execs"):
-                for _ in range(st["execs"]):
-                    m = EXEC_RE.search(out)
-                    if not m:
-                        sys.exit(
-                            f"{twin} step {i:02d}-{name}: no exec id in stdout:\n{out}"
-                        )
-                    state["execs"].append(m.group(1))
-            if st.get("rungs"):
-                for _ in range(st["rungs"]):
-                    m = RUNG_RE.search(out)
-                    if not m:
-                        sys.exit(
-                            f"{twin} step {i:02d}-{name}: no rung id in stdout:\n{out}"
-                        )
-                    state["rungs"].append(m.group(1))
-            if st.get("cid2"):
-                m = re.search(r"C-[0-9a-f]+", out)
-                if not m:
-                    sys.exit(
-                        f"{twin} step {i:02d}-{name}: no campaign id in stdout:\n{out}"
-                    )
-                state["cid2"] = m.group(0)
-            if st.get("cid3"):
-                # P5 (G16): the third campaign's id, minted by init-s2 from
-                # the pinned per-step stream (deterministic across runs).
-                m = re.search(r"C-[0-9a-f]+", out)
-                if not m:
-                    sys.exit(
-                        f"{twin} step {i:02d}-{name}: no campaign id in stdout:\n{out}"
-                    )
-                state["cid3"] = m.group(0)
-            if st.get("snapshot2"):
-                # P5 (G16): the surface2 snapshot root (content-addressed,
-                # under the THIRD campaign): the canonical --src for the P5
-                # index step.
-                snap_dir = root / "campaigns" / state["cid3"] / "snapshots"
-                snaps = sorted(p for p in snap_dir.iterdir() if p.is_dir())
-                if not snaps:
-                    sys.exit(
-                        f"{twin} step {i:02d}-{name}: no snapshot dir under {snap_dir}"
-                    )
-                state["snap2"] = str(snaps[-1])
-            if st.get("surface2"):
-                # P5 (G16): the rot gate — every axis carries >=1 row and
-                # the artifact validates against probe_surface.schema.json,
-                # or the run dies here naming the dark axis.
-                check_surface2(twin, i, name, out, root, state["cid3"])
-            if st.get("snapshot"):
-                # The active snapshot root (content-addressed, identical in
-                # both twins): the canonical --src for every index-consuming
-                # step, and the tree the closing audit re-indexes.
-                snap_dir = root / "campaigns" / state["cid"] / "snapshots"
-                snaps = sorted(p for p in snap_dir.iterdir() if p.is_dir())
-                if not snaps:
-                    sys.exit(
-                        f"{twin} step {i:02d}-{name}: no snapshot dir under {snap_dir}"
-                    )
-                state["snapshot"] = str(snaps[-1])
-            if st.get("blind"):
-                # The BLIND axis the probes view published: the FIRST axis
-                # (in the report's fixed order) whose status is "blind" and
-                # which published at least one key. Both twins must select
-                # the same one, or `probes blank` diverges immediately.
-                try:
-                    doc = json.loads(out)
-                except ValueError as exc:
-                    sys.exit(f"{twin} step {i:02d}-{name}: not JSON: {exc}")
-                for ax in doc.get("axes") or []:
-                    keys = ax.get("blind") or []
-                    if ax.get("status") == "blind" and keys:
-                        state["blind"] = [ax.get("axis"), keys[0].get("key")]
-                        break
-                if not state["blind"]:
-                    sys.exit(
-                        f"{twin} step {i:02d}-{name}: no blind axis "
-                        f"published:\n{out[:400]}"
-                    )
-            if st.get("dr"):
-                # The first high-risk probe row's plan priority, in surface
-                # order: tier 0 (the probe's most serious claim) or
-                # assertion_gap >= 3 (the row asserts far beyond its
-                # evidence). Both are what checkDismissalGate protects, so a
-                # surface that stopped producing one means this block of the
-                # recipe lost its subject — fail loudly rather than silently
-                # driving the gate with a harmless row.
-                try:
-                    doc = json.loads(out)
-                except ValueError as exc:
-                    sys.exit(f"{twin} step {i:02d}-{name}: not JSON: {exc}")
-                for row in doc.get("surface_rows") or []:
-                    tier = row.get("tier") or 0
-                    gap = row.get("assertion_gap") or 0
-                    if not ((tier == 0 or gap >= 3) and row.get("priority_id")):
-                        continue
-                    if not state.get("dr"):
-                        state["dr"] = row["priority_id"]
-                        # the row's own code, taken from the citation the row
-                        # publishes: the v3 closure below has to name it, so a
-                        # surface that stopped exposing anchors fails here
-                        # rather than silently weakening the step.
-                        for anchor in row.get("anchors") or []:
-                            base = anchor.split("/")[-1].split("#")[0]
-                            if base.endswith(".sol"):
-                                state["drsym"] = base[: -len(".sol")]
-                                break
-                    elif not state.get("dr2"):
-                        state["dr2"] = row["priority_id"]
-                if not state.get("dr"):
-                    sys.exit(
-                        f"{twin} step {i:02d}-{name}: no high-risk probe "
-                        f"row in the surface:\n{out[:400]}"
-                    )
-                if not state.get("dr2"):
-                    sys.exit(
-                        f"{twin} step {i:02d}-{name}: the surface carries "
-                        f"only one high-risk row, so the v3 accept step "
-                        f"has no second subject:\n{out[:400]}"
-                    )
-                if not state.get("drsym"):
-                    sys.exit(
-                        f"{twin} step {i:02d}-{name}: the high-risk row "
-                        f"publishes no .sol anchor to cite:\n{out[:400]}"
-                    )
-            if st.get("memory"):
-                m = re.search(r"MEM-[0-9a-f]+", out)
-                if not m:
-                    sys.exit(
-                        f"{twin} step {i:02d}-{name}: no memory id in stdout:\n{out}"
-                    )
-                state["mem"].append(m.group(0))
-            if st.get("price"):
-                m = re.search(r"PRC-[0-9a-f]+", out)
-                if not m:
-                    sys.exit(
-                        f"{twin} step {i:02d}-{name}: no price id in stdout:\n{out}"
-                    )
-                state["prc"].append(m.group(0))
-            if name == "init":
-                m = re.search(r"C-[0-9a-f]+", out)
-                if not m:
-                    sys.exit(f"{twin} init did not print a campaign id:\n{out}")
-                state["cid"] = m.group(0)
-            if code != st.get("exit", 0):
-                print(
-                    f"[warn] {twin} step {i:02d}-{name}: exit {code}, "
-                    f"expected {st['exit']}: {err.strip()[:200]}"
-                )
-            i += 1
-        archived = WORK / f"tree-{twin}"
-        shutil.rmtree(archived, ignore_errors=True)
-        shutil.move(str(root), str(archived))
-        trees[twin] = str(archived)
+        main_run_twin(twin, root, target, target2, acc)
 
     # Declared output markers, parallel to `recipe` (None where a step
     # declares none). check-golden validates them: an exit code says a
