@@ -20,7 +20,7 @@ func TestTrackedSurfacesAbsentWithoutModel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if hasKey(b, "tracked_surfaces") {
+	if validation.HasKey(b, "tracked_surfaces") {
 		t.Fatal("brief without components must not carry tracked_surfaces")
 	}
 }

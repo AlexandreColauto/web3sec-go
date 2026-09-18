@@ -74,7 +74,7 @@ func logHypothesisRequest(campaign *state.Campaign,
 // claim -> title and root_cause.description, target -> affected[0], attacker
 // defaulted, exploit_sequence carried through only when non-empty.
 func hypothesisPayload(raw validation.Value) validation.Value {
-	target := asObj(validation.ObjAt(raw, "target"))
+	target := validation.AsObj(validation.ObjAt(raw, "target"))
 	attacker := validation.ObjAt(raw, "attacker")
 	if attacker.Kind != validation.Obj {
 		attacker = validation.VObj(
@@ -273,7 +273,7 @@ func SubmitReproducerRequest(campaign *state.Campaign,
 		validation.KV{K: "snapshot_id", V: validation.ObjAt(raw, "snapshot_id")},
 		validation.KV{K: "execution_profile", V: validation.ObjAt(raw, "execution_profile")},
 		validation.KV{K: "min_evidence_level",
-			V: validation.ObjAt(asObj(validation.ObjAt(raw, "success_criteria")), "min_evidence_level")},
+			V: validation.ObjAt(validation.AsObj(validation.ObjAt(raw, "success_criteria")), "min_evidence_level")},
 		validation.KV{K: "request_sha256", V: validation.VStr(ContextHash(raw))})
 	if _, err := campaign.Log("model.reproducer_request", &fid, &data); err != nil {
 		return validation.VNull(), err
@@ -282,12 +282,6 @@ func SubmitReproducerRequest(campaign *state.Campaign,
 }
 
 // asObj returns an object or an empty one.
-func asObj(v validation.Value) validation.Value {
-	if v.Kind == validation.Obj {
-		return v
-	}
-	return validation.VObj()
-}
 
 // copyValue is a deep copy of a Value (Python's dict(a)).
 func copyValue(v validation.Value) validation.Value {

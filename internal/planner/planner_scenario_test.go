@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -518,7 +519,7 @@ func TestDivergenceCountsAReasonlessAnswerAsOpen(t *testing.T) {
 	for _, m := range listOf(div, "missing") {
 		subjects = append(subjects, validation.ObjStr(m, "subject"))
 	}
-	if !inList("L-01", subjects) {
+	if !slices.Contains(subjects, "L-01") {
 		t.Fatalf("a reasonless answer must count as open: %v", subjects)
 	}
 }

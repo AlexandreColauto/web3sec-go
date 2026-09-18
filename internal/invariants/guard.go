@@ -7,6 +7,7 @@ package invariants
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"websec/internal/state"
@@ -45,7 +46,7 @@ func AssertInvariantsVerified(c *state.Campaign, finding validation.Value) error
 				"registry — seed it or correct the id", iid))
 			continue
 		}
-		if hasKey(doc, iid) || validation.ObjStr(e, "source") == "documented" {
+		if validation.HasKey(doc, iid) || validation.ObjStr(e, "source") == "documented" {
 			continue
 		}
 		if !IsVerified(e, c, iid, events) {
@@ -177,7 +178,7 @@ func invariantIDs(finding validation.Value) []string {
 			continue
 		}
 		nid := normalizeValue(id)
-		if nid == "" || inList(ids, nid) {
+		if nid == "" || slices.Contains(ids, nid) {
 			continue
 		}
 		ids = append(ids, nid)

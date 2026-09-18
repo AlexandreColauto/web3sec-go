@@ -18,6 +18,7 @@ package metrics
 
 import (
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"websec/internal/findings"
@@ -155,7 +156,7 @@ func linkedCaseIDs(c *state.Campaign, notes *[]string) []string {
 	add := func(items []validation.Value) {
 		for _, item := range items {
 			if item.Kind == validation.Str && item.S != "" &&
-				!contains(seen, item.S) {
+				!slices.Contains(seen, item.S) {
 				seen = append(seen, item.S)
 			}
 		}
@@ -398,7 +399,7 @@ func caseLinkedCounts(c *state.Campaign, fnds []validation.Value,
 			continue
 		}
 		gold := validation.ObjStr(validation.ObjAt(*caseDoc, "gold"), "outcome")
-		if !inList(gold, outcomeValues) {
+		if !slices.Contains(outcomeValues, gold) {
 			*notes = append(*notes, "case "+caseID+": gold outcome "+
 				validation.PyReprStr(gold)+" unrecognized — skipped")
 			continue
@@ -751,24 +752,6 @@ func setOf(items ...string) map[string]struct{} {
 func inSet(s map[string]struct{}, key string) bool {
 	_, ok := s[key]
 	return ok
-}
-
-func inList(s string, list []string) bool {
-	for _, x := range list {
-		if x == s {
-			return true
-		}
-	}
-	return false
-}
-
-func contains(xs []string, want string) bool {
-	for _, x := range xs {
-		if x == want {
-			return true
-		}
-	}
-	return false
 }
 
 func truthy(v validation.Value) bool {

@@ -64,7 +64,7 @@ func TestChainAssumptionsAbsentForLegacy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if hasKey(b, "chain_assumption_lines") {
+	if validation.HasKey(b, "chain_assumption_lines") {
 		t.Fatal("legacy brief must not carry chain_assumption_lines")
 	}
 }

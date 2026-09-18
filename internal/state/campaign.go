@@ -318,14 +318,6 @@ func ListCampaigns(root string) ([]string, error) {
 
 // hasKey reports whether the object carries the key (Python `in`, distinct
 // from a present-but-null value).
-func hasKey(v validation.Value, key string) bool {
-	for _, kv := range v.O {
-		if kv.K == key {
-			return true
-		}
-	}
-	return false
-}
 
 // PinSnapshot is pin_snapshot: schema-validate the snapshot, append its row
 // ({snapshot_id, pass, pinned, registered_at}, exact key order) unless the
@@ -358,11 +350,11 @@ func (c *Campaign) PinSnapshot(snap validation.Value) (string, error) {
 	}
 	if !existing {
 		pass := validation.ObjAt(validation.ObjAt(st, "budget"), "pass")
-		if hasKey(snap, "pass") {
+		if validation.HasKey(snap, "pass") {
 			pass = validation.ObjAt(snap, "pass")
 		}
 		pinned := validation.VBool(true)
-		if hasKey(snap, "pinned") {
+		if validation.HasKey(snap, "pinned") {
 			pinned = validation.ObjAt(snap, "pinned")
 		}
 		rows.A = append(rows.A, validation.VObj(

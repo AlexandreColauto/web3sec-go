@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"unicode/utf8"
@@ -93,7 +94,7 @@ func IngestRecord(record validation.Value, maps *validation.Value) (Result, erro
 		return Result{}, errors.New("an ingestion record must be a dict")
 	}
 	dataset := validation.ObjStr(record, "dataset")
-	if !inList(dataset, datasets) {
+	if !slices.Contains(datasets, dataset) {
 		return Result{}, fmt.Errorf("record %s: unknown dataset %s",
 			validation.PyRepr(validation.ObjAt(record, "id")),
 			validation.PyRepr(validation.ObjAt(record, "dataset")))
@@ -103,13 +104,13 @@ func IngestRecord(record validation.Value, maps *validation.Value) (Result, erro
 		return Result{}, errors.New("record 'id' must be a non-empty string")
 	}
 	outcome := validation.ObjStr(record, "outcome")
-	if !inList(outcome, Outcomes) {
+	if !slices.Contains(Outcomes, outcome) {
 		return Result{}, fmt.Errorf("record %s: unknown outcome %s; expected "+
 			"one of %s", validation.PyReprStr(rid.S),
 			validation.PyRepr(validation.ObjAt(record, "outcome")), pyTuple(Outcomes))
 	}
 	partition := validation.ObjStr(record, "partition")
-	if !inList(partition, []string{"dev", "held-out", "training"}) {
+	if !slices.Contains([]string{"dev", "held-out", "training"}, partition) {
 		return Result{}, fmt.Errorf("record %s: unknown partition %s",
 			validation.PyReprStr(rid.S),
 			validation.PyRepr(validation.ObjAt(record, "partition")))
@@ -567,15 +568,6 @@ func addCaseIfAny(result Result, summary *PublishSummary) error {
 // ---- small helpers -------------------------------------------------------
 
 func strPtr(s string) *string { return &s }
-
-func inList(s string, list []string) bool {
-	for _, x := range list {
-		if x == s {
-			return true
-		}
-	}
-	return false
-}
 
 // truthy is Python's bool() over the JSON values the records carry.
 func truthy(v validation.Value) bool {

@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 
@@ -573,17 +574,17 @@ func TestModelTrajectoryExcludesNonModelEvents(t *testing.T) {
 	for _, e := range events {
 		allTypes = append(allTypes, validation.ObjStr(e, "type"))
 	}
-	if !containsStr(allTypes, "finding.ingested") ||
-		!containsStr(allTypes, "snapshot.pinned") {
+	if !slices.Contains(allTypes, "finding.ingested") ||
+		!slices.Contains(allTypes, "snapshot.pinned") {
 		t.Fatalf("fixture events = %v", allTypes)
 	}
 	trajTypes := trajTypes(t, c)
-	if containsStr(trajTypes, "finding.ingested") ||
-		containsStr(trajTypes, "snapshot.pinned") {
+	if slices.Contains(trajTypes, "finding.ingested") ||
+		slices.Contains(trajTypes, "snapshot.pinned") {
 		t.Errorf("trajectory leaked non-model events: %v", trajTypes)
 	}
 	for _, ty := range trajTypes {
-		if !containsStr(ModelEventTypeNames(), ty) {
+		if !slices.Contains(ModelEventTypeNames(), ty) {
 			t.Errorf("unknown trajectory type %s", ty)
 		}
 	}
@@ -1172,15 +1173,6 @@ func eqStrings(a, b []string) bool {
 		}
 	}
 	return true
-}
-
-func containsStr(xs []string, want string) bool {
-	for _, x := range xs {
-		if x == want {
-			return true
-		}
-	}
-	return false
 }
 
 // jsonV parses a JSON literal for order-insensitive comparison.

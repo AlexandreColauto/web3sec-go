@@ -205,7 +205,7 @@ func ClassReport(bugClass *string) validation.Value {
 	_, known := knownRaw()[*bugClass]
 	suggestions := validation.VArr()
 	if !known {
-		suggestions = validation.StrArr(closeMatches(*bugClass, sortedKeys(knownRaw()), 3, 0.6))
+		suggestions = validation.StrArr(closeMatches(*bugClass, validation.SortedKeys(knownRaw()), 3, 0.6))
 	}
 	return validation.VObj(
 		kv("class", validation.VStr(*bugClass)),
@@ -260,7 +260,7 @@ func ClassAdvisory(bugClass *string, campaign *state.Campaign) string {
 	msg := fmt.Sprintf("unknown class %s; known classes: %s; "+
 		"no floor-table entry -> CONFIRMED defaults to %s "+
 		"(the most conservative floor).",
-		pyReprPtr(bugClass), strings.Join(sortedKeys(knownRaw()), ", "),
+		pyReprPtr(bugClass), strings.Join(validation.SortedKeys(knownRaw()), ", "),
 		validation.ObjStr(rep, "floor"))
 	if sugg := validation.ObjAt(rep, "suggestions"); len(sugg.A) > 0 {
 		names := make([]string, 0, len(sugg.A))
@@ -513,7 +513,7 @@ func checkMapValue(path, where, value string) error {
 	return fmt.Errorf("taxonomy map %s: %s -> %s is neither a canonical "+
 		"class nor %s (%d canonical classes: %s)", path, where,
 		validation.PyReprStr(value), validation.PyReprStr(UNMAPPED),
-		len(knownRaw()), strings.Join(sortedKeys(knownRaw()), ", "))
+		len(knownRaw()), strings.Join(validation.SortedKeys(knownRaw()), ", "))
 }
 
 // readMapFile is _read_map_file: parse + value-check one map file. A missing
@@ -713,7 +713,7 @@ func NormalizeClass(label *string, maps *validation.Value) (string, bool, error)
 			return a.V.S, a.V.S != UNMAPPED, nil
 		}
 	}
-	for _, cls := range sortedKeys(knownRaw()) {
+	for _, cls := range validation.SortedKeys(knownRaw()) {
 		if normLabel(cls) == norm {
 			return cls, true, nil
 		}
@@ -950,14 +950,6 @@ func kv(k string, v validation.Value) validation.KV {
 }
 
 // sortedKeys returns a set's keys in Python's sorted() order.
-func sortedKeys(s map[string]struct{}) []string {
-	out := make([]string, 0, len(s))
-	for k := range s {
-		out = append(out, k)
-	}
-	sort.Strings(out)
-	return out
-}
 
 // copySet is a fresh copy, so a caller can never mutate the taxonomy.
 func copySet(s map[string]struct{}) map[string]struct{} {

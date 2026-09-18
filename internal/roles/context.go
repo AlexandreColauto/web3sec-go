@@ -3,6 +3,7 @@ package roles
 import (
 	"fmt"
 	"path/filepath"
+	"slices"
 	"sort"
 
 	"websec/internal/corpus"
@@ -258,7 +259,7 @@ func negativeRows(dev []validation.Value) []validation.Value {
 	negative := []validation.Value{}
 	for _, r := range dev {
 		st := validation.ObjAt(r, "status")
-		if st.Kind == validation.Str && contains(NegativeStatuses, st.S) {
+		if st.Kind == validation.Str && slices.Contains(NegativeStatuses, st.S) {
 			negative = append(negative, r)
 		}
 	}
@@ -359,9 +360,9 @@ func permittedChecks(finding validation.Value) []string {
 // criticClaim is _critic_claim: fresh serialization of the claim under
 // review, allow-listed — no proposer narrative.
 func criticClaim(finding validation.Value) validation.Value {
-	rc := asObj(validation.ObjAt(finding, "root_cause"))
-	econ := asObj(validation.ObjAt(finding, "economic_impact"))
-	inv := asObj(validation.ObjAt(finding, "invariant"))
+	rc := validation.AsObj(validation.ObjAt(finding, "root_cause"))
+	econ := validation.AsObj(validation.ObjAt(finding, "economic_impact"))
+	inv := validation.AsObj(validation.ObjAt(finding, "invariant"))
 	invOut := validation.VObj()
 	for _, k := range []string{"id", "statement", "documented_ref",
 		"violation_demonstrated"} {
@@ -651,7 +652,7 @@ func BuildCriticContext(campaign *state.Campaign,
 		validation.KV{K: "claim", V: criticClaim(finding)},
 		validation.KV{K: "attacker_baseline", V: baseline},
 		validation.KV{K: "evidence", V: minimalEvidence(finding)},
-		validation.KV{K: "snapshot_ids", V: asObj(validation.ObjAt(finding, "snapshot_ids"))},
+		validation.KV{K: "snapshot_ids", V: validation.AsObj(validation.ObjAt(finding, "snapshot_ids"))},
 		validation.KV{K: "permitted_checks",
 			V: validation.StrArr(permittedChecks(finding))},
 		validation.KV{K: "fork_diff", V: forkDiff},
@@ -696,9 +697,9 @@ func BuildReproducerContext(campaign *state.Campaign,
 			"reproducer context is built only for confirmed/near-confirmed "+
 			"claims", findingID, status)
 	}
-	rc := asObj(validation.ObjAt(finding, "root_cause"))
+	rc := validation.AsObj(validation.ObjAt(finding, "root_cause"))
 	class := validation.ObjStr(rc, "class")
-	repro := asObj(validation.ObjAt(asObj(validation.ObjAt(finding, "verification")), "reproduction"))
+	repro := validation.AsObj(validation.ObjAt(validation.AsObj(validation.ObjAt(finding, "verification")), "reproduction"))
 	required := blockingAssumptions(finding)
 	snap, err := snapshotBlock(campaign)
 	if err != nil {
@@ -712,7 +713,7 @@ func BuildReproducerContext(campaign *state.Campaign,
 		validation.KV{K: "role", V: validation.VStr("reproducer")},
 		validation.KV{K: "campaign_id", V: validation.VStr(campaign.CampaignID)},
 		validation.KV{K: "claim", V: reproducerClaim(finding, required)},
-		validation.KV{K: "deployment", V: asObj(validation.ObjAt(finding, "snapshot_ids"))},
+		validation.KV{K: "deployment", V: validation.AsObj(validation.ObjAt(finding, "snapshot_ids"))},
 		validation.KV{K: "active_snapshot", V: snap},
 		validation.KV{K: "reproduction_state", V: repro},
 		validation.KV{K: "permitted_execution_profiles", V: validation.VArr(profiles...)},
@@ -740,8 +741,8 @@ func BuildReproducerContext(campaign *state.Campaign,
 // boundary; this shape is what the doc's §4.1 column allows).
 func reproducerClaim(finding validation.Value,
 	required []validation.Value) validation.Value {
-	rc := asObj(validation.ObjAt(finding, "root_cause"))
-	econ := asObj(validation.ObjAt(finding, "economic_impact"))
+	rc := validation.AsObj(validation.ObjAt(finding, "root_cause"))
+	econ := validation.AsObj(validation.ObjAt(finding, "economic_impact"))
 	return validation.VObj(
 		validation.KV{K: "finding_id", V: validation.ObjAt(finding, "finding_id")},
 		validation.KV{K: "title", V: validation.ObjAt(finding, "title")},
@@ -791,13 +792,6 @@ func projectKeys(v validation.Value, keys []string) validation.Value {
 
 // ---- small shared helpers -------------------------------------------------
 
-func asObj(v validation.Value) validation.Value {
-	if v.Kind == validation.Obj {
-		return v
-	}
-	return validation.VObj()
-}
-
 func orEmpty(v validation.Value, key string) validation.Value {
 	x := validation.ObjAt(v, key)
 	if x.Kind == validation.Arr {
@@ -822,15 +816,6 @@ func removeKey(v validation.Value, key string) validation.Value {
 		}
 	}
 	return out
-}
-
-func contains(xs []string, want string) bool {
-	for _, x := range xs {
-		if x == want {
-			return true
-		}
-	}
-	return false
 }
 
 // truncate is Python's `s[:n]`: a CHARACTER slice, not a byte slice. The

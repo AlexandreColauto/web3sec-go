@@ -100,7 +100,7 @@ func ledgerStatuses(c *state.Campaign) (map[string]string, error) {
 			continue
 		}
 		st := validation.ObjStr(e.V, "status")
-		if !hasKey(e.V, "test_status") {
+		if !validation.HasKey(e.V, "test_status") {
 			st = "UNVERIFIED"
 		}
 		if st != "" {

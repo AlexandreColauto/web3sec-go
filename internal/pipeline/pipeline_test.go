@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -443,7 +444,7 @@ func TestHaltsAtFirstModelStageWithAContextBundle(t *testing.T) {
 			validation.ObjStr(nm, "prompt_path"))
 	}
 	assertStr(t, "budget_class", validation.ObjStr(nm, "budget_class"), "standard")
-	if !hasKey(validation.ObjAt(nm, "how_to_feed_back"), "hypotheses") {
+	if !validation.HasKey(validation.ObjAt(nm, "how_to_feed_back"), "hypotheses") {
 		t.Errorf("how_to_feed_back lacks hypotheses: %s", validation.DumpIndented(nm))
 	}
 	st, err := e.c.State()
@@ -592,14 +593,14 @@ func TestFailingStageHaltsTheRunAndIsRetryable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if containsStr(completed, "protocol-model") {
+	if slices.Contains(completed, "protocol-model") {
 		t.Errorf("protocol-model must not be completed: %v", completed)
 	}
 	assertStr(t, "stage status", e.stageStatus(t, "protocol-model"), "failed")
 	boom = false
 	second := run(t, p, RunOpts{})
 	assertSummary(t, second, sc.str(t, "second"), "failing-second")
-	if !containsStr(stringsOf(validation.ObjAt(second, "ran")), "protocol-model") {
+	if !slices.Contains(stringsOf(validation.ObjAt(second, "ran")), "protocol-model") {
 		t.Errorf("protocol-model was not retried: %s", validation.DumpIndented(second))
 	}
 	assertStr(t, "second status", validation.ObjStr(second, "status"), "needs-model")
@@ -669,10 +670,10 @@ func TestPipelineHaltIsWrittenToTheEventLog(t *testing.T) {
 	run(t, p, RunOpts{})
 	types := eventTypes(t, e.c)
 	assertStr(t, "event types", pyListRepr(types), pyListRepr(sc.strs(t, "types")))
-	if !containsStr(types, "pipeline.stage_done") {
+	if !slices.Contains(types, "pipeline.stage_done") {
 		t.Errorf("pipeline.stage_done missing from %v", types)
 	}
-	if !containsStr(types, "pipeline.blocked") {
+	if !slices.Contains(types, "pipeline.blocked") {
 		t.Errorf("pipeline.blocked missing from %v", types)
 	}
 	assertEvents(t, e, sc.strs(t, "events"), "event_log")

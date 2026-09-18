@@ -414,14 +414,6 @@ func floatAt(v validation.Value, key string) float64 {
 }
 
 // sortedKeys is sorted(map keys) for a membership set.
-func sortedKeys(m map[string]bool) []string {
-	out := make([]string, 0, len(m))
-	for k := range m {
-		out = append(out, k)
-	}
-	sort.Strings(out)
-	return out
-}
 
 // parsePyFloat is Python's float(str) for a plain decimal (the LOSS_RE group
 // always is one), keeping the error path the caller swallows.

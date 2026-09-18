@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -69,14 +70,6 @@ func fieldAt(v validation.Value, key string) (validation.Value, bool) {
 }
 
 // hasKey is `key in dict`.
-func hasKey(v validation.Value, key string) bool {
-	for _, e := range v.O {
-		if e.K == key {
-			return true
-		}
-	}
-	return false
-}
 
 // popKey is dict.pop(key, None).
 func popKey(o []validation.KV, key string) []validation.KV {
@@ -117,15 +110,6 @@ func pyStr(v validation.Value) string {
 	return validation.PyRepr(v)
 }
 func strPtr(s string) *string { return &s }
-
-func inList(list []string, s string) bool {
-	for _, x := range list {
-		if x == s {
-			return true
-		}
-	}
-	return false
-}
 
 // ---- registry I/O --------------------------------------------------------
 
@@ -231,7 +215,7 @@ func migrateLegacyEntries(c *state.Campaign, links *validation.Value) (bool, err
 	}
 	var legacy []int
 	for i := range reg.O {
-		if reg.O[i].V.Kind == validation.Obj && !hasKey(reg.O[i].V, "test_status") {
+		if reg.O[i].V.Kind == validation.Obj && !validation.HasKey(reg.O[i].V, "test_status") {
 			legacy = append(legacy, i)
 		}
 	}
@@ -247,12 +231,12 @@ func migrateLegacyEntries(c *state.Campaign, links *validation.Value) (bool, err
 		iid, e := reg.O[i].K, reg.O[i].V
 		old, hasOld := fieldAt(e, "status")
 		ts := validation.VStr("untested")
-		if hasOld && old.Kind == validation.Str && inList(Statuses, old.S) {
+		if hasOld && old.Kind == validation.Str && slices.Contains(Statuses, old.S) {
 			ts = validation.VStr(old.S)
 		}
 		e.O = validation.SetOrAppend(e.O, "test_status", ts)
 		e.O = validation.SetOrAppend(e.O, "status", validation.VStr("UNVERIFIED"))
-		if !hasKey(e, "source") {
+		if !validation.HasKey(e, "source") {
 			src, detail := deriveSource(iid, doc)
 			e.O = validation.SetOrAppend(e.O, "source", validation.VStr(src))
 			if detail != nil {
@@ -320,7 +304,7 @@ func regOf(links validation.Value) validation.Value {
 // deriveSource is _derive_source: (source, provenance) for an id.
 func deriveSource(iid string, doc validation.Value) (string, *string) {
 	n := NormalizeInvID(iid)
-	if hasKey(doc, n) {
+	if validation.HasKey(doc, n) {
 		return "documented", nil
 	}
 	if _, ok := curatedInvariantIDs()[n]; ok {
@@ -361,7 +345,7 @@ func SeedFromModel(c *state.Campaign, model validation.Value) (validation.Value,
 			return validation.VNull(), fmt.Errorf("'id'")
 		}
 		iid := pyStr(iidV)
-		if !hasKey(reg, iid) {
+		if !validation.HasKey(reg, iid) {
 			stmt, ok := fieldAt(inv, "statement")
 			if !ok {
 				return validation.VNull(), fmt.Errorf("'statement'")
@@ -537,7 +521,7 @@ func LinkFinding(c *state.Campaign, invariantID, findingID string,
 		return validation.VNull(), err
 	}
 	reg := regOf(links)
-	if !hasKey(reg, invariantID) {
+	if !validation.HasKey(reg, invariantID) {
 		return validation.VNull(), unknownInvariant(invariantID)
 	}
 	entry := validation.ObjAt(reg, invariantID)
@@ -581,7 +565,7 @@ func LinkTest(c *state.Campaign, invariantID, artifactID string) (validation.Val
 		return validation.VNull(), err
 	}
 	reg := regOf(links)
-	if !hasKey(reg, invariantID) {
+	if !validation.HasKey(reg, invariantID) {
 		return validation.VNull(), unknownInvariant(invariantID)
 	}
 	entry := validation.ObjAt(reg, invariantID)
@@ -693,7 +677,7 @@ func sortedByStatus(reg validation.Value, want ...string) []string {
 	var out []string
 	for _, e := range reg.O {
 		ts := getOr(e.V, "test_status", validation.VStr("untested"))
-		if ts.Kind == validation.Str && inList(want, ts.S) {
+		if ts.Kind == validation.Str && slices.Contains(want, ts.S) {
 			out = append(out, e.K)
 		}
 	}
@@ -726,11 +710,11 @@ func UncoveredCritical(c *state.Campaign, model validation.Value) ([]validation.
 			continue
 		}
 		ts := getOr(e, "test_status", validation.VStr("untested"))
-		if ts.Kind != validation.Str || !inList([]string{"untested", "untestable"}, ts.S) {
+		if ts.Kind != validation.Str || !slices.Contains([]string{"untested", "untestable"}, ts.S) {
 			continue
 		}
 		sev := validation.ObjAt(inv, "severity_if_broken")
-		if sev.Kind != validation.Str || !inList([]string{"critical", "high"}, sev.S) {
+		if sev.Kind != validation.Str || !slices.Contains([]string{"critical", "high"}, sev.S) {
 			continue
 		}
 		out = append(out, validation.VObj(
@@ -817,7 +801,7 @@ func VerifyInvariantStatement(c *state.Campaign, invariantID,
 		return validation.VNull(), err
 	}
 	reg := regOf(links)
-	if !hasKey(reg, invariantID) {
+	if !validation.HasKey(reg, invariantID) {
 		return validation.VNull(), unknownInvariant(invariantID)
 	}
 	entry := validation.ObjAt(reg, invariantID)
@@ -1046,7 +1030,7 @@ func ContradictInvariantStatement(c *state.Campaign, invariantID,
 		return validation.VNull(), err
 	}
 	reg := regOf(links)
-	if !hasKey(reg, invariantID) {
+	if !validation.HasKey(reg, invariantID) {
 		return validation.VNull(), unknownInvariant(invariantID)
 	}
 	entry := validation.ObjAt(reg, invariantID)

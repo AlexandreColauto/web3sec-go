@@ -277,7 +277,7 @@ func MemoryRecallHints(campaign *state.Campaign) ([]string, error) {
 		if st != "POSSIBLE" && st != "PROVISIONALLY_VALID" {
 			continue
 		}
-		v := asObj(validation.ObjAt(f, "verification"))
+		v := validation.AsObj(validation.ObjAt(f, "verification"))
 		if validation.ObjStr(v, "critic_verdict") != "confirmed" {
 			continue
 		}
@@ -704,7 +704,7 @@ func ChInvariants(campaign *state.Campaign,
 		return degraded()
 	}
 	reg := validation.ObjAt(links, "invariants")
-	if reg.Kind == validation.Null && !hasKey(links, "invariants") {
+	if reg.Kind == validation.Null && !validation.HasKey(links, "invariants") {
 		reg = validation.VObj()
 	}
 	if reg.Kind != validation.Obj {
@@ -1565,7 +1565,7 @@ func BuildBrief(campaign *state.Campaign, deepAudit bool,
 	for _, id := range pipeline.StageIDs {
 		topLevel[id] = true
 	}
-	stages := asObj(validation.ObjAt(st, "stages"))
+	stages := validation.AsObj(validation.ObjAt(st, "stages"))
 	stagesDone := int64(0)
 	for _, s := range stages.O {
 		if topLevel[s.K] && validation.ObjStr(s.V, "status") == "done" {
@@ -1636,7 +1636,7 @@ func BuildBrief(campaign *state.Campaign, deepAudit bool,
 			kv("finding_id", validation.ObjAt(m, "finding_id"))))
 	}
 	byKind := []validation.KV{}
-	for _, k := range asObj(validation.ObjAt(relView, "by_kind")).O {
+	for _, k := range validation.AsObj(validation.ObjAt(relView, "by_kind")).O {
 		n := 0
 		if k.V.Kind == validation.Arr {
 			n = len(k.V.A)
@@ -1734,7 +1734,7 @@ func BuildBrief(campaign *state.Campaign, deepAudit bool,
 			return validation.VNull(), err
 		}
 		integProblems := []validation.KV{}
-		for _, sec := range asObj(validation.ObjAt(report, "sections")).O {
+		for _, sec := range validation.AsObj(validation.ObjAt(report, "sections")).O {
 			if pyTruthyInt64Only(validation.ObjAt(sec.V, "problems")) {
 				integProblems = append(integProblems, validation.KV{K: sec.K,
 					V: validation.ObjAt(sec.V, "problems")})
@@ -2141,8 +2141,8 @@ func ReachabilityLine(classes []string, cap string) string {
 // NextActions is _next_actions: the prioritized, concrete work list.
 func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, error) {
 	actions := []string{}
-	cb := asObj(validation.ObjAt(brief, "campaign"))
-	integ := asObj(validation.ObjAt(brief, "integrity"))
+	cb := validation.AsObj(validation.ObjAt(brief, "campaign"))
+	integ := validation.AsObj(validation.ObjAt(brief, "integrity"))
 	if objBool(cb, "closed") {
 		cid := campaign.CampaignID
 		if validation.ObjAt(integ, "ok").Kind == validation.Bool && !validation.ObjAt(integ, "ok").B {
@@ -2434,7 +2434,7 @@ func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, er
 
 	// remaining high-consequence invariant debt
 	if att := validation.ObjAt(brief, "attention"); att.Kind == validation.Obj {
-		items := listAt(asObj(validation.ObjAt(att, "invariants")), "items")
+		items := listAt(validation.AsObj(validation.ObjAt(att, "invariants")), "items")
 		for _, item := range items {
 			if objBool(item, "high_consequence") &&
 				validation.ObjStr(item, "command") != "" &&
@@ -2454,7 +2454,7 @@ func NextActions(brief validation.Value, campaign *state.Campaign) ([]string, er
 
 	// cost ceiling
 	if econ := validation.ObjAt(brief, "economics"); econ.Kind == validation.Obj {
-		b := asObj(validation.ObjAt(econ, "budget"))
+		b := validation.AsObj(validation.ObjAt(econ, "budget"))
 		spent := validation.ObjAt(b, "spent_usd")
 		limit := validation.ObjAt(b, "max_total_cost_usd")
 		if spent.Kind != validation.Null && limit.Kind != validation.Null &&

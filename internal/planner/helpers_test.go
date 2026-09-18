@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -327,7 +328,7 @@ func blindBlocker(axis validation.Value, blank *validation.Value) string {
 		return "blank attestation cites " +
 			validation.PyRepr(validation.ObjAt(*blank, "anchor_blind")) +
 			", which is not in the probe's blind[] keys: " +
-			validation.PyRepr(validation.StrArr(sortedKeys(keys)))
+			validation.PyRepr(validation.StrArr(validation.SortedKeys(keys)))
 	}
 	if !pyTruthyBigNonEmpty(validation.ObjAt(*blank, "reason")) || !pyTruthyBigNonEmpty(validation.ObjAt(*blank, "actor")) {
 		return "blank attestation needs a written reason and an actor"
@@ -363,7 +364,7 @@ var anchorSite = map[string][2]string{
 
 // anchorAllowed is probes.anchor_allowed.
 func anchorAllowed(probeID, anchor string) bool {
-	return inList(anchor, probeAnchors(probeID))
+	return slices.Contains(probeAnchors(probeID), anchor)
 }
 
 // rowAnchorValue is probes.row_anchor_value.
@@ -432,7 +433,7 @@ func siblingRef(row validation.Value, index *validation.Value,
 			}
 		}
 		pair := token + "#L" + itoa(int(line.I))
-		if !inList(pair, pairs) {
+		if !slices.Contains(pairs, pair) {
 			pairs = append(pairs, pair)
 		}
 	}

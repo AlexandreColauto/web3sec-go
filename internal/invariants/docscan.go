@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -58,7 +59,7 @@ func DocumentedInvariants(c *state.Campaign, snapshotID *string) (validation.Val
 		for i, line := range pySplitLines(decodeUTF8Replace(raw)) {
 			for _, raw := range invDocMatches(line) {
 				iid := NormalizeInvID(raw) // Python: f"INV-{int(digits)}"
-				if hasKey(out, iid) {
+				if validation.HasKey(out, iid) {
 					continue
 				}
 				out.O = append(out.O, pair(iid, validation.VObj(
@@ -89,7 +90,7 @@ func docFiles(root string) ([]string, error) {
 		if serr != nil || fi.IsDir() {
 			return nil
 		}
-		if !inList(docSuffixes, strings.ToLower(pySuffix(d.Name()))) {
+		if !slices.Contains(docSuffixes, strings.ToLower(pySuffix(d.Name()))) {
 			return nil
 		}
 		rel, rerr := filepath.Rel(root, p)
@@ -223,7 +224,7 @@ func IntentClaims(c *state.Campaign, snapshotID *string) (validation.Value, erro
 		for i, line := range lines {
 			for _, raw := range invDocMatches(line) {
 				iid := NormalizeInvID(raw) // Python: f"INV-{int(digits)}"
-				if hasKey(out, iid) {
+				if validation.HasKey(out, iid) {
 					continue
 				}
 				lo := i - 3
@@ -406,15 +407,15 @@ func Reconcile(c *state.Campaign, model validation.Value) (validation.Value, err
 			"ids (INV-1..N) so findings and the spec point at the same invariant"
 	}
 	rep := validation.VObj(
-		pair("documented", validation.StrArr(sortedKeys(docIDs))),
-		pair("in_model", validation.StrArr(sortedKeys(modelIDs))),
+		pair("documented", validation.StrArr(validation.SortedKeys(docIDs))),
+		pair("in_model", validation.StrArr(validation.SortedKeys(modelIDs))),
 		pair("missing_from_model", validation.StrArr(missing)),
 		pair("extra_in_model", validation.StrArr(extra)),
 		pair("documentation", doc),
 		pair("note", validation.VStr(note)),
 	)
 	data := validation.VObj(
-		pair("documented", validation.StrArr(sortedKeys(docIDs))),
+		pair("documented", validation.StrArr(validation.SortedKeys(docIDs))),
 		pair("missing_from_model", validation.StrArr(missing)),
 		pair("extra_in_model", validation.StrArr(extra)),
 	)
@@ -429,15 +430,6 @@ func keySet(v validation.Value) map[string]struct{} {
 	for _, e := range v.O {
 		out[e.K] = struct{}{}
 	}
-	return out
-}
-
-func sortedKeys(s map[string]struct{}) []string {
-	out := make([]string, 0, len(s))
-	for k := range s {
-		out = append(out, k)
-	}
-	sort.Strings(out)
 	return out
 }
 

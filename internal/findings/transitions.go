@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -958,7 +959,7 @@ func FlagPossibleDuplicate(campaign *state.Campaign, findingID,
 	if lst.Kind != validation.Arr {
 		lst = validation.VArr()
 	}
-	if !containsStr(valueStrings(lst), ofFindingID) {
+	if !slices.Contains(valueStrings(lst), ofFindingID) {
 		lst.A = append(lst.A, validation.VStr(ofFindingID))
 	}
 	dedup.O = validation.SetOrAppend(dedup.O, "possible_duplicate_of", lst)

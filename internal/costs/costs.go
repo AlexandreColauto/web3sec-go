@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -96,7 +97,7 @@ type RecordOpts struct {
 // are never inferred: whatever the operator reports is recorded verbatim,
 // attributed to an actor, and anchored in the event log.
 func RecordCost(c *state.Campaign, opts RecordOpts) (validation.Value, error) {
-	if !contains(CostKinds, opts.Kind) {
+	if !slices.Contains(CostKinds, opts.Kind) {
 		return validation.VNull(), fmt.Errorf(
 			"cost kind must be one of %s, got %s", pyTuple(CostKinds),
 			validation.PyReprStr(opts.Kind))
@@ -619,15 +620,6 @@ type API struct{}
 // BudgetStatus is costs.budget_status.
 func (API) BudgetStatus(c *state.Campaign) (validation.Value, error) {
 	return BudgetStatus(c)
-}
-
-func contains(list []string, s string) bool {
-	for _, x := range list {
-		if x == s {
-			return true
-		}
-	}
-	return false
 }
 
 // pyTuple is Python's repr of a tuple of strings.

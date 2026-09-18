@@ -26,6 +26,7 @@ package dedup
 import (
 	"fmt"
 	"math/big"
+	"slices"
 	"sort"
 	"strings"
 	"unicode"
@@ -77,7 +78,7 @@ func ClassesCompatible(classA, classB string) bool {
 		return true
 	}
 	for _, group := range EconomicCompatGroups {
-		if containsStr(group, classA) && containsStr(group, classB) {
+		if slices.Contains(group, classA) && slices.Contains(group, classB) {
 			return true
 		}
 	}
@@ -479,7 +480,7 @@ func autoMergePair(campaign *state.Campaign, keep, dup validation.Value) (bool, 
 		snapshot.ReverifyRequired(keep, active) {
 		dupID, keepID := validation.ObjStr(dup, "finding_id"), validation.ObjStr(keep, "finding_id")
 		ids := valueStrings(getDeep(dup, "dedup", "possible_duplicate_of"))
-		if !containsStr(ids, keepID) {
+		if !slices.Contains(ids, keepID) {
 			ids = append(ids, keepID)
 		}
 		dup = setDeep(dup, strArray(ids), "dedup", "possible_duplicate_of")
@@ -571,7 +572,7 @@ func ResolveCandidate(campaign *state.Campaign, findingID, ofFindingID, verdict,
 	if err != nil {
 		return validation.VNull(), err
 	}
-	if !containsStr(valueStrings(getDeep(f, "dedup", "possible_duplicate_of")), ofFindingID) {
+	if !slices.Contains(valueStrings(getDeep(f, "dedup", "possible_duplicate_of")), ofFindingID) {
 		// Python raises KeyError(inner); str(KeyError) is repr(inner), which
 		// is what the CLI prints, so the error text is that repr.
 		inner := fmt.Sprintf("%s has no candidate flag for %s; run the dedup sweep first",
@@ -801,14 +802,6 @@ func strArray(items []string) validation.Value {
 }
 
 // containsStr is Python's `x in list`.
-func containsStr(items []string, want string) bool {
-	for _, s := range items {
-		if s == want {
-			return true
-		}
-	}
-	return false
-}
 
 // sameSpot is the tier-2 same_spot test: the first affected path AND function
 // match ((f.get("affected") or [{}])[0] on both sides).

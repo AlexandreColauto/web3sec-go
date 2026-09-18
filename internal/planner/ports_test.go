@@ -1,6 +1,7 @@
 package planner
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -259,13 +260,13 @@ func TestPortLensFamiliesDeterministic(t *testing.T) {
 	for _, f := range listOf(fams, "primitive-symmetry") {
 		sym = append(sym, pyStr(f))
 	}
-	if inList("deposit", sym) {
+	if slices.Contains(sym, "deposit") {
 		t.Fatalf("deposit appears on only one contract: %v", sym)
 	}
-	if !inList("withdraw", sym) {
+	if !slices.Contains(sym, "withdraw") {
 		t.Fatalf("withdraw appears twice (withdraw + finalizeWithdrawal): %v", sym)
 	}
-	if inList("drop", sym) {
+	if slices.Contains(sym, "drop") {
 		t.Fatalf("drop appears on only one contract: %v", sym)
 	}
 }
@@ -492,14 +493,14 @@ func TestPortPerRoleQuestionsWithConstraints(t *testing.T) {
 	for _, p := range listOf(plan, "priorities") {
 		qs = append(qs, validation.ObjStr(p, "question"))
 	}
-	if !inList("Within its stated constraints (timelocked=no, threshold=n/a), "+
+	if !slices.Contains(qs, "Within its stated constraints (timelocked=no, threshold=n/a), "+
 		"what can role `guardian` do via `rescue stranded funds` that "+
-		"violates user expectations?", qs) {
+		"violates user expectations?") {
 		t.Fatalf("guardian question missing")
 	}
-	if !inList("Within its stated constraints (timelocked=yes, threshold=3), "+
+	if !slices.Contains(qs, "Within its stated constraints (timelocked=yes, threshold=3), "+
 		"what can role `governor` do via `pause vault; upgrade implementation` "+
-		"that violates user expectations?", qs) {
+		"that violates user expectations?") {
 		t.Fatalf("governor question missing")
 	}
 	cq := constraintQuestions(plan)

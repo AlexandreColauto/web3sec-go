@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -290,7 +291,7 @@ func assertNoForbiddenKeys(t *testing.T, bundle validation.Value, role string) {
 	allKeys(bundle, &keys)
 	leaked := map[string]bool{}
 	for _, k := range keys {
-		if contains(ForbiddenKeys[role], k) {
+		if slices.Contains(ForbiddenKeys[role], k) {
 			leaked[k] = true
 		}
 	}

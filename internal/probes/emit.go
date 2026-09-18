@@ -2,6 +2,7 @@ package probes
 
 import (
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 
@@ -194,8 +195,7 @@ func RowDispositions(plan *validation.Value, surface validation.Value) validatio
 			provObj = prov
 		}
 		stale := found && vStr(provObj, "shape_sha") != RowShapeSha(row)
-		dispositioned := found && containsStr(planner.ProbeRowDispositioned,
-			vStr(p, "status")) && !stale
+		dispositioned := found && slices.Contains(planner.ProbeRowDispositioned, vStr(p, "status")) && !stale
 		vSet(&out, rid, validation.VObj(
 			kv("row_id", validation.VStr(rid)),
 			kv("priority_id", nullableStr(found, vGet(p, "id"))),

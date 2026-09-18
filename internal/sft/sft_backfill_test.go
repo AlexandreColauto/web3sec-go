@@ -7,6 +7,7 @@ package sft
 // the TODO placeholders that block curation, and the CLI draft writer.
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -345,7 +346,7 @@ func TestSFTTodoPlaceholdersCoverBugClassAndCase(t *testing.T) {
 	}
 	for _, tc := range cases {
 		got := todoPlaceholders(setKey(clean, tc.field, validation.VStr(tc.value)))
-		if !inList(got, tc.want) {
+		if !slices.Contains(got, tc.want) {
 			t.Fatalf("%s: got %v", tc.field, got)
 		}
 	}

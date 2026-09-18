@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -268,7 +269,7 @@ func MintValidatedBy(c *state.Campaign, findingID string,
 	}
 	out := []validation.Value{}
 	for _, item := range validation.ObjAt(f, "evidence").A {
-		if !inList(validation.ObjStr(item, "level"), evidenceLevels) {
+		if !slices.Contains(evidenceLevels, validation.ObjStr(item, "level")) {
 			continue
 		}
 		aid := validation.ObjStr(item, "artifact_id")
@@ -542,7 +543,7 @@ func exploitPath(c *state.Campaign, findingID string) ([]string, error) {
 		return nil, err
 	}
 	for _, ch := range chains {
-		if inList(findingID, strList(validation.ObjAt(ch, "members"))) {
+		if slices.Contains(strList(validation.ObjAt(ch, "members")), findingID) {
 			return strList(validation.ObjAt(ch, "members")), nil
 		}
 	}
@@ -600,7 +601,7 @@ func CapabilityCoverage(c *state.Campaign, candidateID,
 		if _, ok := codeSourced[lab]; !ok {
 			continue
 		}
-		if inList(lab, chainengine.AttackerBaseline) {
+		if slices.Contains(chainengine.AttackerBaseline, lab) {
 			continue
 		}
 		depends[lab] = struct{}{}
@@ -623,7 +624,7 @@ func CapabilityCoverage(c *state.Campaign, candidateID,
 	primGranted := capabilities.Granted(prim)
 	overlap := []string{}
 	for _, lab := range candGranted {
-		if inList(lab, primGranted) {
+		if slices.Contains(primGranted, lab) {
 			overlap = append(overlap, lab)
 		}
 	}
@@ -649,7 +650,7 @@ func CapabilityCoverage(c *state.Campaign, candidateID,
 			break
 		}
 	}
-	dependsSorted := sortedKeys(depends)
+	dependsSorted := validation.SortedKeys(depends)
 	bits := []string{}
 	if len(missing) > 0 {
 		bits = append(bits, fmt.Sprintf("the confirmed primitive's exploit "+
@@ -830,7 +831,7 @@ func reDerive(c *state.Campaign, kind string, src, dst,
 				break
 			}
 		}
-		if !found || !inList(validation.ObjStr(item, "level"), evidenceLevels) ||
+		if !found || !slices.Contains(evidenceLevels, validation.ObjStr(item, "level")) ||
 			validation.ObjStr(item, "artifact_id") != validation.ObjStr(dst, "id") {
 			return errors.New("evidence no longer traces to this exec")
 		}
@@ -946,7 +947,7 @@ func affectedSignature(f validation.Value) []string {
 			parts[path] = struct{}{}
 		}
 	}
-	return sortedKeys(parts)
+	return validation.SortedKeys(parts)
 }
 
 // RootCauseClusters is root_cause_clusters.
@@ -957,7 +958,7 @@ func RootCauseClusters(c *state.Campaign) (validation.Value, error) {
 	}
 	byClass := map[string][]validation.Value{}
 	for _, f := range all {
-		if !inList(validation.ObjStr(f, "status"), clusterStatuses) {
+		if !slices.Contains(clusterStatuses, validation.ObjStr(f, "status")) {
 			continue
 		}
 		cls := strings.TrimSpace(validation.ObjStr(validation.ObjAt(f, "root_cause"), "class"))
@@ -1105,15 +1106,6 @@ func strList(v validation.Value) []string {
 	return out
 }
 
-func inList(s string, list []string) bool {
-	for _, item := range list {
-		if item == s {
-			return true
-		}
-	}
-	return false
-}
-
 func indexOf(list []string, s string) int {
 	for i, item := range list {
 		if item == s {
@@ -1121,15 +1113,6 @@ func indexOf(list []string, s string) int {
 		}
 	}
 	return -1
-}
-
-func sortedKeys(m map[string]struct{}) []string {
-	out := make([]string, 0, len(m))
-	for k := range m {
-		out = append(out, k)
-	}
-	sort.Strings(out)
-	return out
 }
 
 func simOf(v validation.Value) float64 {

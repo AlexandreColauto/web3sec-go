@@ -1,6 +1,7 @@
 package planner
 
 import (
+	"slices"
 	"sort"
 	"strings"
 
@@ -134,7 +135,7 @@ func axisRowIssues(rows []validation.Value, byRow map[string]validation.Value,
 		switch {
 		case !emitted:
 			unemitted = append(unemitted, rid)
-		case !inList(validation.ObjStr(p, "status"), ProbeRowDispositioned):
+		case !slices.Contains(ProbeRowDispositioned, validation.ObjStr(p, "status")):
 			openRows = append(openRows, validation.ObjStr(p, "id")+" ("+rid+": "+
 				validation.ObjStr(p, "status")+")")
 		case validation.ObjStr(validation.ObjAt(p, "probe"), "shape_sha") != PB().RowShapeSha(row):

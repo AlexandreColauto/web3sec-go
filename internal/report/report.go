@@ -42,28 +42,12 @@ func kv(k string, v validation.Value) validation.KV {
 	return validation.KV{K: k, V: v}
 }
 
-func hasKey(v validation.Value, key string) bool {
-	for _, pair := range v.O {
-		if pair.K == key {
-			return true
-		}
-	}
-	return false
-}
-
 func listAt(v validation.Value, key string) []validation.Value {
 	f := validation.ObjAt(v, key)
 	if f.Kind != validation.Arr {
 		return nil
 	}
 	return f.A
-}
-
-func asObj(v validation.Value) validation.Value {
-	if v.Kind != validation.Obj {
-		return validation.VObj()
-	}
-	return v
 }
 
 // pyTruthyInt64Only is a DIVERGENT pyTruthy variant (Wave J Task 7), NOT the
@@ -244,7 +228,7 @@ func ProbeSurfaceSection(campaign *state.Campaign) ([]string, error) {
 	L = append(L, "")
 	for _, row := range listAt(surface, "rows") {
 		rid := validation.ObjStr(row, "row_id")
-		d := asObj(validation.ObjAt(disp, rid))
+		d := validation.AsObj(validation.ObjAt(disp, rid))
 		anchors := "—"
 		if pairs := probes.RowAnchorPairs(row, &index); len(pairs) > 0 {
 			anchors = strings.Join(pairs, ", ")
@@ -256,7 +240,7 @@ func ProbeSurfaceSection(campaign *state.Campaign) ([]string, error) {
 			if validation.ObjStr(d, "reason") != "" {
 				state += ": " + validation.ObjStr(d, "reason")
 			}
-			a := asObj(validation.ObjAt(d, "anchor"))
+			a := validation.AsObj(validation.ObjAt(d, "anchor"))
 			if len(a.O) > 0 {
 				state += fmt.Sprintf(" (anchor `%s` = %s)",
 					validation.ObjStr(a, "field"), pyStr(validation.ObjAt(a, "ref")))
@@ -618,8 +602,8 @@ func allFindingCritic(f validation.Value) string {
 
 // allFindingRisk is score + validated band, the risk-calibration pair.
 func allFindingRisk(f validation.Value) string {
-	riskObj := asObj(validation.ObjAt(f, "risk"))
-	band := validation.ObjStr(asObj(validation.ObjAt(riskObj, "validated")), "band")
+	riskObj := validation.AsObj(validation.ObjAt(f, "risk"))
+	band := validation.ObjStr(validation.AsObj(validation.ObjAt(riskObj, "validated")), "band")
 	score := ""
 	if x, ok := risk.AcceptanceScore(f); ok {
 		score = risk.ScoreText(x)
@@ -649,7 +633,7 @@ func allFindingAccept(f validation.Value) string {
 }
 
 func allFindingSubmit(f validation.Value) string {
-	if pyTruthyInt64Only(validation.ObjAt(asObj(validation.ObjAt(f, "bounty")), "submission_ready")) {
+	if pyTruthyInt64Only(validation.ObjAt(validation.AsObj(validation.ObjAt(f, "bounty")), "submission_ready")) {
 		return "yes"
 	}
 	return "—"
@@ -692,8 +676,8 @@ func rankCell(e risk.AcceptanceEntry) string {
 }
 
 func bandCell(e risk.AcceptanceEntry) string {
-	riskObj := asObj(validation.ObjAt(e.Finding, "risk"))
-	b := validation.ObjStr(asObj(validation.ObjAt(riskObj, "validated")), "band")
+	riskObj := validation.AsObj(validation.ObjAt(e.Finding, "risk"))
+	b := validation.ObjStr(validation.AsObj(validation.ObjAt(riskObj, "validated")), "band")
 	if b == "" {
 		return "—"
 	}
@@ -908,7 +892,7 @@ func Generate(campaign *state.Campaign) (string, error) {
 	L = append(L, "")
 	L = append(L, fmt.Sprintf("- campaign: `%s`", validation.ObjStr(st, "campaign_id")))
 	L = append(L, fmt.Sprintf("- phase: **%s** (pass %s)", validation.ObjStr(st, "phase"),
-		pyStr(validation.ObjAt(asObj(validation.ObjAt(st, "budget")), "pass"))))
+		pyStr(validation.ObjAt(validation.AsObj(validation.ObjAt(st, "budget")), "pass"))))
 	L = append(L, fmt.Sprintf("- active snapshot: `%s`",
 		pyStr(validation.ObjAt(st, "active_snapshot_id"))))
 	L = append(L, fmt.Sprintf("- generated: %s", state.NowIso()))
@@ -972,7 +956,7 @@ func Generate(campaign *state.Campaign) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		s := asObj(validation.ObjAt(cov, "summary"))
+		s := validation.AsObj(validation.ObjAt(cov, "summary"))
 		if len(s.O) > 0 {
 			L = append(L, "## Coverage")
 			L = append(L, "")
@@ -1049,7 +1033,7 @@ func Generate(campaign *state.Campaign) (string, error) {
 		case "OUT_OF_SCOPE":
 			outOfScope++
 		}
-		if pyTruthyInt64Only(validation.ObjAt(asObj(validation.ObjAt(f, "bounty")), "submission_ready")) {
+		if pyTruthyInt64Only(validation.ObjAt(validation.AsObj(validation.ObjAt(f, "bounty")), "submission_ready")) {
 			ready = append(ready, f)
 		}
 	}
@@ -1328,7 +1312,7 @@ func Generate(campaign *state.Campaign) (string, error) {
 		L = append(L, "### LIVENESS FINDINGS — who profits from the freeze")
 		L = append(L, "")
 		for _, f := range livenessRows {
-			ag := asObj(validation.ObjAt(f, "adversarial_game"))
+			ag := validation.AsObj(validation.ObjAt(f, "adversarial_game"))
 			who := "UNANSWERED (gate check15)"
 			if len(ag.O) > 0 {
 				if wp := validation.ObjStr(ag, "who_profits"); wp != "" {
@@ -1422,7 +1406,7 @@ func Generate(campaign *state.Campaign) (string, error) {
 				}
 				L = append(L, line)
 			}
-			if t := asObj(validation.ObjAt(ch, "terminal")); len(t.O) > 0 {
+			if t := validation.AsObj(validation.ObjAt(ch, "terminal")); len(t.O) > 0 {
 				// An unproven chain has no super-finding, hence no
 				// economic_impact: the terminal is the LEAD's destination.
 				// State the price that would apply, and that it is not
@@ -1467,7 +1451,7 @@ func Generate(campaign *state.Campaign) (string, error) {
 			hist := listAt(f, "history")
 			last := validation.VObj()
 			if len(hist) > 0 {
-				last = asObj(hist[len(hist)-1])
+				last = validation.AsObj(hist[len(hist)-1])
 			}
 			L = append(L, fmt.Sprintf("- `%s` **%s** — %s",
 				validation.ObjStr(f, "finding_id"), validation.ObjStr(f, "status"), validation.ObjStr(f, "title")))
@@ -1784,7 +1768,7 @@ func patchRegressionMark(verdict string) string {
 }
 
 func riskScore(f validation.Value) float64 {
-	v := asObj(validation.ObjAt(asObj(validation.ObjAt(f, "risk")), "validated"))
+	v := validation.AsObj(validation.ObjAt(validation.AsObj(validation.ObjAt(f, "risk")), "validated"))
 	s := validation.ObjAt(v, "score")
 	switch s.Kind {
 	case validation.Int:
@@ -1802,7 +1786,7 @@ func fileExists(p string) bool {
 
 // getOr is Python's d.get(key, default) as a string render.
 func getOr(v validation.Value, key, def string) string {
-	if !hasKey(v, key) {
+	if !validation.HasKey(v, key) {
 		return def
 	}
 	return pyStr(validation.ObjAt(v, key))
@@ -1881,7 +1865,7 @@ func evidenceIndex(level string) int {
 func findingSection(campaign *state.Campaign, f validation.Value, heading string,
 	all []validation.Value) ([]string, error) {
 	out := []string{}
-	rc := asObj(validation.ObjAt(f, "root_cause"))
+	rc := validation.AsObj(validation.ObjAt(f, "root_cause"))
 	out = append(out, fmt.Sprintf("### %s: %s", heading, validation.ObjStr(f, "title")))
 	out = append(out, "")
 	out = append(out, fmt.Sprintf("- id: `%s` — status **%s** (trajectory: %s)",
@@ -1893,11 +1877,11 @@ func findingSection(campaign *state.Campaign, f validation.Value, heading string
 	}
 	out = append(out, fmt.Sprintf("- bug class: `%s`%s %s", pyStr(validation.ObjAt(rc, "class")),
 		classAliasSuffixSpaced(validation.ObjStr(rc, "class")), cwe))
-	inv := asObj(validation.ObjAt(f, "invariant"))
+	inv := validation.AsObj(validation.ObjAt(f, "invariant"))
 	if validation.ObjStr(inv, "statement") != "" {
 		out = append(out, "- violated invariant: "+validation.ObjStr(inv, "statement"))
 	}
-	att := asObj(validation.ObjAt(f, "attacker"))
+	att := validation.AsObj(validation.ObjAt(f, "attacker"))
 	if validation.ObjStr(att, "profile") != "" {
 		capital := ""
 		if pyTruthyInt64Only(validation.ObjAt(att, "required_capital_usd")) {
@@ -1905,8 +1889,8 @@ func findingSection(campaign *state.Campaign, f validation.Value, heading string
 		}
 		out = append(out, "- attacker: "+validation.ObjStr(att, "profile")+capital)
 	}
-	risk := asObj(validation.ObjAt(f, "risk"))
-	v := asObj(validation.ObjAt(risk, "validated"))
+	risk := validation.AsObj(validation.ObjAt(f, "risk"))
+	v := validation.AsObj(validation.ObjAt(risk, "validated"))
 	if len(v.O) > 0 {
 		out = append(out, fmt.Sprintf("- validated risk: **%s/10 (%s)**",
 			pyStr(validation.ObjAt(v, "score")), pyStr(validation.ObjAt(v, "band"))))
@@ -1914,7 +1898,7 @@ func findingSection(campaign *state.Campaign, f validation.Value, heading string
 	if rv := validation.ObjStr(risk, "reversibility"); rv != "" {
 		out = append(out, "- reversibility: **"+rv+"** (validated_risk component)")
 	}
-	iv := asObj(validation.ObjAt(risk, "impact_vector"))
+	iv := validation.AsObj(validation.ObjAt(risk, "impact_vector"))
 	if len(iv.O) > 0 {
 		out = append(out, fmt.Sprintf("- impact vector: %s/%s/%s/%s (score %s)",
 			pyStr(validation.ObjAt(iv, "asset_exposure")),
@@ -1924,7 +1908,7 @@ func findingSection(campaign *state.Campaign, f validation.Value, heading string
 	}
 	if reported := validation.ObjAt(f, "reported_severity"); pyTruthyInt64Only(reported) {
 		band := "n/a"
-		if b := validation.ObjAt(asObj(validation.ObjAt(f, "risk")), "validated"); b.Kind == validation.Obj {
+		if b := validation.ObjAt(validation.AsObj(validation.ObjAt(f, "risk")), "validated"); b.Kind == validation.Obj {
 			if bv := validation.ObjAt(b, "band"); bv.Kind != validation.Null {
 				band = pyStr(bv)
 			}
@@ -1932,7 +1916,7 @@ func findingSection(campaign *state.Campaign, f validation.Value, heading string
 		out = append(out, fmt.Sprintf("- reported severity: **%s** — computed "+
 			"band: **%s**", pyStr(reported), band))
 	}
-	econ := asObj(validation.ObjAt(risk, "economic"))
+	econ := validation.AsObj(validation.ObjAt(risk, "economic"))
 	if decision := findings.UnpriceableDecision(f); decision != nil {
 		out = append(out, fmt.Sprintf("- economically extractable: "+
 			"UNPRICEABLE (ceiling: %s)", pyStr(validation.ObjAt(*decision, "ceiling"))))
@@ -1940,7 +1924,7 @@ func findingSection(campaign *state.Campaign, f validation.Value, heading string
 		out = append(out, fmt.Sprintf("- economically extractable: $%s",
 			pyCommaAuto(ex)))
 	}
-	if exp := asObj(validation.ObjAt(f, "exploitability")); len(exp.O) > 0 {
+	if exp := validation.AsObj(validation.ObjAt(f, "exploitability")); len(exp.O) > 0 {
 		if paid := validation.ObjAt(exp, "paid"); paid.Kind == validation.Bool {
 			if paid.B {
 				out = append(out, fmt.Sprintf(
@@ -1958,7 +1942,7 @@ func findingSection(campaign *state.Campaign, f validation.Value, heading string
 	// B2: the adversarial-game clause (liveness findings) — who profits,
 	// how, and why the challenge path does not undo it. Presence-gated:
 	// findings without the clause render nothing here.
-	if ag := asObj(validation.ObjAt(f, "adversarial_game")); len(ag.O) > 0 {
+	if ag := validation.AsObj(validation.ObjAt(f, "adversarial_game")); len(ag.O) > 0 {
 		out = append(out, fmt.Sprintf("- adversarial game: who profits — %s",
 			pyStr(validation.ObjAt(ag, "who_profits"))))
 		out = append(out, fmt.Sprintf("-   mechanism: %s",
@@ -1966,7 +1950,7 @@ func findingSection(campaign *state.Campaign, f validation.Value, heading string
 		out = append(out, fmt.Sprintf("-   challenge interplay: %s",
 			pyStr(validation.ObjAt(ag, "challenge_interplay"))))
 	}
-	if ack := asObj(validation.ObjAt(validation.ObjAt(f, "dedup_meta"), "in_code_ack")); len(ack.O) > 0 {
+	if ack := validation.AsObj(validation.ObjAt(validation.ObjAt(f, "dedup_meta"), "in_code_ack")); len(ack.O) > 0 {
 		line := fmt.Sprintf("- in-code ack: %s:%s — phrase %q (window %s)",
 			pyStr(validation.ObjAt(ack, "file")), pyStr(validation.ObjAt(ack, "line")),
 			pyStr(validation.ObjAt(ack, "phrase")), pyStr(validation.ObjAt(ack, "window")))
@@ -1991,7 +1975,7 @@ func findingSection(campaign *state.Campaign, f validation.Value, heading string
 				pattern, file, line))
 		}
 	}
-	b := asObj(validation.ObjAt(f, "bounty"))
+	b := validation.AsObj(validation.ObjAt(f, "bounty"))
 	if len(b.O) > 0 {
 		line := fmt.Sprintf("- bounty gate: eligible=%s, submission_ready=%s",
 			pyStr(validation.ObjAt(b, "eligible")), pyStr(validation.ObjAt(b, "submission_ready")))
@@ -2009,7 +1993,7 @@ func findingSection(campaign *state.Campaign, f validation.Value, heading string
 			out = append(out, "  - advisory: "+strings.Join(adv, "; "))
 		}
 	}
-	if ar := asObj(validation.ObjAt(b, "accepted_risk")); len(ar.O) > 0 {
+	if ar := validation.AsObj(validation.ObjAt(b, "accepted_risk")); len(ar.O) > 0 {
 		kind := validation.ObjStr(ar, "kind")
 		line := fmt.Sprintf("- accepted risk: **%s**", pyStr(validation.ObjAt(ar,
 			"pattern")))
@@ -2092,7 +2076,7 @@ func findingSection(campaign *state.Campaign, f validation.Value, heading string
 		}
 	}
 
-	if validation.ObjStr(asObj(validation.ObjAt(f, "maximization")), "ladder_id") != "" {
+	if validation.ObjStr(validation.AsObj(validation.ObjAt(f, "maximization")), "ladder_id") != "" {
 		status := validation.ObjStr(f, "status")
 		if status == "CONFIRMED" || status == "CHAIN" {
 			rep, err := maximization.LadderReport(campaign, validation.ObjStr(f, "finding_id"))
@@ -2102,7 +2086,7 @@ func findingSection(campaign *state.Campaign, f validation.Value, heading string
 			lad := validation.ObjAt(rep, "ladder")
 			if lad.Kind == validation.Obj {
 				out = append(out, "")
-				disp := asObj(validation.ObjAt(lad, "disposition"))
+				disp := validation.AsObj(validation.ObjAt(lad, "disposition"))
 				line := fmt.Sprintf("**Variant ladder** `%s` — disposition: "+
 					"**%s**", validation.ObjStr(lad, "ladder_id"), validation.ObjStr(disp, "state"))
 				if validation.ObjStr(disp, "state") == "waived" && validation.ObjStr(disp, "reason") != "" {
@@ -2160,7 +2144,7 @@ func findingSection(campaign *state.Campaign, f validation.Value, heading string
 				rungs := listAt(rep, "rungs")
 				if len(rungs) > 0 {
 					base := rungs[0]
-					mx := asObj(validation.ObjAt(rep, "maximal"))
+					mx := validation.AsObj(validation.ObjAt(rep, "maximal"))
 					if len(mx.O) > 0 &&
 						validation.ObjStr(mx, "rung_id") != validation.ObjStr(base, "rung_id") &&
 						validation.ObjAt(mx, "extraction_delta").Kind != validation.Null {
@@ -2231,7 +2215,7 @@ func findingSection(campaign *state.Campaign, f validation.Value, heading string
 		// G11 post-patch verdict (Task 8): presence-gated on the
 		// verification.patch_regression record verify --post-patch
 		// lands. Fail-open metadata — it never moves finding status.
-		if pr := validation.ObjAt(asObj(validation.ObjAt(f, "verification")),
+		if pr := validation.ObjAt(validation.AsObj(validation.ObjAt(f, "verification")),
 			"patch_regression"); pr.Kind == validation.Obj {
 			out = append(out, fmt.Sprintf("- patch regression: %s (%s → %s)",
 				patchRegressionMark(validation.ObjStr(pr, "verdict")),
@@ -2277,7 +2261,7 @@ func findingSection(campaign *state.Campaign, f validation.Value, heading string
 		}
 	}
 
-	ei := asObj(validation.ObjAt(f, "economic_impact"))
+	ei := validation.AsObj(validation.ObjAt(f, "economic_impact"))
 	usdKeys := []string{}
 	for _, k := range ei.O {
 		if strings.HasSuffix(k.K, "_usd") && k.V.Kind != validation.Null {

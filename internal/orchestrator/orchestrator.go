@@ -80,17 +80,6 @@ func kvOf(k string, v validation.Value) validation.KV {
 }
 
 // hasKey is `key in d`.
-func hasKey(v validation.Value, key string) bool {
-	if v.Kind != validation.Obj {
-		return false
-	}
-	for _, kv := range v.O {
-		if kv.K == key {
-			return true
-		}
-	}
-	return false
-}
 
 // asDict is findings._as_dict: a non-dict block behaves as an absent block.
 func asDict(v validation.Value) validation.Value {

@@ -10,6 +10,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -246,7 +247,7 @@ func TestAxisNamesAreUniqueEvenWhenALensCarriesSeveralProbes(t *testing.T) {
 				t.Errorf("%s: anchor %s has no ANCHOR_FIELDS entry", pid, anchor)
 				continue
 			}
-			if !containsStr(probesTable[pid].fields, field) {
+			if !slices.Contains(probesTable[pid].fields, field) {
 				t.Errorf("%s: anchor %s -> field %s not in fields %v", pid, anchor,
 					field, probesTable[pid].fields)
 			}
@@ -359,7 +360,7 @@ func TestCustodyPrimitiveFiresOnCastFormCallsOnly(t *testing.T) {
 	if !ok {
 		t.Fatal("no _deposit function node")
 	}
-	if !containsStr(vStrList(deposit, "calls_external"), "IMorphERC20Upgradeable.burn") {
+	if !slices.Contains(vStrList(deposit, "calls_external"), "IMorphERC20Upgradeable.burn") {
 		t.Fatalf("calls_external = %s", t29JSON(vGet(deposit, "calls_external")))
 	}
 	out := t29Raw(t, idx, validation.VNull(), "custody-primitive")
@@ -1110,7 +1111,7 @@ func TestAnchorsArePerProbeAndNameRealRowFields(t *testing.T) {
 			}
 			other := ""
 			for _, a := range allAnchors {
-				if !containsStr(probesTable[c.pid].anchors, a) {
+				if !slices.Contains(probesTable[c.pid].anchors, a) {
 					other = a
 					break
 				}
@@ -1360,7 +1361,7 @@ func TestMorphRegressionRowsExistInFixtures(t *testing.T) {
 	if vStr(row, "consumer") != "commitBatch" {
 		t.Errorf("consumer = %q", vStr(row, "consumer"))
 	}
-	if !containsStr(vStrList(row, "concept_keys"), "prev:state:root") {
+	if !slices.Contains(vStrList(row, "concept_keys"), "prev:state:root") {
 		t.Errorf("concept_keys = %s", t29JSON(vGet(row, "concept_keys")))
 	}
 	if vStr(row, "asserter") != "finalizeBatch" {

@@ -560,7 +560,7 @@ func seedBugClassLabels(t *testing.T) []string {
 			}
 		}
 	}
-	return sortedKeys(labels)
+	return validation.SortedKeys(labels)
 }
 
 // bugClassRe is _BUG_CLASS_RE: a bug-class label as the model writes it
@@ -631,7 +631,7 @@ func TestExampleUsesACanonicalClass(t *testing.T) {
 	}
 	if _, ok := CanonicalClasses()[cls]; !ok {
 		t.Errorf("--example uses non-canonical class %q (canonical: %s)",
-			cls, strings.Join(sortedKeys(CanonicalClasses()), ", "))
+			cls, strings.Join(validation.SortedKeys(CanonicalClasses()), ", "))
 	}
 }
 

@@ -19,6 +19,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"websec/internal/validation"
 )
 
 // stagedTree is the halfway state of a pin: the source staged, pruned and
@@ -187,7 +188,7 @@ func DryRunPin(target string, extraExcludes []string) (*Preview, error) {
 		SnapshotID:    st.snapshotID,
 		FileCount:     st.fileCount,
 		ContentHash:   st.contentHash,
-		PruneNames:    sortedKeys(st.excludes),
+		PruneNames:    validation.SortedKeys(st.excludes),
 		PrunedPaths:   st.prunedPaths,
 		Untracked:     untracked,
 		UntrackedMore: more,

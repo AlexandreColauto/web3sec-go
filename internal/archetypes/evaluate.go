@@ -130,7 +130,7 @@ func evalUnguardedFunction(check, index validation.Value) (string, string, error
 	if len(hits) > 0 {
 		return "present", "unguarded: " + strings.Join(hits, ", "), nil
 	}
-	return "absent", "no unguarded function among " + pyListRepr(sortedKeys(names)), nil
+	return "absent", "no unguarded function among " + pyListRepr(validation.SortedKeys(names)), nil
 }
 
 // evalDelegatecallPresent is delegatecall_present.
@@ -291,7 +291,7 @@ func evalSigVerifyNoSeparator(check, index validation.Value) (string, string, er
 	if len(hits) > 0 {
 		return "present", "no-separator: " + strings.Join(hits, ", "), nil
 	}
-	return "absent", "no separator-less verify function among " + pyListRepr(sortedKeys(names)), nil
+	return "absent", "no separator-less verify function among " + pyListRepr(validation.SortedKeys(names)), nil
 }
 
 // depthMarkers is the hardcoded finality-depth marker list for
@@ -901,15 +901,6 @@ func dedupeStrings(xs []string) []string {
 			out = append(out, x)
 		}
 	}
-	return out
-}
-
-func sortedKeys(m map[string]bool) []string {
-	out := make([]string, 0, len(m))
-	for k := range m {
-		out = append(out, k)
-	}
-	sort.Strings(out)
 	return out
 }
 

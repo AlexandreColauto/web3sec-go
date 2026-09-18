@@ -7,6 +7,7 @@ package forkdiff
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -72,21 +73,12 @@ func TestFingerprintDeterministic(t *testing.T) {
 	if FingerprintSha256(fp) != FingerprintSha256(fpOf(t, a)) {
 		t.Fatal("fingerprint is not deterministic")
 	}
-	if !containsStr(strs(fp, "selectors"), "mint(address,uint256)") {
+	if !slices.Contains(strs(fp, "selectors"), "mint(address,uint256)") {
 		t.Fatalf("selectors %v", strs(fp, "selectors"))
 	}
-	if !containsStr(strs(fp, "state_vars"), "totalSupply") {
+	if !slices.Contains(strs(fp, "state_vars"), "totalSupply") {
 		t.Fatalf("state_vars %v", strs(fp, "state_vars"))
 	}
-}
-
-func containsStr(xs []string, s string) bool {
-	for _, x := range xs {
-		if x == s {
-			return true
-		}
-	}
-	return false
 }
 
 func TestMatchStrongPartialNone(t *testing.T) {
@@ -100,7 +92,7 @@ func TestMatchStrongPartialNone(t *testing.T) {
 	if v := validation.ObjStr(near, "verdict"); v != "strong" && v != "partial" {
 		t.Fatalf("near verdict %q", v)
 	}
-	if !containsStr(strs(near, "missing_selectors"), "sweep(address)") {
+	if !slices.Contains(strs(near, "missing_selectors"), "sweep(address)") {
 		t.Fatalf("missing_selectors %v", strs(near, "missing_selectors"))
 	}
 }
@@ -172,7 +164,7 @@ func TestReaddBaselineReplacesContent(t *testing.T) {
 		t.Fatal(err)
 	}
 	fp := fpOf(t, filepath.Join(BaselinesDir, "alpha-ref", "src"))
-	if !containsStr(strs(fp, "contracts"), "Extra") {
+	if !slices.Contains(strs(fp, "contracts"), "Extra") {
 		t.Fatalf("re-add did not replace content: %v", strs(fp, "contracts"))
 	}
 }

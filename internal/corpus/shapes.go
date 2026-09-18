@@ -328,7 +328,7 @@ func TargetSurfaceKeys(index validation.Value) (map[[2]string]bool, []string) {
 		keys[[2]string{name, ptypes}] = true
 		names[name] = true
 	}
-	return keys, sortedKeys(names)
+	return keys, validation.SortedKeys(names)
 }
 
 // partition is str.partition("("): the part before, and the part after.

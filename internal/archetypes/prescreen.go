@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 
 	"websec/internal/state"
@@ -87,7 +88,7 @@ func applyForces(c *state.Campaign, overrides *[]validation.Value,
 		return nil
 	}
 	for _, aid := range force {
-		if !containsStr(available, aid) {
+		if !slices.Contains(available, aid) {
 			return &UnknownArchetypeError{ID: aid}
 		}
 		if forcedIDs[aid] {
@@ -206,7 +207,7 @@ func persistPrescreen(c *state.Campaign, report validation.Value,
 	}
 	data := validation.VObj(
 		validation.KV{K: "matched", V: validation.StrArr(matched)},
-		validation.KV{K: "forced", V: validation.StrArr(sortedKeys(forcedIDs))},
+		validation.KV{K: "forced", V: validation.StrArr(validation.SortedKeys(forcedIDs))},
 	)
 	_, err := c.Log("prescreen.completed", nil, &data)
 	return err
@@ -231,7 +232,7 @@ func prescreenRow(aid string, arch, idx validation.Value,
 		if result == "absent" {
 			allPresent = false
 			for _, cand := range NearMatches(check, idx, 3) {
-				if !containsStr(near, cand) {
+				if !slices.Contains(near, cand) {
 					near = append(near, cand)
 				}
 			}

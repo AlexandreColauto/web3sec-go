@@ -6,6 +6,7 @@ package archetypes
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -373,7 +374,7 @@ func TestAbsentCheckReportsNearMatches(t *testing.T) {
 		t.Fatalf("result = %q, want absent", result)
 	}
 	near := NearMatches(varCheck, idx, 3)
-	if !containsStr(near, "totalStaked") {
+	if !slices.Contains(near, "totalStaked") {
 		t.Fatalf("near_matches = %v, want totalStaked", near)
 	}
 }
@@ -410,7 +411,7 @@ func TestPrescreenArtifactEventAndForce(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !containsStr(strSlice(validation.ObjAt(rep, "matched_ids")), "unguarded-initialize") {
+	if !slices.Contains(strSlice(validation.ObjAt(rep, "matched_ids")), "unguarded-initialize") {
 		t.Fatalf("matched_ids = %v", validation.ObjAt(rep, "matched_ids"))
 	}
 	if _, err := os.Stat(filepath.Join(c.ArtifactsDir, PrescreenFile)); err != nil {
@@ -504,7 +505,7 @@ func TestS5CorruptOverridesDegradeGracefully(t *testing.T) {
 			if err != nil {
 				t.Fatalf("prescreen crashed on a corrupt overrides file: %v", err)
 			}
-			if !containsStr(strSlice(validation.ObjAt(rep, "matched_ids")), "unguarded-initialize") {
+			if !slices.Contains(strSlice(validation.ObjAt(rep, "matched_ids")), "unguarded-initialize") {
 				t.Fatalf("matched_ids = %v", validation.ObjAt(rep, "matched_ids"))
 			}
 			for _, r := range listAt(rep, "results") {

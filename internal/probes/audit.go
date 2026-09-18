@@ -2,6 +2,7 @@ package probes
 
 import (
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"websec/internal/planner"
@@ -325,7 +326,7 @@ func blankProblems(c *state.Campaign, surface validation.Value,
 				validation.PyReprStr(vStr(*ax, "status"))))
 		}
 		keys := axisBlindKeys(surface, axisName)
-		if !containsStr(keys, vStr(entry, "anchor_blind")) {
+		if !slices.Contains(keys, vStr(entry, "anchor_blind")) {
 			problems = append(problems, sprintf("blank attestation for %s "+
 				"cites %s, which the surface no longer publishes (blind: %s)",
 				validation.PyReprStr(lens),

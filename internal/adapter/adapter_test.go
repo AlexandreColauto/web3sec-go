@@ -7,6 +7,7 @@ package adapter
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -195,17 +196,17 @@ func TestBuildContextCarriesBoundaryMatrixForBoundaryStages(t *testing.T) {
 		t.Fatal(err)
 	}
 	titles := blockTitles(validation.ObjAt(ctx, "blocks"))
-	if !containsStr(titles, "boundary_matrix") {
+	if !slices.Contains(titles, "boundary_matrix") {
 		t.Fatalf("verification bundle lacks boundary_matrix: %v", titles)
 	}
-	if !containsStr(titles, "campaign") {
+	if !slices.Contains(titles, "campaign") {
 		t.Fatalf("bundle lacks the campaign block: %v", titles)
 	}
 	ctx2, err := BuildContext(c, "campaign-planning", 60000, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if containsStr(blockTitles(validation.ObjAt(ctx2, "blocks")), "boundary_matrix") {
+	if slices.Contains(blockTitles(validation.ObjAt(ctx2, "blocks")), "boundary_matrix") {
 		t.Fatal("campaign-planning must NOT get the boundary matrix")
 	}
 	if validation.ObjStr(ctx, "budget_class") != "expensive" {
@@ -229,15 +230,6 @@ func blockTitles(blocks validation.Value) []string {
 		out = append(out, validation.ObjStr(b, "title"))
 	}
 	return out
-}
-
-func containsStr(xs []string, want string) bool {
-	for _, x := range xs {
-		if x == want {
-			return true
-		}
-	}
-	return false
 }
 
 // TestBlockBuilderBudgetCountsRunes is the T38 (golden v5) parity regression:

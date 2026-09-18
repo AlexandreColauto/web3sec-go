@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"unicode"
@@ -160,11 +161,11 @@ func writeThenLog(c *state.Campaign, paths []string, write func() error,
 // starts as 'pending' and NOTHING in this codebase can flip it to promoted —
 // only ApproveMemory with an explicit human approver does.
 func QueueMemory(c *state.Campaign, o QueueOpts) (validation.Value, error) {
-	if !inList(o.Status, MEMORY_STATUSES) {
+	if !slices.Contains(MEMORY_STATUSES, o.Status) {
 		return validation.VNull(), fmt.Errorf("invalid memory status %s",
 			pyReprStr(o.Status))
 	}
-	if !inList(o.Kind, MemoryKinds) {
+	if !slices.Contains(MemoryKinds, o.Kind) {
 		return validation.VNull(), fmt.Errorf("invalid memory kind %s",
 			pyReprStr(o.Kind))
 	}
@@ -174,7 +175,7 @@ func QueueMemory(c *state.Campaign, o QueueOpts) (validation.Value, error) {
 			rejectionClass = &rc
 		}
 	} else {
-		if !inList(*o.RejectionClass, REJECTION_CLASSES) {
+		if !slices.Contains(REJECTION_CLASSES, *o.RejectionClass) {
 			return validation.VNull(), fmt.Errorf("invalid rejection_class %s",
 				pyReprStr(*o.RejectionClass))
 		}
@@ -268,7 +269,7 @@ func checkPropositions(props []validation.Value) error {
 				"each deciding proposition needs a statement of 10-500 chars")
 		}
 		if t, ok := fieldAt(p, "type"); ok && t.Kind != validation.Null &&
-			!(t.Kind == validation.Str && inList(t.S, propositionTypes)) {
+			!(t.Kind == validation.Str && slices.Contains(propositionTypes, t.S)) {
 			return fmt.Errorf("invalid proposition type %s", pyRepr(t))
 		}
 	}
@@ -588,7 +589,7 @@ type HintOpts struct {
 // PlannerHint is planner_hint: a reflection-derived instruction for the
 // PLANNER. Append-only, attributed, logged.
 func PlannerHint(c *state.Campaign, o HintOpts) (validation.Value, error) {
-	if !inList(o.Kind, HINT_KINDS) {
+	if !slices.Contains(HINT_KINDS, o.Kind) {
 		return validation.VNull(), fmt.Errorf("invalid hint kind %s; kinds: %s",
 			pyReprStr(o.Kind), pyReprTuple(HINT_KINDS))
 	}
@@ -715,7 +716,7 @@ func NegativeMemoryLookup(c *state.Campaign, patternText string) ([]validation.V
 	}
 	hits := []validation.Value{}
 	for _, m := range rows {
-		if !inList(validation.ObjStr(m, "status"), negativeStatuses) {
+		if !slices.Contains(negativeStatuses, validation.ObjStr(m, "status")) {
 			continue
 		}
 		neg := validation.ObjAt(m, "negative_mode")
@@ -786,15 +787,6 @@ func BenchmarkCase(c *state.Campaign, o BenchmarkOpts) (validation.Value, error)
 }
 
 // ---- small shared helpers -------------------------------------------------
-
-func inList(s string, list []string) bool {
-	for _, item := range list {
-		if item == s {
-			return true
-		}
-	}
-	return false
-}
 
 func strOrNull(s *string) validation.Value {
 	if s == nil {

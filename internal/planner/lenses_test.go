@@ -96,7 +96,7 @@ func TestFamiliesForFindingOracle(t *testing.T) {
 			want = append(want, pyStr(s))
 		}
 		sort.Strings(want)
-		got := sortedKeys(FamiliesForFinding(validation.ObjAt(c, "model"),
+		got := validation.SortedKeys(FamiliesForFinding(validation.ObjAt(c, "model"),
 			validation.ObjAt(c, "finding")))
 		requireJSON(t, "families_for_finding/"+itoa(i), validation.StrArr(got),
 			validation.StrArr(want))

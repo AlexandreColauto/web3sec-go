@@ -153,27 +153,6 @@ func setKey(v validation.Value, key string, val validation.Value) validation.Val
 	return v
 }
 
-func hasKey(v validation.Value, key string) bool {
-	if v.Kind != validation.Obj {
-		return false
-	}
-	for _, kv := range v.O {
-		if kv.K == key {
-			return true
-		}
-	}
-	return false
-}
-
-func inList(items []string, want string) bool {
-	for _, x := range items {
-		if x == want {
-			return true
-		}
-	}
-	return false
-}
-
 // pyNumText is f"{value}" for an int/float JSON value.
 func pyNumText(v validation.Value) string {
 	switch v.Kind {

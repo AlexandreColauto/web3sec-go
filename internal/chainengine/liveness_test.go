@@ -83,7 +83,7 @@ func TestLivenessChainMaterializes(t *testing.T) {
 			"chain freezes every user's funds; the blast radius is the price" {
 		t.Errorf("ceiling = %q", got)
 	}
-	if hasKey(impact, "max_loss_usd") || hasKey(impact, "extractable_usd") {
+	if validation.HasKey(impact, "max_loss_usd") || validation.HasKey(impact, "extractable_usd") {
 		t.Errorf("liveness impact must carry no USD figures: %v", impact)
 	}
 }
@@ -147,7 +147,7 @@ func TestLivenessTerminalWithoutAnnotationIsUnpriced(t *testing.T) {
 	if err != nil {
 		t.Fatalf("materialize: %v", err)
 	}
-	if hasKey(ch, "terminal") {
+	if validation.HasKey(ch, "terminal") {
 		t.Fatalf("terminal must be absent without an annotation: %v", ch)
 	}
 	all, _ := findings.LoadAllFindings(c)

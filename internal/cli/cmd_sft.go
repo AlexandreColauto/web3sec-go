@@ -7,6 +7,7 @@ package cli
 import (
 	"fmt"
 	"os"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -59,7 +60,7 @@ func sftDispatch(root string, args []string, r *Runner) error {
 		return t14ArgparseErr(sftUsage, "sft",
 			"the following arguments are required: sft_cmd")
 	}
-	if !containsStr(sftChoices, sub) {
+	if !slices.Contains(sftChoices, sub) {
 		return t14ArgparseErr(sftUsage, "sft",
 			"argument sft_cmd: invalid choice: %s (choose from 'lint', "+
 				"'add', 'list', 'split', 'report', 'backfill', 'export')",
@@ -187,7 +188,7 @@ func sftParse(args []string, spec sftSpec) (*sftParsed, error) {
 			i++
 		}
 		if allowed, ok := spec.choices[key]; ok &&
-			!containsStr(allowed, val) {
+			!slices.Contains(allowed, val) {
 			return nil, t14ArgparseErr(spec.usage, spec.prog,
 				"argument %s: invalid choice: %s (choose from %s)", name,
 				quoteSingle(val), sftChoiceList(allowed))

@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -269,7 +270,7 @@ func FailingCheckIDs(clauses []Clause) []string {
 	seen := []string{}
 	for _, cl := range clauses {
 		cid := cl.ID()
-		if !cl.OK && !containsStr(seen, cid) {
+		if !cl.OK && !slices.Contains(seen, cid) {
 			seen = append(seen, cid)
 		}
 	}
@@ -434,20 +435,11 @@ func invariantIDs(finding validation.Value) []string {
 			continue
 		}
 		nid := normalizeInvIDFunc(id.S)
-		if nid != "" && !containsStr(ids, nid) {
+		if nid != "" && !slices.Contains(ids, nid) {
 			ids = append(ids, nid)
 		}
 	}
 	return ids
-}
-
-func containsStr(items []string, want string) bool {
-	for _, it := range items {
-		if it == want {
-			return true
-		}
-	}
-	return false
 }
 
 // bugClassPtr is _as_dict(...).get("class") as Python's None-vs-str: nil for

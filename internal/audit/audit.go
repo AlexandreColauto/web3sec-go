@@ -140,11 +140,3 @@ func sortStrs(in []string) []string {
 }
 
 // sortedKeys returns the sorted string keys of a set (Python sorted(set)).
-func sortedKeys(set map[string]struct{}) []string {
-	out := make([]string, 0, len(set))
-	for k := range set {
-		out = append(out, k)
-	}
-	sort.Strings(out)
-	return out
-}

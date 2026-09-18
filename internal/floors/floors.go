@@ -34,7 +34,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"sort"
+
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -324,7 +324,7 @@ func FloorTableReport(campaign *state.Campaign) (validation.Value, error) {
 		classes[cls] = struct{}{}
 	}
 	rows := make([]validation.Value, 0, len(classes))
-	for _, cls := range sortedKeys(classes) {
+	for _, cls := range validation.SortedKeys(classes) {
 		defaultFloor := validation.VNull()
 		if f, ok := findings.CLASS_CONFIRM_FLOOR[cls]; ok {
 			defaultFloor = validation.VStr(f)
@@ -435,7 +435,7 @@ func LoadPolicyFile(path string) ([]validation.Value, error) {
 			`{"overrides": [{"class", "floor", "reason"}]}`, p)
 	}
 	for _, ov := range overrides.A {
-		if ov.Kind != validation.Obj || !hasKey(ov, "class") || !hasKey(ov, "floor") {
+		if ov.Kind != validation.Obj || !validation.HasKey(ov, "class") || !validation.HasKey(ov, "floor") {
 			return nil, fmt.Errorf(
 				"each floor override needs 'class' and 'floor': %s",
 				validation.PyRepr(ov))
@@ -529,14 +529,6 @@ func inEvidenceOrder(floor string) bool {
 }
 
 // hasKey is Python's `key in dict` (distinct from a present-but-null value).
-func hasKey(v validation.Value, key string) bool {
-	for _, kv := range v.O {
-		if kv.K == key {
-			return true
-		}
-	}
-	return false
-}
 
 // kv is the keyed KV constructor (non-test code cannot use a test helper).
 func kv(k string, v validation.Value) validation.KV {
@@ -544,11 +536,3 @@ func kv(k string, v validation.Value) validation.KV {
 }
 
 // sortedKeys returns a set's keys in Python's sorted() order.
-func sortedKeys(s map[string]struct{}) []string {
-	out := make([]string, 0, len(s))
-	for k := range s {
-		out = append(out, k)
-	}
-	sort.Strings(out)
-	return out
-}

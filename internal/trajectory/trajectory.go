@@ -14,6 +14,7 @@ package trajectory
 import (
 	"fmt"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 
@@ -213,18 +214,18 @@ type OutcomeOpts struct {
 // training-metadata carrier) with the validate-before-write posture.
 func RecordOutcome(campaign *state.Campaign, findingID, outcome string,
 	o OutcomeOpts) (validation.Value, error) {
-	if !contains(OutcomeValues, outcome) {
+	if !slices.Contains(OutcomeValues, outcome) {
 		return validation.VNull(), fmt.Errorf("unknown outcome %s; known: %s",
 			validation.PyReprStr(outcome), pyListRepr(OutcomeValues))
 	}
-	if !contains(findings.EVIDENCE_ORDER, o.FinalEvidenceTier) {
+	if !slices.Contains(findings.EVIDENCE_ORDER, o.FinalEvidenceTier) {
 		return validation.VNull(), fmt.Errorf(
 			"unknown evidence tier %s; the ladder is %s",
 			validation.PyReprStr(o.FinalEvidenceTier),
 			pyListRepr(findings.EVIDENCE_ORDER))
 	}
 	statuses := FindingStatuses()
-	if !contains(statuses, o.FinalStatus) {
+	if !slices.Contains(statuses, o.FinalStatus) {
 		return validation.VNull(), fmt.Errorf(
 			"unknown final_status %s; the finding status vocabulary is %s",
 			validation.PyReprStr(o.FinalStatus), pyListRepr(statuses))
@@ -417,15 +418,6 @@ func strsToVals(xs []string) []validation.Value {
 		out[i] = validation.VStr(x)
 	}
 	return out
-}
-
-func contains(xs []string, want string) bool {
-	for _, x := range xs {
-		if x == want {
-			return true
-		}
-	}
-	return false
 }
 
 func pyListRepr(xs []string) string {

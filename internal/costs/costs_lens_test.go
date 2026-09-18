@@ -241,7 +241,7 @@ func TestRecordCostLensRidesRowOnlyWhenKnown(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if hasKey(e2, "lens") {
+	if validation.HasKey(e2, "lens") {
 		t.Errorf("lens-less row carries a lens key: %s",
 			validation.DumpIndented(e2))
 	}
@@ -255,7 +255,7 @@ func TestRecordCostLensRidesRowOnlyWhenKnown(t *testing.T) {
 	if validation.ObjStr(rows[0], "lens") != "L-01" {
 		t.Errorf("row[0].lens = %q, want L-01", validation.ObjStr(rows[0], "lens"))
 	}
-	if hasKey(rows[1], "lens") {
+	if validation.HasKey(rows[1], "lens") {
 		t.Errorf("row[1] carries a lens key after reload: %s",
 			validation.DumpIndented(rows[1]))
 	}
@@ -445,13 +445,4 @@ func TestLensYieldUnattributedPlannedWithoutCostRows(t *testing.T) {
 	if v := intField(byID["L-01"], "n_planned"); v != 1 {
 		t.Errorf("L-01 n_planned = %d, want 1 (Q-001 via r1)", v)
 	}
-}
-
-func hasKey(v validation.Value, key string) bool {
-	for _, kv := range v.O {
-		if kv.K == key {
-			return true
-		}
-	}
-	return false
 }

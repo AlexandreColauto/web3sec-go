@@ -149,7 +149,7 @@ func pruneExcludes(staging string, excludes map[string]struct{}) []string {
 		}
 		paths[filepath.ToSlash(rel)] = struct{}{}
 	}
-	return sortedKeys(paths)
+	return validation.SortedKeys(paths)
 }
 
 // excludedNamesIn is _excluded_names_in: the paths in target that the prune
@@ -172,7 +172,7 @@ func excludedNamesIn(target string, names map[string]struct{}) []string {
 		}
 		return nil
 	})
-	return sortedKeys(paths)
+	return validation.SortedKeys(paths)
 }
 
 // MatchedExcludes reports, for each requested exclude NAME, whether the
@@ -201,14 +201,6 @@ func MatchedExcludes(target string, names []string) map[string]bool {
 }
 
 // sortedKeys returns the sorted string keys of a set.
-func sortedKeys(m map[string]struct{}) []string {
-	out := make([]string, 0, len(m))
-	for k := range m {
-		out = append(out, k)
-	}
-	sort.Strings(out)
-	return out
-}
 
 // --- copytree ----------------------------------------------------------------
 

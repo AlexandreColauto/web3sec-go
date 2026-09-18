@@ -3,6 +3,7 @@
 package chainengine
 
 import (
+	"slices"
 	"sort"
 
 	"websec/internal/capabilities"
@@ -62,8 +63,8 @@ func addCapital(a, b capital) capital {
 // capitalNode is _capital_node: one finding's reported capital, falling back
 // to the legacy flat attacker.required_capital_usd.
 func capitalNode(f validation.Value) capital {
-	att := asObj(validation.ObjAt(f, "attacker"))
-	prof := asObj(validation.ObjAt(att, "capital_profile"))
+	att := validation.AsObj(validation.ObjAt(f, "attacker"))
+	prof := validation.AsObj(validation.ObjAt(att, "capital_profile"))
 	get := func(key string) float64 {
 		v := validation.ObjAt(prof, key)
 		if v.Kind == validation.Null && key == "required_usd" {
@@ -96,7 +97,7 @@ type findingNode struct {
 }
 
 func newFindingNode(f validation.Value) findingNode {
-	caps := asObj(validation.ObjAt(f, "capabilities"))
+	caps := validation.AsObj(validation.ObjAt(f, "capabilities"))
 	return findingNode{
 		fid:      validation.ObjStr(f, "finding_id"),
 		title:    validation.ObjStr(f, "title"),
@@ -200,7 +201,7 @@ func FindTerminalChainsMode(c *state.Campaign, baseline *[]string, maxDepth,
 				continue
 			}
 			for _, nxt := range nodes {
-				if containsStr(frame.path, nxt.fid) {
+				if slices.Contains(frame.path, nxt.fid) {
 					continue
 				}
 				if !subsetOf(nxt.required, frame.held) {
@@ -266,14 +267,6 @@ func pyFloatAt(v validation.Value, key string) float64 {
 }
 
 // containsStr is Python's `x in list`.
-func containsStr(items []string, want string) bool {
-	for _, s := range items {
-		if s == want {
-			return true
-		}
-	}
-	return false
-}
 
 // TerminalReport is terminal_report(): direct drains, multi-step terminal
 // chains, the shortest path per terminal capability, and materialized chains

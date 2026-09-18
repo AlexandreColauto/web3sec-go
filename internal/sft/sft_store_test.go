@@ -47,7 +47,7 @@ func TestSFTAddAssignsIDAndPersists(t *testing.T) {
 		t.Fatalf("store = %v", rows)
 	}
 	// caller's dict untouched (copy semantics)
-	if hasKey(caller, "id") {
+	if validation.HasKey(caller, "id") {
 		t.Fatal("caller's dict was mutated")
 	}
 }

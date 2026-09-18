@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"unicode/utf8"
@@ -329,7 +330,7 @@ func StoreView(root string) (validation.Value, error) {
 		kv("memory_count", validation.VInt(int64(len(mems)))),
 		kv("global_scope_memory_rows", validation.VInt(int64(globalRows))),
 		kv("publish_records", validation.VInt(int64(len(manifest)))),
-		kv("programs", validation.StrArr(sortedKeys(programs))),
+		kv("programs", validation.StrArr(validation.SortedKeys(programs))),
 		kv("tiers", validation.VArr(tiers...))), nil
 }
 
@@ -545,7 +546,7 @@ func PublishCampaignWith(c *state.Campaign, actor string,
 		return validation.VNull(), err
 	}
 	for _, f := range all {
-		if !inList(validation.ObjStr(f, "status"), PublishableStatuses) {
+		if !slices.Contains(PublishableStatuses, validation.ObjStr(f, "status")) {
 			continue
 		}
 		publishableFindings++
@@ -571,7 +572,7 @@ func PublishCampaignWith(c *state.Campaign, actor string,
 		return validation.VNull(), err
 	}
 	for _, m := range rows {
-		if !inList(validation.ObjStr(m, "promotion_status"), ApprovedMemory) {
+		if !slices.Contains(ApprovedMemory, validation.ObjStr(m, "promotion_status")) {
 			continue
 		}
 		approvedRows++
@@ -728,7 +729,7 @@ func writeStore(store string, sigs, mems []validation.Value) error {
 // SetScope is set_scope: the sanctioned visibility change. programKey == ""
 // means "every row in the tier" (Python: program_key=None).
 func SetScope(root, scope, actor, programKey string, tier string) (validation.Value, error) {
-	if !inList(scope, Scopes) {
+	if !slices.Contains(Scopes, scope) {
 		return validation.VNull(), fmt.Errorf("scope must be one of %s",
 			pyTuple(Scopes))
 	}
@@ -927,7 +928,7 @@ func Recall(c *state.Campaign, candidateID string) (validation.Value, error) {
 			overlap, union := 0, 0
 			for lab := range candGranted {
 				union++
-				if inList(lab, sigGranted) {
+				if slices.Contains(sigGranted, lab) {
 					overlap++
 				}
 			}
@@ -951,7 +952,7 @@ func Recall(c *state.Campaign, candidateID string) (validation.Value, error) {
 			source = validation.ObjAt(s, "required")
 		}
 		for _, lab := range strList(source) {
-			if inList(lab, chainengine.AttackerBaseline) {
+			if slices.Contains(chainengine.AttackerBaseline, lab) {
 				continue
 			}
 			dependsSet[lab] = struct{}{}
@@ -970,7 +971,7 @@ func Recall(c *state.Campaign, candidateID string) (validation.Value, error) {
 			}
 		}
 		sort.Strings(stillProvided)
-		dependsSorted := sortedKeys(dependsSet)
+		dependsSorted := validation.SortedKeys(dependsSet)
 		advisory := []string{}
 		if len(missing) > 0 {
 			advisory = append(advisory, fmt.Sprintf("the confirmed primitive "+
@@ -1297,24 +1298,6 @@ func strOrNull(s *string) validation.Value {
 		return validation.VNull()
 	}
 	return validation.VStr(*s)
-}
-
-func inList(s string, list []string) bool {
-	for _, item := range list {
-		if item == s {
-			return true
-		}
-	}
-	return false
-}
-
-func sortedKeys(m map[string]struct{}) []string {
-	out := make([]string, 0, len(m))
-	for k := range m {
-		out = append(out, k)
-	}
-	sort.Strings(out)
-	return out
 }
 
 func sortedStrings(items []string) []string {

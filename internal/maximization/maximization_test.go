@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -118,7 +119,7 @@ func confirmedFinding(t *testing.T, c *state.Campaign, title string) validation.
 	if err != nil {
 		t.Fatal(err)
 	}
-	ver := asObj(validation.ObjAt(vf, "verification"))
+	ver := validation.AsObj(validation.ObjAt(vf, "verification"))
 	ver.O = validation.SetOrAppend(ver.O, "reproduction", validation.VObj(
 		kv("tier_reached", validation.VStr("T2")),
 		kv("status", validation.VStr("reproduced")),
@@ -194,14 +195,14 @@ func TestStartLadderBaseRungAndIdempotence(t *testing.T) {
 	if !strings.HasPrefix(validation.ObjStr(base, "exec_id"), "EXEC-") {
 		t.Fatalf("base exec_id = %s", validation.ObjStr(base, "exec_id"))
 	}
-	if validation.ObjStr(asObj(validation.ObjAt(lad, "disposition")), "state") != "open" {
+	if validation.ObjStr(validation.AsObj(validation.ObjAt(lad, "disposition")), "state") != "open" {
 		t.Fatalf("disposition = %v", validation.ObjAt(lad, "disposition"))
 	}
 	f2, err := findings.LoadFinding(c, fid)
 	if err != nil {
 		t.Fatal(err)
 	}
-	mx := asObj(validation.ObjAt(f2, "maximization"))
+	mx := validation.AsObj(validation.ObjAt(f2, "maximization"))
 	if validation.ObjStr(mx, "ladder_id") != validation.ObjStr(lad, "ladder_id") ||
 		validation.ObjStr(mx, "disposition") != "open" {
 		t.Fatalf("finding.maximization = %v", mx)
@@ -365,7 +366,7 @@ func TestExploreAxisRequiresWrittenNote(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	notes := asObj(validation.ObjAt(lad, "axis_notes"))
+	notes := validation.AsObj(validation.ObjAt(lad, "axis_notes"))
 	if validation.ObjStr(notes, "cap-saturation") != "no payout cap in this code path" {
 		t.Fatalf("note = %v", notes)
 	}
@@ -505,16 +506,16 @@ func TestSetMaximalPinsOnlyReproducedRungs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mx := asObj(validation.ObjAt(f2, "maximization"))
+	mx := validation.AsObj(validation.ObjAt(f2, "maximization"))
 	if validation.ObjStr(mx, "maximal_rung_id") != rungID ||
 		validation.ObjStr(mx, "claim_from") != rungID {
 		t.Fatalf("maximization = %v", mx)
 	}
-	if got := validation.ObjAt(asObj(validation.ObjAt(f2, "attacker")), "required_capital_usd"); got.Kind !=
+	if got := validation.ObjAt(validation.AsObj(validation.ObjAt(f2, "attacker")), "required_capital_usd"); got.Kind !=
 		validation.Flt || got.F != 1 {
 		t.Fatalf("capital = %v", got)
 	}
-	if got := validation.ObjAt(asObj(validation.ObjAt(f2, "economic_impact")), "extraction_ratio"); got.Kind !=
+	if got := validation.ObjAt(validation.AsObj(validation.ObjAt(f2, "economic_impact")), "extraction_ratio"); got.Kind !=
 		validation.Flt || got.F != 1 {
 		t.Fatalf("ratio = %v", got)
 	}
@@ -565,7 +566,7 @@ func TestCompleteLadderGatesAndSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	disp := asObj(validation.ObjAt(lad, "disposition"))
+	disp := validation.AsObj(validation.ObjAt(lad, "disposition"))
 	if validation.ObjStr(disp, "state") != "complete" || validation.ObjStr(disp, "actor") != "operator" {
 		t.Fatalf("disposition = %v", disp)
 	}
@@ -573,7 +574,7 @@ func TestCompleteLadderGatesAndSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if validation.ObjStr(asObj(validation.ObjAt(f2, "maximization")), "disposition") != "complete" {
+	if validation.ObjStr(validation.AsObj(validation.ObjAt(f2, "maximization")), "disposition") != "complete" {
 		t.Fatalf("finding disposition = %v", validation.ObjAt(f2, "maximization"))
 	}
 }
@@ -589,7 +590,7 @@ func TestWaiveLadderIsAttributedAndRecordsWaiver(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	disp := asObj(validation.ObjAt(lad, "disposition"))
+	disp := validation.AsObj(validation.ObjAt(lad, "disposition"))
 	if validation.ObjStr(disp, "state") != "waived" ||
 		validation.ObjStr(disp, "reason") != "budget exhausted before the ladder closed" ||
 		validation.ObjStr(disp, "actor") != "operator" {
@@ -599,7 +600,7 @@ func TestWaiveLadderIsAttributedAndRecordsWaiver(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if validation.ObjStr(asObj(validation.ObjAt(f2, "maximization")), "disposition") != "waived" {
+	if validation.ObjStr(validation.AsObj(validation.ObjAt(f2, "maximization")), "disposition") != "waived" {
 		t.Fatalf("finding disposition = %v", validation.ObjAt(f2, "maximization"))
 	}
 	if _, err := os.Stat(filepath.Join(c.Dir, "waivers.jsonl")); err != nil {
@@ -661,7 +662,7 @@ func TestReopenLadder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	disp := asObj(validation.ObjAt(lad, "disposition"))
+	disp := validation.AsObj(validation.ObjAt(lad, "disposition"))
 	if validation.ObjStr(disp, "state") != "open" || validation.ObjStr(disp, "actor") != "op2" {
 		t.Fatalf("disposition = %v", disp)
 	}
@@ -672,7 +673,7 @@ func TestReopenLadder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if validation.ObjStr(asObj(validation.ObjAt(f2, "maximization")), "disposition") != "open" {
+	if validation.ObjStr(validation.AsObj(validation.ObjAt(f2, "maximization")), "disposition") != "open" {
 		t.Fatalf("finding disposition = %v", validation.ObjAt(f2, "maximization"))
 	}
 	// the reopened ladder accepts work again (requireOpen no longer refuses)
@@ -777,7 +778,7 @@ func TestTailOfAndNewIDShapes(t *testing.T) {
 	if tailOf("LAD-abcdefgh") != "abcdefgh" {
 		t.Fatalf("tail = %s", tailOf("LAD-abcdefgh"))
 	}
-	if !containsStr(SortAxes([]string{"b", "a"}), "a") {
+	if !slices.Contains(SortAxes([]string{"b", "a"}), "a") {
 		t.Fatal("SortAxes broken")
 	}
 }

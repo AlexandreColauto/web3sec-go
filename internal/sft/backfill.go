@@ -300,7 +300,7 @@ func arrOf(v validation.Value) []validation.Value {
 }
 
 func getDefaultStr(v validation.Value, key, def string) string {
-	if !hasKey(v, key) {
+	if !validation.HasKey(v, key) {
 		return def
 	}
 	return pyStrValue(validation.ObjAt(v, key))

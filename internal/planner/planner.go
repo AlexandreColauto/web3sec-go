@@ -184,14 +184,6 @@ func listOf(v validation.Value, key string) []validation.Value {
 }
 
 // sortedKeys is sorted(m) for a set of strings.
-func sortedKeys(s map[string]struct{}) []string {
-	out := make([]string, 0, len(s))
-	for k := range s {
-		out = append(out, k)
-	}
-	sort.Strings(out)
-	return out
-}
 
 // sortedMapKeys is sorted(m) for a map of any values.
 func sortedMapKeys[T any](m map[string]T) []string {

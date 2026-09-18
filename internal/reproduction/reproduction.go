@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -281,7 +282,7 @@ func EffectiveEvidenceType(tier, evidenceType *string, f validation.Value) strin
 func MintReproEvidence(c *state.Campaign, findingID, execID, description string,
 	tier, evidenceType *string) (validation.Value, error) {
 	setMintNotice("")
-	if evidenceType != nil && !inList(MintableTypes, *evidenceType) {
+	if evidenceType != nil && !slices.Contains(MintableTypes, *evidenceType) {
 		return validation.VNull(), mintErrf("unknown evidence type %s; one of %s",
 			validation.PyReprStr(*evidenceType), tupleRepr(MintableTypes))
 	}
@@ -581,15 +582,6 @@ func tierIndex(tier string) int {
 func inSet(set map[string]struct{}, key string) bool {
 	_, ok := set[key]
 	return ok
-}
-
-func inList(list []string, s string) bool {
-	for _, x := range list {
-		if x == s {
-			return true
-		}
-	}
-	return false
 }
 
 // tupleRepr is Python's repr of a tuple of strings.

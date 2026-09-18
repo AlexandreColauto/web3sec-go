@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 
@@ -212,15 +213,6 @@ func eventTypes(t *testing.T, c *state.Campaign) []string {
 	return out
 }
 
-func containsStr(xs []string, want string) bool {
-	for _, x := range xs {
-		if x == want {
-			return true
-		}
-	}
-	return false
-}
-
 func newCamp(t *testing.T) *state.Campaign {
 	t.Helper()
 	c, err := state.Init(t.TempDir(), "Acme Program", state.InitOpts{})
@@ -286,10 +278,10 @@ func TestValidHypothesisIngests(t *testing.T) {
 		t.Errorf("claim_version = %d", got)
 	}
 	types := eventTypes(t, c)
-	if !containsStr(types, "finding.ingested") {
+	if !slices.Contains(types, "finding.ingested") {
 		t.Error("finding.ingested missing")
 	}
-	if !containsStr(types, "model.plan_received") {
+	if !slices.Contains(types, "model.plan_received") {
 		t.Error("model.plan_received missing")
 	}
 }
@@ -707,7 +699,7 @@ func TestReproducerRequestProfileRegistryParity(t *testing.T) {
 		if _, err := SubmitReproducerRequest(c, r); err == nil {
 			t.Fatal("want rejection for execution_profile bogus")
 		}
-		if contains(sandbox.Profiles, "bogus") {
+		if slices.Contains(sandbox.Profiles, "bogus") {
 			t.Fatal("sandbox.Profiles must not contain bogus")
 		}
 	})
@@ -907,7 +899,7 @@ func TestUtilityV1RowFallsBackToClassMatch(t *testing.T) {
 	}
 	mustIngest(t, c, validHypothesis())
 	data := utilityEvent(t, c)
-	if got := strList(validation.ObjAt(data, "re_raised")); !containsStr(got, mid) {
+	if got := strList(validation.ObjAt(data, "re_raised")); !slices.Contains(got, mid) {
 		t.Errorf("re_raised = %v, want %s", got, mid)
 	}
 	bundle, err := roles.BuildProposerContext(c, &bc)

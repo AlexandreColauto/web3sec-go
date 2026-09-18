@@ -3,6 +3,7 @@ package probes
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"slices"
 	"sort"
 	"strings"
 
@@ -135,7 +136,7 @@ func RowAnchorPairs(row validation.Value, index *validation.Value) []string {
 				continue // unresolvable with an index: no fabricated citation
 			}
 			pair := token + "#L" + itoa(int(line.I))
-			if !containsStr(out, pair) {
+			if !slices.Contains(out, pair) {
 				out = append(out, pair)
 			}
 		}
@@ -216,7 +217,7 @@ func AnchorRef(row validation.Value, anchor string,
 				continue
 			}
 			pair := token + "#L" + itoa(int(line.I))
-			if !containsStr(pairs, pair) {
+			if !slices.Contains(pairs, pair) {
 				pairs = append(pairs, pair)
 			}
 		}
@@ -258,13 +259,4 @@ func renderAnchorValue(value validation.Value) string {
 		return validation.CanonSpaced(value)
 	}
 	return pyStr(value)
-}
-
-func containsStr(items []string, s string) bool {
-	for _, it := range items {
-		if it == s {
-			return true
-		}
-	}
-	return false
 }

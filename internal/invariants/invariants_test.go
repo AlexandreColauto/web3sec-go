@@ -825,7 +825,7 @@ func TestLoadLinksDefaultsToEmptyRegistry(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(links.O) != 1 || !hasKey(links, "invariants") {
+	if len(links.O) != 1 || !validation.HasKey(links, "invariants") {
 		t.Fatalf("fresh links = %s, want only an invariants key",
 			validation.DumpIndented(links))
 	}
@@ -982,7 +982,7 @@ func TestFullLivenessCoverageNeedsNoTemplate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("re-seed with full coverage refused: %v", err)
 	}
-	if hasKey(validation.ObjAt(links, "invariants"), "INV-5") {
+	if validation.HasKey(validation.ObjAt(links, "invariants"), "INV-5") {
 		t.Errorf("re-seed synthesized a duplicate template (INV-5)")
 	}
 }
@@ -1366,7 +1366,7 @@ func TestVerifyPreservesExistingVerificationHarness(t *testing.T) {
 			wantVerification, after)
 	}
 	for _, key := range []string{"bounded_k", "proof", "harness"} {
-		if hasKey(got, key) {
+		if validation.HasKey(got, key) {
 			t.Errorf("attestation manufactured a top-level %q", key)
 		}
 	}
@@ -1390,7 +1390,7 @@ func TestVerifyRefusalLeavesAttestationAbsent(t *testing.T) {
 		t.Fatal("irrelevant artifact was accepted")
 	}
 	stored := validation.ObjAt(validation.ObjAt(mustLinks(t, c), "invariants"), "INV-2")
-	if hasKey(stored, "verification_method") {
+	if validation.HasKey(stored, "verification_method") {
 		t.Errorf("refusal wrote a method: %q",
 			validation.ObjStr(stored, "verification_method"))
 	}

@@ -64,4 +64,6 @@ var (
 	ObjAt  = jval.ObjAt
 	ObjStr = jval.ObjStr
 	StrArr = jval.StrArr
+	HasKey = jval.HasObjKey
+	AsObj  = jval.AsObj
 )

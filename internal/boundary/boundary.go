@@ -14,6 +14,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 
@@ -132,7 +133,7 @@ func ValidateRequest(request validation.Value) error {
 // campaign state are then skipped, exactly like Python).
 func ValidateResponse(role, kind string, payload validation.Value,
 	campaign *state.Campaign) error {
-	if !contains(ResponseKinds, kind) {
+	if !slices.Contains(ResponseKinds, kind) {
 		return &BoundaryError{Msg: fmt.Sprintf("unknown response kind %s",
 			validation.PyReprStr(kind))}
 	}
@@ -141,7 +142,7 @@ func ValidateResponse(role, kind string, payload validation.Value,
 		return &BoundaryError{Msg: fmt.Sprintf("unknown role %s",
 			validation.PyReprStr(role))}
 	}
-	if !contains(allowed, kind) {
+	if !slices.Contains(allowed, kind) {
 		return &BoundaryError{Msg: fmt.Sprintf(
 			"role %s may not emit a %s response (allowed: %s)",
 			validation.PyReprStr(role), validation.PyReprStr(kind),
@@ -355,7 +356,7 @@ func validateCriticMove(entry validation.Value, campaign *state.Campaign,
 	if status == fromStatus {
 		return nil
 	}
-	if !contains(legal[fromStatus], status) {
+	if !slices.Contains(legal[fromStatus], status) {
 		return &BoundaryError{Msg: fmt.Sprintf(
 			"critic entry for %s: %s -> %s is not a legal assumption move",
 			aid, fromStatus, status)}
@@ -396,7 +397,7 @@ func validateReproducerRequest(payload validation.Value,
 		return nil
 	}
 	profile := validation.ObjStr(payload, "execution_profile")
-	if !contains(sandbox.Profiles, profile) {
+	if !slices.Contains(sandbox.Profiles, profile) {
 		return &BoundaryError{Msg: fmt.Sprintf(
 			"reproducer request names unknown execution profile %s",
 			validation.PyReprStr(profile))}
@@ -589,15 +590,6 @@ func memoryUtility(campaign *state.Campaign, findingID string,
 }
 
 // ---- small helpers --------------------------------------------------------
-
-func contains(xs []string, want string) bool {
-	for _, x := range xs {
-		if x == want {
-			return true
-		}
-	}
-	return false
-}
 
 func truthy(v validation.Value) bool {
 	switch v.Kind {

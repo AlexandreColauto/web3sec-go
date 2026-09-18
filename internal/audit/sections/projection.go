@@ -13,7 +13,6 @@ package sections
 import (
 	"fmt"
 	"path/filepath"
-	"sort"
 
 	"websec/internal/state"
 	"websec/internal/validation"
@@ -139,7 +138,7 @@ func Projection(c *state.Campaign) (validation.Value, error) {
 		}
 		_, refreshLast := refSeqBounds(events, "artifact.refreshed")
 		pruneFirst, _ := refSeqBounds(events, "artifact.pruned")
-		for _, r := range sortedKeys(refreshRefs) {
+		for _, r := range validation.SortedKeys(refreshRefs) {
 			if _, ok := artIDs[r]; ok {
 				continue
 			}
@@ -164,7 +163,7 @@ func Projection(c *state.Campaign) (validation.Value, error) {
 		// artifactRefs is the artifact.registered ref set computed above;
 		// every pruned row was once a registered row, so the registered
 		// event must be on the log.
-		for _, r := range sortedKeys(prunedRefs) {
+		for _, r := range validation.SortedKeys(prunedRefs) {
 			if _, ok := artifactRefs[r]; !ok {
 				proj = append(proj, validation.VStr(
 					fmt.Sprintf("log records artifact.pruned for %s but no artifact.registered event for it — a prune retires a registered row, so this trail is forged",
@@ -321,13 +320,3 @@ func refSeqBounds(events []validation.Value, typ string) (first, last map[string
 }
 
 // sortedKeys returns the sorted string keys of a set (Python sorted(ref)).
-func sortedKeys(set map[string]struct{}) []string {
-	out := make([]string, 0, len(set))
-	for k := range set {
-		out = append(out, k)
-	}
-	// Python sorts the raw values; we sort string form (see note: mixed
-	// None/str would crash Python, so strings-only it is).
-	sort.Strings(out)
-	return out
-}

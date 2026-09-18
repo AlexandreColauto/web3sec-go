@@ -7,6 +7,7 @@ package playbooks
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -361,7 +362,7 @@ func TestCuratedInvariantIDsIsUnionOverPlaybooks(t *testing.T) {
 			t.Fatalf("curated id %q is not declared by any playbook", id)
 		}
 	}
-	if !containsStr(got, "INV-RE-CEI-ORDERING") {
+	if !slices.Contains(got, "INV-RE-CEI-ORDERING") {
 		t.Fatalf("INV-RE-CEI-ORDERING missing from %v", got)
 	}
 	for _, id := range got {
@@ -403,7 +404,7 @@ func TestShippedSimulationPlaybooksCarryModeAndExpectation(t *testing.T) {
 			}
 			if !ids[expectation] {
 				t.Fatalf("expectation %q is not among the declared invariants %v",
-					expectation, sortedKeys(ids))
+					expectation, validation.SortedKeys(ids))
 			}
 		})
 	}

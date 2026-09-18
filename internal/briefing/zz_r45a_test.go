@@ -123,7 +123,7 @@ func TestR45aBriefDisclosesUnreadableModel(t *testing.T) {
 		t.Fatalf("chain_assumption_lines = %v, want the UNAVAILABLE line", al)
 	}
 	// No ranking is invented from a model that was never read.
-	if hasKey(b, "criticality") {
+	if validation.HasKey(b, "criticality") {
 		t.Fatalf("criticality must not be computed from an unread model: %v",
 			validation.ObjAt(b, "criticality"))
 	}
@@ -143,7 +143,7 @@ func TestR45aBriefDisclosesUnreadableStructuralIndex(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !hasKey(ok, "criticality") {
+	if !validation.HasKey(ok, "criticality") {
 		t.Fatalf("a readable model+index renders criticality: %v",
 			validation.ObjAt(ok, "criticality"))
 	}
@@ -158,7 +158,7 @@ func TestR45aBriefDisclosesUnreadableStructuralIndex(t *testing.T) {
 		t.Fatalf("problems = %v, want a named structural_index.json read failure",
 			validation.ObjAt(b, "problems"))
 	}
-	if hasKey(b, "criticality") {
+	if validation.HasKey(b, "criticality") {
 		t.Fatalf("criticality must not be ranked against an unread index: %v",
 			validation.ObjAt(b, "criticality"))
 	}
@@ -231,7 +231,7 @@ func TestR45aAbsenceStaysAbsentAndSilent(t *testing.T) {
 	}
 	for _, key := range []string{"tracked_surfaces", "chain_assumption_lines",
 		"criticality"} {
-		if hasKey(b, key) {
+		if validation.HasKey(b, key) {
 			t.Fatalf("absent artifacts must not create %s: %v", key,
 				validation.ObjAt(b, key))
 		}
@@ -258,13 +258,13 @@ func TestR45aComponentFreeModelStaysSilent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if hasKey(b, "tracked_surfaces") || hasKey(b, "chain_assumption_lines") {
+	if validation.HasKey(b, "tracked_surfaces") || validation.HasKey(b, "chain_assumption_lines") {
 		t.Fatalf("a component-free model must add no block")
 	}
 	if r45aTopProblem(b, "could not be read") {
 		t.Fatalf("a readable model is not a read failure: %v", validation.ObjAt(b, "problems"))
 	}
-	if !hasKey(b, "criticality") {
+	if !validation.HasKey(b, "criticality") {
 		t.Fatal("a readable model still renders criticality")
 	}
 }

@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -97,7 +98,7 @@ func DispositionReview(campaign *state.Campaign, plan validation.Value) ([]Dismi
 	for _, p := range listOf(plan, "priorities") {
 		prov, hasProv := probeProvenance(p)
 		if !hasProv ||
-			!inList(validation.ObjStr(p, "status"), ProbeRowDispositioned) {
+			!slices.Contains(ProbeRowDispositioned, validation.ObjStr(p, "status")) {
 			continue
 		}
 		reason := validation.ObjStr(p, "closed_reason")
@@ -233,7 +234,7 @@ func recordOverrideEvent(campaign *state.Campaign, priorityID string,
 func checkDismissalGateInner(campaign *state.Campaign, priorityID,
 	outcome string, prov validation.Value, hasProv bool, opts AnsweredOpts,
 	dry bool) error {
-	if !hasProv || !inList(outcome, ProbeRowDispositioned) {
+	if !hasProv || !slices.Contains(ProbeRowDispositioned, outcome) {
 		return nil
 	}
 	// FIX-8: a reason-less OVERRIDE still reaches the row — the override is
@@ -294,7 +295,7 @@ func checkDismissalGateInner(campaign *state.Campaign, priorityID,
 					"the override (probe.dismissal_overridden)")
 			}
 			sentinelAhead := validation.ObjStr(row, "own_form") == "sentinel" &&
-				inList(outcome, []string{"answered", "not-applicable"})
+				slices.Contains([]string{"answered", "not-applicable"}, outcome)
 			if sentinelAhead {
 				// the sentinel rule's override arm runs EARLIER in
 				// runAnsweredGates and records a non-high-risk sentinel
@@ -321,7 +322,7 @@ func checkDismissalGateInner(campaign *state.Campaign, priorityID,
 				"override (probe.dismissal_overridden)")
 		}
 		if validation.ObjStr(row, "own_form") == "sentinel" && opts.Reason == nil &&
-			inList(outcome, []string{"answered", "not-applicable"}) {
+			slices.Contains([]string{"answered", "not-applicable"}, outcome) {
 			// the sentinel rule's override arm (which runs first) recorded
 			// this reason-less override itself — see overrideSentinelPasses.
 			return nil
@@ -691,7 +692,7 @@ func passesPlausible(row validation.Value, v string) bool {
 func checkSentinelPassesRow(campaign *state.Campaign, priorityID,
 	outcome string, prov validation.Value, hasProv bool, opts AnsweredOpts,
 	dry bool) error {
-	if !hasProv || !inList(outcome, []string{"answered", "not-applicable"}) {
+	if !hasProv || !slices.Contains([]string{"answered", "not-applicable"}, outcome) {
 		return nil
 	}
 	surface, err := PB().CampaignSurface(campaign)
@@ -965,7 +966,7 @@ func checkConsequenceFlags(campaign *state.Campaign, priorityID string,
 func checkDeferredConsequenceRow(campaign *state.Campaign, priorityID,
 	outcome string, prov validation.Value, hasProv bool, opts AnsweredOpts,
 	dry bool) error {
-	if !hasProv || !inList(outcome, ProbeRowDispositioned) {
+	if !hasProv || !slices.Contains(ProbeRowDispositioned, outcome) {
 		return nil
 	}
 	surface, err := PB().CampaignSurface(campaign)
@@ -1125,7 +1126,7 @@ func DeferredConsequenceReview(campaign *state.Campaign,
 	for _, p := range listOf(plan, "priorities") {
 		prov, hasProv := probeProvenance(p)
 		if !hasProv ||
-			!inList(validation.ObjStr(p, "status"), ProbeRowDispositioned) {
+			!slices.Contains(ProbeRowDispositioned, validation.ObjStr(p, "status")) {
 			continue
 		}
 		reason := validation.ObjStr(p, "closed_reason")

@@ -18,6 +18,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 
 	"websec/internal/findings"
@@ -323,7 +324,7 @@ func validateReconcileRecord(campaign *state.Campaign, row,
 				"primitive:Symbol#L<line>"
 		}
 		primitive, symbol := m[1], m[2]
-		if !inList(primitive, reconcilePrimitives) {
+		if !slices.Contains(reconcilePrimitives, primitive) {
 			return "cite " + validation.PyReprStr(cite) + " names " +
 				validation.PyReprStr(primitive) + ", which is not a custody " +
 				"primitive the matrix speaks (vocabulary: " +

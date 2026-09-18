@@ -262,7 +262,7 @@ func TestBriefIsAPureView(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if hasKey(reloaded, "bounty") {
+	if validation.HasKey(reloaded, "bounty") {
 		t.Errorf("the view wrote a bounty block: %s",
 			validation.DumpIndented(validation.ObjAt(reloaded, "bounty")))
 	}
@@ -312,7 +312,7 @@ func TestBriefJSONRoundtrip(t *testing.T) {
 		validation.ObjStr(validation.ObjAt(b, "campaign"), "campaign_id") {
 		t.Errorf("campaign_id changed across the roundtrip")
 	}
-	if !hasKey(back, "next_actions") {
+	if !validation.HasKey(back, "next_actions") {
 		t.Errorf("next_actions missing from the roundtripped brief")
 	}
 }
@@ -675,7 +675,7 @@ func TestBriefingKeyIsMemoryRecallPending(t *testing.T) {
 	f := oneGateFromConfirmed(t, camp)
 	b := build(t, camp, false)
 	findingsBlock := validation.ObjAt(b, "findings")
-	if !hasKey(findingsBlock, "memory_recall_pending") {
+	if !validation.HasKey(findingsBlock, "memory_recall_pending") {
 		t.Fatalf("memory_recall_pending missing from findings block")
 	}
 	listed := false
@@ -688,7 +688,7 @@ func TestBriefingKeyIsMemoryRecallPending(t *testing.T) {
 		t.Errorf("%s missing from memory_recall_pending",
 			validation.ObjStr(f, "finding_id"))
 	}
-	if hasKey(findingsBlock, "negative_rag_pending") {
+	if validation.HasKey(findingsBlock, "negative_rag_pending") {
 		t.Errorf("the retired negative_rag_pending key is still present")
 	}
 }
@@ -1158,7 +1158,7 @@ func TestOldestUntouchedTiesBreakOnTheLowestID(t *testing.T) {
 		t.Fatalf("fixture must be writable as-is: %v", err)
 	}
 	for _, p := range listAt(plan, "priorities") {
-		if hasKey(p, "created_at") {
+		if validation.HasKey(p, "created_at") {
 			t.Errorf("fixture carries a forbidden created_at")
 		}
 	}

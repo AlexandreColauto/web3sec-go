@@ -3,6 +3,7 @@ package dedup
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -140,7 +141,7 @@ func wireSeams(t *testing.T) {
 			return validation.VNull(), err
 		}
 		ids := valueStrings(getDeep(f, "dedup", "possible_duplicate_of"))
-		if !containsStr(ids, ofFindingID) {
+		if !slices.Contains(ids, ofFindingID) {
 			ids = append(ids, ofFindingID)
 		}
 		f = setDeep(f, strArray(ids), "dedup", "possible_duplicate_of")
@@ -425,7 +426,7 @@ func TestTier3FlagNeverAutoMerges(t *testing.T) {
 		`{"economic_signature":"3b7b159a6831ef2d","possible_duplicate_of":["<B>"],`+
 			`"technical_signature":"feb7d9e440f86a71"}`,
 		tok{fid(g), "<B>"})
-	if ids := valueStrings(getDeep(b, "dedup", "possible_duplicate_of")); !containsStr(ids, fid(f)) {
+	if ids := valueStrings(getDeep(b, "dedup", "possible_duplicate_of")); !slices.Contains(ids, fid(f)) {
 		t.Fatalf("b.possible_duplicate_of = %v, want %s", ids, fid(f))
 	}
 }

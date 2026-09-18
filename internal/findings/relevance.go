@@ -28,6 +28,7 @@
 package findings
 
 import (
+	"slices"
 	"sort"
 
 	"websec/internal/capabilities"
@@ -207,7 +208,7 @@ func MemoryCheckRelevance(finding validation.Value, memoryIDs []string,
 		if len(fired) == 0 {
 			continue
 		}
-		if containsStr(fired, "bug_class") {
+		if slices.Contains(fired, "bug_class") {
 			matched := sortedIntersect(fTags["bug_class"], rTags["bug_class"])
 			if len(matched) > 0 && allInSet(matched, coarse) {
 				// the class is not discriminative: it cannot carry the

@@ -7,6 +7,7 @@ package archetypes
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -131,7 +132,7 @@ func TestAvailableArchetypesIncludesG10IDs(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, want := range []string{"signature-no-separator", "proof-accepted-without-depth-gate"} {
-		if !containsStr(got, want) {
+		if !slices.Contains(got, want) {
 			t.Fatalf("AvailableArchetypes() = %v, missing %s", got, want)
 		}
 	}

@@ -24,7 +24,8 @@ import (
 	"math"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
+
 	"strconv"
 	"strings"
 
@@ -145,7 +146,7 @@ type JoinSpec struct {
 // unreachable here (same deviation as state.SetDiscoveryBudget).
 func Join(kind string, deps []string, quorum *int,
 	predicate func(*state.Campaign) bool) (JoinSpec, error) {
-	if !containsStr(JoinKinds, kind) {
+	if !slices.Contains(JoinKinds, kind) {
 		return JoinSpec{}, fmt.Errorf("join kind must be one of %s, got %s",
 			pyTupleRepr(JoinKinds), validation.PyReprStr(kind))
 	}
@@ -642,7 +643,7 @@ func (p *Pipeline) Run(opts RunOpts) (validation.Value, error) {
 	if len(blocked) > 0 && validation.ObjStr(summary, "status") == "complete" {
 		vset(&summary, "status", validation.VStr("needs-model"))
 		vset(&summary, "halt", validation.VStr("blocked on model stages: "+
-			pyListRepr(sortedKeys(blocked))))
+			pyListRepr(validation.SortedKeys(blocked))))
 	}
 	return summary, nil
 }
@@ -921,7 +922,7 @@ func (p *Pipeline) modelBundle(sid string) (validation.Value, error) {
 		return validation.VNull(), err
 	}
 	for _, key := range []string{"prompt_path", "budget_class"} {
-		if !hasKey(ctx, key) {
+		if !validation.HasKey(ctx, key) {
 			return adapterKeyError(bundle, stage, key), nil
 		}
 	}
@@ -931,12 +932,12 @@ func (p *Pipeline) modelBundle(sid string) (validation.Value, error) {
 	}
 	blocks := []validation.Value{}
 	for _, b := range blocksVal.A {
-		if !hasKey(b, "title") {
+		if !validation.HasKey(b, "title") {
 			return adapterKeyError(bundle, stage, "title"), nil
 		}
 		blocks = append(blocks, validation.ObjAt(b, "title"))
 	}
-	if !hasKey(ctx, "structured_outputs") {
+	if !validation.HasKey(ctx, "structured_outputs") {
 		return adapterKeyError(bundle, stage, "structured_outputs"), nil
 	}
 	bundle.O = append(bundle.O,
@@ -1132,22 +1133,10 @@ func kvOf(k string, v validation.Value) validation.KV {
 }
 
 func objOr(v validation.Value, key string, def validation.Value) validation.Value {
-	if hasKey(v, key) {
+	if validation.HasKey(v, key) {
 		return validation.ObjAt(v, key)
 	}
 	return def
-}
-
-func hasKey(v validation.Value, key string) bool {
-	if v.Kind != validation.Obj {
-		return false
-	}
-	for _, kv := range v.O {
-		if kv.K == key {
-			return true
-		}
-	}
-	return false
 }
 
 func vset(v *validation.Value, key string, val validation.Value) {
@@ -1179,15 +1168,6 @@ func executorFor(kind string) *string {
 	return strPtr("deterministic")
 }
 
-func containsStr(items []string, want string) bool {
-	for _, s := range items {
-		if s == want {
-			return true
-		}
-	}
-	return false
-}
-
 // pyTupleRepr renders a Python tuple repr: ('a', 'b'). JOIN_KINDS is a tuple,
 // so its repr carries parentheses (not the list brackets of PyRepr).
 func pyTupleRepr(items []string) string {
@@ -1208,15 +1188,6 @@ func pyOptIntRepr(v *int) string {
 		return "None"
 	}
 	return strconv.Itoa(*v)
-}
-
-func sortedKeys(m map[string]bool) []string {
-	out := make([]string, 0, len(m))
-	for k := range m {
-		out = append(out, k)
-	}
-	sort.Strings(out)
-	return out
 }
 
 func stringSlice(v validation.Value, limit int) []string {

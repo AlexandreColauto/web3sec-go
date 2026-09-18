@@ -17,6 +17,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 
@@ -189,8 +190,8 @@ func checkSimulationBlock(filename string, data validation.Value) error {
 			"simulation block — actor names must be unique",
 			filename, pyReprList(dupes))
 	}
-	if !containsStr(classes, "adversarial") ||
-		!containsStr(classes, "benign-rational") {
+	if !slices.Contains(classes, "adversarial") ||
+		!slices.Contains(classes, "benign-rational") {
 		return fmt.Errorf("playbook %s: simulation cast needs at least one "+
 			"'adversarial' and one 'benign-rational' actor — an all-one-side "+
 			"cast is a deployment error (got %s)",
@@ -206,7 +207,7 @@ func checkSimulationBlock(filename string, data validation.Value) error {
 			invIDs = append(invIDs, id.S)
 		}
 	}
-	if ref.Kind != validation.Str || !containsStr(invIDs, ref.S) {
+	if ref.Kind != validation.Str || !slices.Contains(invIDs, ref.S) {
 		return fmt.Errorf("playbook %s: simulation.expectation_violated %s "+
 			"must name an invariant id declared in this playbook's "+
 			"invariants list (found %s)",
@@ -240,7 +241,7 @@ func CuratedInvariantIDs() []string {
 			}
 		}
 	}
-	return sortedKeys(seen)
+	return validation.SortedKeys(seen)
 }
 
 // init wires the invariants seam: playbooks cannot be imported by invariants
@@ -274,26 +275,8 @@ func duplicateNames(names []string) []string {
 	return out
 }
 
-func containsStr(xs []string, s string) bool {
-	for _, x := range xs {
-		if x == s {
-			return true
-		}
-	}
-	return false
-}
-
 func sortedStrings(xs []string) []string {
 	out := append([]string{}, xs...)
-	sort.Strings(out)
-	return out
-}
-
-func sortedKeys(m map[string]bool) []string {
-	out := make([]string, 0, len(m))
-	for k := range m {
-		out = append(out, k)
-	}
 	sort.Strings(out)
 	return out
 }

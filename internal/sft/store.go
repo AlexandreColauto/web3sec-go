@@ -7,6 +7,7 @@ package sft
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"websec/internal/state"
@@ -23,7 +24,7 @@ var transitions = map[string][]string{
 // AddExample is add_example: validate (schema + lint), assign an id, append,
 // persist atomically. The caller's value is never mutated.
 func AddExample(example validation.Value, status string) (validation.Value, error) {
-	if !inList(Statuses, status) {
+	if !slices.Contains(Statuses, status) {
 		return validation.VNull(), fmt.Errorf("unknown status %s; known: %s",
 			validation.PyReprStr(status), pyListRepr(Statuses))
 	}
@@ -131,11 +132,11 @@ func UpdateExample(exampleID string, status, curatedBy *string,
 	ex := cloneValue(examples[idx])
 	old := validation.ObjStr(ex, "status")
 	if status != nil {
-		if !inList(Statuses, *status) {
+		if !slices.Contains(Statuses, *status) {
 			return validation.VNull(), fmt.Errorf("unknown status %s",
 				validation.PyReprStr(*status))
 		}
-		if !inList(transitions[old], *status) {
+		if !slices.Contains(transitions[old], *status) {
 			return validation.VNull(), fmt.Errorf("illegal transition %s -> %s",
 				old, *status)
 		}

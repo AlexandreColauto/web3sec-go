@@ -7,6 +7,7 @@ package cli
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"websec/internal/validation"
 
@@ -69,7 +70,7 @@ func baselineDispatch(args []string, r *Runner) error {
 		return t14ArgparseErr(baselineUsage, "baseline",
 			"the following arguments are required: baseline_cmd")
 	}
-	if !containsStr(baselineChoices, sub) {
+	if !slices.Contains(baselineChoices, sub) {
 		return t14ArgparseErr(baselineUsage, "baseline",
 			"argument baseline_cmd: invalid choice: %s "+
 				"(choose from 'add', 'list', 'remove')", quoteSingle(sub))
@@ -115,14 +116,6 @@ func baselineSpec(sub string) (*argSpec, string, func(*argSpec, *Runner) error) 
 }
 
 // containsStr is a small membership test over the choice list.
-func containsStr(xs []string, s string) bool {
-	for _, x := range xs {
-		if x == s {
-			return true
-		}
-	}
-	return false
-}
 
 // quoteSingle is Python's repr for a short ASCII string.
 func quoteSingle(s string) string { return "'" + s + "'" }

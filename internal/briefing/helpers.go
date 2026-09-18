@@ -16,18 +16,6 @@ func kv(k string, v validation.Value) validation.KV {
 	return validation.KV{K: k, V: v}
 }
 
-func hasKey(v validation.Value, key string) bool {
-	if v.Kind != validation.Obj {
-		return false
-	}
-	for _, pair := range v.O {
-		if pair.K == key {
-			return true
-		}
-	}
-	return false
-}
-
 func setKey(v *validation.Value, key string, val validation.Value) {
 	for i := range v.O {
 		if v.O[i].K == key {
@@ -41,13 +29,6 @@ func setKey(v *validation.Value, key string, val validation.Value) {
 func objBool(v validation.Value, key string) bool {
 	f := validation.ObjAt(v, key)
 	return f.Kind == validation.Bool && f.B
-}
-
-func asObj(v validation.Value) validation.Value {
-	if v.Kind != validation.Obj {
-		return validation.VObj()
-	}
-	return v
 }
 
 func listAt(v validation.Value, key string) []validation.Value {

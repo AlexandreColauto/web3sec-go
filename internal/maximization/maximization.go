@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -87,12 +88,6 @@ func kvOf(k string, v validation.Value) validation.KV {
 }
 
 // asObj is `d.get(key) or {}`.
-func asObj(v validation.Value) validation.Value {
-	if v.Kind == validation.Obj {
-		return v
-	}
-	return validation.VObj()
-}
 
 func listOf(v validation.Value, key string) validation.Value {
 	if f := validation.ObjAt(v, key); f.Kind == validation.Arr {
@@ -289,9 +284,9 @@ func StartLadder(c *state.Campaign, findingID string) (validation.Value, error) 
 		}
 		return validation.VNull(), unwindLadderPair(pair, err)
 	}
-	mx := asObj(validation.ObjAt(f, "maximization"))
+	mx := validation.AsObj(validation.ObjAt(f, "maximization"))
 	mx.O = validation.SetOrAppend(mx.O, "ladder_id", validation.ObjAt(lad, "ladder_id"))
-	if !hasKey(mx, "disposition") {
+	if !validation.HasKey(mx, "disposition") {
 		mx.O = validation.SetOrAppend(mx.O, "disposition", validation.VStr("open"))
 	}
 	f.O = validation.SetOrAppend(f.O, "maximization", mx)
@@ -327,14 +322,14 @@ func StartLadder(c *state.Campaign, findingID string) (validation.Value, error) 
 // carried over, status "reproduced" only when reproduction says so, and the
 // first cited EXEC evidence id.
 func baseRung(f validation.Value) validation.Value {
-	impact := asObj(validation.ObjAt(f, "economic_impact"))
-	repro := asObj(validation.ObjAt(asObj(validation.ObjAt(f, "verification")), "reproduction"))
+	impact := validation.AsObj(validation.ObjAt(f, "economic_impact"))
+	repro := validation.AsObj(validation.ObjAt(validation.AsObj(validation.ObjAt(f, "verification")), "reproduction"))
 	status := "assumed"
 	if validation.ObjStr(repro, "status") == "reproduced" {
 		status = "reproduced"
 	}
 	var capitalPtr, ratioPtr *float64
-	if v := validation.ObjAt(asObj(validation.ObjAt(f, "attacker")), "required_capital_usd"); v.Kind !=
+	if v := validation.ObjAt(validation.AsObj(validation.ObjAt(f, "attacker")), "required_capital_usd"); v.Kind !=
 		validation.Null {
 		if fv, ok := numOf(v); ok {
 			capitalPtr = &fv
@@ -360,17 +355,6 @@ func baseRung(f validation.Value) validation.Value {
 }
 
 // hasKey is `key in d`.
-func hasKey(v validation.Value, key string) bool {
-	if v.Kind != validation.Obj {
-		return false
-	}
-	for _, kv := range v.O {
-		if kv.K == key {
-			return true
-		}
-	}
-	return false
-}
 
 // numOf is float(v) for the int/float/bool shapes JSON carries.
 func numOf(v validation.Value) (float64, bool) {
@@ -391,7 +375,7 @@ func numOf(v validation.Value) (float64, bool) {
 // requireOpen is _require_open: only a COMPLETE ladder refuses mutation (a
 // waived ladder is re-openable by adding work).
 func requireOpen(lad validation.Value) error {
-	if validation.ObjStr(asObj(validation.ObjAt(lad, "disposition")), "state") == "complete" {
+	if validation.ObjStr(validation.AsObj(validation.ObjAt(lad, "disposition")), "state") == "complete" {
 		return fmt.Errorf("ladder disposition is complete; reopen it with an " +
 			"explicit reason before adding work (webv2 ladder reopen)")
 	}
@@ -405,7 +389,7 @@ func AddVariant(c *state.Campaign, findingID, name, description string,
 	axes []string, capitalUSD, extractionRatio *float64, removed,
 	added []string) (validation.Value, error) {
 	for _, a := range axes {
-		if !containsStr(Axes, a) {
+		if !slices.Contains(Axes, a) {
 			return validation.VNull(), fmt.Errorf(
 				"unknown axis %s; the axes are %s", validation.PyReprStr(a),
 				pyTupleRepr(Axes))
@@ -435,7 +419,7 @@ func AddVariant(c *state.Campaign, findingID, name, description string,
 	lad.O = validation.SetOrAppend(lad.O, "variants", variants)
 	explored := listOf(lad, "axes_explored")
 	for _, a := range axes {
-		if !containsStr(listStrings(explored), a) {
+		if !slices.Contains(listStrings(explored), a) {
 			explored.A = append(explored.A, validation.VStr(a))
 		}
 	}
@@ -478,19 +462,10 @@ func listStrings(v validation.Value) []string {
 	return out
 }
 
-func containsStr(items []string, want string) bool {
-	for _, s := range items {
-		if s == want {
-			return true
-		}
-	}
-	return false
-}
-
 // ExploreAxis is explore_axis: mark an axis explored WITHOUT a rung — when
 // the honest answer is 'considered, not applicable', the note is the artifact.
 func ExploreAxis(c *state.Campaign, findingID, axis, note string) (validation.Value, error) {
-	if !containsStr(Axes, axis) {
+	if !slices.Contains(Axes, axis) {
 		return validation.VNull(), fmt.Errorf("unknown axis %s; the axes are %s",
 			idRepr(axis), pyTupleRepr(Axes))
 	}
@@ -510,11 +485,11 @@ func ExploreAxis(c *state.Campaign, findingID, axis, note string) (validation.Va
 	if err := requireOpen(lad); err != nil {
 		return validation.VNull(), err
 	}
-	notes := asObj(validation.ObjAt(lad, "axis_notes"))
+	notes := validation.AsObj(validation.ObjAt(lad, "axis_notes"))
 	notes.O = validation.SetOrAppend(notes.O, axis, validation.VStr(strings.TrimSpace(note)))
 	lad.O = validation.SetOrAppend(lad.O, "axis_notes", notes)
 	explored := listOf(lad, "axes_explored")
-	if !containsStr(listStrings(explored), axis) {
+	if !slices.Contains(listStrings(explored), axis) {
 		explored.A = append(explored.A, validation.VStr(axis))
 	}
 	lad.O = validation.SetOrAppend(lad.O, "axes_explored", explored)
@@ -814,17 +789,17 @@ func SetMaximal(c *state.Campaign, findingID, rungID string) (validation.Value, 
 		// (temp+rename that failed after the rename, ENOSPC mid-write).
 		return validation.VNull(), unwindLadderPair(pair, err)
 	}
-	mx := asObj(validation.ObjAt(f, "maximization"))
+	mx := validation.AsObj(validation.ObjAt(f, "maximization"))
 	mx.O = validation.SetOrAppend(mx.O, "maximal_rung_id", validation.VStr(rungID))
 	mx.O = validation.SetOrAppend(mx.O, "claim_from", validation.VStr(rungID))
 	f.O = validation.SetOrAppend(f.O, "maximization", mx)
 	if v := validation.ObjAt(rung, "capital_usd"); v.Kind != validation.Null {
-		attacker := asObj(validation.ObjAt(f, "attacker"))
+		attacker := validation.AsObj(validation.ObjAt(f, "attacker"))
 		attacker.O = validation.SetOrAppend(attacker.O, "required_capital_usd", v)
 		f.O = validation.SetOrAppend(f.O, "attacker", attacker)
 	}
 	if v := validation.ObjAt(rung, "extraction_ratio"); v.Kind != validation.Null {
-		impact := asObj(validation.ObjAt(f, "economic_impact"))
+		impact := validation.AsObj(validation.ObjAt(f, "economic_impact"))
 		impact.O = validation.SetOrAppend(impact.O, "extraction_ratio", v)
 		f.O = validation.SetOrAppend(f.O, "economic_impact", impact)
 	}
@@ -865,7 +840,7 @@ func CompleteLadder(c *state.Campaign, findingID, actor string) (validation.Valu
 	explored := listStrings(listOf(lad, "axes_explored"))
 	unexplored := []string{}
 	for _, a := range Axes {
-		if !containsStr(explored, a) {
+		if !slices.Contains(explored, a) {
 			unexplored = append(unexplored, a)
 		}
 	}
@@ -915,7 +890,7 @@ func CompleteLadder(c *state.Campaign, findingID, actor string) (validation.Valu
 		// before returning, like the ledger-refusal arm below.
 		return validation.VNull(), unwindLadderPair(pair, err)
 	}
-	mx := asObj(validation.ObjAt(f, "maximization"))
+	mx := validation.AsObj(validation.ObjAt(f, "maximization"))
 	mx.O = validation.SetOrAppend(mx.O, "disposition", validation.VStr("complete"))
 	f.O = validation.SetOrAppend(f.O, "maximization", mx)
 	if err := findings.SaveFinding(c, &f); err != nil {
@@ -977,7 +952,7 @@ func WaiveLadder(c *state.Campaign, findingID, reason, actor string) (validation
 	if err != nil {
 		return validation.VNull(), unwindLadderPair(pair, err)
 	}
-	mx := asObj(validation.ObjAt(f, "maximization"))
+	mx := validation.AsObj(validation.ObjAt(f, "maximization"))
 	mx.O = validation.SetOrAppend(mx.O, "disposition", validation.VStr("waived"))
 	f.O = validation.SetOrAppend(f.O, "maximization", mx)
 	if err := findings.SaveFinding(c, &f); err != nil {
@@ -1011,7 +986,7 @@ func ReopenLadder(c *state.Campaign, findingID, reason, actor string) (validatio
 			noneText(findingID))
 	}
 	lad := *ladPtr
-	if validation.ObjStr(asObj(validation.ObjAt(lad, "disposition")), "state") == "open" {
+	if validation.ObjStr(validation.AsObj(validation.ObjAt(lad, "disposition")), "state") == "open" {
 		return validation.VNull(), fmt.Errorf("ladder is already open — " +
 			"nothing to reopen")
 	}
@@ -1046,7 +1021,7 @@ func ReopenLadder(c *state.Campaign, findingID, reason, actor string) (validatio
 		// event unemittable forever. Restore the pair first.
 		return validation.VNull(), unwindLadderPair(pair, err)
 	}
-	mx := asObj(validation.ObjAt(f, "maximization"))
+	mx := validation.AsObj(validation.ObjAt(f, "maximization"))
 	mx.O = validation.SetOrAppend(mx.O, "disposition", validation.VStr("open"))
 	f.O = validation.SetOrAppend(f.O, "maximization", mx)
 	if err := findings.SaveFinding(c, &f); err != nil {
@@ -1114,7 +1089,7 @@ func LadderReport(c *state.Campaign, findingID string) (validation.Value, error)
 	explored := listStrings(listOf(lad, "axes_explored"))
 	unexplored := []string{}
 	for _, a := range Axes {
-		if !containsStr(explored, a) {
+		if !slices.Contains(explored, a) {
 			unexplored = append(unexplored, a)
 		}
 	}

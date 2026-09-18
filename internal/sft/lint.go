@@ -10,6 +10,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"regexp"
+	"slices"
 	"strings"
 
 	"websec/internal/adapter"
@@ -258,7 +259,7 @@ func lintTaxonomy(tax string, sections map[string]string, st validation.Value,
 			out = append(out,
 				"taxonomy: at least one CONFIRMED assumption required")
 		}
-		if !inList(invStatuses, "VIOLATED") {
+		if !slices.Contains(invStatuses, "VIOLATED") {
 			out = append(out,
 				"taxonomy: an invariant with status VIOLATED required")
 		}
@@ -277,7 +278,7 @@ func lintTaxonomy(tax string, sections map[string]string, st validation.Value,
 			out = append(out, "taxonomy: a REFUTED assumption that kills "+
 				"exploitability is required")
 		}
-		if inList(invStatuses, "VIOLATED") || !inList(invStatuses, "HOLDS") {
+		if slices.Contains(invStatuses, "VIOLATED") || !slices.Contains(invStatuses, "HOLDS") {
 			out = append(out, "taxonomy: the invariant must HOLD (status "+
 				"HOLDS, no VIOLATED) for a non-exploitable weakness")
 		}
@@ -292,7 +293,7 @@ func lintTaxonomy(tax string, sections map[string]string, st validation.Value,
 					"name the misreading ('misread'/'actually')")
 			}
 		}
-		if inList(invStatuses, "VIOLATED") {
+		if slices.Contains(invStatuses, "VIOLATED") {
 			out = append(out, "taxonomy: an invalid hypothesis must not "+
 				"claim a VIOLATED invariant")
 		}

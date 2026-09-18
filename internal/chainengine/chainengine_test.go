@@ -619,10 +619,10 @@ func TestBuildCapabilityIndexSkipsTerminalStatuses(t *testing.T) {
 		t.Fatal(err)
 	}
 	granted := validation.ObjAt(idx, "granted")
-	if !hasKey(granted, "cap_keep") {
+	if !validation.HasKey(granted, "cap_keep") {
 		t.Fatalf("granted = %v", granted)
 	}
-	if hasKey(granted, "cap_skip") {
+	if validation.HasKey(granted, "cap_skip") {
 		t.Fatalf("INFORMATIONAL finding leaked into the index: %v", granted)
 	}
 	if idsOf(granted.O, "cap_keep")[0] != validation.ObjStr(keep, "finding_id") {
@@ -672,10 +672,10 @@ func TestBuildCapabilityIndexDropsSuperseded(t *testing.T) {
 		t.Fatal(err)
 	}
 	granted := validation.ObjAt(idx, "granted")
-	if !hasKey(granted, "cap_keep") {
+	if !validation.HasKey(granted, "cap_keep") {
 		t.Fatalf("live granter missing: %v", granted)
 	}
-	if hasKey(granted, "cap_sup") || hasKey(granted, "cap_dsp") {
+	if validation.HasKey(granted, "cap_sup") || validation.HasKey(granted, "cap_dsp") {
 		t.Fatalf("terminal rows must not grant: %v", granted)
 	}
 	// Chain proposals must not be SEEDED by terminal rows either: the

@@ -242,7 +242,7 @@ func TestModelInventedInvariantStaysGuarded(t *testing.T) {
 	if got := validation.ObjStr(e, "source"); got != "model" {
 		t.Errorf("source = %q, want model", got)
 	}
-	if hasKey(e, "source_detail") {
+	if validation.HasKey(e, "source_detail") {
 		t.Errorf("source_detail present, want absent")
 	}
 	if got := validation.ObjStr(e, "status"); got != "UNVERIFIED" {
@@ -265,7 +265,7 @@ func TestTargetDocStillWinsAndHasNoPlaybookProvenance(t *testing.T) {
 	if got := validation.ObjStr(e, "source"); got != "documented" {
 		t.Errorf("source = %q, want documented", got)
 	}
-	if hasKey(e, "source_detail") {
+	if validation.HasKey(e, "source_detail") {
 		t.Errorf("source_detail = %q, want absent (target-docs provenance)",
 			validation.ObjStr(e, "source_detail"))
 	}
@@ -291,7 +291,7 @@ func TestDocScanMatchesPythonTwin(t *testing.T) {
 	// the unicode-boundary and pathlib-suffix cases the twin pins
 	for _, absent := range []string{"INV-4", "INV-5", "INV-6", "INV-7",
 		"INV-42", "INV-43", "INV-44", "INV-45"} {
-		if hasKey(doc, absent) {
+		if validation.HasKey(doc, absent) {
 			t.Errorf("%s should not be documented (boundary/suffix rule)", absent)
 		}
 	}
@@ -311,7 +311,7 @@ func TestIntentClaimsMatchPythonTwin(t *testing.T) {
 	wantGolden(t, "intent_expected.json", claims)
 	for _, absent := range []string{"INV-91", "INV-92", "INV-94", "INV-95",
 		"INV-96"} {
-		if hasKey(claims, absent) {
+		if validation.HasKey(claims, absent) {
 			t.Errorf("%s should not carry intent language", absent)
 		}
 	}

@@ -62,7 +62,7 @@ func r41Disposition(t *testing.T, c *state.Campaign, fid string) string {
 	if err != nil {
 		t.Fatalf("parse ladder: %v", err)
 	}
-	return validation.ObjStr(asObj(validation.ObjAt(lad, "disposition")), "state")
+	return validation.ObjStr(validation.AsObj(validation.ObjAt(lad, "disposition")), "state")
 }
 
 // r41MaximalRung is the ladder doc's maximal_rung_id ("" when null).
@@ -87,7 +87,7 @@ func r41FindingMaximalRung(t *testing.T, c *state.Campaign, fid string) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return validation.ObjStr(asObj(validation.ObjAt(f, "maximization")), "maximal_rung_id")
+	return validation.ObjStr(validation.AsObj(validation.ObjAt(f, "maximization")), "maximal_rung_id")
 }
 
 // r41FindingDisposition is finding.maximization.disposition ("" when absent).
@@ -97,7 +97,7 @@ func r41FindingDisposition(t *testing.T, c *state.Campaign, fid string) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return validation.ObjStr(asObj(validation.ObjAt(f, "maximization")), "disposition")
+	return validation.ObjStr(validation.AsObj(validation.ObjAt(f, "maximization")), "disposition")
 }
 
 // r41Events counts one event type in the ledger.
@@ -511,7 +511,7 @@ func r41AxisNoted(t *testing.T, c *state.Campaign, fid, axis string) bool {
 	if err != nil {
 		t.Fatalf("parse ladder: %v", err)
 	}
-	return validation.ObjStr(asObj(validation.ObjAt(lad, "axis_notes")), axis) != ""
+	return validation.ObjStr(validation.AsObj(validation.ObjAt(lad, "axis_notes")), axis) != ""
 }
 
 // r41FreshReproducibleRung is the fixture the mint burn needs: an open ladder

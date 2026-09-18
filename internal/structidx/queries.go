@@ -8,6 +8,7 @@ package structidx
 import (
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 
 	"websec/internal/state"
@@ -319,7 +320,7 @@ func BackwardSlice(index validation.Value, maxDepth int) []validation.Value {
 					}
 				}
 			}
-			frontier = sortedKeys(nxt)
+			frontier = validation.SortedKeys(nxt)
 		}
 		type ep struct {
 			id, name string
@@ -369,22 +370,13 @@ func BackwardSlice(index validation.Value, maxDepth int) []validation.Value {
 			validation.KV{K: "sink_function", V: validation.VStr(fid)},
 			validation.KV{K: "sink_calls", V: validation.ObjAt(s, "sink_calls")},
 			validation.KV{K: "reachable_functions",
-				V: validation.StrArr(sortedKeys(seen))},
+				V: validation.StrArr(validation.SortedKeys(seen))},
 			validation.KV{K: "entry_points", V: validation.VArr(epVals...)},
 			validation.KV{K: "unguarded_entry_points", V: validation.StrArr(unguarded)},
 			validation.KV{K: "state_vars_read_on_paths",
-				V: validation.StrArr(sortedKeys(varsRead))},
+				V: validation.StrArr(validation.SortedKeys(varsRead))},
 		))
 	}
-	return out
-}
-
-func sortedKeys(m map[string]bool) []string {
-	out := make([]string, 0, len(m))
-	for k := range m {
-		out = append(out, k)
-	}
-	sort.Strings(out)
 	return out
 }
 
@@ -404,7 +396,7 @@ func ValueFlowReport(c *state.Campaign, root string) (validation.Value, error) {
 			unguarded[e] = true
 		}
 	}
-	head := sortedKeys(unguarded)
+	head := validation.SortedKeys(unguarded)
 	if len(head) > 25 {
 		head = head[:25]
 	}
@@ -473,7 +465,7 @@ func AmplifierSignals(index validation.Value) validation.Value {
 			name := validation.ObjStr(n, "name")
 			id := validation.ObjStr(n, "id")
 			for _, sig := range []string{"bridge", "cross-chain"} {
-				if ampPattern(sig).MatchString(name) && !containsStr(out[sig], id) {
+				if ampPattern(sig).MatchString(name) && !slices.Contains(out[sig], id) {
 					out[sig] = append(out[sig], id)
 				}
 			}
@@ -487,7 +479,7 @@ func AmplifierSignals(index validation.Value) validation.Value {
 	kvs := make([]validation.KV, 0, len(keys))
 	for _, k := range keys {
 		kvs = append(kvs, validation.KV{K: k,
-			V: validation.StrArr(sortedKeys(dedupe(out[k])))})
+			V: validation.StrArr(validation.SortedKeys(dedupe(out[k])))})
 	}
 	return validation.VObj(kvs...)
 }
@@ -499,15 +491,6 @@ func ampPattern(sig string) *regexp.Regexp {
 		}
 	}
 	return nil
-}
-
-func containsStr(xs []string, s string) bool {
-	for _, x := range xs {
-		if x == s {
-			return true
-		}
-	}
-	return false
 }
 
 func dedupe(xs []string) map[string]bool {

@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 
 	"websec/internal/findings"
 	"websec/internal/state"
@@ -98,7 +99,7 @@ func LoadDisclosure(c *state.Campaign, path string) (*Disclosure, error) {
 		byID[id] = f
 		// The publish pass publishes exactly these statuses; a disclosure may
 		// not cite knowledge the publish cannot show.
-		if inList(validation.ObjStr(f, "status"), PublishableStatuses) {
+		if slices.Contains(PublishableStatuses, validation.ObjStr(f, "status")) {
 			publishable[id] = true
 		}
 	}
@@ -136,7 +137,7 @@ func disclosureRuleCheck(ids []string,
 			return fmt.Errorf("disclosure: unknown finding id %s", id)
 		}
 		status := validation.ObjStr(f, "status")
-		if !inList(status, PublishableStatuses) {
+		if !slices.Contains(PublishableStatuses, status) {
 			return fmt.Errorf(
 				"disclosure: finding %s is not confirmed (status %s)", id, status)
 		}

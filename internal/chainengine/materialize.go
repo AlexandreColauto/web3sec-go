@@ -5,6 +5,7 @@ package chainengine
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 
 	"websec/internal/capabilities"
@@ -425,8 +426,8 @@ func chainLinksMode(members []validation.Value,
 	out := []validation.Value{}
 	for i := 0; i+1 < len(members); i++ {
 		a, b := members[i], members[i+1]
-		aCaps := setOf(norm(capInput(validation.ObjAt(asObj(validation.ObjAt(a, "capabilities")), "granted"))))
-		bNeeds := setOf(norm(capInput(validation.ObjAt(asObj(validation.ObjAt(b, "capabilities")), "required"))))
+		aCaps := setOf(norm(capInput(validation.ObjAt(validation.AsObj(validation.ObjAt(a, "capabilities")), "granted"))))
+		bNeeds := setOf(norm(capInput(validation.ObjAt(validation.AsObj(validation.ObjAt(b, "capabilities")), "required"))))
 		overlap := []string{}
 		for cap := range aCaps {
 			if _, ok := bNeeds[cap]; ok {
@@ -506,21 +507,21 @@ func terminalAnnotation(c *state.Campaign, memberIDs []string,
 		return nil, fmt.Errorf("terminal annotation needs a 'capability'")
 	}
 	via := validation.ObjStr(t, "via_finding")
-	if !hasKey(t, "via_finding") || validation.ObjAt(t, "via_finding").Kind == validation.Null {
+	if !validation.HasKey(t, "via_finding") || validation.ObjAt(t, "via_finding").Kind == validation.Null {
 		via = validation.ObjStr(members[len(members)-1], "finding_id")
 	}
 	vf, err := findings.LoadFinding(c, via)
 	if err != nil {
 		return nil, err
 	}
-	granted := norm(capInput(validation.ObjAt(asObj(validation.ObjAt(vf, "capabilities")), "granted")))
-	if !containsStr(granted, validation.ObjStr(t, "capability")) {
+	granted := norm(capInput(validation.ObjAt(validation.AsObj(validation.ObjAt(vf, "capabilities")), "granted")))
+	if !slices.Contains(granted, validation.ObjStr(t, "capability")) {
 		return nil, fmt.Errorf(
 			"terminal capability %s is not granted by %s (grants %s))",
 			validation.PyReprStr(validation.ObjStr(t, "capability")), via,
 			pyListRepr(sortedStrings(granted)))
 	}
-	if !containsStr(memberIDs, via) {
+	if !slices.Contains(memberIDs, via) {
 		return nil, fmt.Errorf("terminal via_finding %s is not a chain member", via)
 	}
 	doc := validation.VObj(
@@ -544,7 +545,7 @@ func terminalAnnotation(c *state.Campaign, memberIDs []string,
 func validateBreakdown(bd validation.Value) error {
 	unknown := []string{}
 	for _, kv := range bd.O {
-		if containsStr(CapitalFields, kv.K) || kv.K == "net_at_risk_usd" {
+		if slices.Contains(CapitalFields, kv.K) || kv.K == "net_at_risk_usd" {
 			continue
 		}
 		unknown = append(unknown, kv.K)
@@ -598,7 +599,7 @@ func chainFindingDoc(c *state.Campaign, memberIDs []string, members []validation
 	attacker := validation.VObj(
 		kvOf("profile", validation.VStr("arbitrary EOA")),
 		kvOf("capabilities", validation.VArr()))
-	if hasKey(first, "attacker") {
+	if validation.HasKey(first, "attacker") {
 		attacker = validation.ObjAt(first, "attacker")
 	}
 	dedupMeta := []validation.KV{

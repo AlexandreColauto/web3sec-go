@@ -1,6 +1,7 @@
 // accessors.go: the Value field-accessor family shared by every package that
 // reads a decoded JSON value. These replace ~130 per-package clones of
-// objAt / objStr / strArr; the semantics are the union of what those clones
+// objAt / objStr / strArr / hasKey / asObj; the semantics are the union of
+// what those clones
 // did, so a call site that moved here changes nothing:
 //
 //   - ObjAt on a non-object, or on a missing key, is VNull. The kind guard is
@@ -33,6 +34,26 @@ func ObjStr(v Value, key string) string {
 		return f.S
 	}
 	return ""
+}
+
+// HasObjKey reports whether key is present in v. Like ObjAt, the kind guard
+// is free: v.O is only populated for Obj, so the clones that looped without
+// checking Kind could only ever see an empty slice on a non-object.
+func HasObjKey(v Value, key string) bool {
+	for _, e := range v.O {
+		if e.K == key {
+			return true
+		}
+	}
+	return false
+}
+
+// AsObj returns v when it is an object, an empty object otherwise.
+func AsObj(v Value) Value {
+	if v.Kind != Obj {
+		return VObj()
+	}
+	return v
 }
 
 // StrArr renders a []string as a JSON array value.

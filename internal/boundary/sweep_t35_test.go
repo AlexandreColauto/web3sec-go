@@ -2,6 +2,7 @@ package boundary
 
 import (
 	"regexp"
+	"slices"
 	"testing"
 
 	"websec/internal/findings"
@@ -50,18 +51,16 @@ func TestRoleBundlesAgreeWithBoundaryRoleContract(t *testing.T) {
 	own, _ := roleKinds("proposer")
 	for _, s := range strList(validation.ObjAt(validation.ObjAt(proposer, "request"),
 		"response_schemas")) {
-		if !containsStr(own, s) {
+		if !slices.Contains(own, s) {
 			t.Errorf("proposer requests %q outside ROLE_RESPONSES", s)
 		}
 	}
 	criticKinds, _ := roleKinds("critic")
-	if got := validation.ObjStr(validation.ObjAt(critic, "task"), "response_schema"); !containsStr(
-		criticKinds, got) {
+	if got := validation.ObjStr(validation.ObjAt(critic, "task"), "response_schema"); !slices.Contains(criticKinds, got) {
 		t.Errorf("critic response_schema = %q, want %v", got, criticKinds)
 	}
 	reproKinds, _ := roleKinds("reproducer")
-	if got := validation.ObjStr(validation.ObjAt(reproducer, "task"), "response_schema"); !containsStr(
-		reproKinds, got) {
+	if got := validation.ObjStr(validation.ObjAt(reproducer, "task"), "response_schema"); !slices.Contains(reproKinds, got) {
 		t.Errorf("reproducer response_schema = %q, want %v", got, reproKinds)
 	}
 	// every role's grant is non-empty and role-distinct.
@@ -81,7 +80,7 @@ func TestRoleBundlesAgreeWithBoundaryRoleContract(t *testing.T) {
 	}
 	reg := ToolRegistry()
 	for _, chk := range checks {
-		if !containsStr(reg, chk) {
+		if !slices.Contains(reg, chk) {
 			t.Errorf("permitted check %q outside the tool registry", chk)
 		}
 	}
@@ -91,7 +90,7 @@ func TestRoleBundlesAgreeWithBoundaryRoleContract(t *testing.T) {
 		t.Fatal("reproducer bundle surfaces no execution profiles")
 	}
 	for _, p := range profiles {
-		if !containsStr(sandbox.Profiles, p) {
+		if !slices.Contains(sandbox.Profiles, p) {
 			t.Errorf("permitted profile %q outside sandbox.Profiles", p)
 		}
 	}
@@ -101,12 +100,12 @@ func TestRoleBundlesAgreeWithBoundaryRoleContract(t *testing.T) {
 			len(reg), len(AnalysisTools), len(sandbox.Profiles))
 	}
 	for _, p := range sandbox.Profiles {
-		if !containsStr(reg, p) {
+		if !slices.Contains(reg, p) {
 			t.Errorf("registry omits sandbox profile %q", p)
 		}
 	}
 	for _, a := range AnalysisTools {
-		if !containsStr(reg, a) {
+		if !slices.Contains(reg, a) {
 			t.Errorf("registry omits analysis tool %q", a)
 		}
 	}
@@ -133,7 +132,7 @@ func TestRoleKindMatrixEndToEnd(t *testing.T) {
 		own, _ := roleKinds(role)
 		for _, kind := range ResponseKinds {
 			err := ValidateResponse(role, kind, payloads[kind], c)
-			if containsStr(own, kind) {
+			if slices.Contains(own, kind) {
 				if err != nil {
 					t.Errorf("%s/%s must be accepted: %v", role, kind, err)
 				}
@@ -554,7 +553,7 @@ func TestEndToEndCampaignWalkthrough(t *testing.T) {
 		t.Errorf("critic evidence = %v, want [EV-1]", evIDs)
 	}
 	for _, chk := range strList(validation.ObjAt(cbundle, "permitted_checks")) {
-		if !containsStr(ToolRegistry(), chk) {
+		if !slices.Contains(ToolRegistry(), chk) {
 			t.Errorf("permitted check %q outside the registry", chk)
 		}
 	}

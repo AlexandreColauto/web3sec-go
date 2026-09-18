@@ -21,6 +21,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 
@@ -143,7 +144,7 @@ func parseArchetype(raw []byte, path string) (validation.Value, error) {
 	id := validation.ObjStr(data, "id")
 	for i, check := range checks.A {
 		t := validation.ObjStr(check, "type")
-		if !containsStr(checkTypes, t) {
+		if !slices.Contains(checkTypes, t) {
 			return validation.VNull(), unknownTypeErr(id, i, t)
 		}
 		if err := validateCheckKeys(id, i, check); err != nil {
@@ -215,7 +216,7 @@ func allowedText(allowed map[string]bool) string {
 	if len(allowed) == 0 {
 		return "no keys"
 	}
-	return pyListRepr(sortedKeys(allowed))
+	return pyListRepr(validation.SortedKeys(allowed))
 }
 
 func missingDiscriminator(archID string, i int, t, need string) error {
@@ -300,15 +301,6 @@ func pyTruthyBigNonEmpty(v validation.Value) bool {
 		return len(v.A) > 0
 	case validation.Obj:
 		return len(v.O) > 0
-	}
-	return false
-}
-
-func containsStr(xs []string, s string) bool {
-	for _, x := range xs {
-		if x == s {
-			return true
-		}
 	}
 	return false
 }

@@ -1,6 +1,7 @@
 package planner
 
 import (
+	"slices"
 	"strings"
 
 	"websec/internal/state"
@@ -327,7 +328,7 @@ func actorOr(actor string) string {
 // `closed=True`. `blocked` is not a disposition (A3), so it stays anchor-free.
 func checkAnchorless(priorityID, outcome string, prov validation.Value,
 	hasProv bool, anchor *string) error {
-	if !hasProv || anchor != nil || !inList(outcome, ProbeRowDispositioned) {
+	if !hasProv || anchor != nil || !slices.Contains(ProbeRowDispositioned, outcome) {
 		return nil
 	}
 	allowed := probeAnchors(validation.ObjStr(prov, "probe_id"))
@@ -434,14 +435,6 @@ func pyAnchorsRepr(probeID string) string {
 }
 
 // inList is `x in items`.
-func inList(x string, items []string) bool {
-	for _, it := range items {
-		if it == x {
-			return true
-		}
-	}
-	return false
-}
 
 // SiblingOpts is the optional tail of sibling_rescan (Python: adjacent=None,
 // clear=False, reason=None, actor="cli").
@@ -470,7 +463,7 @@ func SiblingRescan(campaign *state.Campaign, finding validation.Value,
 		data := validation.VObj(
 			kv("reason", optStr(opts.Reason)),
 			kv("actor", validation.VStr(actor)),
-			kv("families", validation.StrArr(sortedKeys(toks))),
+			kv("families", validation.StrArr(validation.SortedKeys(toks))),
 		)
 		if _, err := campaign.Log("plan.sibling_cleared", &fid,
 			&data); err != nil {
@@ -505,7 +498,7 @@ func SiblingRescan(campaign *state.Campaign, finding validation.Value,
 	data := validation.VObj(
 		kv("priority_id", validation.VStr(pid)),
 		kv("adjacent", validation.VStr(pyStrip(opts.Adjacent))),
-		kv("families", validation.StrArr(sortedKeys(toks))),
+		kv("families", validation.StrArr(validation.SortedKeys(toks))),
 		kv("actor", validation.VStr(actor)),
 	)
 	// r40e: the spawned sibling is a plan mutation; a refused

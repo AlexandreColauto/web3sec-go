@@ -27,6 +27,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -180,7 +181,7 @@ func memoryQueueFinding(c *state.Campaign, findingID, kind, pattern string,
 		return err
 	}
 	status := validation.ObjStr(f, "status")
-	if !containsStr(learning.MEMORY_STATUSES, status) {
+	if !slices.Contains(learning.MEMORY_STATUSES, status) {
 		return fmt.Errorf("finding %s has status %s; a memory row accepts "+
 			"one of %s", validation.PyReprStr(findingID),
 			validation.PyReprStr(status), sftChoiceList(learning.MEMORY_STATUSES))

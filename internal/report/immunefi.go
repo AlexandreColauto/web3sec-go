@@ -94,7 +94,7 @@ func GenerateImmunefi(campaign *state.Campaign) ([]string, error) {
 	// flag, re-read after the refresh above.
 	ready := []validation.Value{}
 	for _, f := range all {
-		if pyTruthyInt64Only(validation.ObjAt(asObj(validation.ObjAt(f, "bounty")), "submission_ready")) {
+		if pyTruthyInt64Only(validation.ObjAt(validation.AsObj(validation.ObjAt(f, "bounty")), "submission_ready")) {
 			ready = append(ready, f)
 		}
 	}
@@ -223,7 +223,7 @@ func immunefiSummary(f validation.Value, program string) immunefiSection {
 	if program != "" {
 		body = append(body, "- program: "+program)
 	}
-	if b := asObj(validation.ObjAt(f, "bounty")); len(b.O) > 0 {
+	if b := validation.AsObj(validation.ObjAt(f, "bounty")); len(b.O) > 0 {
 		line := fmt.Sprintf("- bounty gate: eligible=%s, submission_ready=%s",
 			pyStr(validation.ObjAt(b, "eligible")), pyStr(validation.ObjAt(b, "submission_ready")))
 		if blockers := listAt(b, "blocking_reasons"); len(blockers) > 0 {
@@ -240,14 +240,14 @@ func immunefiSummary(f validation.Value, program string) immunefiSection {
 // finding IR's exploit_mechanism) plus the economic_impact record.
 func immunefiImpact(f validation.Value) immunefiSection {
 	body := []string{}
-	rc := asObj(validation.ObjAt(f, "root_cause"))
+	rc := validation.AsObj(validation.ObjAt(f, "root_cause"))
 	if mech := validation.ObjStr(rc, "mechanism"); mech != "" {
 		body = append(body, "- exploit mechanism: "+mech)
 	}
 	if desc := validation.ObjStr(rc, "description"); desc != "" {
 		body = append(body, "- root cause: "+desc)
 	}
-	ei := asObj(validation.ObjAt(f, "economic_impact"))
+	ei := validation.AsObj(validation.ObjAt(f, "economic_impact"))
 	if len(ei.O) > 0 {
 		if ex := validation.ObjAt(ei, "extractable_usd"); ex.Kind != validation.Null {
 			body = append(body, fmt.Sprintf("- extractable: $%s",
@@ -307,7 +307,7 @@ func immunefiSeverity(f, policy validation.Value) immunefiSection {
 	}
 	if reported := validation.ObjAt(f, "reported_severity"); pyTruthyInt64Only(reported) {
 		band := "n/a"
-		if b := asObj(validation.ObjAt(asObj(validation.ObjAt(f, "risk")), "validated")); b.Kind == validation.Obj {
+		if b := validation.AsObj(validation.ObjAt(validation.AsObj(validation.ObjAt(f, "risk")), "validated")); b.Kind == validation.Obj {
 			if bv := validation.ObjAt(b, "band"); bv.Kind != validation.Null {
 				band = pyStr(bv)
 			}
@@ -356,7 +356,7 @@ func immunefiPoC(f validation.Value) immunefiSection {
 // immunefiRecommendation is the prose fix (verification.recommendation —
 // the finding IR's fix field).
 func immunefiRecommendation(f validation.Value) immunefiSection {
-	if rec := validation.ObjStr(asObj(validation.ObjAt(f, "verification")), "recommendation"); rec != "" {
+	if rec := validation.ObjStr(validation.AsObj(validation.ObjAt(f, "verification")), "recommendation"); rec != "" {
 		return immunefiSection{name: "Recommendation",
 			body: []string{"- fix: " + rec}}
 	}
@@ -384,7 +384,7 @@ func immunefiRelated(f validation.Value) immunefiSection {
 			body = append(body, "- related: "+strings.Join(parts, " "))
 		}
 	}
-	if ar := asObj(validation.ObjAt(asObj(validation.ObjAt(f, "bounty")), "accepted_risk")); len(ar.O) > 0 {
+	if ar := validation.AsObj(validation.ObjAt(validation.AsObj(validation.ObjAt(f, "bounty")), "accepted_risk")); len(ar.O) > 0 {
 		line := fmt.Sprintf("- accepted risk: **%s**", pyStr(validation.ObjAt(ar,
 			"pattern")))
 		if kind := validation.ObjStr(ar, "kind"); kind != "" {
@@ -398,7 +398,7 @@ func immunefiRelated(f validation.Value) immunefiSection {
 		}
 		body = append(body, line+" (documented by the program)")
 	}
-	if ack := asObj(validation.ObjAt(validation.ObjAt(f, "dedup_meta"), "in_code_ack")); len(ack.O) > 0 {
+	if ack := validation.AsObj(validation.ObjAt(validation.ObjAt(f, "dedup_meta"), "in_code_ack")); len(ack.O) > 0 {
 		body = append(body, fmt.Sprintf("- in-code ack: %s:%s — phrase %q",
 			pyStr(validation.ObjAt(ack, "file")), pyStr(validation.ObjAt(ack, "line")),
 			pyStr(validation.ObjAt(ack, "phrase"))))

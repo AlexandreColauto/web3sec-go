@@ -279,7 +279,7 @@ func namedClasses(plan validation.Value, campaign []string) []string {
 			seen[c] = struct{}{}
 		}
 	}
-	return sortedKeys(seen)
+	return validation.SortedKeys(seen)
 }
 
 // joinOrNone is `', '.join(named) or 'none'`.
@@ -340,7 +340,7 @@ func campaignBugClasses(campaign *state.Campaign) ([]string, error) {
 		}
 		seen[cls.S] = struct{}{}
 	}
-	return sortedKeys(seen), nil
+	return validation.SortedKeys(seen), nil
 }
 
 // LensProbeClosure is lens_probe_closure: the one-line probe closure statement

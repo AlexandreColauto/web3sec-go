@@ -1,6 +1,7 @@
 package structidx
 
 import (
+	"slices"
 	"testing"
 
 	"websec/internal/validation"
@@ -18,14 +19,14 @@ func TestWritersOfReconcilesStatements(t *testing.T) {
 	idx := writerFixture(t)
 	n := nodeByShortID(t, idx, "StateRoots.commitBatch")
 	raw := strList(validation.ObjAt(n, "writes_storage"))
-	if contains(raw, "prevStateRoot") {
+	if slices.Contains(raw, "prevStateRoot") {
 		t.Fatalf("fixture changed: writes_storage already lists prevStateRoot")
 	}
 	writers := WritersOf(idx, n)
-	if !contains(writers, "prevStateRoot") {
+	if !slices.Contains(writers, "prevStateRoot") {
 		t.Errorf("WritersOf = %v, want prevStateRoot", writers)
 	}
-	if !contains(writers, "storedHash") {
+	if !slices.Contains(writers, "storedHash") {
 		t.Errorf("WritersOf = %v, want the list's own storedHash", writers)
 	}
 	// order: the parser's own list first, then the reconciled names
@@ -33,7 +34,7 @@ func TestWritersOfReconcilesStatements(t *testing.T) {
 		t.Errorf("WritersOf dropped the list order: %v", writers)
 	}
 	// a non-storage statement expression must not leak in
-	if contains(writers, "if") || contains(writers, "batchIndex") {
+	if slices.Contains(writers, "if") || slices.Contains(writers, "batchIndex") {
 		t.Errorf("WritersOf leaked a non-storage name: %v", writers)
 	}
 }
@@ -54,14 +55,14 @@ func TestEffectiveWritersIsTheUnion(t *testing.T) {
 	idx := writerFixture(t)
 	raw := StorageWriters(idx, "prevStateRoot")
 	full := EffectiveWriters(idx, "prevStateRoot")
-	if contains(raw, "folding/StateRoots.sol#StateRoots.commitBatch") {
+	if slices.Contains(raw, "folding/StateRoots.sol#StateRoots.commitBatch") {
 		t.Fatalf("fixture changed: StorageWriters already finds the writer")
 	}
-	if !contains(full, "folding/StateRoots.sol#StateRoots.commitBatch") {
+	if !slices.Contains(full, "folding/StateRoots.sol#StateRoots.commitBatch") {
 		t.Errorf("EffectiveWriters = %v, want the commitBatch writer", full)
 	}
 	for _, id := range raw {
-		if !contains(full, id) {
+		if !slices.Contains(full, id) {
 			t.Errorf("EffectiveWriters dropped %s", id)
 		}
 	}
@@ -81,13 +82,4 @@ func nodeByShortID(t *testing.T, index validation.Value, short string) validatio
 	}
 	t.Fatalf("no function node %s in the fixture", short)
 	return validation.VNull()
-}
-
-func contains(xs []string, want string) bool {
-	for _, x := range xs {
-		if x == want {
-			return true
-		}
-	}
-	return false
 }

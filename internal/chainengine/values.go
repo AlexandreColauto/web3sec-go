@@ -20,25 +20,8 @@ func chainPath(c *state.Campaign, chainID string) string {
 }
 
 // hasKey is `key in d`.
-func hasKey(v validation.Value, key string) bool {
-	if v.Kind != validation.Obj {
-		return false
-	}
-	for _, kv := range v.O {
-		if kv.K == key {
-			return true
-		}
-	}
-	return false
-}
 
 // asObj is `d.get(key) or {}`.
-func asObj(v validation.Value) validation.Value {
-	if v.Kind == validation.Obj {
-		return v
-	}
-	return validation.VObj()
-}
 
 // listOf is `d.get(key) or []` for list-valued fields.
 func listOf(v validation.Value, key string) validation.Value {

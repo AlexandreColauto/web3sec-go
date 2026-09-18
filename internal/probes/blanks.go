@@ -2,6 +2,7 @@ package probes
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"unicode/utf8"
 
@@ -48,7 +49,7 @@ func resolveLensAxis(surface validation.Value, scope *AxisScope,
 	reg := RegisteredAxes()
 	hits := []string{}
 	for _, name := range scope.Axes {
-		if containsStr(axisBlindKeys(surface, name), anchorBlind) {
+		if slices.Contains(axisBlindKeys(surface, name), anchorBlind) {
 			hits = append(hits, name)
 		}
 	}
@@ -151,7 +152,7 @@ func SetBlank(c *state.Campaign, axis, anchorBlind, reason,
 			vInt(*ax, "rows"))
 	}
 	keys := axisBlindKeys(*surface, resolved.Axis)
-	if !containsStr(keys, anchorBlind) {
+	if !slices.Contains(keys, anchorBlind) {
 		return validation.VNull(), errf("blank attestation cites %s, which "+
 			"is not in %s's published blind[] keys: %s",
 			validation.PyReprStr(anchorBlind), resolved.Axis,

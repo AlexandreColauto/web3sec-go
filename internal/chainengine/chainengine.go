@@ -65,7 +65,7 @@ func nonDuplicate(f validation.Value) bool {
 
 // capBlock is `f.get("capabilities") or {}` normalized into granted/required.
 func capBlock(f validation.Value) ([]string, []string) {
-	caps := asObj(validation.ObjAt(f, "capabilities"))
+	caps := validation.AsObj(validation.ObjAt(f, "capabilities"))
 	return norm(capInput(validation.ObjAt(caps, "granted"))),
 		norm(capInput(validation.ObjAt(caps, "required")))
 }

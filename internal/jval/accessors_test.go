@@ -71,3 +71,52 @@ func TestAccessorVariantEquivalence(t *testing.T) {
 		}
 	}
 }
+
+// TestHasObjKeyAndAsObjVariants pins the hasKey/asObj clones the same way:
+// some hasKey clones guarded on Kind != Obj and some looped straight over
+// v.O, and the two asObj spellings differ only in which branch returns early.
+// Both pairs agree with the shared implementations on every kind.
+func TestHasObjKeyAndAsObjVariants(t *testing.T) {
+	guarded := func(v Value, key string) bool {
+		if v.Kind != Obj {
+			return false
+		}
+		for _, e := range v.O {
+			if e.K == key {
+				return true
+			}
+		}
+		return false
+	}
+	unguarded := func(v Value, key string) bool {
+		for _, e := range v.O {
+			if e.K == key {
+				return true
+			}
+		}
+		return false
+	}
+	obj := VObj(KV{K: "a", V: VStr("1")}, KV{K: "", V: VNull()})
+	for _, v := range []Value{VNull(), VStr("x"), VInt(3), VArr(VStr("a")), VObj(), obj} {
+		for _, key := range []string{"a", "missing", ""} {
+			got := HasObjKey(v, key)
+			if want := guarded(v, key); got != want {
+				t.Errorf("HasObjKey(kind=%v, %q)=%v, guarded clone=%v", v.Kind, key, got, want)
+			}
+			if want := unguarded(v, key); got != want {
+				t.Errorf("HasObjKey(kind=%v, %q)=%v, unguarded clone=%v", v.Kind, key, got, want)
+			}
+		}
+	}
+	for _, v := range []Value{VNull(), VStr("x"), VInt(3), VArr(VStr("a")), VObj(), obj} {
+		got := AsObj(v)
+		want := VObj()
+		if v.Kind == Obj {
+			want = v
+		}
+		if got.Kind != want.Kind || len(got.O) != len(want.O) {
+			t.Errorf("AsObj(kind=%v) = %v/%d fields, want %v/%d",
+				v.Kind, got.Kind, len(got.O), want.Kind, len(want.O))
+		}
+	}
+}

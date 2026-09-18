@@ -41,7 +41,7 @@ func setSourcePin(t *testing.T, c *state.Campaign, fid, pin string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sp := asObj(validation.ObjAt(f, "snapshot_ids"))
+	sp := validation.AsObj(validation.ObjAt(f, "snapshot_ids"))
 	sp.O = validation.SetOrAppend(sp.O, "source", validation.VStr(pin))
 	f.O = validation.SetOrAppend(f.O, "snapshot_ids", sp)
 	if err := findings.SaveFinding(c, &f); err != nil {
@@ -125,7 +125,7 @@ func TestUnprovenChainMaterializesWithoutSuperFinding(t *testing.T) {
 	if got := validation.ObjStr(data, "provenance"); got != "unproven" {
 		t.Errorf("event provenance = %q, want unproven", got)
 	}
-	if hasKey(data, "super_finding") {
+	if validation.HasKey(data, "super_finding") {
 		t.Errorf("unproven event must not name a super-finding: %v", data)
 	}
 }
@@ -193,7 +193,7 @@ func TestProvenChainStillRefusesHypothesisMembers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("proven materialize: %v", err)
 	}
-	if hasKey(ch, "provenance") {
+	if validation.HasKey(ch, "provenance") {
 		t.Error("proven chain doc carries provenance (B3 changed proven bytes)")
 	}
 	if got := validation.ObjStr(listOf(ch, "capability_links").A[0], "link_evidence"); got != "" {
