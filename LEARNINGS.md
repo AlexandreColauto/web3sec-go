@@ -199,3 +199,7 @@ corrections and tactics; more specific lessons take precedence over broader ones
 - [20260918-zqf1] (environment) Run Go commands with GOCACHE=$PWD/.scratch/gocache and GOFLAGS=-mod=mod or build/test fails or pollutes cache
 - [20260918-gx6w] (correction) Run gofmt -l/w and go build ./... before go test to catch formatting and build breaks early
 - [20260918-cfih] (correction) Clean up temporary demo workspaces under .scratch and never modify out-of-scope assets or consumed-only packages
+- [20260919-rmb8] (correction) Restrict edits to internal/briefing/*_test.go only and copy sibling floorEvidence patterns instead of inventing new fixtures
+- [20260919-vbdk] (tactic) Fix shared transition funnels like confirmSimple to inject E2 floor evidence before POSSIBLE to cover many failures at once
+- [20260919-5jdn] (environment) Verify briefing fixtures with GOCACHE=/tmp/gocache go test -p=1 -count=1 ./internal/briefing plus gofmt check
+- [20260919-07wr] (tactic) web3sec-go R3-3 floor fixtures: when a fixture must reach POSSIBLE (E2 floor) on a finding tied to an UNVERIFIED model invariant, the floor item cannot be added after the citation — the rise guardrail refuses the level-raising AddEvidence it needs. Fix: earn the floor BEFORE the citation is attached (the package's findingWithInvariant already ingests first and cites after), via the ordinary AddEvidence path; keep the post-add finding value (SaveFinding on the pre-add copy clobbers it). A test measuring a "sub-E4 rise" refusal then has to measure E3, not E2 (the fixture is already E2).
