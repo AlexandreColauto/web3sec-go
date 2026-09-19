@@ -317,9 +317,14 @@ func ContainerForkURL(raw string) string {
 	if p := u.Port(); p != "" {
 		host += ":" + p
 	}
-	// u.Host keeps the brackets for IPv6 ([::1]:8545), so the replacement
-	// is exact.
-	return strings.Replace(raw, u.Host, host, 1)
+	// Rebuild through the parsed URL, never a substring replace: userinfo,
+	// path and query re-emit from the parse, so a host literal that also
+	// appears earlier in the URL cannot be hit by accident, and an already-
+	// rewritten URL passes through unchanged (idempotent). host-gateway is
+	// IPv4-only — on an IPv6-only docker host the alias may not resolve;
+	// R3-1c surfaces cast's cause and the env doctor names the limit.
+	u.Host = host
+	return u.String()
 }
 
 // BuildContainerArgv is build_container_argv: the real `docker run` argv for

@@ -333,6 +333,16 @@ func TestForkRunnerRewritesLoopbackRPC(t *testing.T) {
 		// not loopback: untouched
 		{"http://operator-fork:9545", "http://operator-fork:9545"},
 		{"https://eth.drpc.org/xyz", "https://eth.drpc.org/xyz"},
+		// idempotent: an already-rewritten value passes through unchanged
+		{"http://host.docker.internal:18545",
+			"http://host.docker.internal:18545"},
+		// userinfo survives the rebuild; a host literal elsewhere in the
+		// URL is never hit (no substring replace)
+		{"http://user@127.0.0.1:8545", "http://user@host.docker.internal:8545"},
+		// portless loopback keeps no port
+		{"http://localhost", "http://host.docker.internal"},
+		// scheme-less is a path, not an RPC URL: untouched
+		{"127.0.0.1:8545", "127.0.0.1:8545"},
 		// unparseable: untouched (the RPC will fail loudly, not silently)
 		{"not a url", "not a url"},
 	} {
