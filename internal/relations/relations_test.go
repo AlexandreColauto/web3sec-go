@@ -8,6 +8,7 @@
 package relations
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -111,9 +112,34 @@ func seedGlobalMemory(t *testing.T) {
 	})
 }
 
+// relationsFloorSeq mints unique ids for the manual floor items the fixtures
+// attach before a status whose evidence floor is above E0.
+var relationsFloorSeq int
+
+// floorEvidence attaches a manual (non-exec) item at *level* — the evidence a
+// status floor demands before the status stamp. It is the finding's first rise
+// above E0, so it pays the discovery slot once; the exec-backed E4 evidence
+// confirmSimple attaches afterwards rides that same rise for free.
+func floorEvidence(t *testing.T, c *state.Campaign, fid, level string) {
+	t.Helper()
+	relationsFloorSeq++
+	if _, err := findings.AddEvidence(c, fid, validation.VObj(
+		kv("evidence_id", validation.VStr(
+			fmt.Sprintf("EV-relfloor-%04d", relationsFloorSeq))),
+		kv("level", validation.VStr(level)),
+		kv("type", validation.VStr("manual")),
+		kv("description", validation.VStr(
+			"manual code reading at triage: the path to the sink is reachable")))); err != nil {
+		t.Fatalf("add floor evidence %s: %v", level, err)
+	}
+}
+
 // confirmSimple is test_relations.confirm_simple.
 func confirmSimple(t *testing.T, c *state.Campaign, fid string) validation.Value {
 	t.Helper()
+	// R3-3: POSSIBLE carries an E2 floor, so the shared advance helper earns
+	// it BEFORE the status stamp (evidence floors gate every status).
+	floorEvidence(t, c, fid, "E2")
 	if _, err := findings.Transition(c, fid, "POSSIBLE", "triage", "triage",
 		"", false); err != nil {
 		t.Fatalf("transition POSSIBLE: %v", err)
@@ -370,7 +396,9 @@ func TestValidatedByOnlyForE4PlusWithAnExec(t *testing.T) {
 	if got := validation.ObjStr(validation.ObjAt(edges[0], "dst"), "type"); got != "exec" {
 		t.Fatalf("dst type = %q", got)
 	}
-	ev0 := validation.ObjAt(validation.ObjAt(f, "evidence").A[0], "evidence_id")
+	// R3-3 ripple: the fixture's E2 floor item is evidence[0]; the E4 exec
+	// item MintValidatedBy anchors to is the one appended after it.
+	ev0 := validation.ObjAt(validation.ObjAt(f, "evidence").A[1], "evidence_id")
 	if got := validation.ObjStr(validation.ObjAt(edges[0], "support"), "evidence_id"); got != ev0.S {
 		t.Fatalf("support evidence_id = %q want %q", got, ev0.S)
 	}

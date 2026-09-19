@@ -207,7 +207,9 @@ func TestGuardrailBlocksLevelRiseOnUnverifiedModelInvariant(t *testing.T) {
 	if _, err := SeedFromModel(c, modelWithInvariants()); err != nil {
 		t.Fatal(err)
 	}
-	f := findingWithInvariant(t, c, "INV-2")
+	// R3-3 ripple: earn the POSSIBLE floor before INV-2 is cited; the E4
+	// rise measured below stays a rise (E4 > E2) and stays refused.
+	f := findingWithInvariantAt(t, c, "INV-2", "E2")
 	fid := validation.ObjStr(f, "finding_id")
 	if _, err := findings.Transition(c, fid, "POSSIBLE", "triage",
 		"", "", false); err != nil {
@@ -225,7 +227,9 @@ func TestGuardrailPassesAfterVerification(t *testing.T) {
 	if _, err := SeedFromModel(c, modelWithInvariants()); err != nil {
 		t.Fatal(err)
 	}
-	f := findingWithInvariant(t, c, "INV-2")
+	// R3-3 ripple: earn the POSSIBLE floor before INV-2 is cited; the
+	// verification below then clears the guardrail for the E4 rise.
+	f := findingWithInvariantAt(t, c, "INV-2", "E2")
 	fid := validation.ObjStr(f, "finding_id")
 	artID := registeredArtifact(t, c, "inv-check.md", "INV-2 checked\n")
 	if _, err := VerifyInvariantStatement(c, "INV-2", artID); err != nil {
@@ -241,8 +245,9 @@ func TestGuardrailPassesAfterVerification(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := len(validation.ObjAt(out, "evidence").A); got != 1 {
-		t.Errorf("evidence count = %d, want 1", got)
+	// R3-3 ripple: 2 = the fixture's E2 floor item + the E4 exec item.
+	if got := len(validation.ObjAt(out, "evidence").A); got != 2 {
+		t.Errorf("evidence count = %d, want 2", got)
 	}
 }
 
@@ -253,7 +258,9 @@ func TestGuardrailExemptsDocumentedInvariants(t *testing.T) {
 	if _, err := SeedFromModel(c, modelWithInvariants()); err != nil {
 		t.Fatal(err)
 	}
-	f := findingWithInvariant(t, c, "INV-2") // now source == documented
+	// R3-3 ripple: earn the POSSIBLE floor before the citation is written
+	// (documented here, so the guardrail is exempt either way).
+	f := findingWithInvariantAt(t, c, "INV-2", "E2") // now source == documented
 	fid := validation.ObjStr(f, "finding_id")
 	if _, err := findings.Transition(c, fid, "POSSIBLE", "triage",
 		"", "", false); err != nil {
@@ -265,8 +272,9 @@ func TestGuardrailExemptsDocumentedInvariants(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := len(validation.ObjAt(out, "evidence").A); got != 1 {
-		t.Errorf("evidence count = %d, want 1", got)
+	// R3-3 ripple: 2 = the fixture's E2 floor item + the E4 exec item.
+	if got := len(validation.ObjAt(out, "evidence").A); got != 2 {
+		t.Errorf("evidence count = %d, want 2", got)
 	}
 }
 
@@ -293,13 +301,19 @@ func TestSubE4RiseOnUnverifiedModelInvariantBlocked(t *testing.T) {
 	if _, err := SeedFromModel(c, modelWithInvariants()); err != nil {
 		t.Fatal(err)
 	}
-	f := findingWithInvariant(t, c, "INV-2")
+	// R3-3 ripple: earn the POSSIBLE floor before INV-2 is cited.
+	f := findingWithInvariantAt(t, c, "INV-2", "E2")
 	fid := validation.ObjStr(f, "finding_id")
 	if _, err := findings.Transition(c, fid, "POSSIBLE", "triage",
 		"", "", false); err != nil {
 		t.Fatal(err)
 	}
-	_, err := findings.AddEvidence(c, fid, manualNote("EV-note", "E2"))
+	// R3-3 ripple: POSSIBLE carries an E2 floor, so the fixture already
+	// holds the E2 item that floor demanded (earned before the INV-2
+	// citation armed the guardrail). The measured add is E3 — still a
+	// sub-E4, non-execution level rise, which is the whole subject here:
+	// ANY level rise below E4 on an unverified model invariant is refused.
+	_, err := findings.AddEvidence(c, fid, manualNote("EV-note", "E3"))
 	wantErr(t, err, "invariant")
 }
 
@@ -510,7 +524,9 @@ func TestUnknownInvariantIDBlocksBothHalves(t *testing.T) {
 	if _, err := SeedFromModel(c, modelWithInvariants()); err != nil {
 		t.Fatal(err)
 	}
-	f := findingWithInvariant(t, c, "INV-999")
+	// R3-3 ripple: earn the POSSIBLE floor before INV-999 (unknown, so the
+	// guardrail refuses every rise) is cited.
+	f := findingWithInvariantAt(t, c, "INV-999", "E2")
 	fid := validation.ObjStr(f, "finding_id")
 	if _, err := findings.Transition(c, fid, "POSSIBLE", "triage",
 		"", "", false); err != nil {
@@ -572,7 +588,10 @@ func TestLegacyEntryMigratesOnRead(t *testing.T) {
 	if n := countMigrated(events); n != 1 {
 		t.Errorf("invariant.migrated events = %d, want 1", n)
 	}
-	f := findingWithInvariant(t, c, "INV-9")
+	// R3-3 ripple: POSSIBLE carries an E2 floor, earned while the finding
+	// is not yet cited (INV-9 is unverified, so the guardrail would refuse
+	// the very item the floor needs once the citation is written).
+	f := findingWithInvariantAt(t, c, "INV-9", "E2")
 	fid := validation.ObjStr(f, "finding_id")
 	if _, err := findings.Transition(c, fid, "POSSIBLE", "triage",
 		"", "", false); err != nil {
@@ -647,6 +666,10 @@ func TestZeroPaddedCitationGetsDocumentedExemption(t *testing.T) {
 		t.Fatal(err)
 	}
 	fid := validation.ObjStr(f, "finding_id")
+	// R3-3 ripple: POSSIBLE carries an E2 floor — earn it first. The
+	// zero-padded citation normalizes to the DOCUMENTED INV-1, so the rise
+	// guardrail is exempt here and the ordinary add_evidence path takes it.
+	addFloor(t, c, fid, "E2")
 	if _, err := findings.Transition(c, fid, "POSSIBLE", "triage",
 		"", "", false); err != nil {
 		t.Fatal(err)
@@ -657,8 +680,9 @@ func TestZeroPaddedCitationGetsDocumentedExemption(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := len(validation.ObjAt(out, "evidence").A); got != 1 {
-		t.Errorf("evidence count = %d, want 1", got)
+	// R3-3 ripple: 2 = the fixture's E2 floor item + the E4 exec item.
+	if got := len(validation.ObjAt(out, "evidence").A); got != 2 {
+		t.Errorf("evidence count = %d, want 2", got)
 	}
 }
 

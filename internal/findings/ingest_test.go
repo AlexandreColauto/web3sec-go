@@ -562,6 +562,7 @@ func TestDiscoverySlotChargedOnPromotionAboveE0(t *testing.T) {
 	f := ingestBare(t, c)
 	fid := validation.ObjStr(f, "finding_id")
 	assertSlotCount(t, c, 0)
+	eFloor(t, c, fid, "E1") // R3-3: PROVISIONALLY_VALID carries an E1 floor
 	if _, err := Transition(c, fid, "PROVISIONALLY_VALID",
 		"static read supports it", "", "", false); err != nil {
 		t.Fatal(err)
@@ -575,6 +576,7 @@ func TestDiscoverySlotChargedOnPromotionAboveE0(t *testing.T) {
 		t.Fatal("a promotion above E0 must set the slot flag")
 	}
 	// A second promotion above E0 (E1 -> E2) is already paid for.
+	eFloor(t, c, fid, "E2") // R3-3: POSSIBLE carries an E2 floor
 	if _, err := Transition(c, fid, "POSSIBLE", "reachability shown",
 		"", "", false); err != nil {
 		t.Fatal(err)
@@ -594,15 +596,31 @@ func TestDiscoverySlotChargedOnPromotionAboveE0(t *testing.T) {
 func TestDiscoverySlotRefusesPromotionAtCeiling(t *testing.T) {
 	c := slotCappedCampaign(t, 1)
 	a := ingestBare(t, c)
+	eFloor(t, c, validation.ObjStr(a, "finding_id"), "E2") // R3-3 floor
 	if _, err := Transition(c, validation.ObjStr(a, "finding_id"), "POSSIBLE",
 		"reachability shown", "", "", false); err != nil {
 		t.Fatal(err)
 	}
-	b := ingestBare(t, c) // free at the ceiling
-	_, err := Transition(c, validation.ObjStr(b, "finding_id"), "POSSIBLE",
-		"reachability shown", "", "", false)
+	b := ingestBare(t, c) // at the ceiling: EVERY promotion is refused
+	bid := validation.ObjStr(b, "finding_id")
+	// R3-3 ripple: the floor evidence a POSSIBLE stamp demands is itself
+	// a promotion above E0 — at the ceiling the AddEvidence step carries
+	// the refusal, byte-identical to the stamp's.
+	_, err := AddEvidence(c, bid, validation.VObj(
+		kv("evidence_id", validation.VStr("EV-ceiling-floor")),
+		kv("level", validation.VStr("E2")),
+		kv("type", validation.VStr("manual")),
+		kv("description", validation.VStr("code reading at triage")),
+	))
 	if err == nil || err.Error() != slotExhaustedText(c) {
 		t.Fatalf("promotion refusal = %v, want %q", err, slotExhaustedText(c))
+	}
+	// The bare stamp is refused one layer EARLIER (R3-3): the evidence
+	// floor guard runs before the slot charge.
+	if _, err := Transition(c, bid, "POSSIBLE", "reachability shown",
+		"", "", false); err == nil ||
+		err.Error() != "evidence level E0 < required E2 for POSSIBLE" {
+		t.Fatalf("stamp refusal = %v", err)
 	}
 	// The refused promotion left B at E0 — no partial move, no charge.
 	got, err := LoadFinding(c, validation.ObjStr(b, "finding_id"))

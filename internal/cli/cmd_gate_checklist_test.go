@@ -31,6 +31,9 @@ const cliCeiling = "capacity basis: the sink is an address[255] test " +
 // source status for CONFIRMED), recording the gate_attempt event.
 func cliAttempt(t *testing.T, c *state.Campaign, fid string) {
 	t.Helper()
+	// R3-3: POSSIBLE carries an E2 floor — earn it before the status stamp
+	// (a fixture that already holds exec evidence rides that rise for free).
+	addFloorEvidence(t, c, fid, "E2")
 	if _, err := findings.Transition(c, fid, "POSSIBLE",
 		"advance to the confirmation rung", "operator", "", false); err != nil {
 		t.Fatalf("move POSSIBLE: %v", err)

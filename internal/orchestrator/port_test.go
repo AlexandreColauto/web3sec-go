@@ -184,6 +184,28 @@ func portEvidenceItem(execRec validation.Value, level, typ, description,
 	)
 }
 
+// portManualSeq mints unique manual-evidence ids for the port fixtures (the
+// Python twin hard-codes EV-9/EV-10, but the status floors make an extra item
+// necessary, so ids must not collide).
+var portManualSeq int
+
+// portManualEvidence records a plain manual evidence item at the given level.
+// STATUS_FLOOR makes POSSIBLE need E2, so a fixture advance that is not about
+// refusing the move must carry real ledger evidence before the transition.
+func portManualEvidence(t *testing.T, c *state.Campaign, findingID, level,
+	description string) {
+	t.Helper()
+	portManualSeq++
+	if _, err := findings.AddEvidence(c, findingID, validation.VObj(
+		kvOf("evidence_id", validation.VStr("EV-M"+pad10(portManualSeq))),
+		kvOf("level", validation.VStr(level)),
+		kvOf("type", validation.VStr("manual")),
+		kvOf("description", validation.VStr(description)),
+	)); err != nil {
+		t.Fatalf("add %s manual evidence: %v", level, err)
+	}
+}
+
 // portMaximalAxes is maximization.maximalAxes: the five axes a closed ladder
 // must have explored.
 var portMaximalAxes = []string{"capital-minimization", "precondition-removal",
@@ -581,11 +603,15 @@ func portStepConfirm(t *testing.T, c *state.Campaign,
 	h3 validation.Value) string {
 	t.Helper()
 	fid := strAt(h3, "finding_id")
+	// The invariant statement is verified before any level-raising evidence
+	// (task H guardrail), and the POSSIBLE floor now needs E2 in the ledger.
+	portStepInvariant(t, c, fid)
+	portManualEvidence(t, c, fid, "E2",
+		"triage: unguarded rescue path confirmed by reading the code")
 	if _, err := findings.Transition(c, fid, "POSSIBLE", "triage", "",
 		"", false); err != nil {
 		t.Fatalf("transition POSSIBLE: %v", err)
 	}
-	portStepInvariant(t, c, fid)
 	rec := portExecRecord(t, c, fid, "docker-networkless",
 		"forge test --match-test test_exploit", "pytest-harness")
 	if _, err := findings.AddEvidence(c, fid, portEvidenceItem(rec, "E4",

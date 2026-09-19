@@ -34,6 +34,9 @@ func t35SeqFinding(t *testing.T, c *state.Campaign,
 		t.Fatal(err)
 	}
 	fid := validation.ObjStr(f, "finding_id")
+	// R3-3: POSSIBLE carries an E2 evidence floor; the fixture's plain
+	// advance lands the floor evidence first.
+	floorEvidence(t, c, fid, "E2")
 	if _, err := findings.Transition(c, fid, "POSSIBLE", "triage", "", "",
 		false); err != nil {
 		t.Fatal(err)

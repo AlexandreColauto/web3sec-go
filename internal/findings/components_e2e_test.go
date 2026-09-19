@@ -222,6 +222,17 @@ func TestComponentsE2E_ComponentFindingFlows(t *testing.T) {
 	if sid == nil || e2eObjStr(e2eObjAt(f, "snapshot_ids"), "source") != *sid {
 		t.Fatalf("finding source pin ≠ active snapshot %v", sid)
 	}
+	// R3-3 ripple: POSSIBLE carries an E2 floor — the triage read earns
+	// it before the stamp (the E4 exec evidence below stands on it).
+	if _, err := findings.AddEvidence(c, fid, validation.VObj(
+		validation.KV{K: "evidence_id", V: validation.VStr("EV-triage")},
+		validation.KV{K: "level", V: validation.VStr("E2")},
+		validation.KV{K: "type", V: validation.VStr("manual")},
+		validation.KV{K: "description",
+			V: validation.VStr("manual code/traffic read at triage")},
+	)); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := findings.Transition(c, fid, "POSSIBLE", "triage",
 		"triage", "", false); err != nil {
 		t.Fatal(err)

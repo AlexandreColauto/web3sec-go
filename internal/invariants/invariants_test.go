@@ -116,11 +116,9 @@ func registeredArtifact(t *testing.T, c *state.Campaign, name, text string) stri
 	return ""
 }
 
-// findingWithInvariant is _finding_with_invariant: ingest the hypothesis,
-// then attach the structured invariant citation and save.
-func findingWithInvariant(t *testing.T, c *state.Campaign, invID string) validation.Value {
-	t.Helper()
-	payload := validation.VObj(
+// findingPayload is the hypothesis _finding_with_invariant ingests.
+func findingPayload() validation.Value {
+	return validation.VObj(
 		kv("title", validation.VStr("fee accumulator rewound")),
 		kv("root_cause", validation.VObj(
 			kv("class", validation.VStr("access-control")),
@@ -136,9 +134,32 @@ func findingWithInvariant(t *testing.T, c *state.Campaign, invID string) validat
 			kv("capabilities", validation.VArr()),
 		)),
 	)
-	f, err := findings.IngestHypothesis(c, payload, "code", "", "")
+}
+
+// findingWithInvariant is _finding_with_invariant: ingest the hypothesis,
+// then attach the structured invariant citation and save.
+func findingWithInvariant(t *testing.T, c *state.Campaign, invID string) validation.Value {
+	t.Helper()
+	return findingWithInvariantAt(t, c, invID, "")
+}
+
+// findingWithInvariantAt is findingWithInvariant plus the R3-3 evidence floor:
+// the manual item the target status's floor demands (E2 for POSSIBLE) is
+// attached BEFORE the invariant citation is written, because the level-rise
+// guardrail — the very refusal guard_test.go measures — refuses
+// level-raising add_evidence on a finding tied to an unverified model
+// invariant, which is exactly the evidence the floor needs. The citation
+// lands after, so the fixture still ends up tied to invID and every later
+// rise is measured against the armed guardrail. level == "" earns nothing.
+func findingWithInvariantAt(t *testing.T, c *state.Campaign, invID,
+	level string) validation.Value {
+	t.Helper()
+	f, err := findings.IngestHypothesis(c, findingPayload(), "code", "", "")
 	if err != nil {
 		t.Fatal(err)
+	}
+	if level != "" {
+		f = addFloor(t, c, validation.ObjStr(f, "finding_id"), level)
 	}
 	f.O = validation.SetOrAppend(f.O, "security_invariants", validation.VArr(
 		validation.VObj(
@@ -150,6 +171,26 @@ func findingWithInvariant(t *testing.T, c *state.Campaign, invID string) validat
 		t.Fatal(err)
 	}
 	return f
+}
+
+// floorSeq numbers the R3-3 floor items so their evidence ids stay unique
+// across the package's tests.
+var floorSeq int
+
+// addFloor is the R3-3 funnel: attach the manual code-reading item a status
+// floor demands through the ORDINARY add_evidence path — schema validation,
+// the discovery slot, the level-rise guardrail — no back door. It returns the
+// updated finding (the caller must keep THIS value: SaveFinding on a pre-add
+// copy would clobber the item).
+func addFloor(t *testing.T, c *state.Campaign, fid, level string) validation.Value {
+	t.Helper()
+	floorSeq++
+	out, err := findings.AddEvidence(c, fid,
+		manualNote(fmt.Sprintf("EV-floor%d", floorSeq), level))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return out
 }
 
 var execSeq int

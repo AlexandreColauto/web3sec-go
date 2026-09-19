@@ -2,6 +2,7 @@ package findings
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,6 +15,23 @@ import (
 
 // ---- helpers ----
 
+var floorSeq int
+
+// eFloor attaches a manual code-reading item at the given level — the
+// evidence a R3-3-gated move demands. One helper, every fixture site.
+func eFloor(t *testing.T, c *state.Campaign, fid, level string) {
+	t.Helper()
+	floorSeq++
+	if _, err := AddEvidence(c, fid, validation.VObj(
+		kv("evidence_id", validation.VStr(fmt.Sprintf("EV-floor%d", floorSeq))),
+		kv("level", validation.VStr(level)),
+		kv("type", validation.VStr("manual")),
+		kv("description", validation.VStr("code reading at triage")),
+	)); err != nil {
+		t.Fatal(err)
+	}
+}
+
 // pos finds a finding and moves it to POSSIBLE (the triage step every gate
 // test starts from).
 func pos(t *testing.T, c *state.Campaign) validation.Value {
@@ -23,6 +41,10 @@ func pos(t *testing.T, c *state.Campaign) validation.Value {
 		t.Fatal(err)
 	}
 	fid := validation.ObjStr(f, "finding_id")
+	// R3-3 ripple: POSSIBLE carries an E2 floor, so the shared triage
+	// helper now EARNES it — a manual code-reading item, exactly what the
+	// triage step claims to have done — before stamping the status.
+	eFloor(t, c, fid, "E2")
 	if _, err := Transition(c, fid, "POSSIBLE", "triage", "", "", false); err != nil {
 		t.Fatal(err)
 	}
@@ -102,7 +124,9 @@ func TestConfirmationGateFailuresAreEnumerated(t *testing.T) {
 			"--reason '<reasoning>'" {
 		t.Errorf("critic remediation = %q", detail[0].Remediation)
 	}
-	if detail[3].Message != "evidence level E0 < required E5 for CONFIRMED" {
+	// R3-3 ripple: the shared pos() helper now holds the E2 manual item a
+	// POSSIBLE stamp requires, so the floor clause names E2, not E0.
+	if detail[3].Message != "evidence level E2 < required E5 for CONFIRMED" {
 		t.Errorf("evidence-floor message = %q", detail[3].Message)
 	}
 }
@@ -740,6 +764,8 @@ func TestTransitionEventStrings(t *testing.T) {
 		t.Fatal(err)
 	}
 	fid := validation.ObjStr(f, "finding_id")
+	// R3-3 ripple: POSSIBLE carries an E2 floor — earn it first.
+	eFloor(t, c, fid, "E2")
 	if _, err := Transition(c, fid, "POSSIBLE", "triage", "critic", "", false); err != nil {
 		t.Fatal(err)
 	}
@@ -1287,5 +1313,77 @@ func TestCriticVerdictOnTerminalRowRefused(t *testing.T) {
 	if _, err := SetCriticVerdict(c, fid, "pending", "second thought"); err == nil ||
 		!strings.Contains(err.Error(), "terminal finding") {
 		t.Fatalf("verdict on a terminal row must be refused: %v", err)
+	}
+}
+
+// R3-3 (Morph r3 defect 3): STATUS_FLOOR was an enforced table only at the
+// CONFIRMED gate; `move --to POSSIBLE` stamped an E0 finding with a word.
+// Every non-CONFIRMED move now clears the same deficit the gate computes —
+// refused with the floor table's own text, the finding untouched.
+func TestMoveBelowEvidenceFloorIsRefused(t *testing.T) {
+	c := ingestCamp(t)
+	// NEEDS_RESEARCH keeps its E0 floor: it moves freely.
+	a, err := IngestHypothesis(c, hypoPayload(), "code", "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Transition(c, validation.ObjStr(a, "finding_id"),
+		"NEEDS_RESEARCH", "parking", "", "", false); err != nil {
+		t.Fatalf("E0 floor move refused: %v", err)
+	}
+	// PROVISIONALLY_VALID carries an E1 floor: an E0 finding is refused
+	// with the table's verbatim text.
+	b, err := IngestHypothesis(c, hypoPayload(), "code", "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = Transition(c, validation.ObjStr(b, "finding_id"),
+		"PROVISIONALLY_VALID", "gut feel", "", "", false)
+	var it *IllegalTransition
+	if !errors.As(err, &it) {
+		t.Fatalf("want IllegalTransition, got %v", err)
+	}
+	if it.Error() != "evidence level E0 < required E1 for PROVISIONALLY_VALID" {
+		t.Fatalf("message = %q", it.Error())
+	}
+	// POSSIBLE carries E2; the row is untouched by the refusal.
+	d, err := IngestHypothesis(c, hypoPayload(), "code", "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	did := validation.ObjStr(d, "finding_id")
+	_, err = Transition(c, did, "POSSIBLE", "aspiration", "", "", false)
+	if !errors.As(err, &it) ||
+		it.Error() != "evidence level E0 < required E2 for POSSIBLE" {
+		t.Fatalf("err = %v", err)
+	}
+	got, err := LoadFinding(c, did)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if validation.ObjStr(got, "status") != "HYPOTHESIS" {
+		t.Fatalf("status = %s after refusal, want HYPOTHESIS",
+			validation.ObjStr(got, "status"))
+	}
+	// The sanctioned path opens the move: real E2 evidence.
+	if _, err := AddEvidence(c, did, validation.VObj(
+		kv("evidence_id", validation.VStr("EV-floor2")),
+		kv("level", validation.VStr("E2")),
+		kv("type", validation.VStr("manual")),
+		kv("description", validation.VStr("code reading")),
+	)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Transition(c, did, "POSSIBLE", "triaged", "", "",
+		false); err != nil {
+		t.Fatalf("move after E2 evidence: %v", err)
+	}
+	// A refusal leaves nothing in the ledger beyond the moves themselves.
+	raw, err := os.ReadFile(filepath.Join(c.Dir, "events.jsonl"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Count(string(raw), "finding.status") != 2 {
+		t.Fatalf("refused moves logged status events:\n%s", raw)
 	}
 }

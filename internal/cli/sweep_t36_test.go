@@ -138,7 +138,11 @@ func t36EvidenceCount(t *testing.T, c *state.Campaign, fid, execID string) int {
 func TestFullLadderViaCLI(t *testing.T) {
 	root, c, fid := t36SetupLadder(t)
 	cid := c.CampaignID
-	// triage -> POSSIBLE
+	// triage -> POSSIBLE. R3-3: the POSSIBLE rung carries an E2 floor, so the
+	// ladder earns the manual reachability item before the status stamp (the
+	// CLI has no plain-evidence verb; the file's style is a library call, as
+	// with t36Exec below).
+	addFloorEvidence(t, c, fid, "E2")
 	code, out, errS := run(t, "--root", root, "move", cid, fid, "POSSIBLE",
 		"--reason", "triage: reachable path, high prior")
 	if code != 0 || !strings.Contains(out, "POSSIBLE") {
@@ -302,6 +306,8 @@ func TestVerifyArgparse(t *testing.T) {
 func TestAmendNoticeOnConfirmedFloorMove(t *testing.T) {
 	root, c, fid := t36SetupLadder(t)
 	cid := c.CampaignID
+	// R3-3: the POSSIBLE rung carries an E2 floor — earn it before the stamp.
+	addFloorEvidence(t, c, fid, "E2")
 	code, _, errS := run(t, "--root", root, "move", cid, fid, "POSSIBLE",
 		"--reason", "triage")
 	if code != 0 {

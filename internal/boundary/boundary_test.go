@@ -9,6 +9,7 @@ package boundary
 // not-matched).
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -171,6 +172,29 @@ func validReproducerRequest(fid string) validation.Value {
 			"http://127.0.0.1:8545 --fork-block-number 20000000 "+
 			"--match-test test_exploit")),
 		kv("notes", validation.VNull()))
+}
+
+// boundaryFloorSeq mints unique ids for the manual floor items the fixtures
+// attach before a status whose evidence floor is above E0.
+var boundaryFloorSeq int
+
+// floorEvidence attaches a manual (non-exec) item at *level* — the evidence a
+// status floor demands before the status stamp. It is the finding's first rise
+// above E0, so it pays the discovery slot once; any later item at or below that
+// level rides the same rise for free, keeping the campaign's slot spend
+// unchanged.
+func floorEvidence(t *testing.T, c *state.Campaign, fid, level string) {
+	t.Helper()
+	boundaryFloorSeq++
+	if _, err := findings.AddEvidence(c, fid, validation.VObj(
+		kv("evidence_id", validation.VStr(
+			fmt.Sprintf("EV-boundary-floor-%04d", boundaryFloorSeq))),
+		kv("level", validation.VStr(level)),
+		kv("type", validation.VStr("manual")),
+		kv("description", validation.VStr(
+			"manual code reading at triage: the path to the sink is reachable")))); err != nil {
+		t.Fatalf("add floor evidence %s: %v", level, err)
+	}
 }
 
 func ev1(t *testing.T, c *state.Campaign, fid string) {
@@ -605,6 +629,9 @@ func reproSetup(t *testing.T, c *state.Campaign) string {
 	pin(t, c)
 	f := mustIngest(t, c, validHypothesis())
 	fid := validation.ObjStr(f, "finding_id")
+	// R3-3: POSSIBLE carries an E2 floor, so the shared advance helper earns
+	// it BEFORE the status stamp (evidence floors gate every status).
+	floorEvidence(t, c, fid, "E2")
 	if _, err := findings.Transition(c, fid, "POSSIBLE", "triage", "", "", false); err != nil {
 		t.Fatal(err)
 	}

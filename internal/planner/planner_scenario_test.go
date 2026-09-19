@@ -210,6 +210,29 @@ func scnEvidenceItem(rec validation.Value, level, typ, desc,
 	)
 }
 
+// floorEvidenceSeq mints unique evidence ids for the manual floor items the
+// fixtures attach before a status whose evidence floor is above E0.
+var floorEvidenceSeq int
+
+// addFloorEvidence attaches a manual (non-exec) evidence item at *level*: the
+// reachability evidence a status floor demands before the status stamp. It is
+// the finding's first rise above E0, so it pays the discovery slot once — the
+// exec-backed evidence the fixtures attach afterwards rides that same rise for
+// free, keeping the campaign's slot spend unchanged.
+func addFloorEvidence(t *testing.T, camp *state.Campaign, fid, level string) {
+	t.Helper()
+	floorEvidenceSeq++
+	if _, err := findings.AddEvidence(camp, fid, validation.VObj(
+		kv("evidence_id", validation.VStr(
+			fmt.Sprintf("EV-manual-%04d", floorEvidenceSeq))),
+		kv("level", validation.VStr(level)),
+		kv("type", validation.VStr("manual")),
+		kv("description", validation.VStr(
+			"manual reachability note: the path to the sink is reachable")))); err != nil {
+		t.Fatalf("add floor evidence %s: %v", level, err)
+	}
+}
+
 // scnRewrite is `finding[key] = value; save_finding(camp, finding)`.
 func scnRewrite(t *testing.T, camp *state.Campaign, fid, key, raw string) {
 	t.Helper()
@@ -292,6 +315,9 @@ func scnConfirmedFinding(t *testing.T, camp *state.Campaign,
 		t.Fatalf("ingest_hypothesis: %v", err)
 	}
 	fid := validation.ObjStr(f, "finding_id")
+	// R3-3: the POSSIBLE floor is E2, so the fixture earns the reachability
+	// evidence BEFORE the status stamp (evidence floors gate every status).
+	addFloorEvidence(t, camp, fid, "E2")
 	if _, err := findings.Transition(camp, fid, "POSSIBLE",
 		"triage (anchor-rescan fixture)", "", "", false); err != nil {
 		t.Fatalf("transition POSSIBLE: %v", err)

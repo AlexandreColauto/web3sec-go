@@ -162,16 +162,21 @@ func confirmed(t *testing.T, c *state.Campaign, title string, granted,
 func driveToConfirmed(t *testing.T, c *state.Campaign, fid string,
 	extractable *float64, blast string) {
 	t.Helper()
-	if _, err := findings.Transition(c, fid, "POSSIBLE", "triage passed",
-		"triage", "", false); err != nil {
-		t.Fatalf("transition POSSIBLE: %v", err)
-	}
+	// R3-3: the POSSIBLE floor is E2, so the fixture's reachability evidence
+	// lands BEFORE the status stamp (evidence floors gate every status). The
+	// item is the finding's first rise above E0, so it pays the one discovery
+	// slot the POSSIBLE move used to pay; the later exec-backed E4 rides that
+	// same rise for free, leaving the slot spend unchanged.
 	if _, err := findings.AddEvidence(c, fid, validation.VObj(
 		kv("evidence_id", validation.VStr("EV-reach")),
 		kv("level", validation.VStr("E2")),
 		kv("type", validation.VStr("reachability")),
 		kv("description", validation.VStr("reachable entry point")))); err != nil {
 		t.Fatalf("add reachability evidence: %v", err)
+	}
+	if _, err := findings.Transition(c, fid, "POSSIBLE", "triage passed",
+		"triage", "", false); err != nil {
+		t.Fatalf("transition POSSIBLE: %v", err)
 	}
 	rec, err := sandbox.RegisterExec(c, sandbox.RegisterOpts{
 		Profile: "docker-networkless", Command: "forge test --match-test test_x",

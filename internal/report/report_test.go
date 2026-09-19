@@ -139,10 +139,6 @@ func mk(t *testing.T, camp *state.Campaign, hint, function,
 		t.Fatal(err)
 	}
 	fid := validation.ObjStr(f, "finding_id")
-	if _, err := findings.Transition(camp, fid, "POSSIBLE", "triage", "triage",
-		"", false); err != nil {
-		t.Fatal(err)
-	}
 	rec, err := sandbox.RegisterExec(camp, sandbox.RegisterOpts{
 		Profile: "docker-networkless",
 		Command: "forge test --match-test test_exploit", FindingID: &fid,
@@ -171,6 +167,14 @@ func mk(t *testing.T, camp *state.Campaign, hint, function,
 			"differential repro of the same root cause")),
 		kv("sandbox_profile", validation.ObjAt(rec, "profile")),
 		kv("artifact_id", validation.ObjAt(rec, "exec_id"))))
+	// R3-3 ripple: the floor now gates the POSSIBLE stamp (E2), so the
+	// exec-backed evidence this fixture already mints lands BEFORE the triage
+	// move — same items, same array order; the move just stops being an E0
+	// word-stamp.
+	if _, err := findings.Transition(camp, fid, "POSSIBLE", "triage", "triage",
+		"", false); err != nil {
+		t.Fatal(err)
+	}
 	art := filepath.Join(camp.ArtifactsDir, "impact-"+hint+".json")
 	if err := os.WriteFile(art, []byte(`{"extractable_usd": 1000000}`),
 		0o644); err != nil {
@@ -707,15 +711,17 @@ func privConfirmed(t *testing.T, camp *state.Campaign, spec privSpec) string {
 		t.Fatal(err)
 	}
 	fid := validation.ObjStr(f, "finding_id")
-	if _, err := findings.Transition(camp, fid, "POSSIBLE", "triage passed",
-		"triage passed", "", false); err != nil {
-		t.Fatal(err)
-	}
+	// R3-3 ripple: the floor now gates the POSSIBLE stamp (E2), so the
+	// reachability evidence lands first and the triage move follows it.
 	if _, err := findings.AddEvidence(camp, fid, validation.VObj(
 		kv("evidence_id", validation.VStr("EV-reach")),
 		kv("level", validation.VStr("E2")),
 		kv("type", validation.VStr("reachability")),
 		kv("description", validation.VStr("reachable entry point")))); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := findings.Transition(camp, fid, "POSSIBLE", "triage passed",
+		"triage passed", "", false); err != nil {
 		t.Fatal(err)
 	}
 	rec, err := sandbox.RegisterExec(camp, sandbox.RegisterOpts{

@@ -17,12 +17,15 @@ import (
 
 // t35BundleSetup is test_model_integration.py's camp + fully_loaded_finding
 // + ev1: a pinned campaign with one POSSIBLE finding carrying E1 evidence.
+// R3-3: POSSIBLE carries an E2 floor, so the fixture also earns a manual E2
+// item before the status stamp.
 func t35BundleSetup(t *testing.T) (*state.Campaign, string) {
 	t.Helper()
 	c := newCamp(t)
 	pin(t, c)
 	f := mustIngest(t, c, validHypothesis())
 	fid := validation.ObjStr(f, "finding_id")
+	floorEvidence(t, c, fid, "E2")
 	if _, err := findings.Transition(c, fid, "POSSIBLE", "triage", "", "",
 		false); err != nil {
 		t.Fatal(err)
@@ -373,6 +376,9 @@ func TestTrajectoryIntegrityEndToEnd(t *testing.T) {
 		""); err != nil {
 		t.Fatal(err)
 	}
+	// R3-3: the POSSIBLE floor is E2, so the fixture earns the reachability
+	// evidence BEFORE the status stamp (the E1 item above rides that rise).
+	floorEvidence(t, c, fid, "E2")
 	if _, err := findings.Transition(c, fid, "POSSIBLE", "triage", "", "",
 		false); err != nil {
 		t.Fatal(err)

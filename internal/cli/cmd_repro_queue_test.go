@@ -17,7 +17,10 @@ import (
 func TestReproQueuePrintsOrderedCandidates(t *testing.T) {
 	c, root := t15Campaign(t, "repro-queue")
 	f := t15Finding(t, c, "an inflation hypothesis", "logic-error")
-	if _, err := findings.Transition(c, validation.ObjStr(f, "finding_id"), "POSSIBLE",
+	fid := validation.ObjStr(f, "finding_id")
+	// R3-3: POSSIBLE carries an E2 floor — earn it before the status stamp.
+	addFloorEvidence(t, c, fid, "E2")
+	if _, err := findings.Transition(c, fid, "POSSIBLE",
 		"triage: reachable path", "", "", false); err != nil {
 		t.Fatalf("transition: %v", err)
 	}

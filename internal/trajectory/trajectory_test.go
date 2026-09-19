@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -160,6 +161,25 @@ func ev1(t *testing.T, c *state.Campaign, fid string) {
 	}
 }
 
+// evSeq numbers the manual evidence fixtures so no two adds share an
+// evidence_id within a campaign.
+var evSeq int
+
+// manualEvidence attaches one manual evidence item at *level* — the plain
+// idiom for giving a fixture the floor a status move now requires.
+func manualEvidence(t *testing.T, c *state.Campaign, fid, level string) {
+	t.Helper()
+	evSeq++
+	if _, err := findings.AddEvidence(c, fid, validation.VObj(
+		kv("evidence_id", validation.VStr("EV-M"+strconv.Itoa(evSeq))),
+		kv("level", validation.VStr(level)),
+		kv("type", validation.VStr("manual")),
+		kv("description", validation.VStr(
+			"fixture advance: manual "+level+" corroboration")))); err != nil {
+		t.Fatal(err)
+	}
+}
+
 // fullRoundtrip is request record + hypothesis ingest + evidence + critic
 // verdict + reproducer request — the fixture the brief's verify test names.
 func fullRoundtrip(t *testing.T, c *state.Campaign) string {
@@ -176,6 +196,9 @@ func fullRoundtrip(t *testing.T, c *state.Campaign) string {
 		""); err != nil {
 		t.Fatal(err)
 	}
+	// R3-3 ripple: POSSIBLE now carries an E2 evidence floor, so the plain
+	// fixture advance must hold E2 evidence before the move.
+	manualEvidence(t, c, fid, "E2")
 	if _, err := findings.Transition(c, fid, "POSSIBLE", "triage", "", "", false); err != nil {
 		t.Fatal(err)
 	}

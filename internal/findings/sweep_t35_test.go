@@ -88,6 +88,7 @@ func oracleFindingWith(t *testing.T, c *state.Campaign,
 		t.Fatal(err)
 	}
 	fid := validation.ObjStr(f, "finding_id")
+	eFloor(t, c, fid, "E2") // R3-3: POSSIBLE carries an E2 floor
 	if _, err := Transition(c, fid, "POSSIBLE", "triage", "", "", false); err != nil {
 		t.Fatal(err)
 	}
@@ -188,8 +189,10 @@ func TestEvidenceCannotSubstituteForMissingClause(t *testing.T) {
 		t.Errorf("deficit %q wrongly re-demands the satisfied E7 clause",
 			*deficit)
 	}
-	if got := len(validation.ObjAt(f, "evidence").A); got != 4 {
-		t.Errorf("evidence items = %d, want 4", got)
+	// 4 clause items + the E2 manual the helper now attaches to earn the
+	// fixture's POSSIBLE stamp (R3-3 ripple).
+	if got := len(validation.ObjAt(f, "evidence").A); got != 5 {
+		t.Errorf("evidence items = %d, want 5", got)
 	}
 }
 

@@ -863,6 +863,10 @@ func TestPortTransitionRejectsLifecycleDisproofWithoutAdjacent(t *testing.T) {
 		t.Fatalf("ingest: %v", err)
 	}
 	fid := validation.ObjStr(f, "finding_id")
+	// R3-3: earn the POSSIBLE floor (E2) first so this fixture still reaches
+	// POSSIBLE — the refusal under test is the adjacent-disproof guard, not
+	// the evidence floor.
+	addFloorEvidence(t, camp, fid, "E2")
 	if _, err := findings.Transition(camp, fid, "POSSIBLE", "triage", "", "",
 		false); err != nil {
 		t.Fatalf("transition POSSIBLE: %v", err)
@@ -896,6 +900,9 @@ func TestPortTransitionDisproofWithAdjacentSpawnsSibling(t *testing.T) {
 		t.Fatalf("ingest: %v", err)
 	}
 	fid := validation.ObjStr(f, "finding_id")
+	// R3-3: earn the POSSIBLE floor (E2) first; the sibling spawn under test
+	// is the adjacent-disproof path, not the evidence floor.
+	addFloorEvidence(t, camp, fid, "E2")
 	if _, err := findings.Transition(camp, fid, "POSSIBLE", "triage", "", "",
 		false); err != nil {
 		t.Fatalf("transition POSSIBLE: %v", err)

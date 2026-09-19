@@ -67,10 +67,7 @@ func disclosureCamp(t *testing.T) (*state.Campaign, string, string) {
 	confirm(t, c, fid)
 	possible := hypo(t, c, []string{"withdraw_unbacked_assets"}, nil,
 		"unconfirmed finding", "logic-error")
-	if _, err := findings.Transition(c, possible, "POSSIBLE", "triage",
-		"triage", "", false); err != nil {
-		t.Fatalf("transition POSSIBLE: %v", err)
-	}
+	earnPossible(t, c, possible)
 	return c, fid, possible
 }
 

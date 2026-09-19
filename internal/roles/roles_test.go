@@ -10,6 +10,7 @@ package roles
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -256,6 +257,9 @@ func fullyLoadedFinding(t *testing.T, c *state.Campaign) validation.Value {
 	}, &one, "proposer"); err != nil {
 		t.Fatal(err)
 	}
+	// R3-3: POSSIBLE carries an E2 evidence floor, so the fixture's plain
+	// advance has to land the floor evidence before the move.
+	floorEvidence(t, c, fid, "E2")
 	if _, err := findings.Transition(c, fid, "POSSIBLE", "triage", "", "",
 		false); err != nil {
 		t.Fatal(err)
@@ -350,7 +354,9 @@ func TestCriticBundleExcludesAllProposerReasoning(t *testing.T) {
 	if got := validation.ObjStr(validation.ObjAt(validation.ObjAt(bundle, "claim"), "invariant"), "id"); got != "INV-1" {
 		t.Errorf("claim.invariant.id = %s", got)
 	}
-	if ev := validation.ObjAt(bundle, "evidence"); ev.Kind != validation.Arr || len(ev.A) != 0 {
+	// R3-3 ripple: the fixture's POSSIBLE advance now lands one floor item,
+	// so the bundle carries it (nothing else).
+	if ev := validation.ObjAt(bundle, "evidence"); ev.Kind != validation.Arr || len(ev.A) != 1 {
 		t.Errorf("evidence = %s", validation.CanonCompact(ev))
 	}
 	if !objEq(validation.ObjAt(bundle, "attacker_baseline"), validation.ObjAt(f, "attacker")) {
@@ -382,10 +388,19 @@ func TestCriticBundleIncludesMinimalEvidenceOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 	evs := validation.ObjAt(bundle, "evidence")
-	if evs.Kind != validation.Arr || len(evs.A) != 1 {
+	// R3-3 ripple: 2 = the fixture's floor item + the EV-1 item below.
+	if evs.Kind != validation.Arr || len(evs.A) != 2 {
 		t.Fatalf("evidence = %s", validation.CanonCompact(evs))
 	}
-	ev := evs.A[0]
+	var ev validation.Value
+	for _, cand := range evs.A {
+		if validation.ObjStr(cand, "evidence_id") == "EV-1" {
+			ev = cand
+		}
+	}
+	if ev.Kind != validation.Obj {
+		t.Fatalf("EV-1 missing from evidence = %s", validation.CanonCompact(evs))
+	}
 	if got := validation.ObjStr(ev, "evidence_id"); got != "EV-1" {
 		t.Errorf("evidence_id = %s", got)
 	}
@@ -1061,6 +1076,29 @@ func TestCriticBundleNoAuditForCodeReadingClass(t *testing.T) {
 }
 
 // ---- test-local helpers ---------------------------------------------------
+
+// floorEvidenceSeq numbers the manual floor-evidence items the fixtures mint,
+// so every AddEvidence lands a fresh evidence_id inside its campaign.
+var floorEvidenceSeq int
+
+// floorEvidence attaches the manual evidence item that satisfies the R3-3
+// status floor for a PLAIN fixture advance (PROVISIONALLY_VALID needs E1,
+// POSSIBLE needs E2). A manual item is analysis evidence — it can never reach
+// E4 — so a CHAIN fixture must land its exec-backed evidence instead.
+func floorEvidence(t *testing.T, c *state.Campaign, fid, level string) {
+	t.Helper()
+	floorEvidenceSeq++
+	if _, err := findings.AddEvidence(c, fid, validation.VObj(
+		kv("evidence_id", validation.VStr(fmt.Sprintf("EV-FLOOR-%d",
+			floorEvidenceSeq))),
+		kv("level", validation.VStr(level)),
+		kv("type", validation.VStr("manual")),
+		kv("description", validation.VStr("fixture floor evidence: manual "+
+			"triage note reaching "+level+" for the fixture's status "+
+			"advance")))); err != nil {
+		t.Fatal(err)
+	}
+}
 
 func staleArtifactNames(t *testing.T, c *state.Campaign) map[string]bool {
 	t.Helper()

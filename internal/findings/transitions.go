@@ -150,6 +150,20 @@ func transition(campaign *state.Campaign, findingID, toStatus, reason string,
 			return validation.VNull(), err
 		}
 	}
+	// R3-3 (Morph r3 defect 3): STATUS_FLOOR was enforced ONLY at the
+	// CONFIRMED gate — `move --to POSSIBLE` stamped an E0 finding with a
+	// word, and a POSSIBLE row reads as human triage the ladder never
+	// earned. The floor now gates every target status through the shared
+	// deficit builder (ponytail: one guard in the shared writer; the
+	// instrument already in the tree, not a new table read). CONFIRMED
+	// keeps its richer gate bundle, which carries the same floor clause.
+	// The floor is data, not a verdict: it is the same statement the
+	// CONFIRMED gate makes, at the moment the stamp is applied.
+	if toStatus != "CONFIRMED" {
+		if deficit := EvidenceDeficit(finding, toStatus, campaign); deficit != nil {
+			return validation.VNull(), &IllegalTransition{Msg: *deficit}
+		}
+	}
 	if toStatus == "CONFIRMED" {
 		clauses, err := ConfirmationGateClauses(campaign, finding)
 		if err != nil {

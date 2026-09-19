@@ -217,6 +217,11 @@ func noopHypo(t *testing.T, c *state.Campaign, title, status string) string {
 			}
 			of = validation.ObjStr(tgt, "finding_id")
 		}
+		// R3-3: the status stamp now needs the floor earned first (POSSIBLE
+		// is E2); the terminal junk statuses carry no floor row.
+		if floor := findings.RequiredLevelFor(status, ""); floor != "E0" {
+			addFloorEvidence(t, c, fid, floor)
+		}
 		if _, err := findings.TransitionWith(c, fid, status, "test fixture",
 			findings.TransitionOpts{Actor: "test", DuplicateOf: of}); err != nil {
 			t.Fatalf("transition %s: %v", status, err)
@@ -265,6 +270,9 @@ func seedGlobalMemoryRow(t *testing.T) {
 // noopConfirm is that module's confirm.
 func noopConfirm(t *testing.T, c *state.Campaign, fid string) {
 	t.Helper()
+	// R3-3: POSSIBLE carries an E2 floor, so the fixture earns it BEFORE the
+	// status stamp (evidence floors gate every status).
+	addFloorEvidence(t, c, fid, "E2")
 	if _, err := findings.Transition(c, fid, "POSSIBLE", "triage", "triage",
 		"", false); err != nil {
 		t.Fatalf("transition: %v", err)
@@ -615,6 +623,9 @@ func TestResemblePrintsCapabilityDelta(t *testing.T) {
 // shared view is exactly what publish wrote.
 func confirmLocal(t *testing.T, c *state.Campaign, fid string) {
 	t.Helper()
+	// R3-3: POSSIBLE carries an E2 floor, so the fixture earns it BEFORE the
+	// status stamp (evidence floors gate every status).
+	addFloorEvidence(t, c, fid, "E2")
 	if _, err := findings.Transition(c, fid, "POSSIBLE", "triage", "triage",
 		"", false); err != nil {
 		t.Fatalf("transition: %v", err)

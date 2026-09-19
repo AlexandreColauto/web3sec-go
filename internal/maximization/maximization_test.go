@@ -8,6 +8,7 @@ package maximization
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -67,6 +68,29 @@ func seedGlobalMemory(t *testing.T) {
 	})
 }
 
+// floorEvidenceSeq mints unique evidence ids for the manual floor items the
+// fixtures attach before a status whose evidence floor is above E0.
+var floorEvidenceSeq int
+
+// addFloorEvidence attaches a manual (non-exec) evidence item at *level*: the
+// reachability evidence a status floor demands before the status stamp. It is
+// the finding's first rise above E0, so it pays the discovery slot once — the
+// exec-backed evidence the fixtures attach afterwards rides that same rise for
+// free, keeping the campaign's slot spend unchanged.
+func addFloorEvidence(t *testing.T, c *state.Campaign, fid, level string) {
+	t.Helper()
+	floorEvidenceSeq++
+	if _, err := findings.AddEvidence(c, fid, validation.VObj(
+		kv("evidence_id", validation.VStr(
+			fmt.Sprintf("EV-manual-%04d", floorEvidenceSeq))),
+		kv("level", validation.VStr(level)),
+		kv("type", validation.VStr("manual")),
+		kv("description", validation.VStr(
+			"manual reachability note: the path to the sink is reachable")))); err != nil {
+		t.Fatalf("add floor evidence %s: %v", level, err)
+	}
+}
+
 // confirmedFinding ingests and confirms one logic-error finding with a real
 // sandboxed exec, so reproduce_rung has something to mint against.
 func confirmedFinding(t *testing.T, c *state.Campaign, title string) validation.Value {
@@ -91,6 +115,9 @@ func confirmedFinding(t *testing.T, c *state.Campaign, title string) validation.
 		t.Fatalf("ingest: %v", err)
 	}
 	fid := validation.ObjStr(f, "finding_id")
+	// R3-3: the POSSIBLE floor is E2, so the fixture earns the reachability
+	// evidence BEFORE the status stamp (evidence floors gate every status).
+	addFloorEvidence(t, c, fid, "E2")
 	if _, err := findings.Transition(c, fid, "POSSIBLE", "triage", "triage",
 		"", false); err != nil {
 		t.Fatal(err)

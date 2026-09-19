@@ -36,7 +36,9 @@ func TestConfirmationGateDetailExactVector(t *testing.T) {
 			"reproduction status is None, need 'reproduced'",
 			"webv2 mint <fid> --exec <EXEC-ID>   (a reproduced attempt, sandboxed)"},
 		{"evidence-floor",
-			"evidence level E0 < required E5 for CONFIRMED",
+			// R3-3 ripple: the pos() fixture holds the E2 manual item its
+			// POSSIBLE stamp now requires, so the floor clause names E2.
+			"evidence level E2 < required E5 for CONFIRMED",
 			"webv2 mint <fid> --exec <EXEC-ID>   (or, for a NAMED " +
 				"decision: webv2 floors set — an override, logged, never a " +
 				"silent edit). Economic-class E7: when no USD figure is " +

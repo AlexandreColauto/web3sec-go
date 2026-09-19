@@ -7,6 +7,7 @@
 package sharedmem
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -148,15 +149,46 @@ func hypo(t *testing.T, c *state.Campaign, granted, required []string,
 	return validation.ObjStr(f, "finding_id")
 }
 
+// evSeq makes the manual-evidence ids unique across a test binary run.
+var evSeq int
+
+// addManualEvidence attaches the one manual item a PLAIN fixture advance needs
+// to clear a status's evidence floor (E1 for PROVISIONALLY_VALID, E2 for
+// POSSIBLE). The first item above the E0 baseline is the finding's rise, so it
+// pays the discovery slot exactly once per finding; the exec-backed E4 item
+// confirm adds later then rides that already-paid promotion (risesAboveBaseline
+// sees the E2 and charges nothing more).
+func addManualEvidence(t *testing.T, c *state.Campaign, fid, level string) {
+	t.Helper()
+	evSeq++
+	if _, err := findings.AddEvidence(c, fid, validation.VObj(
+		kv("evidence_id", validation.VStr(fmt.Sprintf("EV-manual-%d", evSeq))),
+		kv("level", validation.VStr(level)),
+		kv("type", validation.VStr("manual")),
+		kv("description", validation.VStr("code reading at triage")),
+	)); err != nil {
+		t.Fatalf("add %s manual evidence: %v", level, err)
+	}
+}
+
+// earnPossible is the shared advance to POSSIBLE: earn the E2 floor, then make
+// the move. Every fixture whose subject is something OTHER than the floor
+// funnels through here.
+func earnPossible(t *testing.T, c *state.Campaign, fid string) {
+	t.Helper()
+	addManualEvidence(t, c, fid, "E2")
+	if _, err := findings.Transition(c, fid, "POSSIBLE", "triage", "triage",
+		"", false); err != nil {
+		t.Fatalf("transition POSSIBLE: %v", err)
+	}
+}
+
 // confirm is the test module's confirm: the single-clause CONFIRMED gate
 // with a campaign-LOCAL (pending) memory row for the memory check, so the
 // consulted row never touches the shared store.
 func confirm(t *testing.T, c *state.Campaign, fid string) validation.Value {
 	t.Helper()
-	if _, err := findings.Transition(c, fid, "POSSIBLE", "triage", "triage",
-		"", false); err != nil {
-		t.Fatalf("transition POSSIBLE: %v", err)
-	}
+	earnPossible(t, c, fid)
 	rec, err := sandbox.RegisterExec(c, sandbox.RegisterOpts{
 		Profile: "docker-networkless",
 		Command: "forge test --match-test test_exploit", FindingID: &fid,
@@ -260,10 +292,7 @@ func TestPublishOnlyConfirmedAndApproved(t *testing.T) {
 		"Will be published finding", "access-control"))
 	p := hypo(t, c, []string{"some_other_capability"}, nil,
 		"Not yet confirmed finding", "access-control")
-	if _, err := findings.Transition(c, p, "POSSIBLE", "triage", "triage",
-		"", false); err != nil {
-		t.Fatalf("transition: %v", err)
-	}
+	earnPossible(t, c, p)
 	bugClass := "logic-error"
 	if _, err := learning.QueueMemory(c, learning.QueueOpts{
 		Kind: "disproved", Status: "DISPROVED",
@@ -476,10 +505,7 @@ func TestRecallFindsACrossCampaignPrimitive(t *testing.T) {
 	b := makeCampaign(t, root, "Acme Immunefi")
 	cand := hypo(t, b, []string{"move_spot_price", "withdraw_unbacked_assets"},
 		primitiveRequired, "Campaign B post-patch candidate", "access-control")
-	if _, err := findings.Transition(b, cand, "POSSIBLE", "triage", "triage",
-		"", false); err != nil {
-		t.Fatalf("transition: %v", err)
-	}
+	earnPossible(t, b, cand)
 	res, err := Recall(b, cand)
 	if err != nil {
 		t.Fatalf("recall: %v", err)
@@ -528,10 +554,7 @@ func TestRecallIgnoresExogenousRequiredCaps(t *testing.T) {
 	b := makeCampaign(t, root, "Acme Immunefi")
 	cand := hypo(t, b, []string{"move_spot_price", "withdraw_unbacked_assets"},
 		primitiveRequired, "Campaign B candidate, exogenous cap", "access-control")
-	if _, err := findings.Transition(b, cand, "POSSIBLE", "triage", "triage",
-		"", false); err != nil {
-		t.Fatalf("transition: %v", err)
-	}
+	earnPossible(t, b, cand)
 	res, err := Recall(b, cand)
 	if err != nil {
 		t.Fatalf("recall: %v", err)
@@ -560,10 +583,7 @@ func TestRecallExcludesTheCandidatesOwnCampaign(t *testing.T) {
 	}
 	cand := hypo(t, a, []string{"move_spot_price"}, primitiveRequired,
 		"Same campaign second finding", "access-control")
-	if _, err := findings.Transition(a, cand, "POSSIBLE", "triage", "triage",
-		"", false); err != nil {
-		t.Fatalf("transition: %v", err)
-	}
+	earnPossible(t, a, cand)
 	res, err := Recall(a, cand)
 	if err != nil {
 		t.Fatalf("recall: %v", err)
@@ -585,10 +605,7 @@ func TestRecallFiltersByProgram(t *testing.T) {
 	other := makeCampaign(t, root, "Different Program")
 	cand := hypo(t, other, primitiveGranted, primitiveRequired,
 		"Different program candidate finding", "access-control")
-	if _, err := findings.Transition(other, cand, "POSSIBLE", "triage", "triage",
-		"", false); err != nil {
-		t.Fatalf("transition: %v", err)
-	}
+	earnPossible(t, other, cand)
 	res, err := Recall(other, cand)
 	if err != nil {
 		t.Fatalf("recall: %v", err)
@@ -645,10 +662,7 @@ func TestRecallSurfacesApprovedMemory(t *testing.T) {
 	b := makeCampaign(t, root, "Acme Immunefi")
 	cand := hypo(t, b, []string{"move_spot_price"}, primitiveRequired,
 		"Memory recall candidate finding", "access-control")
-	if _, err := findings.Transition(b, cand, "POSSIBLE", "triage", "triage",
-		"", false); err != nil {
-		t.Fatalf("transition: %v", err)
-	}
+	earnPossible(t, b, cand)
 	res, err := Recall(b, cand)
 	if err != nil {
 		t.Fatalf("recall: %v", err)
@@ -679,10 +693,7 @@ func TestRecallIsAdvisoryAndWritesNothing(t *testing.T) {
 	b := makeCampaign(t, root, "Acme Immunefi")
 	cand := hypo(t, b, []string{"move_spot_price"}, primitiveRequired,
 		"Write-free recall candidate", "access-control")
-	if _, err := findings.Transition(b, cand, "POSSIBLE", "triage", "triage",
-		"", false); err != nil {
-		t.Fatalf("transition: %v", err)
-	}
+	earnPossible(t, b, cand)
 	sigsBefore := readBytes(t, filepath.Join(StoreDir(root), "signatures.json"))
 	memBefore := readBytes(t, filepath.Join(StoreDir(root), "memory.json"))
 	stateBefore := readBytes(t, b.StatePath)
@@ -869,10 +880,7 @@ func TestGlobalScopeRowIsRecalledForAnyProgram(t *testing.T) {
 	}
 	b := makeCampaign(t, root, "Program B")
 	cand := hypo(t, b, nil, nil, "logic error candidate", "logic-error")
-	if _, err := findings.Transition(b, cand, "POSSIBLE", "triage", "triage",
-		"", false); err != nil {
-		t.Fatalf("transition: %v", err)
-	}
+	earnPossible(t, b, cand)
 	res, err := Recall(b, cand)
 	if err != nil {
 		t.Fatalf("recall: %v", err)
@@ -908,10 +916,7 @@ func TestGlobalScopeSignaturesAreRecalledForAnyProgram(t *testing.T) {
 	b := makeCampaign(t, root, "Totally Other Program")
 	cand := hypo(t, b, []string{"move_spot_price", "withdraw_unbacked_assets"},
 		primitiveRequired, "Other-program candidate", "access-control")
-	if _, err := findings.Transition(b, cand, "POSSIBLE", "triage", "triage",
-		"", false); err != nil {
-		t.Fatalf("transition: %v", err)
-	}
+	earnPossible(t, b, cand)
 	res, err := Recall(b, cand)
 	if err != nil {
 		t.Fatalf("recall: %v", err)
@@ -954,10 +959,7 @@ func TestRecallWithoutPolicyStillReturnsGlobalRows(t *testing.T) {
 	}
 	b := bareCampaign(t, root, "No Policy Program")
 	cand := hypo(t, b, nil, nil, "reentrancy candidate", "reentrancy")
-	if _, err := findings.Transition(b, cand, "POSSIBLE", "triage", "triage",
-		"", false); err != nil {
-		t.Fatalf("transition: %v", err)
-	}
+	earnPossible(t, b, cand)
 	res, err := Recall(b, cand)
 	if err != nil {
 		t.Fatalf("recall: %v", err)
@@ -1088,10 +1090,7 @@ func TestMergedTiersDedupeAndUnionVisibility(t *testing.T) {
 	}
 	b := makeCampaign(t, root, "Program B")
 	cand := hypo(t, b, nil, nil, "logic candidate for merged view", "logic-error")
-	if _, err := findings.Transition(b, cand, "POSSIBLE", "triage", "triage",
-		"", false); err != nil {
-		t.Fatalf("transition: %v", err)
-	}
+	earnPossible(t, b, cand)
 	res, err := Recall(b, cand)
 	if err != nil {
 		t.Fatalf("recall: %v", err)

@@ -17,6 +17,7 @@ import (
 	"testing"
 
 	"websec/internal/findings"
+	"websec/internal/invariants"
 	"websec/internal/planner"
 	"websec/internal/state"
 	"websec/internal/validation"
@@ -250,6 +251,8 @@ func moveLifecycleFinding(t *testing.T, c *state.Campaign) string {
 		t.Fatal(err)
 	}
 	fid := validation.ObjStr(f, "finding_id")
+	// R3-3: POSSIBLE carries an E2 floor — earn it before the status stamp.
+	addFloorEvidence(t, c, fid, "E2")
 	if _, err := findings.Transition(c, fid, "POSSIBLE", "triage", "",
 		"", false); err != nil {
 		t.Fatal(err)
@@ -297,7 +300,9 @@ func TestMoveDisproofLifecycleAdjacent(t *testing.T) {
 	if code2 != 0 {
 		t.Fatalf("exit %d: %q", code2, err2)
 	}
-	if want := fid + ": DISPROVED (evidence level E0)\n"; out2 != want {
+	// R3-3 ripple: the fixture earned the POSSIBLE floor (E2), so the move
+	// now reports E2 rather than the pre-floor E0.
+	if want := fid + ": DISPROVED (evidence level E2)\n"; out2 != want {
 		t.Fatalf("stdout\n%q\nwant\n%q", out2, want)
 	}
 	if sibs := moveSiblingPriorities(t, c, fid); len(sibs) == 0 {
@@ -319,7 +324,9 @@ func TestMoveDisproofAdjacentClearSucceeds(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit %d: %q", code, errS)
 	}
-	if want := fid + ": DISPROVED (evidence level E0)\n"; out != want {
+	// R3-3 ripple: the fixture earned the POSSIBLE floor (E2), so the move
+	// now reports E2 rather than the pre-floor E0.
+	if want := fid + ": DISPROVED (evidence level E2)\n"; out != want {
 		t.Fatalf("stdout\n%q\nwant\n%q", out, want)
 	}
 	if sibs := moveSiblingPriorities(t, c, fid); len(sibs) != 0 {
@@ -377,6 +384,21 @@ func TestMoveSuccessHypothesisToConfirmed(t *testing.T) {
 func TestMoveDefaultActorIsCLI(t *testing.T) {
 	c, root := t15Campaign(t, "move-actor")
 	fid := moveIngest(t, root, c.CampaignID, moveLadderPayload)
+	// R3-3: the move to POSSIBLE now demands the E2 floor first, and this
+	// payload hangs off INV-1 — so the invariant must clear the rise
+	// guardrail (registry entry + registered artifact + the logged verdict)
+	// before the finding's level can rise.
+	invModel := validation.VObj(
+		kvT("invariants", validation.VArr(validation.VObj(
+			kvT("id", validation.VStr("INV-1")),
+			kvT("statement", validation.VStr("balances move atomically")),
+		))),
+	)
+	if _, err := invariants.SeedFromModel(c, invModel); err != nil {
+		t.Fatal(err)
+	}
+	cliVerifyInvariant(t, c, "INV-1", "inv1-check.md")
+	addFloorEvidence(t, c, fid, "E2")
 	code, _, errS := run(t, "--root", root, "move", c.CampaignID, fid,
 		"POSSIBLE", "--reason", "triage")
 	if code != 0 {

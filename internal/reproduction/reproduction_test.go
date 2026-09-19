@@ -10,6 +10,7 @@ package reproduction
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -69,13 +70,46 @@ func ingest(t *testing.T, c *state.Campaign, payload validation.Value,
 	return validation.ObjStr(f, "finding_id")
 }
 
+// evSeq numbers the manual fixture items minted by manualEvidence so every
+// evidence_id is unique (the schema pins the EV-<token> shape).
+var evSeq int
+
+// manualEvidence is the fixture-only evidence idiom: one hand-authored item at
+// the given level. It exists so a PLAIN fixture advance can satisfy the status
+// evidence floors (POSSIBLE needs E2) without faking execution evidence — E4
+// and above still have to come from a real sandbox.RegisterExec record.
+func manualEvidence(t *testing.T, c *state.Campaign, fid, level, desc string) {
+	t.Helper()
+	evSeq++
+	item := validation.VObj(
+		kv("evidence_id", validation.VStr("EV-manual-"+strconv.Itoa(evSeq))),
+		kv("level", validation.VStr(level)),
+		kv("type", validation.VStr("manual")),
+		kv("description", validation.VStr(desc)),
+	)
+	if _, err := findings.AddEvidence(c, fid, item); err != nil {
+		t.Fatalf("add manual evidence: %v", err)
+	}
+}
+
+// advancePossible is the shared fixture advance to POSSIBLE: attach the E2
+// reachability item the status floor now demands, then make the move. Tests
+// whose subject is NOT the floor ride this; a test that asserts the floor
+// refusal itself calls findings.Transition directly on a bare finding.
+func advancePossible(t *testing.T, c *state.Campaign, fid, reason string) {
+	t.Helper()
+	manualEvidence(t, c, fid, "E2",
+		"reachability: unguarded entry point is callable by an arbitrary EOA")
+	if _, err := findings.Transition(c, fid, "POSSIBLE", reason, "", "", false); err != nil {
+		t.Fatalf("transition POSSIBLE: %v", err)
+	}
+}
+
 // toPossible is to_possible: ingest + transition to POSSIBLE.
 func toPossible(t *testing.T, c *state.Campaign, payload validation.Value) string {
 	t.Helper()
 	fid := ingest(t, c, payload, "integration", "")
-	if _, err := findings.Transition(c, fid, "POSSIBLE", "triage", "", "", false); err != nil {
-		t.Fatalf("transition POSSIBLE: %v", err)
-	}
+	advancePossible(t, c, fid, "triage")
 	return fid
 }
 
@@ -910,10 +944,7 @@ func runbookPayload() validation.Value {
 func TestRunbookConfirmFlow(t *testing.T) {
 	c := runbookCamp(t)
 	fid := ingest(t, c, runbookPayload(), "attacker", "06")
-	if _, err := findings.Transition(c, fid, "POSSIBLE", "triage passed",
-		"", "", false); err != nil {
-		t.Fatal(err)
-	}
+	advancePossible(t, c, fid, "triage passed")
 	rec := registerExec(t, c, "docker-networkless", "forge test --match-test poc",
 		"PASS: poc\n", "operator", 0, fid)
 	tier := "T2"
@@ -965,10 +996,7 @@ func TestRunbookConfirmFlow(t *testing.T) {
 func TestRunbookIndependentVerificationFlow(t *testing.T) {
 	c := runbookCamp(t)
 	fid := ingest(t, c, runbookPayload(), "attacker", "")
-	if _, err := findings.Transition(c, fid, "POSSIBLE", "triage",
-		"", "", false); err != nil {
-		t.Fatal(err)
-	}
+	advancePossible(t, c, fid, "triage")
 	rec := registerExec(t, c, "docker-networkless", "forge test",
 		"Ran 1 test for test/poc.t.sol\n[PASS] poc\n", "reproducer", 0, fid)
 	tier := "T2"

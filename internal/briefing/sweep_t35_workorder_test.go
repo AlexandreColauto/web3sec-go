@@ -121,6 +121,9 @@ func t35ReproducedPossible(t *testing.T, c *state.Campaign,
 	f validation.Value) {
 	t.Helper()
 	fid := validation.ObjStr(f, "finding_id")
+	// R3-3: POSSIBLE carries an E2 floor, so the fixture earns the
+	// reachability evidence BEFORE the status stamp.
+	floorEvidence(t, c, fid, "E2")
 	if _, err := findings.Transition(c, fid, "POSSIBLE", "triage", "", "",
 		false); err != nil {
 		t.Fatal(err)

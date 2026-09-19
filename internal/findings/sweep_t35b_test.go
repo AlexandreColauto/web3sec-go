@@ -80,6 +80,7 @@ func TestConfirmationGateHasNoTierClauseAtE4Floor(t *testing.T) {
 		t.Fatal(err)
 	}
 	fid := validation.ObjStr(f, "finding_id")
+	eFloor(t, c, fid, "E2") // R3-3: POSSIBLE carries an E2 floor
 	if _, err := Transition(c, fid, "POSSIBLE", "triage", "", "", false); err != nil {
 		t.Fatal(err)
 	}

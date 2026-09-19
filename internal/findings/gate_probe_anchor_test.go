@@ -449,6 +449,7 @@ func TestProbeAnchorRefusesConfirmedMoveFromTheSameChecker(t *testing.T) {
 				writeGateArtifact(t, c, "campaign_plan.json",
 					probeAnchorPlanEmpty)
 			}
+			eFloor(t, c, fid, "E2") // R3-3: POSSIBLE carries an E2 floor
 			if _, err := Transition(c, fid, "POSSIBLE", "advance to the "+
 				"confirmation rung", "operator", "", false); err != nil {
 				t.Fatalf("move POSSIBLE: %v", err)
