@@ -423,3 +423,37 @@ the deprecated Python twin take a `docs/archive/KNOWN_DIVERGENCES.md` D-row
 (B3, B2's kind-message, B5b's stream move, B10a's new gate check all
 qualify); green bar per merge: `go test ./...` + `webv2 selftest --full`.
 
+
+
+---
+
+## 7. Status (updated 2026-09-18, end of Phase C)
+
+- **Phase A** shipped: B1 schema verb + model --example, B2 register hygiene, B3
+  oracle kinds + kind_note, B5b probes stderr, B6a heal line + exit trichotomy
+  (commits 80e96561..4f15b123, per-commit manifest gate proven).
+- **Phase B** was already closed by A11 + the §5 replay (no code).
+- **Phase C** shipped: B7 internal/anchorlink (leaf; the mint-time anchor
+  stamps were CUT — the §5 replay proves query-time resolution suffices, and
+  B7's review tail moved the disposition drift-pin to the findings consumer
+  when the wave-2 gate made a test import a real cycle); B10a CONFIRMED gate
+  check (presence-gated, single checker for gate+move); B10b probes pending +
+  answered --rows with the anti-dismissal bulk refusal; B9 capped ingest/mint
+  anchor notes (--no-hints, WEBV2_NO_HINTS=1, silent-path pinned); B8 anchors
+  verb incl. the per-member act commands (spec tail) — live replay on
+  C-f4e27261f7 prints row 34589e8588 + Q-008/Q-050/Q-098/Q-100 + the L-03
+  enforcement-timing question, and G-02's row. Review round fixed the
+  copy-vs-source pin vacuity (B10a) and the unpinned gap-desc rank key
+  (B10b), both mutation-proven; the wave-2 asset payloads were re-staged to
+  their owning commits with per-state manifest regen (bisect gate green at
+  every commit).
+- **Phase D** shipped: B4 was closed early (its predicate rode B10a); B5a
+  `probes list --summary` (cockpit counts, absent-case pinned); B6b
+  `invariant-verify --invariants` (F7 all-or-nothing, verified live by
+  review: every campaign file byte-identical under a last-id refusal);
+  A11 revision — `version` alias, Phase 0 stamp line, brief build-skew
+  warn-once, and the attribution itself: `framework_build` on every new
+  artifact row + `invariant.verified` event (optional schema key,
+  grandfather rows validate, refresh never restamps). The B8/B9 review
+  tails (act commands per member; corrupt-surface geometry) landed with
+  the B6b commit. All three commits build+gate in isolation.
