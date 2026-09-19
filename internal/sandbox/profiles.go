@@ -8,6 +8,7 @@ package sandbox
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -298,6 +299,29 @@ type ContainerMeta struct {
 	Container validation.Value
 }
 
+// ContainerForkURL is the fork-runner rewrite: a loopback RPC URL points at
+// the CONTAINER's own loopback once inside the bridge sandbox, so the
+// operator's local fork (127.0.0.1:port) is unreachable verbatim. host-gateway
+// is already added for exactly this hop (Morph r3 defect 1). Port/scheme/
+// path/query survive; a non-parseable URL passes through untouched.
+func ContainerForkURL(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return raw
+	}
+	h := strings.ToLower(u.Hostname())
+	if h != "127.0.0.1" && h != "localhost" && h != "::1" {
+		return raw
+	}
+	host := "host.docker.internal"
+	if p := u.Port(); p != "" {
+		host += ":" + p
+	}
+	// u.Host keeps the brackets for IPv6 ([::1]:8545), so the replacement
+	// is exact.
+	return strings.Replace(raw, u.Host, host, 1)
+}
+
 // BuildContainerArgv is build_container_argv: the real `docker run` argv for
 // container profiles plus the `container` metadata recorded on the exec
 // record. The command runs INSIDE the container under /bin/sh; the host
@@ -353,6 +377,17 @@ func BuildContainerArgv(profile, command string, workdir *string,
 	if !hasEnvKey(containerEnv, "FOUNDRY_LINT_ON_BUILD") {
 		containerEnv = append(containerEnv,
 			EnvVar{Key: "FOUNDRY_LINT_ON_BUILD", Value: "false"})
+	}
+	// The fork-runner's RPC lives on the HOST: a loopback value here is the
+	// container's own loopback and answers nothing (Morph r3 defect 1), so
+	// both the operator-env default and an explicit caller entry are
+	// rewritten to the host-gateway alias added above.
+	if profile == "fork-runner" {
+		for i := range containerEnv {
+			if containerEnv[i].Key == "FORK_RPC_URL" {
+				containerEnv[i].Value = ContainerForkURL(containerEnv[i].Value)
+			}
+		}
 	}
 	for _, e := range containerEnv {
 		argv = append(argv, "-e", e.Key+"="+e.Value)

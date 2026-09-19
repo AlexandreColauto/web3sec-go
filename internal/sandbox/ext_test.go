@@ -282,6 +282,13 @@ func TestPreviewForkRunnerEnvDefault(t *testing.T) {
 // container argv can be asserted on and no container is ever started.
 func forkRunnerRun(t *testing.T, env []EnvVar) ([]string, validation.Value) {
 	t.Helper()
+	return containerRun(t, "fork-runner", env)
+}
+
+// containerRun is forkRunnerRun's profile-agnostic half — same stubs, any
+// container profile.
+func containerRun(t *testing.T, profile string, env []EnvVar) ([]string, validation.Value) {
+	t.Helper()
 	var captured []string
 	withDaemon(t, true)
 	withProc(t, func(argv []string, _ string, _ []string,
@@ -290,7 +297,7 @@ func forkRunnerRun(t *testing.T, env []EnvVar) ([]string, validation.Value) {
 		return ProcResult{ReturnCode: 0, Stdout: "ok"}, nil
 	})
 	c := newCampaign(t, "Acme Program")
-	sb, err := NewSandbox(c, "fork-runner")
+	sb, err := NewSandbox(c, profile)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -310,6 +317,28 @@ func TestForkRunnerInheritsOperatorForkRPCURL(t *testing.T) {
 	}
 	if !containsStrValue(validation.ObjAt(validation.ObjAt(rec, "container"), "env_keys"), "FORK_RPC_URL") {
 		t.Error("container.env_keys must name FORK_RPC_URL")
+	}
+}
+
+// TestForkRunnerRewritesLoopbackRPC pins the rewrite itself: a loopback host
+// is the CONTAINER's own loopback once inside the bridge sandbox, so it must
+// become the host-gateway alias — everything else passes through untouched.
+func TestForkRunnerRewritesLoopbackRPC(t *testing.T) {
+	for _, tc := range []struct{ in, want string }{
+		{"http://127.0.0.1:18545", "http://host.docker.internal:18545"},
+		{"http://localhost:8545", "http://host.docker.internal:8545"},
+		{"http://127.0.0.1:8545/path?x=1", "http://host.docker.internal:8545/path?x=1"},
+		{"http://[::1]:8545", "http://host.docker.internal:8545"},
+		{"https://127.0.0.1:8545", "https://host.docker.internal:8545"},
+		// not loopback: untouched
+		{"http://operator-fork:9545", "http://operator-fork:9545"},
+		{"https://eth.drpc.org/xyz", "https://eth.drpc.org/xyz"},
+		// unparseable: untouched (the RPC will fail loudly, not silently)
+		{"not a url", "not a url"},
+	} {
+		if got := ContainerForkURL(tc.in); got != tc.want {
+			t.Errorf("ContainerForkURL(%q) = %q, want %q", tc.in, got, tc.want)
+		}
 	}
 }
 
@@ -339,6 +368,48 @@ func TestForkRunnerExplicitEnvBeatsOperatorEnv(t *testing.T) {
 	}
 	if !containsStrValue(validation.ObjAt(validation.ObjAt(rec, "container"), "env_keys"), "FORK_RPC_URL") {
 		t.Error("container.env_keys must name FORK_RPC_URL")
+	}
+}
+
+// TestForkRunnerRewritesLoopbackOperatorEnvArgv is the argv half of the
+// rewrite: the operator's host-loopback fork must reach the container as the
+// host-gateway alias, never as 127.0.0.1.
+func TestForkRunnerRewritesLoopbackOperatorEnvArgv(t *testing.T) {
+	t.Setenv("FORK_RPC_URL", "http://127.0.0.1:18545")
+	argv, _ := forkRunnerRun(t, nil)
+	want := "FORK_RPC_URL=http://host.docker.internal:18545"
+	if !containsStrValue(strValueArr(argv), want) {
+		t.Errorf("argv = %v, want %s", argv, want)
+	}
+	for _, a := range argv {
+		if strings.Contains(a, "127.0.0.1") {
+			t.Errorf("argv = %v must not carry a loopback RPC", argv)
+		}
+	}
+}
+
+// TestForkRunnerRewritesExplicitLoopbackEnvArgv: an explicit caller env entry
+// wins over the operator env (existing precedence) and is rewritten all the
+// same.
+func TestForkRunnerRewritesExplicitLoopbackEnvArgv(t *testing.T) {
+	t.Setenv("FORK_RPC_URL", "http://operator-fork:9545")
+	argv, _ := forkRunnerRun(t, []EnvVar{{Key: "FORK_RPC_URL",
+		Value: "http://localhost:1234"}})
+	want := "FORK_RPC_URL=http://host.docker.internal:1234"
+	if !containsStrValue(strValueArr(argv), want) {
+		t.Errorf("argv = %v, want %s", argv, want)
+	}
+}
+
+// TestDockerNetworklessKeepsForkRPCVerbatim: --network none has no
+// host-gateway, so the rewrite stays fork-runner's alone.
+func TestDockerNetworklessKeepsForkRPCVerbatim(t *testing.T) {
+	t.Setenv("FORK_RPC_URL", "http://operator-fork:9545")
+	argv, _ := containerRun(t, "docker-networkless",
+		[]EnvVar{{Key: "FORK_RPC_URL", Value: "http://127.0.0.1:18545"}})
+	want := "FORK_RPC_URL=http://127.0.0.1:18545"
+	if !containsStrValue(strValueArr(argv), want) {
+		t.Errorf("argv = %v, want %s", argv, want)
 	}
 }
 
