@@ -20,6 +20,33 @@ type RecordOpts struct {
 	Tier         *string
 }
 
+// outcomeToStatus maps an attempt outcome onto the status recorded for it.
+var outcomeToStatus = map[string]string{"reproduced": "reproduced",
+	"failed": "attempted", "blocked": "blocked", "falsified": "falsified"}
+
+// reproStatusRank is the best-outcome ladder: reproduced > falsified >
+// blocked = attempted. A falsified hypothesis outranks a mere attempt;
+// reproduced is terminal-best and no later failure demotes it (R3-6).
+var reproStatusRank = map[string]int{"attempted": 1, "blocked": 1,
+	"falsified": 2, "reproduced": 3}
+
+// bestReproStatus folds the previous status and every recorded attempt
+// outcome onto the highest-ranked status (first max wins ties, so the
+// projection is order-stable for the same attempt set).
+func bestReproStatus(prev string, attempts []validation.Value) string {
+	best, rank := "", 0
+	if r, ok := reproStatusRank[prev]; ok {
+		best, rank = prev, r
+	}
+	for _, a := range attempts {
+		s := outcomeToStatus[validation.ObjStr(a, "outcome")]
+		if r, ok := reproStatusRank[s]; ok && r > rank {
+			best, rank = s, r
+		}
+	}
+	return best
+}
+
 // RecordAttempt is record_attempt: append one reproduction attempt, enforce
 // the budget, and return the orchestrator guidance.
 func RecordAttempt(c *state.Campaign, findingID, outcome string,
@@ -114,9 +141,14 @@ func RecordAttempt(c *state.Campaign, findingID, outcome string,
 	)
 	attempts.A = append(attempts.A, attempt)
 	repro = setKey(repro, "attempts", attempts)
-	repro = setKey(repro, "status", validation.VStr(map[string]string{
-		"reproduced": "reproduced", "failed": "attempted",
-		"blocked": "blocked", "falsified": "falsified"}[outcome]))
+	// R3-6 (Morph r3 defect 6): the STATUS tracks the BEST outcome ever
+	// recorded, not the latest one — a later diagnostic failure must not
+	// launder a reproduced finding back to `attempted` and un-qualify the
+	// reproduction-reproduced CONFIRMED clause. Every failure still lives
+	// in the attempts[] ledger, so nothing is hidden. The previous status
+	// folds in too (a fixture may carry a status older than its attempts).
+	repro = setKey(repro, "status", validation.VStr(
+		bestReproStatus(validation.ObjStr(repro, "status"), attempts.A)))
 	ver = setKey(ver, "reproduction", repro)
 	f = setKey(f, "verification", ver)
 	// r18 P2 sweep: an attempt recorded on the finding but not the ledger

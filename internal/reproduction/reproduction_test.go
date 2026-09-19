@@ -1044,6 +1044,72 @@ func TestRecordAttemptGuidance(t *testing.T) {
 	}
 }
 
+// reproStatus reads verification.reproduction.status off the stored finding.
+func reproStatus(t *testing.T, c *state.Campaign, fid string) string {
+	t.Helper()
+	f, err := findings.LoadFinding(c, fid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return validation.ObjStr(validation.ObjAt(
+		validation.ObjAt(f, "verification"), "reproduction"), "status")
+}
+
+// TestRecordAttemptStatusIsBestOutcome is R3-6 (Morph r3 defect 6): a later
+// diagnostic failure used to overwrite `reproduced` with `attempted` and
+// un-qualify the reproduction-reproduced CONFIRMED clause. The STATUS now
+// tracks the best outcome ever recorded; the attempts ledger keeps every
+// failure honestly.
+func TestRecordAttemptStatusIsBestOutcome(t *testing.T) {
+	c := newCampaign(t, "best")
+	fid := integrityHypo(t, c, "reentrancy")
+	if _, err := RecordAttempt(c, fid, "reproduced", RecordOpts{}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := RecordAttempt(c, fid, "failed", RecordOpts{}); err != nil {
+		t.Fatal(err)
+	}
+	if got := reproStatus(t, c, fid); got != "reproduced" {
+		t.Fatalf("status after reproduced+failed = %q, want reproduced", got)
+	}
+	f, err := findings.LoadFinding(c, fid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n := len(validation.ObjAt(validation.ObjAt(validation.ObjAt(
+		f, "verification"), "reproduction"), "attempts").A); n != 2 {
+		t.Fatalf("attempts = %d, want 2 (the failure stays recorded)", n)
+	}
+	// falsified outranks attempted/blocked but never demotes a reproduced;
+	// and a fresh reproduced still lifts a mere-attempted record.
+	if _, err := RecordAttempt(c, fid, "falsified", RecordOpts{}); err != nil {
+		t.Fatal(err)
+	}
+	if got := reproStatus(t, c, fid); got != "reproduced" {
+		t.Fatalf("status = %q, want reproduced (best stays)", got)
+	}
+	c2 := newCampaign(t, "best2")
+	fid2 := integrityHypo(t, c2, "reentrancy")
+	if _, err := RecordAttempt(c2, fid2, "failed", RecordOpts{}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := RecordAttempt(c2, fid2, "blocked", RecordOpts{}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := RecordAttempt(c2, fid2, "falsified", RecordOpts{}); err != nil {
+		t.Fatal(err)
+	}
+	if got := reproStatus(t, c2, fid2); got != "falsified" {
+		t.Fatalf("status = %q, want falsified (beats attempted/blocked)", got)
+	}
+	if _, err := RecordAttempt(c2, fid2, "reproduced", RecordOpts{}); err != nil {
+		t.Fatal(err)
+	}
+	if got := reproStatus(t, c2, fid2); got != "reproduced" {
+		t.Fatalf("status = %q, want reproduced (upward update works)", got)
+	}
+}
+
 // TestRecordAttemptOutcomeValidation pins the ValueError text.
 func TestRecordAttemptOutcomeValidation(t *testing.T) {
 	c := newCampaign(t, "guidance")
