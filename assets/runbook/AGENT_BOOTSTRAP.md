@@ -42,21 +42,27 @@ executed. You may be started in ANY folder: resolve the workspace first
    `scripts/release.sh` (-> dist/webv2) then
    `install -m755 dist/webv2 ~/.local/bin/webv2`. If neither works, stop and
    report — do not improvise a substitute.
-2. **Confirm the WORKSPACE is your cwd** (one time, then rely on it): the
+2. **Report the BUILD stamp — which commit is actually answering you.**
+   `webv2 version` (the same stamp as `webv2 --version`) prints `webv2 <commit>
+   (<time>)`. Report that stamp before trusting scheduler behavior, and before
+   quoting any gate result: a review graded against a stale binary
+   re-litigates defects the current build already fixed. `brief` warns when a
+   campaign's newest recorded snapshot was pinned under a different build.
+3. **Confirm the WORKSPACE is your cwd** (one time, then rely on it): the
    workspace is the directory whose `campaigns/` subdirectory holds campaign
    state. Check: `ls campaigns/` must list campaigns from where you stand — if
    it does not, move to the workspace (default: the webv2 repo root, unless
    the operator names another) or pass `--root <path>` explicitly. With the
    check passed, EVERY command below is just `webv2 <sub> ...` — the default
    root is `.`, so no path is ever repeated.
-3. **Framework self-check** (once per session, ~3s): `webv2 selftest`. Expect
+4. **Framework self-check** (once per session, ~3s): `webv2 selftest`. Expect
    ALL PASS (build sweep + embedded-asset walkthrough + cli audit). This is
    the FAST check by design — it does NOT run the test suite. Do not run
    `webv2 selftest --full` unless the operator explicitly asks or you are in
    developer mode around a source change (it runs `go test ./...` and takes
    minutes). A failing check means the framework is untrusted: STOP and
    report; do not work around it.
-4. **Check the evidence toolchain** (absence degrades capability, does not
+5. **Check the evidence toolchain** (absence degrades capability, does not
    block): `git`, `forge`/`anvil` on PATH; `webv2 env doctor` — a RUNNING
    docker daemon is required for E4+ evidence (container profiles execute a
    real `docker run` in `$WEBV2_DOCKER_IMAGE`); `FORK_RPC_URL` pointing at an

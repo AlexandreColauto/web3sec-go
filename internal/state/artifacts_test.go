@@ -246,8 +246,10 @@ func TestArtifactRegistrationHashesContent(t *testing.T) {
 	if got := validation.ObjStr(a, "sha256"); got != wantSha {
 		t.Errorf("sha256: got %q want %q", got, wantSha)
 	}
+	// A11 (F14): the mint stamps the framework build that produced the row,
+	// appended after the mint's own keys (additive; see zz_a11_attribution_test.go).
 	wantKeys := []string{"artifact_id", "kind", "path", "registered_at",
-		"sha256", "snapshot_id", "note"}
+		"sha256", "snapshot_id", "note", "framework_build"}
 	gotKeys := keyNames(a)
 	if len(gotKeys) != len(wantKeys) {
 		t.Fatalf("record keys: %v", gotKeys)
@@ -536,9 +538,11 @@ func TestRefreshArtifact(t *testing.T) {
 	if got := validation.ObjStr(rec, "refreshed_at"); got == "" {
 		t.Error("refreshed_at empty")
 	}
+	// A11 (F14): framework_build rides the mint and survives the refresh in
+	// place (the refresh keys are appended after it).
 	wantKeys := []string{"artifact_id", "kind", "path", "registered_at",
-		"sha256", "snapshot_id", "note", "refreshed_at", "refresh_reason",
-		"refresh_count"}
+		"sha256", "snapshot_id", "note", "framework_build", "refreshed_at",
+		"refresh_reason", "refresh_count"}
 	gotKeys := keyNames(rec)
 	if len(gotKeys) != len(wantKeys) {
 		t.Fatalf("record keys after refresh: %v", gotKeys)

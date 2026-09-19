@@ -82,6 +82,10 @@
           "sha256":        { "type": ["string", "null"] },
           "snapshot_id":   { "type": ["string", "null"] },
           "note":          { "type": "string" },
+          "framework_build": {
+            "type": "string",
+            "description": "A11 (F14) ATTRIBUTION: the framework build commit that MINTED this row (state.RegisterArtifact stamps version.Commit()). A row is a citation, so a review reading it later must be able to tell which binary's semantics produced the cited bytes. Additive and OPTIONAL: rows registered before the key existed carry none (absence reads as no claim, never a guess), a refresh preserves whatever the row already carries (a re-hash is not a re-mint), and no consumer branches on it - it is disclosed, not enforced."
+          },
           "refreshed_at":  { "type": ["string", "null"], "description": "last sanctioned re-hash; the artifact.refreshed log event carries the old->new hashes" },
           "refresh_reason": { "type": ["string", "null"] },
           "refresh_count": { "type": "integer", "minimum": 0 }

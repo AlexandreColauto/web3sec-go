@@ -390,8 +390,8 @@
   },
   "runbook": {
    "AGENT_BOOTSTRAP.md": {
-    "sha256": "bf22cf34f21a81e5e5ea91003f98bcb51e34f2bbb30b528deb0149731e17ceec",
-    "size": 23319
+    "sha256": "0ca228b9b3192017d2766ae5241cf57e8028d0b89924b6d0e769c25bc2b76c58",
+    "size": 23772
    },
    "RUNBOOK.md": {
     "sha256": "a3c4536810ba5cce667449753f6fdea0c22650fcc4d29bd0cb420992ee0b0e0f",
@@ -416,8 +416,8 @@
     "size": 10636
    },
    "campaign_state.schema.json": {
-    "sha256": "1b71da8673c16e0de7f4a6d794f17348719329e973094812e2d4bd0bbc1f8291",
-    "size": 13258
+    "sha256": "7b88a3506924af6d6cf1db9a17a377379907fc553804810e47a5d8daec715fde",
+    "size": 13868
    },
    "chain.schema.json": {
     "sha256": "44542248330cb6ab54788aab820785e135f4f9462ee8b046af5fb02ca0fd1530",

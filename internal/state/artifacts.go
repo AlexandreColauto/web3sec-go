@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"websec/internal/validation"
+	"websec/internal/version"
 )
 
 // first3Upper is kind[:3].upper() (a short kind slices to its whole length).
@@ -79,6 +80,13 @@ func (c *Campaign) RegisterArtifact(kind, path, note string, snapshotID *string)
 		kv("sha256", validation.VStr(sha)),
 		kv("snapshot_id", snap),
 		kv("note", validation.VStr(note)),
+		// A11 (F14) attribution: the row names the framework build that
+		// MINTED it, so a later review can tell which binary's semantics
+		// the citation was produced under. Additive and optional in the
+		// schema; the refresh path preserves whatever the row already
+		// carries (a refresh is a re-hash, not a re-mint), and rows
+		// written before the key existed simply carry none.
+		kv("framework_build", validation.VStr(version.Commit())),
 	)
 	st, err := c.State()
 	if err != nil {

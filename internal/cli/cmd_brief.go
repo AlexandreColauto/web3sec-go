@@ -12,6 +12,7 @@ import (
 	"websec/internal/briefing"
 	"websec/internal/state"
 	"websec/internal/validation"
+	"websec/internal/version"
 )
 
 const briefUsage = "usage: webv2 brief [-h] [--json] [--deep] campaign\n"
@@ -48,10 +49,71 @@ func runBrief(root string, args []string, r *Runner) int {
 		}
 		if asJSON {
 			fmt.Fprintln(r.Out, validation.DumpIndentedASCII(b))
+			briefFrameworkBuildWarn(c, r)
 			return nil
 		}
-		return printBrief(c, b, r)
+		if err := printBrief(c, b, r); err != nil {
+			return err
+		}
+		briefFrameworkBuildWarn(c, r)
+		return nil
 	})
+}
+
+// briefFrameworkBuildWarn is the A11 attribution disclosure: when the campaign
+// was last recorded under a DIFFERENT framework build than the one answering
+// now, say so on stderr — the cockpit's own bytes (stdout, both modes) stay
+// untouched, and a campaign with no recorded stamp stays silent.
+//
+// The stamp lives on the `snapshot.pinned` event's data (state/campaign_
+// snapshot.go's emitEvent, DEFECT-2 follow-up) because the state projection's
+// snapshots row is an index, not a provenance record. Reading the ledger here
+// is the minimal plumbing: no brief value changes shape, no new state key.
+// The NEWEST pin is the campaign's latest word (the log is append-only); an
+// unreadable ledger, no pin at all, or a pin with no stamp is silence, never
+// a guess — the grandfather rule for campaigns pinned before the key existed.
+func briefFrameworkBuildWarn(c *state.Campaign, r *Runner) {
+	recorded, ok := newestSnapshotFrameworkBuild(c)
+	if !ok {
+		return
+	}
+	if running := version.Commit(); recorded != running {
+		fmt.Fprintf(r.Err, "framework: campaign last recorded under build %s, "+
+			"this binary is %s — behavior above may reflect the newer "+
+			"scheduler\n", recorded, running)
+	}
+}
+
+// newestSnapshotFrameworkBuild returns the framework_build recorded on the
+// NEWEST snapshot.pinned event (the log is append-only, so the last pin is
+// the newest), and ok=false when the ledger cannot be read, no pin exists,
+// or that pin carries no stamp (the grandfather shape). It deliberately does
+// NOT walk back to an older pin: "the newest snapshot's stamp" is the claim
+// this notice makes, and a missing key is silence, never a guess.
+//
+// internal/briefing's pinBuild reads the same event data for the ACTIVE
+// snapshot (its skew next-action line); this reader answers the different
+// question the stderr notice asks — what did the campaign last record,
+// whatever is active — and is kept here so the disclosure does not depend on
+// the action surface.
+func newestSnapshotFrameworkBuild(c *state.Campaign) (string, bool) {
+	events, err := c.Events()
+	if err != nil {
+		return "", false
+	}
+	found := false
+	build := ""
+	for _, e := range events {
+		if validation.ObjStr(e, "type") != "snapshot.pinned" {
+			continue
+		}
+		found = true
+		build = validation.ObjStr(validation.ObjAt(e, "data"), "framework_build")
+	}
+	if !found || build == "" {
+		return "", false
+	}
+	return build, true
 }
 
 func parseBriefArgs(args []string) (string, bool, bool, bool, error) {

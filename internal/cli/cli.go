@@ -175,7 +175,14 @@ func (r *Runner) run(argv []string) int {
 	// DEFECT-2 follow-up: the binary names its own build commit. Handled
 	// beside help (never a registered command) so the command surface and
 	// its help-parity tests cannot drift.
-	if cmd == "--version" || cmd == "-V" {
+	//
+	// A11 (F14): `version` is the same stamp as a bare word — a review
+	// reached for `webv2 version` and got "unknown command", which reads
+	// as a missing capability rather than a spelling. The alias is a
+	// dispatch arm, NOT a register() entry: the command surface (usage
+	// block, help-parity tests, remediation guard) stays byte-identical,
+	// and `--version`/`-V`/`version` are one code path by construction.
+	if cmd == "--version" || cmd == "-V" || cmd == "version" {
 		fmt.Fprintln(r.Out, version.Describe())
 		return 0
 	}

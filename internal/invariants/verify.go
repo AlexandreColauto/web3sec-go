@@ -9,6 +9,7 @@ import (
 
 	"websec/internal/state"
 	"websec/internal/validation"
+	"websec/internal/version"
 )
 
 // verificationMethodKey is the registry-entry / event-data key carrying the
@@ -104,6 +105,13 @@ func VerifyInvariantStatement(c *state.Campaign, invariantID,
 	data := validation.VObj(
 		pair("artifact", validation.VStr(artifactID)),
 		pair(verificationMethodKey, validation.VStr(verificationMethodAttestation)),
+		// A11 (F14) attribution: the attestation event names the build
+		// that recorded it, beside the artifact reference — so a future
+		// review never grades this attestation against a different
+		// binary's semantics. Additive: event data is free-form (the
+		// audit checks the hash chain, never data keys), and events
+		// written before the key existed carry none.
+		pair("framework_build", validation.VStr(version.Commit())),
 	)
 	// r40: the verification axis may only move with its event — a save
 	// that lands CHECKED_AGAINST_CODE while invariant.verified is refused
