@@ -10,7 +10,8 @@
 
 ## Global Constraints
 
-- Tests run with `GOCACHE=/tmp/gocache`; **parallel agents must scope every build/test command to their own packages** (`go test ./internal/<pkg>` / `-run` filters) — never `go test ./...` (other agents' half-edited packages would poison the signal).
+- **RESOURCE LAW (a full-suite subagent run drowned this box once and was killed):** every `go test` invocation must be (a) `-run`-scoped to the tests you just wrote/touched until they are green, then ONE final package-scoped check with `go test -count=1 ./internal/<pkg>`, (b) wrapped in `timeout 300`, (c) run with `GOCACHE=/tmp/gocache GOFLAGS=-p 1` to cap compiler parallelism, (d) NEVER `-race`, NEVER `./...`, NEVER `scripts/golden.sh`, NEVER docker, NEVER concurrent test binaries. The sandbox/sequencepoc/zz_* suites are process-heavy — keep `-run` filters on the final package check too if a whole-package run risks the memory budget. Only ONE implementation agent runs at a time against this tree.
+- Tests run with `GOCACHE=/tmp/gocache`; **every build/test command is scoped to your task's own packages** — never `go test ./...` (other agents' half-edited packages would poison the signal).
 - **Do not run `git commit`, `git add`, or any git write.** Stage/commit is the orchestrator's job. Do not touch files outside your task's file list.
 - No new third-party dependencies. No new packages.
 - Any edit under `assets/` requires `python3 scripts/sync-asset-manifest.py` before the task is done, and the manifest regen must land in the same commit (bisect gate: `TestAssetPackManifest` must pass at every commit).
