@@ -14,8 +14,18 @@ import (
 // policy it returns the deterministic "load before BOUNTY_GATE" note — the
 // gate itself is what refuses to run without one.
 func (o *Orchestrator) Scope(policyPath string) (validation.Value, error) {
-	if err := o.C.SetPhase("SCOPE", "load bounty policy"); err != nil {
+	// R3-8 (Morph r3 defect 8): a mid-campaign policy reload used to drag
+	// the phase back to SCOPE behind the stage ledger's back. Reloading a
+	// policy is a policy event, not a campaign rewind: past SCOPE the
+	// phase is left exactly where it is (on a fresh campaign the phase is
+	// already SCOPE and SetPhase was a same-phase no-op anyway, so no
+	// bytes move there either). The CLI announces the skip.
+	if st, err := o.C.State(); err != nil {
 		return validation.VNull(), err
+	} else if validation.ObjStr(st, "phase") == "SCOPE" {
+		if err := o.C.SetPhase("SCOPE", "load bounty policy"); err != nil {
+			return validation.VNull(), err
+		}
 	}
 	policy := validation.VNull()
 	if policyPath != "" {
@@ -48,6 +58,19 @@ func (o *Orchestrator) Scope(policyPath string) (validation.Value, error) {
 		err = validation.WriteJson(o.C.StatePath, doc, "campaign_state")
 		o.C.UnlockProcess()
 		if err != nil {
+			return validation.VNull(), err
+		}
+		// R3-2a (Morph r3 defect 2): the policy decides what counts as IN
+		// SCOPE, so it gets the same integrity story as every other
+		// campaign input — a registry row (kind "policy" is already in
+		// the campaign_state enum), its sha256, and an
+		// artifact.registered event, via the standard one-row-per-path
+		// seam (a re-load refreshes and re-hashes, never ghosts). The
+		// audit's re-hash-every-row check now covers deleting
+		// exclusions from the campaign copy.
+		if _, err := o.C.RegisterOrRefresh("policy", saved,
+			"bounty policy (scope)", nil,
+			"scope loaded the bounty policy"); err != nil {
 			return validation.VNull(), err
 		}
 	}

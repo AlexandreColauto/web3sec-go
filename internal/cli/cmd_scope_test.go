@@ -9,6 +9,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"websec/internal/state"
+	"websec/internal/validation"
 )
 
 // t14TestModelJSON is the T14 twin protocol model (a valid protocol_model).
@@ -195,5 +198,53 @@ func TestScopeHelp(t *testing.T) {
 	}
 	if errS != "" {
 		t.Fatalf("stderr = %q", errS)
+	}
+}
+
+// TestScopeReloadDoesNotRewindPhase pins R3-8 (Morph r3 defect 8): a mid-
+// campaign `scope --policy` reload must NOT drag the phase from DISCOVERY
+// back to SCOPE behind the stage ledger's back — the policy reload is a
+// policy event, and it says so on stderr while leaving stdout bytes alone.
+func TestScopeReloadDoesNotRewindPhase(t *testing.T) {
+	root := mkroot(t)
+	cid := initOne(t, root)
+	policy := t14TestWrite(t, root, "policy.json", t14TestPolicyJSON)
+	if code, _, errS := run(t, "--root", root, "scope", cid,
+		"--policy", policy); code != 0 {
+		t.Fatalf("first scope exit %d: %q", code, errS)
+	}
+	// Walk the campaign past SCOPE. A direct phase write is the test's
+	// knob (no snapshot machinery needed for this pin).
+	c, err := state.Open(root, cid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	st, err := c.State()
+	if err != nil {
+		t.Fatal(err)
+	}
+	st.O = validation.SetOrAppend(st.O, "phase",
+		validation.VStr("DISCOVERY"))
+	if err := validation.WriteJson(c.StatePath, st, "campaign_state"); err != nil {
+		t.Fatal(err)
+	}
+	code, out, errS := run(t, "--root", root, "scope", cid,
+		"--policy", policy)
+	if code != 0 {
+		t.Fatalf("reload exit %d: %q", code, errS)
+	}
+	if !strings.Contains(out, "policy loaded from "+policy) {
+		t.Fatalf("stdout = %q, want the load line", out)
+	}
+	if !strings.Contains(errS, "campaign is in phase DISCOVERY — "+
+		"phase left unchanged (policy reloaded)") {
+		t.Fatalf("stderr = %q, want the no-rewind notice", errS)
+	}
+	st2, err := c.State()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := validation.ObjStr(st2, "phase"); got != "DISCOVERY" {
+		t.Fatalf("phase = %q, want DISCOVERY (no rewind)", got)
 	}
 }

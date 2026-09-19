@@ -338,6 +338,15 @@ func runScope(root string, args []string, r *Runner) error {
 			return err
 		}
 	}
+	// R3-8: capture the phase the reload found — past SCOPE the
+	// orchestrator leaves it alone and the reload says so. The notice
+	// rides stderr; the stdout load line stays byte-pinned.
+	prevPhase := ""
+	if policy != "" {
+		if st, serr := c.State(); serr == nil {
+			prevPhase = validation.ObjStr(st, "phase")
+		}
+	}
 	res, err := orchestrator.New(c).Scope(policy)
 	if err != nil {
 		return err
@@ -346,6 +355,10 @@ func runScope(root string, args []string, r *Runner) error {
 		fmt.Fprintf(r.Out, "policy loaded from %s — %d scope entries, "+
 			"%d exclusions\n", policy, t14PyLen(validation.ObjAt(res, "scope")),
 			t14PyLen(validation.ObjAt(res, "exclusions")))
+		if prevPhase != "" && prevPhase != "SCOPE" {
+			fmt.Fprintf(r.Err, "campaign is in phase %s — phase left "+
+				"unchanged (policy reloaded)\n", prevPhase)
+		}
 		return nil
 	}
 	fmt.Fprintln(r.Out, "no policy provided (load one before BOUNTY_GATE "+
