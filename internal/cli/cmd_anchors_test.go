@@ -20,6 +20,7 @@ package cli
 // question about.
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -565,8 +566,11 @@ func TestAnchorsBareBasenameWidensToTheWholePath(t *testing.T) {
 }
 
 // TestAnchorsG01StdoutIsBytePinned pins the whole stdout of the acceptance
-// query: the group order, the column separators, the two-space indent and the
-// em dash are contractual bytes, not cosmetics.
+// query: the group order, the column separators, the two-space indent, the em
+// dash and — since the review-tail fix — the per-member discharge command on
+// its wrapped `    -> ` line are contractual bytes, not cosmetics. The row is
+// claimed by no priority, so its command is the emit; each OPEN priority is
+// answered directly (no --anchor: the flag belongs to a probe row claim).
 func TestAnchorsG01StdoutIsBytePinned(t *testing.T) {
 	root := t.TempDir()
 	b8Fixture(t, root)
@@ -579,11 +583,16 @@ func TestAnchorsG01StdoutIsBytePinned(t *testing.T) {
 		"surface rows:\n" +
 		"  34589e8588  tier 0  UNDISPOSITIONED  paths l1/rollup/Rollup.sol  " +
 		"consumer Rollup#commitBatch:204  asserter Rollup#finalizeBatch:496\n" +
+		"    -> webv2 probes C-anchors01 run --emit\n" +
 		"open priorities:\n" +
 		"  Q-008  open  risk 0.8\n" +
+		"    -> webv2 answered C-anchors01 Q-008 answered --reason '<why>'\n" +
 		"  Q-050  open  risk 0.7\n" +
+		"    -> webv2 answered C-anchors01 Q-050 answered --reason '<why>'\n" +
 		"  Q-098  open  risk 0.7\n" +
+		"    -> webv2 answered C-anchors01 Q-098 answered --reason '<why>'\n" +
 		"  Q-100  open  risk 0.7\n" +
+		"    -> webv2 answered C-anchors01 Q-100 answered --reason '<why>'\n" +
 		"findings:\n" +
 		"  F-000000000001  commitBatch authentication is a stub: any active " +
 		"staker commits arbitrary state/withdrawal roots\n"
@@ -592,6 +601,184 @@ func TestAnchorsG01StdoutIsBytePinned(t *testing.T) {
 	}
 	if errS != b8LensG01 {
 		t.Errorf("stderr bytes differ:\n got %q\nwant %q", errS, b8LensG01)
+	}
+}
+
+// ---- the act command (§B8: "the command to act on it") -------------------
+
+// b8ClaimSurface is the claim geometry's surface: ONE undispositioned tier-0
+// Rollup row, whose probe (assertion-strength) produces the consumer anchor.
+func b8ClaimSurface() validation.Value {
+	return validation.VObj(validation.KV{K: "rows", V: validation.VArr(
+		validation.VObj(
+			validation.KV{K: "row_id", V: validation.VStr("c000000001")},
+			validation.KV{K: "probe", V: validation.VStr("assertion-strength")},
+			validation.KV{K: "tier", V: validation.VInt(0)},
+			validation.KV{K: "gate", V: validation.VStr("OnlyActiveStaker")},
+			validation.KV{K: "contract", V: validation.VStr("Rollup")},
+			validation.KV{K: "consumer", V: validation.VStr("commitBatch")},
+			validation.KV{K: "consumer_line", V: validation.VInt(204)},
+			validation.KV{K: "asserter", V: validation.VStr("finalizeBatch")},
+			validation.KV{K: "asserter_line", V: validation.VInt(496)}))})
+}
+
+// b8ClaimPrio is the priority that CLAIMS row c000000001 through probe.row_id
+// (b8Prio plus the provenance the seam's rowDisposition reads). Its components
+// are the caller's: naming only Vault keeps the priority out of a Rollup query,
+// so the ROW rule is observable on its own.
+func b8ClaimPrio(id, status string, comps ...string) validation.Value {
+	p := b8Prio(id, status, 0.6, comps...)
+	return validation.VObj(append(p.O, validation.KV{K: "probe",
+		V: validation.VObj(validation.KV{K: "row_id",
+			V: validation.VStr("c000000001")})})...)
+}
+
+// b8ClaimFixture writes the claim geometry: model + surface + one claiming
+// priority.
+func b8ClaimFixture(t *testing.T, root string, prio validation.Value) {
+	t.Helper()
+	c := b8Init(t, root)
+	b8Write(t, filepath.Join(c.ArtifactsDir, anchorsModelArtifact),
+		validation.VObj(validation.KV{K: "contracts", V: validation.VArr(
+			b8Contract("Rollup", "l1/rollup/Rollup.sol"),
+			b8Contract("Vault", "l2/vault/Vault.sol"))}))
+	b8Write(t, filepath.Join(c.ArtifactsDir, anchorsSurfaceArtifact),
+		b8ClaimSurface())
+	b8Write(t, filepath.Join(c.ArtifactsDir, anchorsPlanArtifact),
+		validation.VObj(validation.KV{K: "priorities", V: validation.VArr(prio)}))
+}
+
+// TestAnchorsClaimedRowAnswersThroughItsPriority: an UNDISPOSITIONED row a
+// priority claims is not discharged by the emit — the priority already exists —
+// and a probe row's closure is refused without its --anchor, so the row's
+// command is the pending verb's own shape, with the anchor field read off the
+// row (assertion-strength produces `consumer`, and the row carries one).
+func TestAnchorsClaimedRowAnswersThroughItsPriority(t *testing.T) {
+	root := t.TempDir()
+	b8ClaimFixture(t, root, b8ClaimPrio("Q-007", "open", "Vault"))
+	code, out, errS := b8Run(t, root, "Rollup.sol")
+	if code != 0 {
+		t.Fatalf("exit %d: out=%q err=%q", code, out, errS)
+	}
+	b8Want(t, "stdout", out, []string{
+		"c000000001",
+		"  c000000001  tier 0  UNDISPOSITIONED",
+		"    -> webv2 answered C-anchors01 Q-007 answered --reason " +
+			"\"<why this row is safe>\" --anchor consumer\n",
+		"open priorities:\n  (none)",
+	}, []string{
+		"webv2 probes C-anchors01 run --emit",
+		"-> webv2 probes",
+	})
+}
+
+// TestAnchorsDispositionedRowPrintsNoCommand: a row its priority ANSWERED has
+// nothing left to act on, so the row line carries the status and no command —
+// and the closed priority is not listed either.
+func TestAnchorsDispositionedRowPrintsNoCommand(t *testing.T) {
+	root := t.TempDir()
+	b8ClaimFixture(t, root, b8ClaimPrio("Q-007", "answered", "Vault"))
+	code, out, errS := b8Run(t, root, "Rollup.sol")
+	if code != 0 {
+		t.Fatalf("exit %d: out=%q err=%q", code, out, errS)
+	}
+	b8Want(t, "stdout", out, []string{
+		"  c000000001  tier 0  answered",
+		"open priorities:\n  (none)",
+	}, []string{"Q-007", "-> "})
+}
+
+// TestAnchorsClaimedOpenPriorityNamesItsAnchor: an OPEN priority that carries a
+// probe row is answered through that row, so the bare `--reason` command the
+// group prints for a question-priority would be REFUSED by answered's anchor
+// gate. Its command therefore names the same --anchor the claimed row's own
+// command names: one obligation, one command.
+func TestAnchorsClaimedOpenPriorityNamesItsAnchor(t *testing.T) {
+	root := t.TempDir()
+	b8ClaimFixture(t, root, b8ClaimPrio("Q-007", "open", "Rollup"))
+	code, out, errS := b8Run(t, root, "Rollup.sol")
+	if code != 0 {
+		t.Fatalf("exit %d: out=%q err=%q", code, out, errS)
+	}
+	cmd := "    -> webv2 answered C-anchors01 Q-007 answered --reason " +
+		"\"<why this row is safe>\" --anchor consumer\n"
+	b8Want(t, "stdout", out, []string{
+		"  c000000001  tier 0  UNDISPOSITIONED",
+		"  Q-007  open  risk 0.6",
+		cmd, cmd, // the row's command and the priority's, byte for byte
+	}, []string{"--reason '<why>'"})
+	if strings.Count(out, cmd) != 2 {
+		t.Errorf("the row and its claiming priority must render the same "+
+			"command; got %d in:\n%s", strings.Count(out, cmd), out)
+	}
+}
+
+// b8CommandArgv is a printed command as argv: the program name is dropped and
+// the reason PLACEHOLDER's quoting is removed, because the placeholder is one
+// VALUE (an operator replaces it with prose of their own) — the rest of the
+// line is passed through untouched.
+func b8CommandArgv(cmd string) []string {
+	cmd = strings.Replace(cmd, `--reason '<why>'`, "--reason <why>", 1)
+	cmd = strings.Replace(cmd, `--reason "<why this row is safe>"`,
+		"--reason <why>", 1)
+	return strings.Fields(cmd)[1:]
+}
+
+// TestAnchorsActCommandsParseWithTheVerbsOwnParsers: the printed commands are
+// not prose. Every `    -> ` line this verb renders is fed to the SAME
+// argparse layer the target verb itself runs (answered's parseAnswered,
+// probes' parseProbes), so a renamed flag or a reordered positional fails here
+// instead of printing a command the operator cannot run. Both geometries are
+// replayed so all three shapes are covered: the emit of an unclaimed row, the
+// bare answered of a question-priority, and the --anchor answered of a probe
+// row claim (the shape that is REFUSED without its anchor).
+func TestAnchorsActCommandsParseWithTheVerbsOwnParsers(t *testing.T) {
+	rootFull := t.TempDir()
+	b8Fixture(t, rootFull)
+	rootClaim := t.TempDir()
+	b8ClaimFixture(t, rootClaim, b8ClaimPrio("Q-007", "open", "Rollup"))
+	cmds := []string{}
+	for _, root := range []string{rootFull, rootClaim} {
+		code, out, errS := b8Run(t, root, "Rollup.sol")
+		if code != 0 {
+			t.Fatalf("exit %d: out=%q err=%q", code, out, errS)
+		}
+		for _, line := range strings.Split(out, "\n") {
+			if cmd, ok := strings.CutPrefix(line, "    -> "); ok {
+				cmds = append(cmds, cmd)
+			}
+		}
+	}
+	joined := strings.Join(cmds, "\n")
+	for _, shape := range []string{
+		"webv2 probes " + b8CID + " run --emit\n",
+		"webv2 answered " + b8CID + " Q-008 answered --reason '<why>'\n",
+		"webv2 answered " + b8CID + " Q-007 answered --reason " +
+			"\"<why this row is safe>\" --anchor consumer\n",
+	} {
+		if !strings.Contains(joined+"\n", shape) {
+			t.Errorf("missing command shape %q in:\n%s", shape, joined)
+		}
+	}
+	if len(cmds) != 8 {
+		t.Fatalf("expected 8 rendered commands (6 + 2), got %d:\n%s",
+			len(cmds), joined)
+	}
+	r := &Runner{Out: io.Discard, Err: io.Discard}
+	for _, cmd := range cmds {
+		argv := b8CommandArgv(cmd)
+		var err error
+		switch argv[0] {
+		case "answered":
+			_, err = parseAnswered(argv[1:], r)
+		case "probes":
+			_, err = parseProbes(argv[1:], r)
+		default:
+			t.Fatalf("%q: unknown verb", cmd)
+		}
+		if err != nil {
+			t.Errorf("%q does not parse: %v", cmd, err)
+		}
 	}
 }
 

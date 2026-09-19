@@ -20,6 +20,18 @@ package cli
 // Error rendering: Python's cmd prints its own messages and exits 2, and
 // the final verify's KeyError is rendered by str(exc) = repr(message) — the
 // Go errors carry the bare message, so the CLI applies PyReprStr.
+//
+// B6(b) (feedback-triage-morph-r2, §B6(b), plan-review F7): the same verb
+// gains a BATCH form, `--invariants INV-1,INV-2,...`, against the same
+// --artifact. It is additive: this file only parses the new flag and hands a
+// set list to cmd_invariant_verify_batch.go, and the single-positional path
+// below is reached byte-for-byte as before whenever the flag is absent
+// (pinned by cmd_invariant_verify_test.go and by
+// TestInvariantVerifySingleFormBytesUnchangedWithoutBatchFlag). The batch
+// gates every id before any write and commits-then-prints (F7), so a refusal
+// writes nothing and never prints an `attested` line for state that does not
+// exist; the help block is registered from the batch file too (verbHelpBlocks
+// lives in cli.go and is written, never replaced, by that registration).
 
 import (
 	"errors"
@@ -66,6 +78,10 @@ func runInvariantVerify(root string, args []string, r *Runner) int {
 
 	ensureSeams()
 	artifact, execID := "", ""
+	// B6(b): --invariants is the batch list. invariantsSet distinguishes the
+	// flag's ABSENT case (the single form, untouched) from an empty value
+	// (`--invariants=`, refused by the list hygiene).
+	invariantsRaw, invariantsSet := "", false
 	var pos []string
 	for i := 0; i < len(args); i++ {
 		a := args[i]
@@ -80,17 +96,34 @@ func runInvariantVerify(root string, args []string, r *Runner) int {
 			i++
 		case strings.HasPrefix(a, "--exec="):
 			execID = strings.TrimPrefix(a, "--exec=")
+		case a == "--invariants" && i+1 < len(args) && !looksLikeOption(args[i+1]):
+			invariantsRaw = args[i+1]
+			invariantsSet = true
+			i++
+		case strings.HasPrefix(a, "--invariants="):
+			invariantsRaw = strings.TrimPrefix(a, "--invariants=")
+			invariantsSet = true
 		case a == "--artifact":
 			return r.fail(root, argErrf("invariant-verify",
 				"argument --artifact: expected one argument"))
 		case a == "--exec":
 			return r.fail(root, argErrf("invariant-verify",
 				"argument --exec: expected one argument"))
+		case a == "--invariants":
+			return r.fail(root, argErrf("invariant-verify",
+				"argument --invariants: expected one argument"))
 		case strings.HasPrefix(a, "-"):
 			return r.fail(root, usageErrf("unrecognized arguments: %s", a))
 		default:
 			pos = append(pos, a)
 		}
+	}
+	// The batch route owns its own positional count (campaign only) and its
+	// own conflicts; it is entered only when the flag was passed, so the
+	// single form's parse below sees exactly the bytes it always saw.
+	if invariantsSet {
+		return runInvariantVerifyBatchRoute(root, pos, artifact, execID,
+			invariantsRaw, r)
 	}
 	if len(pos) != 2 {
 		missing := []string{}

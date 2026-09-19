@@ -122,7 +122,13 @@ not exist). **2** is "you asked about something the machine cannot even
 locate": every argparse refusal, and the dependency/lookup misses that
 check preconditions up front (an index missing before `probes run`, no plan
 before `answered`, an unknown id passed to `invariant-verify`/`execs --id`,
-or a `harness`/`artifact` id that names no registry row). The 1-vs-2 line
+or a `harness`/`artifact` id that names no registry row).
+`invariant-verify --invariants INV-1,INV-2,...` is the same attestation
+over a list against ONE `--artifact`: every id's gate runs before any
+write, so a refusal prints `aborted: <id> refused: <reason>; nothing
+written` at exit 2 with the registry and the log untouched; when all pass,
+the run commits one `invariant.verified` event per id and then prints
+`<id>: attested` per id in argument order. The 1-vs-2 line
 inside the "unknown id" family is a historical split that still varies per
 verb — `impact` naming a finding that does not exist is the run-time shape
 and exits **1**, as the paragraph above says — treat 2 as "fix the
@@ -1704,6 +1710,7 @@ webv2 artifact-list <C> [--kind K]                                 list register
 webv2 artifact-reconcile <C> [--dry]                               re-hash the registry after an external rewrite
 webv2 artifact-prune <artifact_id> --reason R [--json]             retire a registry row (warns if a live bind cites it)
 webv2 invariant-verify <C> INV-xxx (--artifact ART | --exec E)     CHECKED_AGAINST_CODE (pass exactly one)
+webv2 invariant-verify <C> --artifact ART --invariants INV-1,INV-2,...   all-or-nothing batch (gates every id first; a refusal = 'aborted: INV-x refused: <reason>; nothing written', exit 2, nothing written; else one 'INV-x: attested' per id, in argument order)
 webv2 invariant-contradict <C> INV-xxx --evidence FILE#L|ART-xxx   mark an invariant CONTRADICTED (falsified by code)
 webv2 hint <C> --kind priority|exclusion|detector|note --content C [--source-ref ID] [--actor A]
 

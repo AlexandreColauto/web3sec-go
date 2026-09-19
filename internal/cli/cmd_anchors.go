@@ -15,6 +15,19 @@ package cli
 // the run ends with the L-03 enforcement-timing question on STDERR — the
 // question the stores conspired to hide.
 //
+// THE ACT COMMAND (§B8: a member is listed "with its disposition/status and
+// the command to act on it"). Every member that still has something to do
+// carries the SMALLEST command that does it, on a wrapped next line: an OPEN
+// priority is answered directly; an UNDISPOSITIONED surface row a priority
+// claims through probe.row_id is answered through that priority — which is
+// where answered's required --anchor lives — with the anchor field read off
+// the row's own data; a row no priority claims is not yet a plan obligation,
+// so its command is the emit that creates one. A dispositioned row, an empty
+// group and the findings group (a filed finding is not an unanswered
+// obligation this verb can discharge) print no command. The command text is
+// the pending verb's own renderer (pendingCommand/pendingAnchorRef), so the
+// two worklists cannot disagree about what an obligation costs.
+//
 // SCOPE. This verb consumes the seam read-only: it opens a campaign, decodes
 // four artifacts and calls anchorlink.Open/Index/Query. It writes nothing,
 // mutates nothing and never re-derives a row shape. Two artifacts are
@@ -272,6 +285,15 @@ func anchorsPrint(w io.Writer, pattern string, st *anchorsStore,
 	anchorsPrintFindings(w, st, m)
 }
 
+// anchorsPrintCommand renders one member's discharge command on a wrapped next
+// line: a row line already carries up to five columns, and appending a whole
+// command to it would run the line past the width anchorsTitleCap exists to
+// protect. The `-> ` marker is the pending verb's own (pendingTable), so the
+// two worklists read alike.
+func anchorsPrintCommand(w io.Writer, cmd string) {
+	fmt.Fprintf(w, "    -> %s\n", cmd)
+}
+
 // anchorsPrintRows is the SURFACE ROWS group: row_id, tier, disposition (or
 // UNDISPOSITIONED) and the row's own consumer/asserter/sibling sites, spelled
 // exactly as the surface artifact spells them. The canonical model paths the
@@ -298,6 +320,9 @@ func anchorsPrintRows(w io.Writer, st *anchorsStore, m anchorlink.Matches) {
 			fmt.Fprintf(w, "  %s %s", site.kind, site.text)
 		}
 		fmt.Fprintln(w)
+		if cmd := st.rowCommand(row, rm); cmd != "" {
+			anchorsPrintCommand(w, cmd)
+		}
 	}
 }
 
@@ -319,7 +344,55 @@ func anchorsPrintPriorities(w io.Writer, st *anchorsStore,
 		}
 		fmt.Fprintf(w, "  %s  %s  risk %s\n", id, status,
 			anchorsRiskText(validation.ObjAt(p, "risk")))
+		anchorsPrintCommand(w, st.priorityCommand(p))
 	}
+}
+
+// rowCommand is the smallest command that discharges ONE surface row: a row a
+// priority claims through probe.row_id is dispositioned THROUGH that priority
+// (the claim is a probe row, so answered requires the --anchor field it claims
+// is safe — checkProbeAnchor refuses the closure without one), and the anchor
+// is read off the row's own data by the pending verb's own selector. A row no
+// priority claims is not yet a plan obligation, so its smallest acting command
+// is the emit that turns the surface into one. A row already dispositioned has
+// nothing left to act on and gets no command at all.
+//
+// The command text comes from pendingCommand — the renderer `probes <c>
+// pending` uses for the same obligation — so the two verbs cannot drift.
+func (st *anchorsStore) rowCommand(row validation.Value,
+	rm anchorlink.RowMatch) string {
+	if rm.Dispositioned {
+		return ""
+	}
+	claim := hintClaimID(st.priorities, rm.RowID)
+	if claim == "" {
+		return fmt.Sprintf("webv2 probes %s run --emit", st.c.CampaignID)
+	}
+	anchor, _ := pendingAnchorRef(row, nil)
+	return pendingCommand(st.c.CampaignID,
+		pendingRow{priorityID: claim, anchor: anchor})
+}
+
+// priorityCommand is the smallest command that discharges ONE listed priority:
+// answer it, with a reason. Every listed priority is OPEN (the seam's
+// open-only rule), so the command is never empty. A priority that carries a
+// probe row is a probe disposition, and answered REFUSES that closure without
+// the --anchor field the row's probe produces (checkProbeAnchor), so it
+// renders the pending verb's shape — byte for byte the command the claimed
+// row's own line renders, because it is the same obligation. A
+// question-priority (no probe row) has no anchor to name and renders the shape
+// the B9 hint prints for it (hintLine): the reason placeholder is operator
+// prose either way, and the two agree.
+func (st *anchorsStore) priorityCommand(p validation.Value) string {
+	id := validation.ObjStr(p, "id")
+	rowID := validation.ObjStr(validation.ObjAt(p, "probe"), "row_id")
+	if rowID == "" {
+		return fmt.Sprintf("webv2 answered %s %s answered --reason '<why>'",
+			st.c.CampaignID, id)
+	}
+	anchor, _ := pendingAnchorRef(st.rowByID[rowID], nil)
+	return pendingCommand(st.c.CampaignID,
+		pendingRow{priorityID: id, anchor: anchor})
 }
 
 // anchorsRiskText renders the priority's risk, or an em dash when the

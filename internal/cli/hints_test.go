@@ -31,6 +31,7 @@ import (
 
 	"websec/internal/findings"
 	"websec/internal/state"
+	"websec/internal/validation"
 )
 
 // b9Model is the model index: three contracts, each under its own path, plus a
@@ -257,13 +258,23 @@ type b9SilentGeometry struct {
 // exactly as they were. --no-hints renders the pre-B9 stream (there was no
 // note), so the two runs are compared byte for byte, stdout and stderr — for
 // an empty campaign, for a payload whose anchors match nothing, for a corrupt
-// model and for a model without a plan.
+// model, surface and plan, and for a model without a plan. Every geometry
+// still WRITES its finding (the note is additive, never a gate) and still
+// exits 0 with a silent stderr.
 func TestB9HintsSilentPathIsByteIdentical(t *testing.T) {
 	geometries := []b9SilentGeometry{
 		{name: "no-artifacts"},
 		{name: "no-match", model: b9Model, surface: b9Surface, plan: b9Plan},
 		{name: "corrupt-model", model: "{not json", surface: b9Surface,
 			plan: b9Plan},
+		// B9 review finding 1: probe_surface.json is the store every row
+		// match goes through, so a surface that is present and unparsable
+		// must take the same silent path as an absent one — and the plan
+		// beside it (the third store hintJoin reads) too.
+		{name: "corrupt-surface", model: b9Model, surface: "{not json",
+			plan: b9Plan},
+		{name: "corrupt-plan", model: b9Model, surface: b9Surface,
+			plan: "{not json"},
 		{name: "no-plan", model: b9Model, surface: b9Surface},
 	}
 	affected := `{"path":"l1/rollup/Rollup.sol","function":"commitBatch"}`
@@ -285,6 +296,16 @@ func TestB9HintsSilentPathIsByteIdentical(t *testing.T) {
 			}
 			if errA != "" {
 				t.Fatalf("the silent path wrote to stderr: %q", errA)
+			}
+			// A corrupt store is not a corrupt ingest: the finding still
+			// lands, and the success line still names it.
+			if !strings.HasPrefix(outA, "ingested F-abcdefabcdef ") {
+				t.Fatalf("the finding was not written: %q", outA)
+			}
+			paths, err := validation.ListPrefixedOptional(a.FindingsDir,
+				"F-", ".json")
+			if err != nil || len(paths) != 1 {
+				t.Fatalf("the finding is not on disk: %v (%v)", paths, err)
 			}
 			b, rootB, cidB := t2Campaign(t)
 			b9Artifacts(t, b, g.model, g.surface, g.plan)
