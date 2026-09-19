@@ -29,16 +29,25 @@ func probeAxisLines(surface validation.Value, axisFilter *probes.AxisScope,
 			validation.ObjStr(a, "probe"), objInt(a, "sites"), objInt(a, "rows"),
 			objInt(a, "emitted"), objInt(a, "tail"), validation.ObjStr(a, "status")))
 		if showAll {
-			for _, b := range t14List(a, "blind").A {
-				near := ""
-				if nearVal := validation.ObjAt(b, "near"); nearVal.Kind == validation.Str {
-					near = " (near " + nearVal.S + ")"
-				}
-				lines = append(lines, fmt.Sprintf("      blind: %s%s — %s",
-					scalarStr(validation.ObjAt(b, "key")), near,
-					scalarStr(validation.ObjAt(b, "reason"))))
-			}
+			lines = append(lines, probeBlindLines(a)...)
 		}
+	}
+	return lines
+}
+
+// probeBlindLines is the --all blind-key block for ONE axis: the published
+// key, its near-miss context and the probe's own reason. Shared by the row
+// view (probeAxisLines) and the B5(a) summary so the two cannot drift.
+func probeBlindLines(a validation.Value) []string {
+	lines := []string{}
+	for _, b := range t14List(a, "blind").A {
+		near := ""
+		if nearVal := validation.ObjAt(b, "near"); nearVal.Kind == validation.Str {
+			near = " (near " + nearVal.S + ")"
+		}
+		lines = append(lines, fmt.Sprintf("      blind: %s%s — %s",
+			scalarStr(validation.ObjAt(b, "key")), near,
+			scalarStr(validation.ObjAt(b, "reason"))))
 	}
 	return lines
 }
@@ -82,6 +91,10 @@ func probesList(a *probesArgs, c *state.Campaign, r *Runner) error {
 	}
 	if lv.a.asJSON {
 		return probesListJSON(lv)
+	}
+	if lv.a.summary {
+		probesListSummary(lv)
+		return nil
 	}
 	probesListTable(lv)
 	t29PrintProbeClosure(lv.c, lv.planPtr, nil, false, lv.r.Out)
@@ -257,6 +270,79 @@ func probesListTable(lv *probesListView) {
 			fmt.Fprintf(out, "        reason: %s\n", reason)
 		}
 	}
+}
+
+// probesListSummary is the B5(a) `list --summary` branch: the cockpit, not the
+// table. The header (reused verbatim from the row view), one line per axis with
+// its row count, its UNDISPOSITIONED count and its risky count, the quota
+// disclosures (warnings and missing[], both on stderr — the r35 F1 / B5(b)
+// convention), then ONE pointer line: the pending count and the command that
+// drains it, or an all-clear. No row table, no per-row lines.
+//
+// WHERE THE COUNTS COME FROM. Rows, dispositions and the open set are
+// probes.SurfaceSummary's (`summary.open_rows`) — the seam already carries the
+// per-row tier and assertion_gap, so the risk count is
+// planner.HighRiskRow applied to the SAME open rows, never a re-derivation.
+// The risky count is over the undispositioned rows only: a cockpit asks "how
+// many dangerous rows are still open", and a dispositioned row is no longer
+// work. The header and the pointer stay campaign-wide (exactly as the row
+// view's header and `probes pending` are), while the per-axis lines honour
+// --axis like every other list view.
+//
+// --summary always prints one line per axis IN THE SURFACE, including the
+// no-sites/blind axes the row view hides (a count view that hides the axes
+// with nothing to show is not a count view); --all still adds each axis's
+// published blind keys underneath. `--json --summary` is the plain --json view
+// (see probesListJSON): one machine shape, not two.
+func probesListSummary(lv *probesListView) {
+	out := lv.r.Out
+	stale := ""
+	if objBool(*lv.summary, "stale") {
+		stale = " — stale?"
+	}
+	fmt.Fprintf(out, "probe surface: %d rows (%d dispositioned, %d open)%s\n",
+		objInt(*lv.summary, "rows"), objInt(*lv.summary, "dispositioned"),
+		objInt(*lv.summary, "open"), stale)
+	undispositioned := map[string]int{}
+	risky := map[string]int{}
+	for _, row := range t14List(*lv.summary, "open_rows").A {
+		axis := validation.ObjStr(row, "axis")
+		undispositioned[axis]++
+		if planner.HighRiskRow(row) {
+			risky[axis]++
+		}
+	}
+	for _, a := range t14List(*lv.surface, "axes").A {
+		axis := validation.ObjStr(a, "axis")
+		if lv.axisFilter != nil && !t14InList(axis, lv.axisFilter.Axes) {
+			continue
+		}
+		fmt.Fprintf(out, "  %s (%s): rows %d, undispositioned %d, "+
+			"risky(tier 0/gap>=3) %d\n", axis,
+			validation.ObjStr(a, "lens"), objInt(a, "rows"),
+			undispositioned[axis], risky[axis])
+		if lv.a.all {
+			for _, line := range probeBlindLines(a) {
+				fmt.Fprintln(out, line)
+			}
+		}
+	}
+	// The quota disclosures: the same two byte-exact line shapes `probes run`
+	// renders, on stderr — the summary's stdout is the count view alone.
+	for _, line := range probeWarningLines(*lv.surface) {
+		fmt.Fprintln(lv.r.Err, line)
+	}
+	for _, m := range t14List(*lv.surface, "missing").A {
+		fmt.Fprintf(lv.r.Err, "  missing: %s\n", validation.ObjStr(m, "reason"))
+	}
+	open := objInt(*lv.summary, "open")
+	if open == 0 {
+		fmt.Fprintln(out, "all clear: 0 pending — every surface row is "+
+			"dispositioned")
+		return
+	}
+	fmt.Fprintf(out, "%d pending — see webv2 probes %s pending\n", open,
+		lv.c.CampaignID)
 }
 
 // t29PrintProbeClosure is _print_probe_closure (cmd_answered.go owns the

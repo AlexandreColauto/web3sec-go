@@ -315,7 +315,8 @@ dependency — same inputs, same rows.
 webv2 probes <C-xxx> run                              # build/refresh the surface (artifacts/probe_surface.json)
 webv2 probes <C-xxx> run --emit                       # + turn every emitted row into a plan priority (needs a plan on disk)
 webv2 probes <C-xxx> run --emit --per-axis N --total N   # the quota knobs (a 0 quota is refused, exit 2)
-webv2 probes <C-xxx> list [--axis L-0n|AXIS] [--all] [--json]
+webv2 probes <C-xxx> list [--axis L-0n|AXIS] [--all] [--json] [--summary]
+webv2 probes <C-xxx> list --summary                    # the cockpit: one line per axis (rows, undispositioned, risky = tier 0 or gap>=3) + the pending pointer, no row table
 webv2 anchors <C-xxx> <pattern>                       # which stores name one code anchor: rows, OPEN priorities, findings (exit 0; 2 on a missing campaign/artifact)
 webv2 probes <C-xxx> blank --axis L-0n|AXIS --anchor-blind K --reason "..." --actor NAME
 webv2 probes <C-xxx> pending [--max N] [--json]       # the undispositioned rows, ranked (tier asc, gap desc, then convergence count), each with the exact answered command that discharges it
@@ -387,7 +388,11 @@ name them together — `answered <C-xxx> --rows ROWID,ROWID <status>
 named row is tier 0 or has `assertion_gap >= 3`: those are discharged
 one-per-call, with a reason that cites their own code. A row whose shape moved
 since it was dispositioned is pending again (`stale`), and a stale surface keeps
-its lens open.
+its lens open. `probes <C-xxx> list --summary` is the same queue as counts: one
+line per axis (its rows, its undispositioned rows, its risky rows — tier 0 or
+`assertion_gap >= 3`), the quota disclosures on stderr, then the `N pending`
+pointer that names this drain command; there is no row table, and
+`--json --summary` is the plain `--json` view.
 
 **A dismissal close to the money has to run — and has to name something.**
 A row that is tier 0, or whose `assertion_gap` is 3 or more (the row asserts
@@ -1636,7 +1641,7 @@ webv2 index <C> --src SRC                                          rebuild the s
 webv2 model <C> [file] [--json] [--example] [--facts P] [--facts-observed-at D]    load a protocol model (seeds invariants) / show the loaded one; --example prints a valid template; --facts merges operator-supplied DNS/dependency facts (offline only, no lookup)
 webv2 plan <C> [file] [--rebuild] [--json]                         read-only plan view; --rebuild archives + regenerates (both polarities of every lifecycle transition belong in it — §4c/§5)
 webv2 answered <C> <priority|L-0X> [<priority>...] <status> [--reason R] [--reason-all R] [--ref R] [--anchor FIELD] [--families a,b,c] [--symmetry fam=prim;...] [--actor A]   # one status over ONE OR MORE rows: gates run per row all-or-nothing (first refusal names its row, zero mutations)
-webv2 probes <C> run [--emit --per-axis N --total N] | list [--axis L-0n|AXIS] [--all] [--json] | blank --axis L-0n|AXIS --anchor-blind K --reason R --actor A | pending [--max N] [--json]
+webv2 probes <C> run [--emit --per-axis N --total N] | list [--axis L-0n|AXIS] [--all] [--json] [--summary] | blank --axis L-0n|AXIS --anchor-blind K --reason R --actor A | pending [--max N] [--json]
 webv2 anchors <C> <pattern>                                        ask which stores name one code anchor — surface rows, OPEN priorities, findings (pattern: path, suffix, #function, :line; exit 0, 2 on a missing campaign/artifact)
 webv2 answered <C> --rows ROWID,ROWID <status> --reason-all R --anchor FIELD [--actor A]   # the same discharge over probe rows named by id; refused unless EVERY row is tier>0 and assertion_gap<3
 webv2 ingest <C> --json-file F (or -) [--trajectory T] [--stage S] [--answers-priority Q-xxx] [--no-hints]   |  webv2 ingest --example

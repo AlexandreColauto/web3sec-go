@@ -32,6 +32,8 @@ positional arguments:
                     (--emit turns its rows into plan obligations)
     list            the surface as an operator view: rows, anchors,
                     dispositions, blind keys
+                    (--summary: per-axis counts + the pending pointer, no
+                    row table)
     blank           record the named decision that closes a BLIND axis, citing
                     a key the probe actually published
     pending         the undispositioned rows, ranked, one line each with the
@@ -57,16 +59,21 @@ options:
   --total N     campaign ceiling across axes (default 40)
 `
 
-const t29ProbesListUsage = `usage: webv2 probes campaign list [-h] [--axis A] [--all] [--json]
+const t29ProbesListUsage = `usage: webv2 probes campaign list [-h] [--axis A] [--all] [--json] [--summary]
 `
 
-const t29ProbesListHelp = `usage: webv2 probes campaign list [-h] [--axis A] [--all] [--json]
+const t29ProbesListHelp = `usage: webv2 probes campaign list [-h] [--axis A] [--all] [--json] [--summary]
 
 options:
   -h, --help  show this help message and exit
   --axis A    one axis: L-0n or the probe axis name
   --all       every axis (incl. no-sites/blind) + the published blind keys
   --json
+  --summary   the cockpit instead of the table: one line per axis (rows,
+              undispositioned, risky = tier 0 or assertion_gap >= 3), the
+              quota disclosures on stderr, then the pending pointer — no row
+              table. --summary prints every axis in the surface (incl.
+              no-sites/blind); with --json it is the plain --json view
 `
 
 const t29ProbesBlankUsage = `usage: webv2 probes campaign blank [-h] --axis L-0n --anchor-blind K
@@ -89,16 +96,20 @@ options:
 
 // probesArgs is the parsed command line.
 type probesArgs struct {
-	campaign    string
-	cmd         string // "" means list (the default subcommand)
-	emit        bool
-	perAxis     int
-	perAxisSet  bool
-	total       int
-	totalSet    bool
-	axis        *string
-	all         bool
-	asJSON      bool
+	campaign   string
+	cmd        string // "" means list (the default subcommand)
+	emit       bool
+	perAxis    int
+	perAxisSet bool
+	total      int
+	totalSet   bool
+	axis       *string
+	all        bool
+	asJSON     bool
+	// summary is `probes <c> list --summary` (B5a): the per-axis count
+	// cockpit instead of the row table. With --json it is inert (one machine
+	// shape, the plain --json view).
+	summary     bool
 	anchorBlind *string
 	reason      *string
 	actor       *string
@@ -248,6 +259,9 @@ func parseProbesList(a *probesArgs, args []string, r *Runner) error {
 			continue
 		case "--json":
 			a.asJSON = true
+			continue
+		case "--summary":
+			a.summary = true
 			continue
 		}
 		name, val, hasVal := splitFlag(arg)
