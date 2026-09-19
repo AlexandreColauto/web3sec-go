@@ -599,6 +599,47 @@ func TestDriverEmptyAccountsFailClosed(t *testing.T) {
 	}
 }
 
+// TestDriverEmptyAccountsSurfacesCastStderr is R3-1c: the eth_accounts probe
+// used to pipe cast's stderr into /dev/null, so the Morph campaign saw
+// `seq: empty address for anvil:0` with no cause while the real message was
+// an unreachable fork RPC. The probe now records its stderr in seq_err.txt —
+// the same seam every cast call already writes — and the fail-closed branch
+// echoes sanitize_reason() of it.
+func TestDriverEmptyAccountsSurfacesCastStderr(t *testing.T) {
+	t.Parallel()
+	stub := strings.Replace(stubCast,
+		`printf '%s\n' '["0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",`+
+			`"0x70997970c51812dc3a010c7d01b50e0d17dc79c8"]'`,
+		`printf '%s\n' 'MPP HTTP request to http://127.0.0.1:18545 failed' `+
+			`>&2; exit 1`, 1)
+	code, stdout, stderr, _ := driverRun(t, runnerSpec(t), stub, "wd")
+	if code != 1 {
+		t.Fatalf("exit = %d, want 1", code)
+	}
+	for _, want := range []string{"empty address for anvil:0",
+		"MPP HTTP request"} {
+		if !strings.Contains(stdout+stderr, want) {
+			t.Errorf("driver output missing %q:\nstdout %q\nstderr %q",
+				want, stdout, stderr)
+		}
+	}
+	// The PASS path stays byte-clean: the new probe redirect writes a file,
+	// not the console, so a passing run is still exactly the C1 summary line
+	// on stdout and nothing on stderr.
+	code, stdout, stderr, _ = driverRun(t, runnerSpec(t), stubCast, "wd")
+	if code != 0 {
+		t.Fatalf("pass exit = %d: %s", code, stderr)
+	}
+	want := "seq: PASS spec=" + SpecHash(runnerSpec(t)) +
+		" steps=2 overall=pass\n"
+	if stdout != want {
+		t.Errorf("pass stdout = %q, want %q", stdout, want)
+	}
+	if stderr != "" {
+		t.Errorf("pass stderr = %q, want empty", stderr)
+	}
+}
+
 func TestDriverPassEmitsStdoutSummary(t *testing.T) {
 	t.Parallel()
 	// C1 pin: the pass path must print to stdout — mint_repro_evidence

@@ -138,7 +138,8 @@ func actorFragments(spec validation.Value, role string) ([]string, string,
 				`{ echo "seq: cannot resolve anvil:%s" >&2; exit 1; }`,
 				v, n, n),
 			fmt.Sprintf(`[ -n "${%s}" ] || `+
-				`{ echo "seq: empty address for anvil:%s" >&2; exit 1; }`,
+				`{ echo "seq: empty address for anvil:%s `+
+				`(fork rpc: $(sanitize_reason))" >&2; exit 1; }`,
 				v, n),
 		}
 		return setup, fmt.Sprintf(`--from "${%s}" --unlocked`, v), nil
@@ -198,9 +199,11 @@ func BuildCommand(spec validation.Value, workdir string) (string, error) {
 		"SPEC_HASH=" + shlexQuote(SpecHash(spec)),
 		"GENAT=$(date -u +%Y-%m-%dT%H:%M:%SZ)",
 		`STEPS=""; ASSERTS=""; ASSERTFAIL=0; STEPFAIL=0`,
-		// one address per line — anvil_addr selects by line number
+		// one address per line — anvil_addr selects by line number. The
+		// probe's stderr is recorded, never discarded: an unreachable fork
+		// then reports its cause instead of a bare "empty address" (R3-1c).
 		`UNLOCKED=$(cast rpc --rpc-url "$FORK_RPC_URL" eth_accounts ` +
-			`2>/dev/null | grep -o '0x[0-9a-fA-F]\{40\}')`,
+			`2>"$WD/seq_err.txt" | grep -o '0x[0-9a-fA-F]\{40\}')`,
 	}
 	steps := listOf(validation.ObjAt(spec, "steps"))
 	for _, s := range steps {

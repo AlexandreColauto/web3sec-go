@@ -74,9 +74,9 @@ sanitize_field() {
 SPEC_HASH=sha256:08404aaa8d97e978306b7989dcbfeb79bdd6620d5bc98906fd048123030148b1
 GENAT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 STEPS=""; ASSERTS=""; ASSERTFAIL=0; STEPFAIL=0
-UNLOCKED=$(cast rpc --rpc-url "$FORK_RPC_URL" eth_accounts 2>/dev/null | grep -o '0x[0-9a-fA-F]\{40\}')
+UNLOCKED=$(cast rpc --rpc-url "$FORK_RPC_URL" eth_accounts 2>"$WD/seq_err.txt" | grep -o '0x[0-9a-fA-F]\{40\}')
 A_attacker=$(anvil_addr 0) || { echo "seq: cannot resolve anvil:0" >&2; exit 1; }
-[ -n "${A_attacker}" ] || { echo "seq: empty address for anvil:0" >&2; exit 1; }
+[ -n "${A_attacker}" ] || { echo "seq: empty address for anvil:0 (fork rpc: $(sanitize_reason))" >&2; exit 1; }
 out=$(cast send --rpc-url "$FORK_RPC_URL" 0xcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd 'deposit(uint256)' 1000 --from "${A_attacker}" --unlocked 2>"$WD/seq_err.txt")
 rc=$?
 if [ $rc -ne 0 ]; then reason=$(sanitize_reason); echo "seq: step 1 failed (rc=$rc): $reason" >&2; STEPFAIL=1; emit_result fail; exit 1; fi

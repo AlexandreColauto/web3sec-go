@@ -74,9 +74,9 @@ sanitize_field() {
 SPEC_HASH=sha256:fa5974df4c797d7bc16334af8f61c1f55901ec2b5f32cdf57618bfdd8ec02693
 GENAT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 STEPS=""; ASSERTS=""; ASSERTFAIL=0; STEPFAIL=0
-UNLOCKED=$(cast rpc --rpc-url "$FORK_RPC_URL" eth_accounts 2>/dev/null | grep -o '0x[0-9a-fA-F]\{40\}')
+UNLOCKED=$(cast rpc --rpc-url "$FORK_RPC_URL" eth_accounts 2>"$WD/seq_err.txt" | grep -o '0x[0-9a-fA-F]\{40\}')
 A_deployer=$(anvil_addr 007) || { echo "seq: cannot resolve anvil:007" >&2; exit 1; }
-[ -n "${A_deployer}" ] || { echo "seq: empty address for anvil:007" >&2; exit 1; }
+[ -n "${A_deployer}" ] || { echo "seq: empty address for anvil:007 (fork rpc: $(sanitize_reason))" >&2; exit 1; }
 out=$(cast send --rpc-url "$FORK_RPC_URL" 0xcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd 'init(string,uint256)' 'a b' 0x00 'it'"'"'s' '$HOME' '' --from "${A_deployer}" --unlocked 2>"$WD/seq_err.txt")
 rc=$?
 if [ $rc -ne 0 ]; then reason=$(sanitize_reason); echo "seq: step 1 failed (rc=$rc): $reason" >&2; STEPFAIL=1; emit_result fail; exit 1; fi
@@ -89,7 +89,7 @@ tx=$(printf '%s\n' "$out" | grep -oi 'transaction[- ]*hash[: ]*0x[0-9a-fA-F]*' |
 STEPS=$(add_step "{\"step\": 2, \"actor\": \"victim\", \"tx_hash\": \"$tx\", \"status\": \"success\", \"revert_reason\": null}")
 cast rpc --rpc-url "$FORK_RPC_URL" anvil_mine 12 >/dev/null 2>&1 || { echo "seq: anvil_mine before step 3 failed" >&2; exit 1; }
 A_attacker_2=$(anvil_addr 2) || { echo "seq: cannot resolve anvil:2" >&2; exit 1; }
-[ -n "${A_attacker_2}" ] || { echo "seq: empty address for anvil:2" >&2; exit 1; }
+[ -n "${A_attacker_2}" ] || { echo "seq: empty address for anvil:2 (fork rpc: $(sanitize_reason))" >&2; exit 1; }
 out=$(cast send --rpc-url "$FORK_RPC_URL" 0xcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd 'sweep()' --from "${A_attacker_2}" --unlocked 2>"$WD/seq_err.txt")
 rc=$?
 if [ $rc -ne 0 ]; then reason=$(sanitize_reason); echo "seq: step 3 failed (rc=$rc): $reason" >&2; STEPFAIL=1; emit_result fail; exit 1; fi
