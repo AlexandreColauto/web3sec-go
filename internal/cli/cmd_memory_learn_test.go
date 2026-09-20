@@ -33,6 +33,19 @@ func queueMemoryRow(t *testing.T, c *state.Campaign, pattern string) string {
 	return validation.ObjStr(mem, "memory_id")
 }
 
+// queueMemoryStatusRow queues a pending row carrying an explicit finding
+// status — the field the --live-only listing filter reads.
+func queueMemoryStatusRow(t *testing.T, c *state.Campaign, status,
+	pattern string) string {
+	t.Helper()
+	mem, err := learning.QueueMemory(c, learning.QueueOpts{
+		Kind: "disproved", Status: status, Pattern: pattern})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return validation.ObjStr(mem, "memory_id")
+}
+
 // eventTypes lists the campaign's logged event types, in order.
 func eventTypes(t *testing.T, c *state.Campaign) []string {
 	t.Helper()
@@ -277,6 +290,89 @@ func TestMemoryListingShowsRejected(t *testing.T) {
 	if !strings.Contains(out, "promotion=rejected") {
 		t.Errorf("listing does not show the rejection:\n%s", out)
 	}
+}
+
+// memoryListingRows asserts which memory rows a listing printed: every id in
+// want appears, every id in absent does not.
+func memoryListingRows(t *testing.T, out string, want, absent []string) {
+	t.Helper()
+	for _, id := range want {
+		if !strings.Contains(out, id) {
+			t.Errorf("listing must keep %s:\n%s", id, out)
+		}
+	}
+	for _, id := range absent {
+		if strings.Contains(out, id) {
+			t.Errorf("listing must hide %s:\n%s", id, out)
+		}
+	}
+}
+
+// TestMemoryListLiveOnlyHidesClutterRows is §7.5's second half: the listing is
+// the operator's inbox, and a row whose finding status is ingest clutter
+// (DUPLICATE/SUPERSEDED/INFORMATIONAL) is bookkeeping, not a decision. The
+// filter is opt-in and reports how many rows it dropped; OUT_OF_SCOPE stays
+// visible because scope is a judgment the operator re-checks.
+func TestMemoryListLiveOnlyHidesClutterRows(t *testing.T) {
+	root, cid, c := noopCamp(t)
+	live := queueMemoryRow(t, c, "a live disproved pattern")
+	dup := queueMemoryStatusRow(t, c, "DUPLICATE", "twin of an ingested finding")
+	scope := queueMemoryStatusRow(t, c, "OUT_OF_SCOPE", "outside program scope")
+
+	code, out, errS := run(t, "--root", root, "memory", cid)
+	if code != 0 {
+		t.Fatalf("listing exit %d: %s%s", code, out, errS)
+	}
+	memoryListingRows(t, out, []string{live, dup, scope}, nil)
+	if strings.Contains(out, "live-only:") {
+		t.Errorf("default listing must not print the filter footer:\n%s", out)
+	}
+
+	code, out, errS = run(t, "--root", root, "memory", cid, "--list",
+		"--live-only")
+	if code != 0 {
+		t.Fatalf("--list --live-only exit %d: %s%s", code, out, errS)
+	}
+	memoryListingRows(t, out, []string{live, scope}, []string{dup})
+	if !strings.Contains(out, "live-only: 1 rows hidden\n") {
+		t.Errorf("--live-only must report the hidden row count:\n%s", out)
+	}
+}
+
+// memoryViewFlagRefused asserts an action flag refuses a listing-view flag:
+// the operator owes an error, not a silently ignored option.
+func memoryViewFlagRefused(t *testing.T, root, cid, live, flag string) {
+	t.Helper()
+	code, _, errS := run(t, "--root", root, "memory", cid, "--approve", live,
+		flag)
+	if code != 2 || !strings.Contains(errS, flag) {
+		t.Errorf("--approve %s must be refused: exit %d, err %q", flag, code,
+			errS)
+	}
+}
+
+// TestMemoryListViewFlagsAreArgparseChecked pins the two new view flags'
+// grammar: `--live-only` alone names the same listing as `--list --live-only`,
+// and neither may ride along with an action that writes.
+func TestMemoryListViewFlagsAreArgparseChecked(t *testing.T) {
+	root, cid, c := noopCamp(t)
+	live := queueMemoryRow(t, c, "a live disproved pattern")
+
+	code, listed, errS := run(t, "--root", root, "memory", cid, "--list",
+		"--live-only")
+	if code != 0 {
+		t.Fatalf("--list --live-only exit %d: %s%s", code, listed, errS)
+	}
+	code, alone, errS := run(t, "--root", root, "memory", cid, "--live-only")
+	if code != 0 {
+		t.Fatalf("--live-only exit %d: %s%s", code, alone, errS)
+	}
+	if alone != listed {
+		t.Errorf("--live-only and --list --live-only diverge:\n--- %q\n--- %q",
+			alone, listed)
+	}
+	memoryViewFlagRefused(t, root, cid, live, "--live-only")
+	memoryViewFlagRefused(t, root, cid, live, "--list")
 }
 
 // ---- D4: `memory --queue-finding` ------------------------------------------

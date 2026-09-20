@@ -436,7 +436,7 @@ func TestReopeningByRunningAStageMovesThePhase(t *testing.T) {
 
 func TestT31HelpBlocks(t *testing.T) {
 	cases := []struct{ name, want string }{
-		{"brief", `usage: webv2 brief [-h] [--json] [--deep] campaign
+		{"brief", `usage: webv2 brief [-h] [--json] [--deep] [--live-only] campaign
 
 positional arguments:
   campaign
@@ -445,6 +445,7 @@ options:
   -h, --help  show this help message and exit
   --json
   --deep      fold in the full integrity audit
+  --live-only  hide DUPLICATE/SUPERSEDED/INFORMATIONAL rows
 `},
 		{"report", `usage: webv2 report [-h] [--format {md,immunefi}] campaign
 

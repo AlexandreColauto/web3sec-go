@@ -98,3 +98,51 @@ func TestBriefToolFlagsRenderGated(t *testing.T) {
 		}
 	}
 }
+
+// briefMemoryRows asserts which memory-decision rows a brief view printed:
+// every id in want carries a `memory decision:` line, every id in absent
+// does not.
+func briefMemoryRows(t *testing.T, out string, want, absent []string) {
+	t.Helper()
+	for _, id := range want {
+		if !strings.Contains(out, "memory decision: "+id) {
+			t.Errorf("brief must keep %s:\n%s", id, out)
+		}
+	}
+	for _, id := range absent {
+		if strings.Contains(out, "memory decision: "+id) {
+			t.Errorf("brief must hide %s:\n%s", id, out)
+		}
+	}
+}
+
+// TestBriefLiveOnlyHidesClutterRows is the §7.5 cockpit filter: a pending
+// memory row whose finding status is DUPLICATE is ingest bookkeeping, not a
+// decision the operator triages, so --live-only drops it and says how many
+// rows went away. OUT_OF_SCOPE deliberately stays visible (scope is a
+// judgment the operator re-checks), and the default view is byte-unchanged —
+// no footer without the flag.
+func TestBriefLiveOnlyHidesClutterRows(t *testing.T) {
+	root, cid, c := noopCamp(t)
+	live := queueMemoryRow(t, c, "a live disproved pattern")
+	dup := queueMemoryStatusRow(t, c, "DUPLICATE", "twin of an ingested finding")
+	scope := queueMemoryStatusRow(t, c, "OUT_OF_SCOPE", "outside program scope")
+
+	code, out, errS := run(t, "--root", root, "brief", cid)
+	if code != 0 {
+		t.Fatalf("brief exit %d: %s%s", code, out, errS)
+	}
+	briefMemoryRows(t, out, []string{live, dup, scope}, nil)
+	if strings.Contains(out, "live-only:") {
+		t.Errorf("default brief must not print the filter footer:\n%s", out)
+	}
+
+	code, out, errS = run(t, "--root", root, "brief", cid, "--live-only")
+	if code != 0 {
+		t.Fatalf("brief --live-only exit %d: %s%s", code, out, errS)
+	}
+	briefMemoryRows(t, out, []string{live, scope}, []string{dup})
+	if !strings.Contains(out, "live-only: 1 rows hidden\n") {
+		t.Errorf("--live-only must report the hidden row count:\n%s", out)
+	}
+}

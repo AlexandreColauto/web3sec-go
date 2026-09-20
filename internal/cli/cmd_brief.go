@@ -15,9 +15,16 @@ import (
 	"websec/internal/version"
 )
 
-const briefUsage = "usage: webv2 brief [-h] [--json] [--deep] campaign\n"
+// junkStatuses are the ingest-clutter statuses --live-only hides: a
+// DUPLICATE/SUPERSEDED/INFORMATIONAL row is bookkeeping, not a claim the
+// operator triages. OUT_OF_SCOPE stays visible: scope is a judgment the
+// operator re-checks, not clutter.
+var junkStatuses = map[string]bool{"DUPLICATE": true, "SUPERSEDED": true,
+	"INFORMATIONAL": true}
 
-const briefHelp = `usage: webv2 brief [-h] [--json] [--deep] campaign
+const briefUsage = "usage: webv2 brief [-h] [--json] [--deep] [--live-only] campaign\n"
+
+const briefHelp = `usage: webv2 brief [-h] [--json] [--deep] [--live-only] campaign
 
 positional arguments:
   campaign
@@ -26,12 +33,13 @@ options:
   -h, --help  show this help message and exit
   --json
   --deep      fold in the full integrity audit
+  --live-only  hide DUPLICATE/SUPERSEDED/INFORMATIONAL rows
 `
 
 func runBrief(root string, args []string, r *Runner) int {
 	ensureSeams()
 	return t14Dispatch(root, r, func() error {
-		cid, asJSON, deep, help, err := parseBriefArgs(args)
+		cid, asJSON, deep, liveOnly, help, err := parseBriefArgs(args)
 		if err != nil {
 			return err
 		}
@@ -48,11 +56,13 @@ func runBrief(root string, args []string, r *Runner) int {
 			return err
 		}
 		if asJSON {
+			// --live-only is a view filter: the JSON model is the whole
+			// record and stays whole (the text path below does the hiding).
 			fmt.Fprintln(r.Out, validation.DumpIndentedASCII(b))
 			briefFrameworkBuildWarn(c, r)
 			return nil
 		}
-		if err := printBrief(c, b, r); err != nil {
+		if err := printBrief(c, b, r, liveOnly); err != nil {
 			return err
 		}
 		briefFrameworkBuildWarn(c, r)
@@ -116,45 +126,52 @@ func newestSnapshotFrameworkBuild(c *state.Campaign) (string, bool) {
 	return build, true
 }
 
-func parseBriefArgs(args []string) (string, bool, bool, bool, error) {
+func parseBriefArgs(args []string) (string, bool, bool, bool, bool, error) {
 	sp := &argSpec{
 		prog:  "brief",
 		usage: briefUsage,
-		flags: []*boolOpt{{name: "--json"}, {name: "--deep"}},
-		pos:   []*posOpt{{name: "campaign"}},
+		flags: []*boolOpt{{name: "--json"}, {name: "--deep"},
+			{name: "--live-only"}},
+		pos: []*posOpt{{name: "campaign"}},
 	}
 	if err := sp.parse(args); err != nil {
-		return "", false, false, false, err
+		return "", false, false, false, false, err
 	}
 	if sp.helpSeen {
-		return "", false, false, true, nil
+		return "", false, false, false, true, nil
 	}
-	asJSON, deep := false, false
+	asJSON, deep, liveOnly := false, false, false
 	for _, f := range sp.flags {
 		switch f.name {
 		case "--json":
 			asJSON = f.set
 		case "--deep":
 			deep = f.set
+		case "--live-only":
+			liveOnly = f.set
 		}
 	}
-	return sp.pos[0].val, asJSON, deep, false, nil
+	return sp.pos[0].val, asJSON, deep, liveOnly, false, nil
 }
 
 // briefPrinter carries the shared printBrief context — the campaign handle,
 // the brief value, the writer and the resolved active-snapshot fallback — so
 // each section of the cockpit view is its own method with no parameter list
-// to grow.
+// to grow. liveOnly is the --live-only view filter and hidden its tally.
 type briefPrinter struct {
 	c        *state.Campaign
 	b        validation.Value
 	r        *Runner
 	camp     validation.Value
 	snapshot string
+	liveOnly bool
+	hidden   int
 }
 
-func printBrief(c *state.Campaign, b validation.Value, r *Runner) error {
-	p := &briefPrinter{c: c, b: b, r: r, camp: validation.ObjAt(b, "campaign")}
+func printBrief(c *state.Campaign, b validation.Value, r *Runner,
+	liveOnly bool) error {
+	p := &briefPrinter{c: c, b: b, r: r, camp: validation.ObjAt(b, "campaign"),
+		liveOnly: liveOnly}
 	p.briefHeader()
 	p.briefFindingsSummary()
 	p.briefSurfaces()
@@ -167,7 +184,28 @@ func printBrief(c *state.Campaign, b validation.Value, r *Runner) error {
 	p.briefEconomics()
 	p.briefIntegrity()
 	p.briefAttentionNextActions()
-	return nil
+	return p.briefLiveOnlyFooter()
+}
+
+// briefLiveOnlyFooter closes a filtered view with the count of rows the
+// filter removed, so a quiet cockpit cannot be mistaken for a clean one. A
+// default view (or a --live-only view that hid nothing) prints no bytes.
+func (p *briefPrinter) briefLiveOnlyFooter() error {
+	if !p.liveOnly || p.hidden == 0 {
+		return nil
+	}
+	_, err := fmt.Fprintf(p.r.Out, "live-only: %d rows hidden\n", p.hidden)
+	return err
+}
+
+// skipJunkRow reports whether the --live-only view hides a row carrying this
+// finding status, tallying it for the footer. The default view never skips.
+func (p *briefPrinter) skipJunkRow(status string) bool {
+	if !p.liveOnly || !junkStatuses[status] {
+		return false
+	}
+	p.hidden++
+	return true
 }
 
 // briefHeader emits the campaign line and, for a closed campaign, the
@@ -265,6 +303,9 @@ func (p *briefPrinter) briefFindingLines() {
 			strings.Join(t31Strings(validation.ObjAt(ch, "members")), " -> "))
 	}
 	for _, d := range objListAt(fs, "gate_deficits") {
+		if p.skipJunkRow(validation.ObjStr(d, "status")) {
+			continue
+		}
 		fmt.Fprintf(p.r.Out, "  %s [%s %s]: %s\n", validation.ObjStr(d, "finding_id"),
 			validation.ObjStr(d, "status"), validation.ObjStr(d, "level"), validation.ObjStr(d, "deficit"))
 	}
@@ -441,6 +482,9 @@ func (p *briefPrinter) briefStaleArtifacts() {
 // summary line (with drift suffix) and the problems block.
 func (p *briefPrinter) briefMemoryRelationsProblems() {
 	for _, m := range objListAt(p.b, "pending_memory") {
+		if p.skipJunkRow(validation.ObjStr(m, "status")) {
+			continue
+		}
 		fmt.Fprintf(p.r.Out, "  memory decision: %s (%s/%s)\n",
 			validation.ObjStr(m, "memory_id"), validation.ObjStr(m, "kind"), validation.ObjStr(m, "status"))
 	}

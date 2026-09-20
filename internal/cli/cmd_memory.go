@@ -40,11 +40,11 @@ import (
 const memoryUsage = "usage: webv2 memory [-h] [--approve APPROVE] [--by BY] " +
 	"[--reflect TEXT] [--round ROUND] [--reject REJECT] [--reason REASON] " +
 	"[--rejection-class CLASS] [--queue-finding FINDING] [--kind KIND] " +
-	"[--pattern TEXT] campaign\n"
+	"[--pattern TEXT] [--list] [--live-only] campaign\n"
 
 // memoryHelp is argparse's `webv2 memory --help` output plus the D5 and D4
-// flags.
-const memoryHelp = `usage: webv2 memory [-h] [--approve APPROVE] [--by BY] [--reflect TEXT] [--round ROUND] [--reject REJECT] [--reason REASON] [--rejection-class CLASS] [--queue-finding FINDING] [--kind KIND] [--pattern TEXT] campaign
+// flags, and §7.5's listing view flags.
+const memoryHelp = `usage: webv2 memory [-h] [--approve APPROVE] [--by BY] [--reflect TEXT] [--round ROUND] [--reject REJECT] [--reason REASON] [--rejection-class CLASS] [--queue-finding FINDING] [--kind KIND] [--pattern TEXT] [--list] [--live-only] campaign
 
 positional arguments:
   campaign
@@ -64,6 +64,8 @@ options:
   --kind KIND        the memory kind (default: confirmed for CONFIRMED,
                      disproved for DISPROVED)
   --pattern TEXT     the pattern the row records (default: finding title)
+  --list             list the campaign's memory rows (the default view)
+  --live-only        hide DUPLICATE/SUPERSEDED/INFORMATIONAL rows
 `
 
 // memoryBuildSpec builds the argparse spec of `memory`.
@@ -75,7 +77,8 @@ func memoryBuildSpec() *argSpec {
 			{name: "--reflect"}, {name: "--round"}, {name: "--reject"},
 			{name: "--reason"}, {name: "--rejection-class"},
 			{name: "--queue-finding"}, {name: "--kind"}, {name: "--pattern"}},
-		pos: []*posOpt{{name: "campaign"}},
+		flags: []*boolOpt{{name: "--list"}, {name: "--live-only"}},
+		pos:   []*posOpt{{name: "campaign"}},
 	}
 }
 
@@ -126,6 +129,19 @@ func memoryCheckFlags(sp *argSpec) error {
 		return t14ArgparseErr(memoryUsage, "memory",
 			"argument --pattern: only meaningful with --queue-finding")
 	}
+	// §7.5: --list names the listing view explicitly, so it cannot ride along
+	// with an action; --live-only is a property of that view.
+	action := approve != "" || reflect != "" || reject != "" ||
+		queueFinding != ""
+	if sp.flags[0].set && action {
+		return t14ArgparseErr(memoryUsage, "memory",
+			"argument --list: not allowed with --approve, --reflect, "+
+				"--reject or --queue-finding")
+	}
+	if sp.flags[1].set && action {
+		return t14ArgparseErr(memoryUsage, "memory",
+			"argument --live-only: only meaningful with the listing view")
+	}
 	return nil
 }
 
@@ -148,7 +164,10 @@ func memoryRunAction(c *state.Campaign, sp *argSpec, by string, r *Runner) (bool
 }
 
 // memoryList prints the campaign's memory rows (or the empty-store notice).
-func memoryList(c *state.Campaign, r *Runner) error {
+// liveOnly is §7.5's view filter: the ingest-clutter statuses are hidden and
+// tallied in a footer, so an inbox that looks quiet cannot be mistaken for an
+// inbox that is empty.
+func memoryList(c *state.Campaign, r *Runner, liveOnly bool) error {
 	rows, err := learning.AllMemory(c)
 	if err != nil {
 		return err
@@ -160,11 +179,21 @@ func memoryList(c *state.Campaign, r *Runner) error {
 			"<RUNG> --reason '...'\n", c.CampaignID)
 		return nil
 	}
+	hidden := 0
 	for _, m := range rows {
+		if liveOnly && junkStatuses[validation.ObjStr(m, "status")] {
+			hidden++
+			continue
+		}
 		fmt.Fprintf(r.Out, "%s [%s/%s] promotion=%s  %s\n",
 			validation.ObjStr(m, "memory_id"), validation.ObjStr(m, "kind"),
 			validation.ObjStr(m, "status"), validation.ObjStr(m, "promotion_status"),
 			pyHead(validation.ObjStr(m, "pattern"), 80))
+	}
+	if hidden > 0 {
+		if _, err := fmt.Fprintf(r.Out, "live-only: %d rows hidden\n", hidden); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -195,7 +224,7 @@ func runMemory(root string, args []string, r *Runner) int {
 		if handled || err != nil {
 			return err
 		}
-		return memoryList(c, r)
+		return memoryList(c, r, sp.flags[1].set)
 	})
 }
 

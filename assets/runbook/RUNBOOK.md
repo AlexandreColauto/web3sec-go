@@ -1296,6 +1296,7 @@ check re-validates the stored clause — and it is waivable per finding (`waive
 webv2 report <C-xxx>                                   # regenerate the report (a view — surfaces thin coverage instead of hiding it)
 webv2 artifact-reconcile <C-xxx> [--dry]               # re-hash the artifact registry after any external rewrite
 webv2 memory <C-xxx>                                   # list the campaign's learning memory
+webv2 memory <C-xxx> --list --live-only              # the same listing without ingest clutter (DUPLICATE/SUPERSEDED/INFORMATIONAL rows); prints a `live-only: N rows hidden` footer
 webv2 memory <C-xxx> --approve MEM-xxxx --by "your-name"   # record a HUMAN approval (the agent never approves its own memory)
 webv2 memory <C-xxx> --reflect "the fork needed an explicit block number" [--round N]   # append one reflection entry
 webv2 memory <C-xxx> --reject MEM-xxxx --reason "real but unreachable" [--rejection-class not-exploitable]
@@ -1695,7 +1696,7 @@ webv2 verify <C> --scaffold halmos|forge-fuzz|minicertora --invariant INV-xxx   
 webv2 verify <C> --harness-result INV-xxx --exec EXEC-xxx [--kind halmos|forge-fuzz|minicertora]   # map a harness run to its rung: counterexample / PROVEN-BOUNDED / inconclusive (bounded — never an unbounded proof)
 webv2 verify <C> --post-patch F-xxx --exec EXEC-xxx [--snapshot SNAP-xxx]   # regress a finding against a post-patch run: still_reproducible / fixed / indeterminate (fail-open; status never moves; --finding/--verifier/--description are ignored)
 webv2 audit <C> [--json]                                           full integrity audit
-webv2 brief <C> [--json] [--deep]                                  operator cockpit (where it is + decisions waiting; pure view; every next-action line is a copyable `webv2` command — run `webv2 prove <C> --stage <stage>` for the per-item detail a line's `# n missing` counts)
+webv2 brief <C> [--json] [--deep] [--live-only]                    operator cockpit (where it is + decisions waiting; pure view; every next-action line is a copyable `webv2` command — run `webv2 prove <C> --stage <stage>` for the per-item detail a line's `# n missing` counts; --live-only hides DUPLICATE/SUPERSEDED/INFORMATIONAL rows)
 webv2 scorecard <C> [--json] [--no-surface]                        one read-only view: surface, findings, process, eval
 
 webv2 move <C> <finding> TO_STATUS --reason R [--actor A] [--adjacent SIBLING] [--adjacent-clear] [--of FINDING]   # the ONLY status-transition path; --of REQUIRED for DUPLICATE (target exists, != self)
@@ -1759,7 +1760,7 @@ webv2 baseline {add NAME --path P [--source-url U] [--license L] | list | remove
 webv2 publish <C> --actor A [--global] [--disclosure FILE]         publish confirmed knowledge to the shared store (--disclosure: hash+embargo on the record, prose stays local)
 webv2 globalize --actor A [--program KEY]                          mark stored rows scope=global
 webv2 shared [--verify]                                            the shared store, both tiers: view + integrity check
-webv2 memory <C> [--approve MEM-xxx --by NAME | --reflect TEXT [--round N] | --reject MEM-xxx --reason R [--rejection-class C]]   list memory / approve / reflect / reject
+webv2 memory <C> [--approve MEM-xxx --by NAME | --reflect TEXT [--round N] | --reject MEM-xxx --reason R [--rejection-class C]] [--list] [--live-only]   list memory / approve / reflect / reject; --live-only hides DUPLICATE/SUPERSEDED/INFORMATIONAL rows
 webv2 report <C> [--format md|immunefi]                            regenerate the report (a view); --format immunefi writes one intake-shaped file per submission-ready finding (checklist-first, never a blocker)
 
 webv2 ladder <C> {start,show,explore,add,repro,disprove,set-maximal,complete,waive,reopen,report} <F> [RUNG] [AXIS] [--name N] [--description D] [--axes A] [--capital C] [--ratio R] [--removes R] [--note NOTE] [--reason REASON] [--exec EXEC] [--actor ACTOR]
