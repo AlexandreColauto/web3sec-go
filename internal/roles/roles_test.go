@@ -56,8 +56,16 @@ func newCamp(t *testing.T) *state.Campaign {
 
 // seedGlobalMemoryRow is conftest.seed_global_memory_row against an
 // isolated user-global store: one live-verifiable memory row.
+//
+// The isolation is the SEEDER's own contract, not the caller's (roles'
+// morph-era flake: the caller's t.Setenv and this write resolved the store
+// at different moments, so the row landed in the REAL ~/.webv2 store and a
+// concurrent leak test recalled its bytes). t.Setenv is per-test and
+// restored at cleanup — a caller that already pointed the store somewhere
+// simply has it pointed at this temp dir for the duration of its own test.
 func seedGlobalMemoryRow(t *testing.T, memoryID, pattern string) {
 	t.Helper()
+	t.Setenv("WEBV2_GLOBAL_MEMORY_DIR", filepath.Join(t.TempDir(), "gmem"))
 	row := validation.VObj(
 		kv("memory_id", validation.VStr(memoryID)),
 		kv("campaign_id", validation.VStr("ingest:test:case")),

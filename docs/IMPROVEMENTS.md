@@ -1,5 +1,35 @@
 # web3sec-go Improvement Plan — post morph-campaign review
 
+## 2026-09-20 — morph pass-1 framework review: the six ranked gaps closed (plan: docs/superpowers/plans/2026-09-20-morph-pass2-framework-fixes.md)
+
+The ScaBench-morph review (`../morph/FRAMEWORK_REVIEW.md`) scored the run bonus-tier with the
+pass criterion missed at the last inference. Every §7 recommendation landed, in cost order:
+
+- **§7.1 enforcement-timing two-mode check** — `6ba7c919`: the deferred-consequence gate grew a
+  STRUCTURAL trigger. A high-risk row on the L-03 axis owes the interim pricing (`--finding` /
+  `--interim` citing the row's own symbols) whatever its reason says — "asserted downstream" in
+  safety-mode wording no longer closes the row; the lexical triggers remain for other axes.
+- **§7.2 game-clause cross-examination** — `0a6c646e`: `adversarial_game` gained the mandatory
+  fourth field `strongest_attacker` (setter, schema, CLI `--strongest-attacker`, check15, report,
+  remediations), the critic bundle carries a presence-gated `game_audit` block plus a
+  `game_interrogation` task, and the critic prompt hard-rules the proof-valid-variant
+  cross-examination the morph run's wrong `challenge_interplay` needed.
+- **§7.3 local liveness PoC at E4** — `40065417`: `chain-freeze`/`sequencer-halt`/`liveness` join
+  `CLASS_CONFIRM_FLOOR` at E4 — sequential-finalization semantics are decided by a repo's own
+  harness, not by fork reality (this also un-arms `reproduction-tier` for the class).
+- **§7.4 promote-before-close** — `bc3b4969`: the discovery exit refuses while the top-5
+  critic-confirmed POSSIBLE findings have neither an exec-backed repro nor a written
+  deprioritization (`waive <C> promote-before-close --subject F-… --reason …`).
+- **§7.5 ingest idempotency + live view** — `73828339` + `0b204b2f`: payloads digest their
+  semantic shape into `dedup.content_sha`; a re-submitted row is answered with its live twin and a
+  `finding.ingest_idempotent` event instead of minting the next DUPLICATE, and
+  `brief/memory --list --live-only` drops the existing clutter.
+- **§7.6 SUPERSEDED catch-22** — `d03d93be`: the learning proof no longer demands a memory row for
+  a superseded finding — the redirect is the record, and the memory vocabulary never accepted it.
+
+Also fixed on the way: the roles leak-test's global-store flake (the seed helper now owns its
+isolation, matching the comment that always claimed it).
+
 ## 2026-09-17 — both tool guides were a snapshot behind; re-measured against HEAD and corrected
 
 `docs/MINICERTORA_INTEGRATION.md` and `docs/MINIPROVER_INTEGRATION.md` were
