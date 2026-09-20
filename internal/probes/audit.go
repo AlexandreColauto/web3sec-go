@@ -51,13 +51,21 @@ func auditSurface(c *state.Campaign, surface validation.Value) (validation.Value
 	if err == nil {
 		planPtr = &plan
 	}
-	planRows := map[string]string{}
+	// R3-7: the orphan arm also tracks the citing priority's STATUS — a
+	// closed priority (any closedPriority status) has discharged its row
+	// honestly (`answered ... blocked --reason 'row dropped by the surface
+	// rebuild'` is the repair verb for an orphan), and the audit must stop
+	// burning a section over it. The never-emitted arm keeps seeing ALL
+	// priorities: a closed priority still COVERS its live row.
+	type planRowRef struct{ prio, status string }
+	planRows := map[string]planRowRef{}
 	if planPtr != nil {
 		for _, p := range vList(*planPtr, "priorities") {
 			prov := vGet(p, "probe")
 			if prov.Kind == validation.Obj && vStr(prov, "row_id") != "" {
 				// Python: plan_rows[prov["row_id"]] = p.get("id") — last wins.
-				planRows[vStr(prov, "row_id")] = vStr(p, "id")
+				planRows[vStr(prov, "row_id")] = planRowRef{vStr(p, "id"),
+					vStr(p, "status")}
 			}
 		}
 	}
@@ -72,11 +80,15 @@ func auditSurface(c *state.Campaign, surface validation.Value) (validation.Value
 	}
 	if len(planRows) > 0 {
 		for _, rid := range sortedKeys(planRows) {
+			ref := planRows[rid]
 			if _, ok := surfaceSet[rid]; !ok {
+				if _, closed := closedPriority[ref.status]; closed {
+					continue
+				}
 				problems = append(problems, sprintf("plan priority %s cites "+
 					"probe row %s, which the current surface does not carry — "+
 					"the surface was rebuilt without it; re-run `webv2 probes "+
-					"%s run --emit`%s", planRows[rid],
+					"%s run --emit`%s", ref.prio,
 					validation.PyReprStr(rid), c.CampaignID,
 					repairQuotaNote(surface)))
 			}

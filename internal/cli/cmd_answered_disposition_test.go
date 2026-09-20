@@ -980,3 +980,62 @@ func TestAnsweredLinkedFindingWarnsOnStderr(t *testing.T) {
 		}
 	}
 }
+
+// dgSeedOrphanPlan seeds a plan where Q-007 cites a row the CURRENT surface
+// does not carry (the R3-7 shape), plus a surface with one live row.
+func dgSeedOrphanPlan(t *testing.T, root, cid string) {
+	t.Helper()
+	c, err := state.Open(root, cid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dgSeedProbeCampaign(t, root, cid)
+	// Point Q-007 at a row the seeded surface does not carry.
+	pp := filepath.Join(c.ArtifactsDir, "campaign_plan.json")
+	plan, err := validation.ReadJson(pp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	priorities := t14List(plan, "priorities").A
+	for i, pr := range priorities {
+		if validation.ObjStr(pr, "id") != "Q-007" {
+			continue
+		}
+		probe := validation.ObjAt(pr, "probe")
+		probe.O = validation.SetOrAppend(probe.O, "row_id",
+			validation.VStr("deadbeef01"))
+		pr.O = validation.SetOrAppend(pr.O, "probe", probe)
+		pr.O = validation.SetOrAppend(pr.O, "status",
+			validation.VStr("open"))
+		priorities[i] = pr
+	}
+	plan.O = validation.SetOrAppend(plan.O, "priorities",
+		validation.VArr(priorities...))
+	if err := validation.WriteJson(pp, plan, "campaign_plan"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestAnsweredOrphanBlockedDischarges pins R3-7 end to end: blocked is
+// anchor-free and gate-free, so closing an orphan with it lands, and the
+// audit section's orphan flag stands down for the closed priority.
+func TestAnsweredOrphanBlockedDischarges(t *testing.T) {
+	root := mkroot(t)
+	cid := initOne(t, root)
+	t14TestSeed(t, root, cid)
+	dgSeedOrphanPlan(t, root, cid)
+	code, out, errS := run(t, "--root", root, "answered", cid, "Q-007",
+		"blocked", "--reason", "row dropped by the surface rebuild",
+		"--actor", "r3")
+	if code != 0 {
+		t.Fatalf("an orphan blocked closure must land: exit %d %q", code,
+			errS)
+	}
+	if !strings.Contains(out, "Q-007: status -> blocked") {
+		t.Fatalf("stdout = %q", out)
+	}
+	if p := dgStoredPriority(t, root, cid, "Q-007"); validation.ObjStr(p,
+		"status") != "blocked" {
+		t.Fatalf("stored status = %q", validation.ObjStr(p, "status"))
+	}
+}
