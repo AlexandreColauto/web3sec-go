@@ -3,6 +3,13 @@
 // states (empty / partial / complete) plus a waive() replay. Every proof
 // bundle is compared as the exact `json.dumps(..., ensure_ascii=False)`
 // string Python printed — key order, em-dashes, repr() and slices included.
+//
+// morph §7.4 divergence note: the partial scenario's pinned discovery proof
+// carries one entry the Python twin cannot emit — "F-0000000002:
+// critic-confirmed candidate has no exec-backed promotion …". The
+// promote-before-close arm exists only in the Go control plane
+// (proofs.go); that one pin was re-recorded from the Go run, not regenerated
+// from the twin. Every other vector is untouched.
 package completion
 
 import (

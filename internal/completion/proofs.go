@@ -7,6 +7,7 @@ package completion
 import (
 	"fmt"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -211,11 +212,46 @@ func proofCampaignPlanning(c *state.Campaign) (validation.Value, error) {
 var livenessOwedStatuses = append(append([]string{}, OpenStatuses...),
 	confirmedStatuses...)
 
+// promoteTopK is the morph §7.4 window: the K highest-ranked critic-confirmed
+// POSSIBLE findings the campaign must disposition before the discovery exit
+// closes. K=5 because a pass reports a ranked top sheet; below the sheet the
+// queue's own ordering decides what "top" means.
+const promoteTopK = 5
+
+// promoteBandRank orders risk.validated.band worst-first — the display
+// vocabulary validated_risk emits (the same ladder risk.bandRank uses). A
+// finding with no recorded band lands on the informational rung: it is
+// uncalibrated, not urgent.
+//
+// RANKING KEY (morph §7.4): the plan names
+// risk.validated.acceptance_likelihood, a field the Go tree does not carry
+// (rg acceptance_likelihood internal finds only schema prose). The nearest
+// recorded analogue is risk.acceptance_score, but the declared fallback is
+// severity band + created_at + finding_id, so that is what promotionRankKey
+// reads: band descending, created_at descending (newest first), then
+// finding_id ascending. Deterministic and TOTAL — a finding_id is unique per
+// stored finding, so no two candidates ever compare equal.
+var promoteBandRank = map[string]int{
+	"critical": 4, "high": 3, "medium": 2, "low": 1, "informational": 0,
+}
+
+// promotionRankKey is the comparable prefix of the rank: band, then
+// created_at. The finding_id tiebreak rides in the comparator (ascending), so
+// the key never has to encode it.
+func promotionRankKey(f validation.Value) string {
+	band := validation.ObjStr(validation.ObjAt(
+		validation.ObjAt(f, "risk"), "validated"), "band")
+	return fmt.Sprintf("%02d|%s", promoteBandRank[band],
+		validation.ObjStr(f, "created_at"))
+}
+
 // proofDiscovery is _proof_discovery: draining the work queue is necessary,
-// not sufficient — the divergence gate must close too, and a live liveness
+// not sufficient — the divergence gate must close too, a live liveness
 // finding must carry its adversarial_game clause (who profits from the
 // freeze, how, and why the challenge path does not undo it) before the
-// divergence gate closes. The trigger is findings.IsLivenessFinding — the
+// divergence gate closes, and the top-K critic-confirmed POSSIBLE candidates
+// must each carry an exec-backed promotion or a written deprioritization
+// (morph §7.4). The liveness trigger is findings.IsLivenessFinding — the
 // same shared predicate the bounty-gate check15 fires on (a root_cause.class
 // in LivenessClasses, or economic_impact.kind == "liveness", or a granted
 // liveness-terminal capability) — no prose heuristics. It only refuses the
@@ -230,6 +266,12 @@ type proofDiscoveryState struct {
 	divMissing []validation.Value
 	agItems    []proofItem
 	agWaived   map[string]validation.Value
+	// promoteItems is the third arm (morph §7.4): the top-K critic-confirmed
+	// POSSIBLE findings with no promotion evidence, and the waiver map of
+	// their OWN stage — the same two-map pattern the adversarial-game arm
+	// uses, so one written deprioritization clears one candidate.
+	promoteItems  []proofItem
+	promoteWaived map[string]validation.Value
 }
 
 func proofDiscovery(c *state.Campaign) (validation.Value, error) {
@@ -251,6 +293,9 @@ func proofDiscovery(c *state.Campaign) (validation.Value, error) {
 		cid = "<campaign>"
 	}
 	if err := s.proofDiscoveryLiveness(cid); err != nil {
+		return validation.VNull(), err
+	}
+	if err := s.proofDiscoveryPromote(cid); err != nil {
 		return validation.VNull(), err
 	}
 	return s.proofDiscoveryFinish()
@@ -349,16 +394,111 @@ func (s *proofDiscoveryState) proofDiscoveryFinish() (validation.Value, error) {
 	clauseMissing := unwaived(s.agItems, s.agWaived,
 		func(s, m string) string { return s + ": " + m })
 	missing = append(missing, clauseMissing...)
+	promoteMissing := unwaived(s.promoteItems, s.promoteWaived,
+		func(s, m string) string { return s + ": " + m })
+	missing = append(missing, promoteMissing...)
 	note := "work queue drained; divergence gate closed"
 	if s.queueN > 0 {
 		note = fmt.Sprintf("%d queued priorities remain", s.queueN)
 	} else if len(s.divMissing) > 0 {
 		note = "work queue drained but the divergence gate is open"
+	} else if len(promoteMissing) > 0 {
+		// Morph §7.4: the queue is not the whole discovery obligation — the
+		// candidates the sheet ranks highest owe an exec or a written
+		// deprioritization before the divergence era closes.
+		note = "work queue drained — critic-confirmed candidates await " +
+			"promotion or a written deprioritization"
 	} else if len(clauseMissing) > 0 {
 		note = "work queue drained, divergence gate closed — a live liveness " +
 			"finding owes its adversarial_game clause"
 	}
 	return proofResult(len(missing) == 0, missing, note), nil
+}
+
+// proofDiscoveryPromote collects the top-K critic-confirmed POSSIBLE findings
+// with no promotion evidence: no recorded repro attempt and no evidence item
+// carrying an exec_ref. Rank = the validated-risk band when the finding has
+// one (risk.validated.band — see promotionRankKey for why the plan's
+// acceptance_likelihood name is not read), else created_at then finding_id —
+// deterministic, total order, no model in the loop.
+func (s *proofDiscoveryState) proofDiscoveryPromote(cid string) error {
+	possible, err := findingsWith(s.campaign, []string{"POSSIBLE"})
+	if err != nil {
+		return err
+	}
+	promoteWaived, err := waiverMap(s.campaign, "promote-before-close")
+	if err != nil {
+		return err
+	}
+	s.promoteWaived = promoteWaived
+	s.promoteItems = promotionItems(cid, topUnpromoted(possible))
+	return nil
+}
+
+// topUnpromoted is the critic-confirmed, unpromoted POSSIBLE slice, ranked
+// and truncated to the promoteTopK window. Pure: it reads recorded fields and
+// writes nothing.
+func topUnpromoted(possible []validation.Value) []validation.Value {
+	cands := []validation.Value{}
+	for _, f := range possible {
+		ver := orEmpty(validation.ObjAt(f, "verification"))
+		if validation.ObjStr(ver, "critic_verdict") != "confirmed" {
+			continue
+		}
+		if !promoted(f, ver) {
+			cands = append(cands, f)
+		}
+	}
+	sort.SliceStable(cands, func(i, j int) bool {
+		ki, kj := promotionRankKey(cands[i]), promotionRankKey(cands[j])
+		if ki != kj {
+			return ki > kj // higher band, then newer created_at
+		}
+		return validation.ObjStr(cands[i], "finding_id") <
+			validation.ObjStr(cands[j], "finding_id")
+	})
+	if len(cands) > promoteTopK {
+		cands = cands[:promoteTopK]
+	}
+	return cands
+}
+
+// promotionItems is one missing[] row per unpromoted candidate.
+func promotionItems(cid string, cands []validation.Value) []proofItem {
+	items := make([]proofItem, 0, len(cands))
+	for _, f := range cands {
+		fid := validation.ObjStr(f, "finding_id")
+		items = append(items, proofItem{fid, promotionWhat(cid, fid)})
+	}
+	return items
+}
+
+// promotionWhat names both promotion exits with executable commands: the mint
+// that records the exec-backed attempt, and the stage's own waiver — the
+// WRITTEN deprioritization (actor + reason) morph §7.4 asks for.
+func promotionWhat(cid, fid string) string {
+	return "critic-confirmed candidate has no exec-backed promotion — mint " +
+		"the reproduction (webv2 mint " + cid + " " + fid +
+		" --exec E --description D) or record the deprioritization: " +
+		"webv2 waive " + cid + " promote-before-close --subject " +
+		fid + " --reason '<why it is not worth the cycle>'"
+}
+
+// promoted is the acceptance: the SAME evidence arms proofReproduction honors
+// (status reproduced / non-empty attempts), widened with one exec-backed
+// evidence item — a fresh exec IS the promotion.
+func promoted(f, ver validation.Value) bool {
+	repro := orEmpty(validation.ObjAt(ver, "reproduction"))
+	if validation.ObjStr(repro, "status") == "reproduced" ||
+		pyTruthyBigNonEmpty(validation.ObjAt(repro, "attempts")) {
+		return true
+	}
+	for _, e := range listAt(f, "evidence") {
+		if validation.ObjStr(e, "exec_ref") != "" {
+			return true
+		}
+	}
+	return false
 }
 
 // livenessClauseWhat is the missing[] text for one liveness finding without
