@@ -67,3 +67,31 @@ refusal text must be checked against `scripts/golden-run.py` captures
 ## Plan
 
 `docs/superpowers/plans/2026-09-19-morph-r3-fork-ladder-and-record-trust.md`
+
+## Resolution (2026-09-19)
+
+All 14 plan tasks shipped; every wave passed a glm-5.3-flash review gate
+(must_fix empty after fix rounds). The table maps each ranked defect to
+its disposition commits (`docs/superpowers/plans/2026-09-19-morph-r3-fork-ladder-and-record-trust.md`).
+
+| Defect | Task | Shipped in |
+| --- | --- | --- |
+| 1a loopback fork RPC invisible to containers | R3-1a | `c72a2004` (+ rebuild-not-replace tail `0de0b4ad`) |
+| 1b host/container URL confusion in diagnosis | R3-1b | `0a3bd00b` (provider stamp: recorded limitation — pin is free-form JSON) |
+| 1c silent cast stderr on the fork probe | R3-1c | `5ce49411` |
+| 2 bounty policy never reaches the store | R3-2a | `be27db00` |
+| 3 `move` ignores the status's evidence floor | R3-3 | `30130560` (fixture ripple: `64c00e9c`) |
+| 4 assumption status has no operator verb | R3-4 | `06f65f70` |
+| 5 answered closures uncross-checked + anonymous EXEC escape | R3-5 | `8ae29f14` (+ review round `d736cc65`) |
+| 6 reproduction status tracks latest, not best | R3-6 | `b05ec5fa` |
+| 7 closed orphan still burns the audit | R3-7 | `f5c00687` |
+| 8 scope reload rewinds the phase | R3-8 | `be27db00` |
+| 9a amend re-stales the verdict silently | R3-9a | `a6003ffc` |
+| 9c verdict carries no actor | R3-9c | `6ea8e83a` |
+| 9d schema help ↔ taxonomy pointer | R3-9d | `c291f1d0` |
+| 9e audit --deep is a parse error | R3-9e | `c291f1d0` |
+| 9f trust boundary cannot cite its evidence | R3-9f | `aa38ff2c` |
+| 9b / 9g | REFUTED / by design | no code, per the dispositions above |
+
+Review polish: `d736cc65` (wave D), `ad75e352` (wave E). Wave A/B/C gates:
+see the plan's task sections and the review records cited there.
