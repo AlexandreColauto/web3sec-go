@@ -46,6 +46,12 @@ func maOpts(t *testing.T, c validation.Value) AnsweredOpts {
 	if a := validation.ObjAt(kw, "anchor"); a.Kind == validation.Str {
 		o.Anchor = &a.S
 	}
+	// morph §6.1/§7.1: the recorded oracle's anchor_ok case prices the
+	// enforcement-timing row's interim window, the way every high-risk
+	// closure of one now has to.
+	if v := validation.ObjAt(kw, "interim"); v.Kind == validation.Str {
+		o.Interim = &v.S
+	}
 	return o
 }
 

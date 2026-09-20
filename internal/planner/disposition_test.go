@@ -88,6 +88,30 @@ func dgLowRow(t *testing.T) validation.Value {
 	return row
 }
 
+// dgSurfaceOffAxis is the fixture surface with rowID's axis re-tuned away
+// from enforcement-timing (morph §6.1/§7.1). The structural trigger answers
+// BEFORE the lexical FIX-5 triggers, so a test that pins a lexical trigger
+// has to take its row off the axis — the same move dgLowRow makes for
+// tier/gap. Every other row field is kept, so the anchor path still resolves.
+func dgSurfaceOffAxis(t *testing.T, surface *validation.Value, rowID,
+	axis string) *validation.Value {
+	t.Helper()
+	out := deepCopy(t, *surface)
+	found := false
+	for i, r := range listOf(out, "rows") {
+		if validation.ObjStr(r, "row_id") != rowID {
+			continue
+		}
+		found = true
+		r.O = validation.SetOrAppend(r.O, "axis", validation.VStr(axis))
+		listOf(out, "rows")[i] = r
+	}
+	if !found {
+		t.Fatalf("fixture row %s is gone", rowID)
+	}
+	return &out
+}
+
 // probePriorityVal builds one plan priority, optionally closed with a reason
 // and referencing a probe row.
 func probePriorityVal(id, status, reason, rowID string) validation.Value {
@@ -121,10 +145,18 @@ func TestDismissalGateMatrix(t *testing.T) {
 	camp := newCampaign(t, "dg-matrix")
 	plan := deepCopy(t, maPlan(t, "plan_probe_rows.json"))
 	reason := "liveness-only, the owner can revert"
+	// morph §6.1/§7.1: every fixture row sits on the enforcement-timing
+	// axis, so the deferred-consequence gate (which runs BEFORE the
+	// dismissal gate) now demands the interim pricing on every high-risk
+	// closure. The cases below price it, so each one still reaches and
+	// exercises the dismissal rule it is about.
+	interim := "until finalizeBatch asserts prev:state, commitBatch " +
+		"accepts a stale root"
 
 	// (a) no ref, no override: rejected, with the phrases + guidance
 	_, err := MarkAnswered(camp, deepCopy(t, plan), "Q-005", "answered",
-		AnsweredOpts{Reason: &reason, Anchor: strPtr("consumer")})
+		AnsweredOpts{Reason: &reason, Anchor: strPtr("consumer"),
+			Interim: &interim})
 	if err == nil {
 		t.Fatal("bare dismissal on a tier-0 row must be rejected")
 	}
@@ -138,7 +170,8 @@ func TestDismissalGateMatrix(t *testing.T) {
 	// (b) a file#L ref is anchor-shaped, not refutation: still rejected
 	refFile := "Rollup.sol#L45"
 	_, err = MarkAnswered(camp, deepCopy(t, plan), "Q-005", "answered",
-		AnsweredOpts{Reason: &reason, Anchor: strPtr("consumer"), Ref: &refFile})
+		AnsweredOpts{Reason: &reason, Anchor: strPtr("consumer"),
+			Ref: &refFile, Interim: &interim})
 	if err == nil || !strings.Contains(err.Error(), "dismissal vocabulary") {
 		t.Fatalf("file#L ref must not back a dismissal, err = %v", err)
 	}
@@ -168,7 +201,8 @@ func TestDismissalGateMatrix(t *testing.T) {
 		t.Fatal(err)
 	}
 	plan, err = MarkAnswered(camp, deepCopy(t, plan), "Q-005", "answered",
-		AnsweredOpts{Reason: &reason, Anchor: strPtr("consumer"), Ref: &refExec})
+		AnsweredOpts{Reason: &reason, Anchor: strPtr("consumer"), Ref: &refExec,
+			Interim: &interim})
 	if err != nil {
 		t.Fatalf("exec-backed dismissal must pass: %v", err)
 	}
@@ -195,8 +229,13 @@ func TestDismissalGateMatrix(t *testing.T) {
 	}
 	reasonNA := "no economic impact"
 	refInv := "INV-1"
+	// Q-006 is a different surface row (dropMessage / auditDrop), so its
+	// pricing has to cite ITS symbols, not Q-005's.
+	interimNA := "until auditDrop asserts dropped:msg, dropMessage consumes " +
+		"an unverified root"
 	plan, err = MarkAnswered(camp, plan, "Q-006", "not-applicable",
-		AnsweredOpts{Reason: &reasonNA, Anchor: strPtr("consumer"), Ref: &refInv})
+		AnsweredOpts{Reason: &reasonNA, Anchor: strPtr("consumer"), Ref: &refInv,
+			Interim: &interimNA})
 	if err != nil {
 		t.Fatalf("invariant-backed dismissal must pass: %v", err)
 	}
@@ -207,7 +246,8 @@ func TestDismissalGateMatrix(t *testing.T) {
 	// file is not a disposition, it is a hope.
 	vague := "the whole thing looked fine when I traced it"
 	_, err = MarkAnswered(camp, deepCopy(t, plan), "Q-005", "answered",
-		AnsweredOpts{Reason: &vague, Anchor: strPtr("consumer")})
+		AnsweredOpts{Reason: &vague, Anchor: strPtr("consumer"),
+			Interim: &interim})
 	if err == nil || !strings.Contains(err.Error(), "names nothing from the "+
 		"row's own surface entry") {
 		t.Fatalf("uncited prose on a tier-0 row must be rejected, err = %v", err)
@@ -222,7 +262,8 @@ func TestDismissalGateMatrix(t *testing.T) {
 	// the rule is satisfiable by writing the reason properly.
 	cited := "commitBatch re-derives prev:state before consuming it"
 	planCited, err := MarkAnswered(camp, deepCopy(t, plan), "Q-005", "answered",
-		AnsweredOpts{Reason: &cited, Anchor: strPtr("consumer")})
+		AnsweredOpts{Reason: &cited, Anchor: strPtr("consumer"),
+			Interim: &interim})
 	if err != nil {
 		t.Fatalf("a cited reason must pass: %v", err)
 	}
@@ -368,11 +409,17 @@ func TestDismissalOverrideNoticeIsSpecific(t *testing.T) {
 
 	reason := "no economic impact: the invariant refutes the row"
 	ref := "INV-1"
+	// morph §6.1/§7.1: the fixture row sits on the enforcement-timing axis,
+	// so the deferred-consequence gate (which runs BEFORE the dismissal
+	// gate) demands the interim pricing on every high-risk closure; pricing
+	// it here keeps this arm on the notice rule it is about.
+	interim := "until finalizeBatch asserts prev:state, commitBatch " +
+		"accepts a stale root"
 	logged := false
 	_, err := MarkAnswered(camp, deepCopy(t, maPlan(t, "plan_probe_rows.json")),
 		"Q-005", "answered",
 		AnsweredOpts{Reason: &reason, Anchor: strPtr("consumer"), Ref: &ref,
-			OverrideLogged: &logged})
+			Interim: &interim, OverrideLogged: &logged})
 	if err != nil {
 		t.Fatalf("invariant-backed dismissal must pass: %v", err)
 	}
@@ -581,10 +628,15 @@ func TestGhostCitationsAreRefused(t *testing.T) {
 		}
 	}
 	// prose that only looks like an id is left alone (and the reason still has
-	// to cite the row, which it does)
+	// to cite the row, which it does). morph §6.1/§7.1: the enforcement-timing
+	// row also owes the interim pricing, or the deferred gate — which runs
+	// before the citation scan — answers instead of the rule under test.
 	ok := "the F-1 code path and INV-x never converge inside commitBatch"
+	ghostInterim := "until finalizeBatch asserts prev:state, commitBatch " +
+		"consumes an unverified root"
 	if _, err := MarkAnswered(camp, deepCopy(t, plan), pid, "answered",
-		AnsweredOpts{Reason: &ok, Anchor: strPtr("consumer")}); err != nil {
+		AnsweredOpts{Reason: &ok, Anchor: strPtr("consumer"),
+			Interim: &ghostInterim}); err != nil {
 		t.Fatalf("id-shaped prose must not be read as a citation: %v", err)
 	}
 }
@@ -684,8 +736,14 @@ func TestDispositionLintSentinelRowDemandsPasses(t *testing.T) {
 	}
 
 	passes := "any non-zero root; its truth is asserted at finalizeBatch"
+	// morph §6.1/§7.1: the enforcement-timing row owes the interim pricing
+	// too; the sentinel rule under test runs first and is what this arm
+	// exercises.
+	sentInterim := "until finalizeBatch asserts prev:state, commitBatch " +
+		"accepts a stale root"
 	_, _, err = plannerMarkAnsweredForTest(t, camp, rowID, "answered",
-		&AnsweredOpts{Anchor: strPtr("consumer"), PassesValue: &passes})
+		&AnsweredOpts{Anchor: strPtr("consumer"), PassesValue: &passes,
+			Interim: &sentInterim})
 	if err != nil {
 		t.Fatalf("with --passes: %v", err)
 	}
@@ -1037,7 +1095,9 @@ func dcSeedFinding(t *testing.T, camp *state.Campaign, id string) {
 // TestDeferredConsequenceGateMatrix pins the FIX-5 gate: a tier-0 row closed
 // on the asserter anchor must price the interim window — a filed finding or
 // a consequence statement citing the row's own surface entry — while
-// low-risk rows, non-asserter anchors and blocked outcomes never trip it.
+// low-risk rows and blocked outcomes never trip it. Morph §6.1/§7.1 widens
+// the trigger structurally: every fixture row sits on the enforcement-timing
+// axis, so ANY anchor on a high-risk one now owes the pricing too (case (i)).
 func TestDeferredConsequenceGateMatrix(t *testing.T) {
 	t.Setenv("WEBV2_NOW", "2026-09-09T12:00:00.000000+00:00")
 	surface, index := maSurface(t)
@@ -1144,15 +1204,29 @@ func TestDeferredConsequenceGateMatrix(t *testing.T) {
 		t.Fatalf("blocked is not a disposition, err = %v", err)
 	}
 
-	// (i) a non-asserter anchor on the same tier-0 row is unaffected: the
-	// consumer anchor closure with a cited reason passes as before
+	// (i) morph §6.1/§7.1: a non-asserter anchor on the same tier-0 row is no
+	// longer unaffected — the row sits on the enforcement-timing axis, so the
+	// STRUCTURAL trigger refuses the closure whatever the anchor, and its
+	// refusal names the axis, never the asserter anchor the closure did not
+	// use. Pricing the window is what lands the consumer-anchor closure now.
 	surface3, index3 := maSurface(t)
 	withProbes(t, probeEnv{surface: surface3, index: index3})
 	consumerCamp := newCampaign(t, "dc-consumer")
+	_, err = MarkAnswered(consumerCamp, deepCopy(t, maPlan(t,
+		"plan_probe_rows.json")), "Q-005", "answered",
+		AnsweredOpts{Reason: &reason, Anchor: strPtr("consumer")})
+	if err == nil || !strings.Contains(err.Error(), "enforcement-timing") ||
+		strings.Contains(err.Error(), "anchors on asserter") {
+		t.Fatalf("a consumer anchor on the axis must trip the structural "+
+			"trigger, err = %v", err)
+	}
+	consumerInterim := "until finalizeBatch asserts prev:state, commitBatch " +
+		"accepts a stale root"
 	if _, err := MarkAnswered(consumerCamp, deepCopy(t, maPlan(t,
 		"plan_probe_rows.json")), "Q-005", "answered",
-		AnsweredOpts{Reason: &reason, Anchor: strPtr("consumer")}); err != nil {
-		t.Fatalf("consumer anchor is not the trigger, err = %v", err)
+		AnsweredOpts{Reason: &reason, Anchor: strPtr("consumer"),
+			Interim: &consumerInterim}); err != nil {
+		t.Fatalf("a priced consumer-anchor closure must pass: %v", err)
 	}
 }
 
@@ -1443,7 +1517,12 @@ func TestDeferredConsequenceReviewNoSurface(t *testing.T) {
 func TestDeferredConsequenceVocabularyTrigger(t *testing.T) {
 	t.Setenv("WEBV2_NOW", "2026-09-09T12:00:00.000000+00:00")
 	surface, index := maSurface(t)
-	withProbes(t, probeEnv{surface: surface, index: index})
+	// morph §6.1/§7.1: this test pins the LEXICAL FIX-1 trigger (the
+	// failure-consequence vocabulary). The fixture row's own axis is
+	// enforcement-timing, where the structural trigger answers first, so the
+	// row is taken off the axis to keep this arm on the gate it is about.
+	withProbes(t, probeEnv{surface: dgSurfaceOffAxis(t, surface, "81dfad6492",
+		"guard-short-circuit"), index: index})
 	camp := newCampaign(t, "dc-vocab")
 	plan := deepCopy(t, maPlan(t, "plan_probe_rows.json"))
 	tell := "commitBatch consumes prev:state; it stays unfinalizable"
@@ -1520,9 +1599,11 @@ func TestDeferredConsequenceVocabularyTrigger(t *testing.T) {
 	}
 
 	// (f) the override answers the vocabulary refusal: closes with exactly
-	// one probe.dismissal_overridden
+	// one probe.dismissal_overridden (the row is off the axis here too, so
+	// the refusal being answered is the lexical one)
 	surface2, index2 := maSurface(t)
-	withProbes(t, probeEnv{surface: surface2, index: index2})
+	withProbes(t, probeEnv{surface: dgSurfaceOffAxis(t, surface2, "81dfad6492",
+		"guard-short-circuit"), index: index2})
 	overCamp := newCampaign(t, "dc-vocab-override")
 	why := "the operator accepts the interim window in writing for this run"
 	logged := false
@@ -1938,10 +2019,15 @@ func TestSentinelPassesPlausibilityFloor(t *testing.T) {
 	}
 
 	// (b) legal shape 1: the value names a symbol on the row's own surface
-	// entry (the citation muscle)
+	// entry (the citation muscle). morph §6.1/§7.1: the enforcement-timing
+	// row owes the interim pricing as well — the plausibility floor under
+	// test runs first, and pricing keeps this arm on it.
 	cite := "asserted at finalizeBatch"
+	floorInterim := "until finalizeBatch asserts prev:state, commitBatch " +
+		"accepts a stale root"
 	_, _, err := plannerMarkAnsweredForTest(t, camp, rowID, "answered",
-		&AnsweredOpts{Anchor: strPtr("consumer"), PassesValue: &cite})
+		&AnsweredOpts{Anchor: strPtr("consumer"), PassesValue: &cite,
+			Interim: &floorInterim})
 	if err != nil {
 		t.Fatalf("row-citation --passes must pass: %v", err)
 	}
@@ -1956,7 +2042,8 @@ func TestSentinelPassesPlausibilityFloor(t *testing.T) {
 		"0000000000000000000000000000000000000000000000000000000000000001)",
 		"true", `"finalized"`} {
 		_, _, err := plannerMarkAnsweredForTest(t, camp, rowID, "answered",
-			&AnsweredOpts{Anchor: strPtr("consumer"), PassesValue: &literal})
+			&AnsweredOpts{Anchor: strPtr("consumer"), PassesValue: &literal,
+				Interim: &floorInterim})
 		if err != nil {
 			t.Fatalf("literal --passes %q must pass: %v", literal, err)
 		}

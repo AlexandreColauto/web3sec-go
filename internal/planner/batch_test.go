@@ -68,6 +68,11 @@ func TestMarkAnsweredBatchAllValid(t *testing.T) {
 
 	anchor := "consumer"
 	own := "checked by hand, the operator attests Q-002"
+	// morph §6.1/§7.1: the fixture row sits on the enforcement-timing axis,
+	// so this high-risk closure owes the interim pricing; the batch arm under
+	// test is the all-valid happy path, not the deferred gate.
+	batchInterim := "until finalizeBatch asserts prev:state, commitBatch " +
+		"accepts a stale root"
 	got, err := MarkAnsweredBatch(camp, plan, []AnsweredRow{
 		{PriorityID: "Q-001", Outcome: "answered", Opts: AnsweredOpts{}},
 		{PriorityID: "Q-002", Outcome: "answered",
@@ -76,7 +81,8 @@ func TestMarkAnsweredBatchAllValid(t *testing.T) {
 			Opts: AnsweredOpts{
 				Reason: strPtr("checked commitBatch by hand, the " +
 					"equality holds"),
-				Anchor: &anchor,
+				Anchor:  &anchor,
+				Interim: &batchInterim,
 			}},
 	}, "batch review of the queue")
 	if err != nil {
@@ -161,12 +167,19 @@ func TestMarkAnsweredBatchRefusalIsAtomic(t *testing.T) {
 	before := batchPlanFiles(t, camp, plan)
 
 	anchor := "consumer"
+	// morph §6.1/§7.1: the mid row is high-risk AND on the
+	// enforcement-timing axis, so it owes the interim pricing; pricing it
+	// keeps the refusal under test on the dismissal vocabulary the row
+	// carries.
+	batchInterim := "until finalizeBatch asserts prev:state, commitBatch " +
+		"accepts a stale root"
 	_, err := MarkAnsweredBatch(camp, plan, []AnsweredRow{
 		{PriorityID: "Q-001", Outcome: "answered", Opts: AnsweredOpts{}},
 		{PriorityID: "Q-005", Outcome: "answered",
 			Opts: AnsweredOpts{
-				Reason: strPtr("liveness-only, the owner can revert"),
-				Anchor: &anchor,
+				Reason:  strPtr("liveness-only, the owner can revert"),
+				Anchor:  &anchor,
+				Interim: &batchInterim,
 			}},
 		{PriorityID: "Q-002", Outcome: "answered", Opts: AnsweredOpts{}},
 	}, "batch review of the queue")

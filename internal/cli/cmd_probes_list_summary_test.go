@@ -297,11 +297,15 @@ func TestProbesListSummaryAllClearAfterEveryRowIsDispositioned(t *testing.T) {
 		!strings.Contains(out, "10 pending — see") {
 		t.Fatalf("the undrained summary is wrong: %q", out)
 	}
+	// morph §6.1/§7.1: enforcement-timing rows owe the interim pricing now;
+	// the arm exercises the all-clear summary, so each drained row is priced
+	// (citing its own consumer) instead of being refused upstream.
 	for _, row := range t29ObjList(surface, "rows") {
 		p := t29ProbePriority(t, c, validation.ObjStr(row, "row_id"))
 		code, out, errS = run(t, "--root", ws, "answered", t29CID,
 			validation.ObjStr(p, "id"), "answered", "--anchor", "consumer",
 			"--reason", "the batch:index join is anchored elsewhere",
+			"--interim", cliInterimFor(row),
 			"--actor", "pytest")
 		if code != 0 {
 			t.Fatalf("answered exit %d: out=%q err=%q", code, out, errS)

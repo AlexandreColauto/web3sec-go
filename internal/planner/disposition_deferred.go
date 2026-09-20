@@ -35,7 +35,12 @@ import (
 // the failure-consequence vocabulary (the sweep's own table,
 // DeferredConsequenceTokens) demands the same pricing whatever the anchor —
 // a reason that says what happens when the check never runs is the operator
-// describing the deferred window, and describing it is not pricing it. The
+// describing the deferred window, and describing it is not pricing it. Morph
+// pass-2 §6.1/§7.1 adds the STRUCTURAL trigger: both of those are lexical, so
+// the pass-1 miss — the same row closed "Safe" because the truth of the prev
+// state root "is asserted downstream by finalizeBatch" — passed both. A
+// high-risk row on the enforcement-timing axis owes the pricing whatever its
+// reason says; see enforcementTimingAxis. The
 // family escape hatch (--override-dismissal + --override-reason, logged
 // as probe.dismissal_overridden) stays the only way around it.
 //
@@ -50,6 +55,18 @@ import (
 // the row's own consumer does not enforce the check.
 const deferredAnchor = "asserter"
 
+// enforcementTimingAxis is the L-03 surface axis. Morph pass-1 review §6.1:
+// the miss was a high-risk row on THIS axis answered "the check exists, it is
+// asserted downstream" — every fact true, the conclusion gold-inverted. The
+// safety-mode reading ("bad values get caught before corruption") and the
+// liveness-mode reading ("catching it at finalize means the batch committed,
+// its challenge window ran, and finalization reverts forever") are both
+// available from the same lines; the vocabulary triggers let an author pick
+// the safe-sounding one. For enforcement-timing rows the choice is taken away:
+// late enforcement is not protection, it is the freeze primitive, so the
+// pricing (--finding / --interim) is demanded whatever the reason says.
+const enforcementTimingAxis = "enforcement-timing"
+
 // findingRefPattern is the exact shape --finding accepts: one finding id,
 // nothing else. ghostCitation extracts ids from prose; --finding IS the
 // citation, so it must be the id itself.
@@ -59,16 +76,19 @@ var findingRefPattern = regexp.MustCompile(`^F-[0-9a-f]{12}$`)
 // high-risk row must price the interim window — the stage gap between the
 // row's consumer (which runs without the check) and the asserter (which
 // finally applies it). Either a filed finding that records the window, or a
-// consequence statement citing the row's own surface entry. The trigger that
-// got here is passed in (FIX-1): anchorTriggered (the asserter anchor — the
-// closure concedes the check is asserted elsewhere) or the reason's
-// failure-consequence vocabulary (the closure describes the cost of the
-// window it leaves open); the refusal names the trigger it answered. The
-// family escape hatch (--override-dismissal with --override-reason) stays
-// the only way around it — see overrideDeferredConsequence.
+// consequence statement citing the row's own surface entry. The triggers that
+// got here are passed in: anchorTriggered (the asserter anchor — the closure
+// concedes the check is asserted elsewhere), the reason's failure-consequence
+// vocabulary (the closure describes the cost of the window it leaves open),
+// or enforcement (morph §6.1/§7.1 — the row sits on the enforcement-timing
+// axis, where "asserted downstream" is the finding, not the answer, so the
+// pricing is owed whatever the reason says); the refusal names the trigger it
+// answered. The family escape hatch (--override-dismissal with
+// --override-reason) stays the only way around it — see
+// overrideDeferredConsequence.
 func checkDeferredConsequence(campaign *state.Campaign, head string,
 	row validation.Value, opts AnsweredOpts, anchorTriggered bool,
-	tokens []string) error {
+	enforcement bool, tokens []string) error {
 	syms := RowSymbols(row)
 	// (b) first: a filed finding that records the window. A malformed or
 	// ghost --finding is answered AS one — the ghost-citation duty outranks
@@ -135,6 +155,37 @@ func checkDeferredConsequence(campaign *state.Campaign, head string,
 			"the consequence: --finding F-<id> (a filed finding that records the " +
 			"window) or --interim STATEMENT" + symbolsPhrase +
 			" — or override explicitly: --override-dismissal --override-reason R")
+	}
+	// morph §6.1/§7.1: the structural trigger. On the enforcement-timing
+	// axis the row's own shape IS the deferred window — the check exists and
+	// runs at a LATER lifecycle stage than the consumer that acts on the
+	// value — so the pricing is owed whatever the reason's wording. This
+	// branch sits before the vocabulary one: an author who describes the
+	// consequence is owed the same answer as one who does not.
+	if enforcement {
+		where := validation.ObjStr(row, "asserter")
+		if where == "" {
+			where = "a later lifecycle stage"
+		}
+		consumer := validation.ObjStr(row, "consumer")
+		consumerPhrase := ""
+		if consumer != "" {
+			consumerPhrase = ", while " + consumer + " already acts on the value"
+		}
+		symbolsPhrase := ""
+		if len(syms) > 0 {
+			symbolsPhrase = " — a consequence statement citing the row's own " +
+				"surface entry (" + strings.Join(syms, ", ") + ")"
+		}
+		return errValue(head + ": the row sits on the enforcement-timing axis " +
+			"— the check exists, but " + where + " enforces it" + consumerPhrase +
+			". Safety mode is not the whole answer: enumerate the liveness mode — " +
+			"if the downstream assertion is what protects, what is the state of " +
+			"the system when it fires, and who can force the system into that " +
+			"state before it does? Price the consequence: --finding F-<id> " +
+			"(a filed finding that records the window) or --interim STATEMENT" +
+			symbolsPhrase + " — or override explicitly: --override-dismissal " +
+			"--override-reason R")
 	}
 	symbolsPhrase := ""
 	if len(syms) > 0 {
@@ -213,7 +264,10 @@ func checkConsequenceFlags(campaign *state.Campaign, priorityID string,
 // check lives elsewhere (the v1 trigger), and a closure reason that uses the
 // failure-consequence vocabulary ADMITS what the deferred window costs — on
 // a high-risk row, either one demands the pricing (--finding/--interim) or
-// the logged override. The family escape hatch (--override-dismissal) answers
+// the logged override. Morph §6.1/§7.1 widens it once more, structurally: an
+// enforcement-timing row's SHAPE is the deferral (the check runs later than
+// the consumer), so no wording can answer it — the pricing is owed by
+// construction. The family escape hatch (--override-dismissal) answers
 // a refusal here under the dismissal gate's own contract, never as a bare
 // flag: the override carries its justification and is recorded as
 // probe.dismissal_overridden (see overrideDeferredConsequence — which
@@ -262,9 +316,11 @@ func checkDeferredConsequenceRow(campaign *state.Campaign, priorityID,
 	if opts.Reason != nil {
 		tokens = DeferredHits(*opts.Reason)
 	}
-	if !anchorTriggered && len(tokens) == 0 {
-		// neither trigger: the closure neither concedes the deferral nor
-		// describes its cost
+	enforcement := validation.ObjStr(row, "axis") == enforcementTimingAxis
+	if !anchorTriggered && !enforcement && len(tokens) == 0 {
+		// no trigger: the closure neither concedes the deferral, nor
+		// describes its cost, nor sits on the axis whose whole shape is the
+		// deferral
 		return nil
 	}
 	head := "priority " + priorityID + " (probe row " + rowID +
@@ -272,7 +328,7 @@ func checkDeferredConsequenceRow(campaign *state.Campaign, priorityID,
 		", assertion_gap " +
 		strconv.FormatInt(rowInt(row, "assertion_gap"), 10) + ")"
 	err = checkDeferredConsequence(campaign, head, row, opts,
-		anchorTriggered, tokens)
+		anchorTriggered, enforcement, tokens)
 	if err == nil || !opts.OverrideDismissal {
 		return err
 	}

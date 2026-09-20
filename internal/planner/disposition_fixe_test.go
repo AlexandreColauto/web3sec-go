@@ -49,10 +49,15 @@ func TestSentinelPassesQuotedJunkRefused(t *testing.T) {
 	}
 
 	// (b) the honest quoted literal that CONTAINS a junk word stays legal —
-	// the lexicon is whole-value, never a substring scan
+	// the lexicon is whole-value, never a substring scan. morph §6.1/§7.1:
+	// the enforcement-timing row owes the interim pricing too, so it is
+	// priced here and the floor under test stays the only thing deciding.
 	honest := `"3 days of unresolved withdrawals"`
+	fixInterim := "until finalizeBatch asserts prev:state, commitBatch " +
+		"accepts a stale root"
 	_, _, err := plannerMarkAnsweredForTest(t, camp, rowID, "answered",
-		&AnsweredOpts{Anchor: strPtr("consumer"), PassesValue: &honest})
+		&AnsweredOpts{Anchor: strPtr("consumer"), PassesValue: &honest,
+			Interim: &fixInterim})
 	if err != nil {
 		t.Fatalf("honest quoted literal refused: %v", err)
 	}

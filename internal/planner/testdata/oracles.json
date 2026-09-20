@@ -18444,7 +18444,8 @@
     "kw": {
      "reason": "checked by hand: commitBatch re-derives the slots before consuming them",
      "anchor": "consumer",
-     "ref": "Rollup.sol#L45"
+     "ref": "Rollup.sol#L45",
+     "interim": "until finalizeBatch asserts prev:state, commitBatch accepts a stale root"
     },
     "error": null,
     "after": {
@@ -18553,7 +18554,8 @@
        "closed_reason": "checked by hand: commitBatch re-derives the slots before consuming them",
        "closed_ref": "Rollup.sol#L45",
        "closed_at": "2026-09-09T12:00:00.000000+00:00",
-       "closed_by": "cli"
+       "closed_by": "cli",
+       "interim": "until finalizeBatch asserts prev:state, commitBatch accepts a stale root"
       },
       {
        "id": "Q-006",
@@ -18827,6 +18829,7 @@
         "ref": "Rollup.sol#L45",
         "value": "commitBatch"
        },
+       "interim": "until finalizeBatch asserts prev:state, commitBatch accepts a stale root",
        "reason": "checked by hand: commitBatch re-derives the slots before consuming them",
        "ref": "Rollup.sol#L45",
        "status": "answered"

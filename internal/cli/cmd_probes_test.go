@@ -1144,11 +1144,15 @@ func TestLensProbeClosureMessageCarriesTheCounts(t *testing.T) {
 		t.Fatalf("list output missing %q: %q", wantOpen, out)
 	}
 	last := ""
+	// morph §6.1/§7.1: enforcement-timing rows owe the interim pricing now;
+	// the arm exercises the lens-closure message, so each drained row is
+	// priced (citing its own consumer) instead of being refused upstream.
 	for _, row := range t29ObjList(surface, "rows") {
 		p := t29ProbePriority(t, c, validation.ObjStr(row, "row_id"))
 		code, out, errS = run(t, "--root", ws, "answered", t29CID,
 			validation.ObjStr(p, "id"), "answered", "--anchor", "consumer",
 			"--reason", "the batch:index join is anchored elsewhere",
+			"--interim", cliInterimFor(row),
 			"--actor", "pytest")
 		if code != 0 {
 			t.Fatalf("answered exit %d: out=%q err=%q", code, out, errS)
@@ -1211,6 +1215,7 @@ func TestAShrunkenQuotaCannotCloseALensOnItsTail(t *testing.T) {
 		code, out, errS = run(t, "--root", ws, "answered", t29CID,
 			validation.ObjStr(p, "id"), "answered", "--anchor", "consumer",
 			"--reason", "the batch:index join is anchored elsewhere",
+			"--interim", cliInterimFor(row),
 			"--actor", "pytest")
 		if code != 0 {
 			t.Fatalf("answered exit %d: out=%q err=%q", code, out, errS)

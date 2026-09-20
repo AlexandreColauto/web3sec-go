@@ -110,11 +110,16 @@ func TestLinkedFindingNamingNothingFromTheRowWarns(t *testing.T) {
 		t.Fatalf("an empty mechanism must stay silent: %q", notice)
 	}
 
-	// No --finding: nothing to cross-check.
+	// No --finding: nothing to cross-check. morph §6.1/§7.1: with no
+	// --finding to price the window, the enforcement-timing row owes the
+	// --interim instead — this arm is about the notice channel, not the
+	// deferred gate.
 	notice = ""
+	r3Interim := "proveState stores the commitment that auditProof only " +
+		"checks later"
 	if _, err := MarkAnswered(camp, deepCopy(t, plan), "Q-008", "answered",
 		AnsweredOpts{Reason: &reason8, Anchor: strPtr("consumer"),
-			SkipNotice: &notice}); err != nil {
+			Interim: &r3Interim, SkipNotice: &notice}); err != nil {
 		t.Fatal(err)
 	}
 	if notice != "" {
@@ -163,13 +168,18 @@ func TestExecEscapeMustNameItsFinding(t *testing.T) {
 		t.Fatalf("closed_ref = %q, want %q", got, ref)
 	}
 
-	// The record names its own finding: trusted without the flag.
+	// The record names its own finding: trusted without the flag. morph
+	// §6.1/§7.1: the row is on the enforcement-timing axis, so the closure
+	// owes the interim pricing as well — the exec escape under test is the
+	// anchor rule, not the deferred gate.
 	named := "EXEC-1122334455"
 	r3WriteExec(t, camp, named,
 		`{"exec_id":"EXEC-1122334455","finding_id":"F-0123456789ab"}`)
+	execInterim := "auditStakers only runs at finalize, so getActiveStakers " +
+		"serves the stale set until then"
 	if _, err := MarkAnswered(camp, deepCopy(t, plan), "Q-007", "answered",
 		AnsweredOpts{Reason: &reason, Anchor: strPtr("consumer"),
-			Ref: &named}); err != nil {
+			Ref: &named, Interim: &execInterim}); err != nil {
 		t.Fatalf("an exec record that names its finding must pass: %v", err)
 	}
 }

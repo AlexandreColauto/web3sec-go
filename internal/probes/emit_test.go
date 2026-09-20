@@ -224,6 +224,30 @@ func emitIsProbe(p validation.Value) bool {
 	return prov.Kind == validation.Obj && len(prov.O) > 0
 }
 
+// emitInterimFor is the morph §6.1/§7.1 pricing for a fixture row: every row
+// on the enforcement-timing axis owes an interim statement citing its own
+// surface entry, so a test whose subject is some OTHER rule prices the window
+// here and keeps its target. The statement names the row's consumer, which is
+// always one of its symbols.
+func emitInterimFor(t *testing.T, surface validation.Value,
+	rowID string) *string {
+	t.Helper()
+	for _, r := range vObjList(surface, "rows") {
+		if vStr(r, "row_id") != rowID {
+			continue
+		}
+		consumer := vStr(r, "consumer")
+		if consumer == "" {
+			return nil
+		}
+		s := "until the deferred assertion runs, " + consumer +
+			" keeps acting on the unverified value"
+		return &s
+	}
+	t.Fatalf("no surface row %q to price the interim window", rowID)
+	return nil
+}
+
 // emitAnswerProbeRows is _answer_probe_rows.
 func emitAnswerProbeRows(t *testing.T, c *state.Campaign, plan validation.Value,
 	idx *validation.Value) validation.Value {
@@ -263,6 +287,14 @@ func emitAnswerProbeRows(t *testing.T, c *state.Campaign, plan validation.Value,
 			Actor: "pytest"}
 		if hasAnchor {
 			opts.Anchor = &anchor
+		}
+		// morph §6.1/§7.1: every fixture row sits on the enforcement-timing
+		// axis, so each high-risk closure owes the interim pricing; it cites
+		// the row's own consumer (the v3 citation rule).
+		if consumer := vStr(row, "consumer"); consumer != "" {
+			interim := "until the deferred assertion runs, " + consumer +
+				" keeps acting on the unverified value"
+			opts.Interim = &interim
 		}
 		updated, err := planner.MarkAnswered(c, plan, vStr(p, "id"),
 			"answered", opts)
@@ -629,14 +661,19 @@ func TestReemitDoesNotClobberAnsweredUnlessTheShapeChanged(t *testing.T) {
 		t.Fatalf("emit_rows: %v", err)
 	}
 	plan = emitReload(t, c)
-	pid := vStr(emitProbePriority(t, plan, ""), "id")
-	// v3: a tier-0 closure has to quote the row's own code
+	first := emitProbePriority(t, plan, "")
+	pid := vStr(first, "id")
+	// v3: a tier-0 closure has to quote the row's own code. morph
+	// §6.1/§7.1: the enforcement-timing row also owes the interim pricing;
+	// the re-emit rule is what this test exercises.
 	reason := "checked the anchor pair by hand: commitBatch reads the slots it writes"
 	ref := "Rollup.sol#L45"
 	anchor := "consumer"
 	plan, err := planner.MarkAnswered(c, plan, pid, "answered",
 		planner.AnsweredOpts{Reason: &reason, Ref: &ref, Actor: "pytest",
-			Anchor: &anchor})
+			Anchor: &anchor,
+			Interim: emitInterimFor(t, surface, vStr(vGet(first, "probe"),
+				"row_id"))})
 	if err != nil {
 		t.Fatalf("mark_answered: %v", err)
 	}
@@ -1142,13 +1179,15 @@ func TestASiblingGainReopensADispositionedRow(t *testing.T) {
 		t.Errorf("p.probe.shape_sha = %q, want %q", got, want)
 	}
 
-	// losing a sibling is the same class of change: re-disposition, then shrink
+	// losing a sibling is the same class of change: re-disposition, then shrink.
+	// morph §6.1/§7.1: the enforcement-timing row owes the interim pricing too.
 	reason := "re-checked the collapsed site by hand: commitBatch is the consumer"
 	ref := "Rollup.sol#L45"
 	anchor := "consumer"
 	plan, err = planner.MarkAnswered(c, plan, pid, "answered",
 		planner.AnsweredOpts{Reason: &reason, Ref: &ref, Actor: "pytest",
-			Anchor: &anchor})
+			Anchor:  &anchor,
+			Interim: emitInterimFor(t, surface, rid)})
 	if err != nil {
 		t.Fatalf("mark_answered: %v", err)
 	}
@@ -1173,10 +1212,16 @@ func TestADeprioritizedRowDischargesItsAxisButBlockedDoesNot(t *testing.T) {
 	reason := "commitBatch ranks below the target's real attack surface"
 	ref := "Rollup.sol#L45"
 	anchor := "consumer"
+	// morph §6.1/§7.1: `deprioritized` is a disposition, so the
+	// enforcement-timing row owes the interim pricing; the axis-discharge
+	// rule is what this arm exercises.
+	parkedRow := emitPriorityByID(t, plan, parked)
 	var err error
 	plan, err = planner.MarkAnswered(c, plan, parked, "deprioritized",
 		planner.AnsweredOpts{Reason: &reason, Ref: &ref, Actor: "pytest",
-			Anchor: &anchor})
+			Anchor: &anchor,
+			Interim: emitInterimFor(t, surface, vStr(vGet(parkedRow,
+				"probe"), "row_id"))})
 	if err != nil {
 		t.Fatalf("mark_answered (deprioritized): %v", err)
 	}

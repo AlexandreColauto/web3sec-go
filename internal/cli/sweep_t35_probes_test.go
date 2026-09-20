@@ -30,11 +30,15 @@ func TestBriefPrintsTheSurfaceLineAndCountsDispositions(t *testing.T) {
 	if strings.Contains(out, "— stale?") {
 		t.Fatalf("a fresh surface must not read stale:\n%s", out)
 	}
+	// morph §6.1/§7.1: enforcement-timing rows owe the interim pricing now;
+	// the arm exercises the brief's disposition count, so the parked row is
+	// priced instead of being refused upstream.
 	row := t29Row(t, surface, "")
 	pid := validation.ObjStr(t29ProbePriority(t, c, validation.ObjStr(row, "row_id")), "id")
 	code, _, errS = run(t, "--root", ws, "answered", t29CID, pid,
 		"deprioritized", "--anchor", "concept", "--reason",
-		"the batch:index join itself is not the bug")
+		"the batch:index join itself is not the bug",
+		"--interim", cliInterimFor(row))
 	if code != 0 {
 		t.Fatalf("answered exit %d: err=%q", code, errS)
 	}

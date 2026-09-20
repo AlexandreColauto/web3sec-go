@@ -195,6 +195,7 @@ func TestProbesPendingAllDispositionedIsOneLine(t *testing.T) {
 		reason := validation.ObjStr(row, "consumer") + " enforces the check itself"
 		code, _, errS := run(t, "--root", ws, "answered", t29CID, pid,
 			"answered", "--reason", reason, "--anchor", "consumer",
+			"--interim", cliInterimFor(row),
 			"--actor", "op")
 		if code != 0 {
 			t.Fatalf("draining %s (%s) exit %d: %q", rid, pid, code, errS)
@@ -562,10 +563,15 @@ func TestAnsweredRowsReasonAllRefusedForGapThree(t *testing.T) {
 // bootstrap rule: the per-row path keeps working on a tier-0 row, with its own
 // --anchor and a reason citing the row's own code, byte-for-byte.
 func TestAnsweredRowsTierZeroStillWorksOnePerCall(t *testing.T) {
-	ws, _, _ := t30Setup(t)
+	ws, _, surface := t30Setup(t)
+	// morph §6.1/§7.1: the tier-0 row sits on the enforcement-timing axis, so
+	// the per-row path owes the interim pricing; the bootstrap rule is the
+	// gate this arm is about.
+	row := t30Rows(t, surface)[0]
 	code, out, errS := run(t, "--root", ws, "answered", t29CID, "Q-005",
 		"answered", "--reason", "commitBatch enforces the check itself",
-		"--anchor", "consumer", "--actor", "op")
+		"--anchor", "consumer", "--actor", "op",
+		"--interim", cliInterimFor(row))
 	if code != 0 {
 		t.Fatalf("exit %d: %q", code, errS)
 	}

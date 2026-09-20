@@ -148,6 +148,22 @@ func dgStoredPriority(t *testing.T, root, cid, pid string) validation.Value {
 	return validation.VNull()
 }
 
+// morph §6.1/§7.1: every probe fixture row sits on the enforcement-timing
+// axis, so a high-risk closure of one owes the interim pricing — a statement
+// citing the row's own surface entry. These helpers build that pricing, so a
+// test whose subject is a DIFFERENT gate still reaches it instead of being
+// answered by the structural trigger.
+const cliInterim81 = "until finalizeBatch asserts prev:state, commitBatch " +
+	"accepts a stale root"
+
+// cliInterimFor is the same pricing for an arbitrary fixture row: it cites the
+// row's own consumer, which is always one of its symbols.
+func cliInterimFor(row validation.Value) string {
+	return "until the deferred assertion runs, " +
+		validation.ObjStr(row, "consumer") +
+		" keeps acting on the unverified value"
+}
+
 // TestAnsweredCLISentinelPassesFlag: the CLI refuses the closing disposition
 // of a sentinel row without --passes (naming both exits), accepts it with
 // the flag, and the refusal leaves the priority untouched.
@@ -197,7 +213,7 @@ func TestAnsweredCLISentinelPassesFlag(t *testing.T) {
 	passes := "any non-zero root; asserted at finalizeBatch"
 	code, _, errS = run(t, "--root", root, "answered", cid, "Q-005",
 		"answered", "--reason", reason, "--anchor", "consumer",
-		"--passes", passes)
+		"--passes", passes, "--interim", cliInterim81)
 	if code != 0 {
 		t.Fatalf("exit %d: %q", code, errS)
 	}
@@ -230,7 +246,7 @@ func TestAnsweredCLISentinelPassesFlag(t *testing.T) {
 	passes = "0xdeadbeef"
 	code, _, errS = run(t, "--root", root, "answered", cid, "Q-005",
 		"answered", "--reason", reason, "--anchor", "consumer",
-		"--passes", passes)
+		"--passes", passes, "--interim", cliInterim81)
 	if code != 0 {
 		t.Fatalf("literal --passes exit %d: %q", code, errS)
 	}
@@ -253,7 +269,8 @@ func TestAnsweredCLISentinelPassesFlag(t *testing.T) {
 		t.Fatalf("exit %d stderr = %q", code, errS)
 	}
 	code, _, errS = run(t, "--root", root2, "answered", cid2, "Q-005",
-		"answered", "--reason", reason, "--anchor", "consumer")
+		"answered", "--reason", reason, "--anchor", "consumer",
+		"--interim", cliInterim81)
 	if code != 0 {
 		t.Fatalf("row without own_form: exit %d: %q", code, errS)
 	}
@@ -291,7 +308,7 @@ func TestAnsweredDismissalGateRejects(t *testing.T) {
 	dgSeedProbeCampaign(t, root, cid)
 	code, out, errS := run(t, "--root", root, "answered", cid, "Q-005",
 		"answered", "--reason", "liveness-only, the owner can revert",
-		"--anchor", "consumer")
+		"--anchor", "consumer", "--interim", cliInterim81)
 	if code != 2 {
 		t.Fatalf("exit %d: %q", code, errS)
 	}
@@ -330,7 +347,8 @@ func TestAnsweredDismissalGateExecBacked(t *testing.T) {
 	dgWriteExecRecord(t, root, cid, "EXEC-abcdef1234")
 	code, out, errS := run(t, "--root", root, "answered", cid, "Q-005",
 		"answered", "--reason", "liveness-only, the owner can revert",
-		"--anchor", "consumer", "--ref", "EXEC-abcdef1234")
+		"--anchor", "consumer", "--ref", "EXEC-abcdef1234",
+		"--interim", cliInterim81)
 	if code != 0 {
 		t.Fatalf("exit %d: %q", code, errS)
 	}
