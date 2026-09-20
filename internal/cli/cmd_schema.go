@@ -39,6 +39,11 @@ positional arguments:
 options:
   -h, --help        show this help message and exit
   --list            list the known schema names, one per line
+
+bug classes are taxonomy DATA, not a schema: the class table and its
+weights live at assets/taxonomy/class_weights.json (per-class evidence
+floors read from there; see also 'webv2 floors'). No schema name
+resolves them — this is by design, not a gap.
 `
 
 func runSchema(root string, args []string, r *Runner) int {

@@ -26,6 +26,18 @@ func runAudit(root string, args []string, stdout io.Writer) error {
 		case a == "--json":
 			jsonOut = true
 		case strings.HasPrefix(a, "-"):
+			// R3-9e: the deep integrity sweep rides the brief, so the
+			// refusal says so — house law, every refusal names the next
+			// command (the same error class, only the sentence grows).
+			if a == "--deep" {
+				target := "<campaign>"
+				if len(pos) > 0 {
+					target = pos[0]
+				}
+				return usageErrf("unrecognized arguments: --deep — the "+
+					"deep integrity sweep rides the brief: webv2 brief "+
+					"%s --deep", target)
+			}
 			return usageErrf("unrecognized arguments: %s", a)
 		default:
 			pos = append(pos, a)
