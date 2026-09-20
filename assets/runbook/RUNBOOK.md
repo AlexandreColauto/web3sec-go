@@ -902,6 +902,7 @@ webv2 resolve-candidate <C-xxx> F-xxx F-yyy --verdict distinct --note "different
 webv2 ack <C-xxx> [F-xxx]                             # in-code acknowledgements (stub/TODO/known-issue) around the finding
 webv2 rank <C-xxx>                                    # acceptance-ranked table — which of the findings matter
 webv2 verdict <C-xxx> F-xxx --verdict confirmed --reason "no compensating control"
+webv2 assume <C-xxx> F-xxx A1 --status REFUTED --ref EXEC-xxx --actor you   # an assumption moves only on store-resolving evidence
 webv2 recall <C-xxx> --finding F-xxx --mode negative   # recorded graph-memory consult (gate REQUIRES negative/comparative)
 webv2 move <C-xxx> F-xxx POSSIBLE --reason "triage: the mechanism is falsifiable"
 webv2 move <C-xxx> F-xxx CONFIRMED --reason "gates passed"
@@ -916,6 +917,13 @@ clusters, tier-3 near-duplicates are **flagged** for a human/operator verdict
 via `resolve-candidate`. Then the hostile critic reviews POSSIBLE-bound
 candidates (`verdict`) and a negative/comparative graph-memory consult is
 recorded (`recall --mode negative` — the CONFIRMED gate requires it).
+
+A finding's `assumptions` are the claim decomposed into checkable
+propositions; `assume` is how the operator resolves one. The status moves
+only along legal edges (UNKNOWN → SUPPORTED/REFUTED, SUPPORTED ⇄ REFUTED)
+and every `--ref` must resolve against the campaign store — an evidence id
+on this finding, a registered artifact, or an EXEC record — so a status can
+never move on a bare claim; a hallucinated citation is refused, not warned.
 
 A finding filed under the wrong class is corrected with `amend --class`: re-file
 by *true root cause* and attest the match in `--note`; the floor is recomputed
@@ -1669,6 +1677,7 @@ webv2 amend <C> <finding> [--title T] [--class C] [--claim K] [--note N] [--acto
 webv2 supersede <C> <new> --of <old> [--actor A]   # old -> SUPERSEDED; evidence COPIED into new (re_parented_from), old array untouched
 webv2 mint <C> <finding> --exec E --description D [--tier T1|T2|T3|T4] [--type TYPE] [--verify-reruns]   # record+mint evidence (idempotent per exec); --verify-reruns re-runs the PoC 3x (flaky advisories ride the evidence, fail-open)
 webv2 verdict <C> <finding> --verdict V --reason R [--outlook O --outlook-reason R]   hostile-critic verdict
+webv2 assume <C> <finding> A1 --status UNKNOWN|SUPPORTED|REFUTED [--ref R] [--actor A]   # assumption status; every --ref must resolve in the store (evidence id / ART- / EXEC-), and a move off UNKNOWN needs at least one
 webv2 recall <C> --finding F [--mode negative|comparative] [--note N]   # recorded graph-memory consult
 webv2 gate <C> [F-xxx] | webv2 gate --explain <CHECK>              bounty gate / per-finding CONFIRMED dry-run
 webv2 adjudicate <C> [<finding>] [--json] [--verdict V] [--severity S] [--basis B] [--assumption TEXT] [--exec EXEC] [--actor A] [--reason R]   non-gold verdict (moves the adjusted precision)

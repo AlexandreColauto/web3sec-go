@@ -207,6 +207,7 @@ func (r *Runner) run(argv []string) int {
 // rather than an argparse block.
 var verbUsageConstants = map[string]string{
 	"ack":      ackUsage,
+	"assume":   assumeUsage,
 	"exploit":  exploitUsage,
 	"immunize": t21ImmunizeUsage,
 	"move":     moveUsage,
