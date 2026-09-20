@@ -348,6 +348,90 @@ carries `denominator_source` and the same `capabilities_*` lists as the
 report, so a gap count can always be traced to the total it subtracted
 from.
 
+### 5.3 What a run buys the campaign, and when to launch one
+
+§5 is the mechanism. This is the judgement — the host's half, the part no
+artifact can answer: **is this invariant worth a run?**
+
+#### What it buys
+
+Four goods, and in a campaign whose INV ledger is operator attestation they are
+all scarce:
+
+1. **INV coverage: attestation → rung.** An INV row carrying
+   `test_status: untested` and `verification_method: operator-attestation`
+   becomes a machine verdict on `verification.harness`, hash-chained as
+   `harness_run` and re-derived by `audit`. Nothing else in the stack moves an
+   INV row without a human writing the `.mspec` body.
+2. **A second discovery door.** The prover attacks a NEGATIVE claim and, when it
+   fails, returns a bounded witness. `VIOLATED` → `exec` under
+   `docker-networkless` / `fork-runner` → `mint` → E4/E5. One run can refute a
+   CLUSTER of hypotheses that share one storage structure — which is where the
+   economics are, and why the per-run cost has to be weighed against the number
+   of findings the run can move.
+3. **Zero-token wall detection.** `feasibility.json` plus the P1.5 fragment
+   probe cost about a second and **0 tokens**, and answer "can a rule enter this
+   call at all?" before any author is paid.
+4. **Review of our own reasoning.** An independent reviewer model flags rules
+   that cannot fail — the one failure mode a PROVEN verdict cannot detect by
+   itself.
+
+#### When to launch one — all of these must hold
+
+| condition | why |
+|---|---|
+| single-contract **code semantics** | a bounded rule expresses "this state is unreachable"; it cannot express liveness, economics, or cross-chain coordination |
+| entry points **nameable** | measured by the probe, never inferred from the invariant text |
+| **critical/high**, or load-bearing for several findings | the run costs tokens and wall-clock |
+| **compile root stageable** | target + import closure; `forge-artifacts/<C>.sol/` entries are DIRECTORIES and kill the loader |
+| a **different** reviewer model available | otherwise `review_independent: false` and the review is one model's opinion twice |
+
+#### Triaging an INV ledger (the method)
+
+Read each row's statement and ask one question: **is the failure a reachable
+state, or a sequence of events over time?**
+
+- reachable state, one contract, parameters that are values (addresses, uints,
+  `bytes(N)`, structs) → **candidate**;
+- "eventually", "cannot be permanently blocked", "can always advance" →
+  **liveness, structurally unwritable**;
+- "balance >= sum of …", "the pair conserves", "an attacker profits" →
+  **economic / cross-contract**, needs summaries the fragment may not have;
+- "only with a merkle proof against such a root", "EIP-712 over (…)" →
+  **candidate, but verify the primitive is in-fragment** (hashing and
+  `ecrecover` modelling are the usual wall).
+
+Worked example — the Morph campaign's 13-invariant ledger
+(`campaigns/C-392bb7496d/artifacts/protocol_model.json`; as of 2026-09-20 all 13
+rows read `CHECKED_AGAINST_CODE` / `test_status: untested` /
+`verification_method: operator-attestation`):
+
+| verdict | invariants | why |
+|---|---|---|
+| **run first** | INV-008, INV-009, INV-010, INV-013 | single-contract code semantics: relay authorization, slash accounting, claim-once / divide-by-zero, verifier-version immutability |
+| **medium** | INV-012, INV-001 (slice), INV-004 (slice) | nonce-replay is expressible but `ecrecover` modelling is the risk; INV-001's index monotonicity is, its KZG parts are not; INV-004 is cross-domain |
+| **weak** | INV-002, INV-003 | merkle-against-root, and cross-gateway asset conservation over arbitrary ERC20 semantics |
+| **don't** | INV-005, INV-006, INV-007, INV-011 | all four are **LIVENESS** — the probe returns `out-of-fragment` for free |
+
+That table is a READING of the invariant text, not a measurement. The probe is
+the authority and costs about a second and zero tokens — run it before paying
+for authoring.
+
+#### What it does NOT buy
+
+E4/E5 evidence, a PoC, exploitability, chaining, or economic impact. The
+`minicertora` profile is a HOST profile and is **E3-capped**; `CONFIRMED` needs
+E5 (E4 for code-semantics classes). `PROVEN` means "no counterexample within
+bound k". A `proved-bounded` rung strengthens the report; it does not confirm a
+finding.
+
+#### Cost discipline
+
+Both token ceilings are OFF by default. Probe first, then author. The precedent
+is on the same target: the 2026-09-16 run spent 1505 s and 2 254 748 tokens for
+8 properties, 0 attempted, 0 verified — which is why the prover now has an
+aggregate publish floor, and why the cheap probe precedes the expensive loop.
+
 ## 6. Troubleshooting matrix
 
 | symptom | cause | fix |
