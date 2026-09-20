@@ -173,3 +173,52 @@ func TestExecEscapeMustNameItsFinding(t *testing.T) {
 		t.Fatalf("an exec record that names its finding must pass: %v", err)
 	}
 }
+
+// A record that cannot be opened cannot NAME its finding either: the
+// escape refuses it as unattributed (R3-5 review fix 3) — --finding still
+// vouches.
+func TestExecEscapeCorruptRecordIsUnattributed(t *testing.T) {
+	surface, index := maSurface(t)
+	withProbes(t, probeEnv{surface: surface, index: index})
+	camp := newCampaign(t, "r3-exec-corrupt")
+	plan := deepCopy(t, maPlan(t, "plan_probe_rows.json"))
+	reason := "commitBatch guards the entry path; read line by line"
+	ref := "EXEC-fedcba9876"
+	r3WriteExec(t, camp, ref, `{"exec_id":`+"NOT JSON")
+	_, err := MarkAnswered(camp, deepCopy(t, plan), "Q-005", "answered",
+		AnsweredOpts{Reason: &reason, Anchor: strPtr("consumer"), Ref: &ref})
+	if err == nil || !strings.Contains(err.Error(),
+		"must name the finding it ran for (--finding") {
+		t.Fatalf("a corrupt record must read as unattributed, err = %v", err)
+	}
+	fid := "F-0123456789ab"
+	r3WriteFinding(t, camp, fid, "commitBatch re-derives the root", "d")
+	if _, err := MarkAnswered(camp, deepCopy(t, plan), "Q-006", "answered",
+		AnsweredOpts{Reason: &reason, Anchor: strPtr("consumer"), Ref: &ref,
+			Finding: &fid}); err != nil {
+		t.Fatalf("--finding attribution must still land: %v", err)
+	}
+}
+
+// The batch path runs the gate chain twice against ONE notice pointer
+// (dry preflight + apply): the warn must ride stderr exactly once.
+func TestBatchWarnsOncePerClosure(t *testing.T) {
+	surface, index := maSurface(t)
+	withProbes(t, probeEnv{surface: surface, index: index})
+	camp := newCampaign(t, "r3-warn-batch")
+	plan := deepCopy(t, maPlan(t, "plan_probe_rows.json"))
+	reason := "commitBatch guards the entry path; read line by line"
+	off := "F-aaaaaaaaaaaa"
+	r3WriteFinding(t, camp, off,
+		"the Treasury multisig rotates keys quarterly", "unrelated")
+	notice := ""
+	rows := []AnsweredRow{{PriorityID: "Q-005", Outcome: "answered",
+		Opts: AnsweredOpts{Reason: &reason, Anchor: strPtr("consumer"),
+			Finding: &off, SkipNotice: &notice}}}
+	if _, err := MarkAnsweredBatch(camp, plan, rows, ""); err != nil {
+		t.Fatalf("batch closure must land: %v", err)
+	}
+	if n := strings.Count(notice, "notice: priority Q-005"); n != 1 {
+		t.Fatalf("notice lines = %d, want exactly 1:\n%q", n, notice)
+	}
+}

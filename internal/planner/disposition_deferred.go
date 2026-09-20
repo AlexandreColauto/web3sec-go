@@ -327,7 +327,8 @@ func overrideDeferredConsequence(campaign *state.Campaign, priorityID string,
 // malformed or ghost id belongs to the strict gates (they refuse it where
 // they run), an empty mechanism is no signal, a symbol-less row has nothing
 // to match, and a notice already set this run is APPENDED to, never
-// clobbered — two stand-downs in one pass deserve two lines.
+// clobbered — two stand-downs in one pass deserve two lines, and the
+// same line never rides twice (the batch preflight shares the pointer).
 func warnUnrelatedFinding(campaign *state.Campaign, opts AnsweredOpts,
 	priorityID, rowID string, row validation.Value) {
 	if opts.SkipNotice == nil {
@@ -337,11 +338,7 @@ func warnUnrelatedFinding(campaign *state.Campaign, opts AnsweredOpts,
 	if !findingRefPattern.MatchString(ref) {
 		return
 	}
-	raw, err := os.ReadFile(filepath.Join(campaign.FindingsDir, ref+".json"))
-	if err != nil {
-		return
-	}
-	f, err := validation.ParseOrdered(raw)
+	f, err := findings.LoadFinding(campaign, ref)
 	if err != nil {
 		return
 	}
@@ -360,9 +357,14 @@ func warnUnrelatedFinding(campaign *state.Campaign, opts AnsweredOpts,
 		"that row's surface entry (" + strings.Join(syms, ", ") + ") — " +
 		"verify the link before leaning on this closure: webv2 anchors " +
 		campaign.CampaignID + " <symbol>"
-	if *opts.SkipNotice == "" {
-		*opts.SkipNotice = line
-	} else {
-		*opts.SkipNotice += "\n" + line
+	// Idempotent append: the batch path runs the gate chain twice (the
+	// dry preflight and the apply pass share ONE notice pointer), and a
+	// stand-down announced twice is noise, not information.
+	if !strings.Contains(*opts.SkipNotice, line) {
+		if *opts.SkipNotice == "" {
+			*opts.SkipNotice = line
+		} else {
+			*opts.SkipNotice += "\n" + line
+		}
 	}
 }

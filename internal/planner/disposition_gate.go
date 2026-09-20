@@ -32,7 +32,8 @@ func refutationBacked(campaign *state.Campaign, ref string) bool {
 // reads the exec_record.json whose EXISTENCE refutationBacked was checking,
 // so a caller can ask whose finding the run belongs to. Existence is still
 // the acceptance — an unreadable record backs the dismissal but attributes
-// nothing (the caller sees a null record and applies its own law).
+// nothing: resolveAnchor reads a null record as UNATTRIBUTED (refused),
+// never as a pass — a record nobody can open cannot name a finding.
 func refutationRecord(campaign *state.Campaign,
 	ref string) (bool, validation.Value) {
 	if execIDPattern.MatchString(ref) {

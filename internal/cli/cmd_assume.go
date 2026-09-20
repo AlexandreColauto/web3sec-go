@@ -117,7 +117,10 @@ func assumeParseFlags(args []string) (*assumeFlags, error) {
 		case strings.HasPrefix(a, "--actor="):
 			af.actor = strings.TrimPrefix(a, "--actor=")
 		case strings.HasPrefix(a, "-"):
-			return nil, t14Unrecognized(a)
+			// argparse order: the subparser's required arguments are
+			// checked BEFORE the root's unrecognized-arguments (cmd_move
+			// documents the law) — collect, report in assumeRequireArgs.
+			af.unknown = append(af.unknown, assumeUnk{i, a})
 		default:
 			af.pos = append(af.pos, a)
 			af.posIdx = append(af.posIdx, i)

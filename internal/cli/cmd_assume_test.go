@@ -303,3 +303,19 @@ func TestAssumeArgparse(t *testing.T) {
 		"webv2: error: unrecognized arguments: extra\n")
 	t23WantHelp(t, []string{"assume", "--help"}, assumeUsage)
 }
+
+// argparse order (cmd_move's law): the subparser's required arguments are
+// refused BEFORE the root's unrecognized-arguments — `assume --bogus`
+// names what is missing, not what is extra.
+func TestAssumeMissingArgsBeatUnknownFlag(t *testing.T) {
+	root := mkroot(t)
+	code, _, errS := run(t, "--root", root, "assume", "--bogus")
+	if code != 2 {
+		t.Fatalf("exit %d: %q", code, errS)
+	}
+	want := assumeUsage + "webv2 assume: error: the following arguments " +
+		"are required: campaign, finding, assumption_id, --status\n"
+	if errS != want {
+		t.Fatalf("stderr\n%q\nwant\n%q", errS, want)
+	}
+}

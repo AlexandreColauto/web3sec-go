@@ -47,7 +47,9 @@ type AnsweredOpts struct {
 	// had to justify, so an override must be loud at the moment it happens
 	// and durable afterwards (the event is the durable half).
 	OverrideLogged *bool
-	// SkipNotice is an OUT parameter (FIX-3): when a disposition gate stands
+	// SkipNotice is an OUT parameter (FIX-3), possibly MULTI-LINE (R3-5):
+	// gates append their stand-downs and cross-check notices, never
+	// clobber — when a disposition gate stands
 	// down because the priority's probe row no longer resolves against the
 	// current surface (the surface was re-emitted after the closure was
 	// written), it records WHY here instead of skipping silently — the CLI
@@ -397,12 +399,12 @@ func resolveAnchor(campaign *state.Campaign, priorityID string,
 		// it backs the dismissal, while the anchor record above keeps its
 		// own citation of the field the probe covered. Anything else is
 		// still rejected: the disposition has to be falsifiable.
+		claim := "a probe disposition's --ref must be the anchor it " +
+			"claims: got " + validation.PyReprStr(*ref) + ", expected " +
+			validation.PyReprStr(rendered) + " (" + anchor + ")"
 		backed, rec := refutationRecord(campaign, *ref)
 		if !backed {
-			return nil, validation.VNull(), errValue("a probe disposition's " +
-				"--ref must be the anchor it claims: got " +
-				validation.PyReprStr(*ref) + ", expected " +
-				validation.PyReprStr(rendered) + " (" + anchor + ")")
+			return nil, validation.VNull(), errValue(claim)
 		}
 		// R3-5(ii): the escape hatch was a bare existence check, so ANY
 		// exec record could close a row whose anchor it never matched,
@@ -411,16 +413,17 @@ func resolveAnchor(campaign *state.Campaign, priorityID string,
 		// the record's own finding_id. An unattributed escape is refused
 		// in the same sentence the rule lives in; INV refs keep their
 		// registered-invariant provenance and stay untouched.
-		if rec.Kind != validation.Null && execIDPattern.MatchString(*ref) &&
-			opts.Finding == nil &&
-			strings.TrimSpace(validation.ObjStr(rec, "finding_id")) == "" {
-			return nil, validation.VNull(), errValue(
-				"a probe disposition's --ref must be the anchor it claims: got " +
-					validation.PyReprStr(*ref) + ", expected " +
-					validation.PyReprStr(rendered) + " (" + anchor +
-					"); an EXEC that stands in for the anchor must name the " +
-					"finding it ran for (--finding F-<id>), or ride an exec " +
-					"record that records one")
+		if execIDPattern.MatchString(*ref) && opts.Finding == nil &&
+			(rec.Kind == validation.Null || strings.TrimSpace(
+				validation.ObjStr(rec, "finding_id")) == "") {
+			// A record that cannot be parsed cannot NAME its finding
+			// either: unreadable counts as unattributed, never as a
+			// silent pass — the whole point is that no exec closes this
+			// row on someone else's anonymous authority.
+			return nil, validation.VNull(), errValue(claim +
+				"; an EXEC that stands in for the anchor must name the " +
+				"finding it ran for (--finding F-<id>), or ride an exec " +
+				"record that records one")
 		}
 		out = *ref
 	}
