@@ -31,8 +31,13 @@ var OpenStatuses = []string{"HYPOTHESIS", "NEEDS_RESEARCH",
 	"PROVISIONALLY_VALID", "POSSIBLE"}
 
 // TerminalStatuses are the finding statuses the learning proof tracks.
+// SUPERSEDED is deliberately ABSENT (morph pass-1 review §7.6): supersession
+// is a bookkeeping redirect — the successor carries the knowledge, the
+// predecessor has nothing to remember — and the memory store's status
+// vocabulary never accepted it, so demanding a row for it was a catch-22
+// that forced a waiver per retired finding.
 var TerminalStatuses = []string{"CONFIRMED", "DISPROVED", "DUPLICATE",
-	"OUT_OF_SCOPE", "INFORMATIONAL", "CHAIN", "SUPERSEDED"}
+	"OUT_OF_SCOPE", "INFORMATIONAL", "CHAIN"}
 
 // AllAxes is ALL_AXES: the maximal-exploitation variant axes.
 var AllAxes = []string{"capital-minimization", "precondition-removal",
