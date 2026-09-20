@@ -1676,7 +1676,7 @@ webv2 move <C> <finding> TO_STATUS --reason R [--actor A] [--adjacent SIBLING] [
 webv2 amend <C> <finding> [--title T] [--class C] [--claim K] [--note N] [--actor A]   # correct a filed finding (bumps claim_version; status never moves)
 webv2 supersede <C> <new> --of <old> [--actor A]   # old -> SUPERSEDED; evidence COPIED into new (re_parented_from), old array untouched
 webv2 mint <C> <finding> --exec E --description D [--tier T1|T2|T3|T4] [--type TYPE] [--verify-reruns]   # record+mint evidence (idempotent per exec); --verify-reruns re-runs the PoC 3x (flaky advisories ride the evidence, fail-open)
-webv2 verdict <C> <finding> --verdict V --reason R [--outlook O --outlook-reason R]   hostile-critic verdict
+webv2 verdict <C> <finding> --verdict V --reason R [--outlook O --outlook-reason R] [--actor A]   hostile-critic verdict — --actor says WHOSE judgment it is (absent: the model convention)
 webv2 assume <C> <finding> A1 --status UNKNOWN|SUPPORTED|REFUTED [--ref R] [--actor A]   # assumption status; every --ref must resolve in the store (evidence id / ART- / EXEC-), and a move off UNKNOWN needs at least one
 webv2 recall <C> --finding F [--mode negative|comparative] [--note N]   # recorded graph-memory consult
 webv2 gate <C> [F-xxx] | webv2 gate --explain <CHECK>              bounty gate / per-finding CONFIRMED dry-run

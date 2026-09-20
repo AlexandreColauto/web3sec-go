@@ -10,10 +10,21 @@ import (
 	"websec/internal/validation"
 )
 
+// DefaultCriticActor is the writer convention the boundary critic sweep has
+// always carried implicitly (R3-9c): a verdict with no named actor was
+// written by the model. CLI and event share this ONE constant.
+const DefaultCriticActor = "model"
+
 // SetCriticVerdict is set_critic_verdict: record the hostile-critic verdict
-// and its reasoning.
+// and its reasoning. R3-9c: and WHO wrote it — the CONFIRMED gate reads
+// this record, so it must say whose judgment it captures. The actor is
+// variadic rather than a sixth positional because every existing caller IS
+// the model path (the boundary sweep, every test fixture that seeds a
+// verdict to move a gate): a mandatory parameter would have been 30 edits
+// all spelling "model". An absent or blank actor normalizes to
+// DefaultCriticActor on the event — never an anonymous record.
 func SetCriticVerdict(campaign *state.Campaign, findingID, verdict,
-	reasoning string) (validation.Value, error) {
+	reasoning string, actor ...string) (validation.Value, error) {
 	switch verdict {
 	case "pending", "confirmed", "possible", "disproved", "duplicate",
 		"out_of_scope", "informational":
@@ -45,7 +56,13 @@ func SetCriticVerdict(campaign *state.Campaign, findingID, verdict,
 	if err := SaveThenLog(campaign, &finding, func() error {
 		// r17: unwind law (see move) — file+event land together or not
 		// at all.
-		data := validation.VObj(validation.KV{K: "verdict", V: validation.VStr(verdict)})
+		who := DefaultCriticActor
+		if len(actor) > 0 && strings.TrimSpace(actor[0]) != "" {
+			who = strings.TrimSpace(actor[0])
+		}
+		data := validation.VObj(
+			validation.KV{K: "verdict", V: validation.VStr(verdict)},
+			validation.KV{K: "actor", V: validation.VStr(who)})
 		if _, lerr := campaign.Log("finding.critic", &findingID, &data); lerr != nil {
 			return lerr
 		}

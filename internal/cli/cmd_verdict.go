@@ -27,6 +27,7 @@ var triagerOutlooks = findings.TriagerOutlooks()
 type verdictArgs struct {
 	verdict, reason         string
 	outlook, outlookReason  string
+	actor                   string
 	haveVerdict, haveReason bool
 	haveOutlook             bool
 	pos                     []string
@@ -54,6 +55,14 @@ func (v *verdictArgs) parseFlags(args []string, root string, r *Runner) int {
 		case a == "--reason":
 			return r.fail(root, argErrf("verdict",
 				"argument --reason: expected one argument"))
+		case a == "--actor" && i+1 < len(args) && !looksLikeOption(args[i+1]):
+			v.actor = args[i+1]
+			i++
+		case strings.HasPrefix(a, "--actor="):
+			v.actor = strings.TrimPrefix(a, "--actor=")
+		case a == "--actor":
+			return r.fail(root, argErrf("verdict",
+				"argument --actor: expected one argument"))
 		case a == "--outlook" && i+1 < len(args) && !looksLikeOption(args[i+1]):
 			v.outlook, v.haveOutlook = args[i+1], true
 			i++
@@ -124,10 +133,20 @@ func (v *verdictArgs) run(root string, r *Runner) int {
 	if err != nil {
 		return r.withErr(root, func() error { return err })
 	}
-	if _, err := findings.SetCriticVerdict(c, v.pos[1], v.verdict, v.reason); err != nil {
+	// R3-9c: a verdict must say WHO wrote it. Absent --actor keeps the
+	// historic model convention — one constant, both halves (setter and
+	// print) read it, so the line can never claim someone other than who
+	// landed on the event.
+	who := strings.TrimSpace(v.actor)
+	if who == "" {
+		who = findings.DefaultCriticActor
+	}
+	if _, err := findings.SetCriticVerdict(c, v.pos[1], v.verdict, v.reason,
+		who); err != nil {
 		return r.withErr(root, func() error { return err })
 	}
 	fmt.Fprintf(r.Out, "critic verdict on %s: %s\n", v.pos[1], v.verdict)
+	fmt.Fprintf(r.Out, "  actor: %s\n", who)
 	fmt.Fprintf(r.Out, "  reason: %s\n", v.reason)
 	fmt.Fprintln(r.Out, "  (persisted in full at dedup_meta.critic_reasoning)")
 	if v.outlook != "" {
@@ -174,6 +193,6 @@ func quotedList(items []string) string {
 
 func init() {
 	register(command{ord: 45, name: "verdict",
-		line: "verdict <campaign> <finding> --verdict V --reason R [--outlook O --outlook-reason R]",
+		line: "verdict <campaign> <finding> --verdict V --reason R [--outlook O --outlook-reason R] [--actor A]",
 		run:  runVerdict})
 }

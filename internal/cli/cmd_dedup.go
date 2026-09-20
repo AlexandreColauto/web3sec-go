@@ -134,6 +134,7 @@ var argparseUsageBlocks = map[string]string{
 		"                     --reason REASON\n" +
 		"                     [--outlook {likely,uncertain,unlikely} " +
 		"--outlook-reason OUTLOOK_REASON]\n" +
+		"                     [--actor ACTOR]\n" +
 		"                     campaign finding\n",
 	"recall": "usage: webv2 recall [-h] --finding FINDING " +
 		"[--mode {negative,comparative}]\n" +

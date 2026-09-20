@@ -111,3 +111,72 @@ func TestVerdictUnknownFinding(t *testing.T) {
 		t.Fatalf("stderr %q", errS)
 	}
 }
+
+// r3_actor returns the actor on the campaign's single finding.critic event.
+func r3Actor(t *testing.T, root, cid string) string {
+	t.Helper()
+	evts := dgEventsOfType(t, root, cid, "finding.critic")
+	if len(evts) != 1 {
+		t.Fatalf("finding.critic events = %d, want 1", len(evts))
+	}
+	return validation.ObjStr(validation.ObjAt(evts[0], "data"), "actor")
+}
+
+// R3-9c: the record the CONFIRMED gate reads must say who wrote it.
+func TestVerdictRecordsActor(t *testing.T) {
+	c, root := t15Campaign(t, "verdict")
+	cid := c.CampaignID
+	fid := validation.ObjStr(t15Finding(t, c, "an inflation claim", "logic-error"),
+		"finding_id")
+	code, out, errS := run(t, "--root", root, "verdict", cid, fid,
+		"--verdict", "confirmed", "--reason", "no compensating control",
+		"--actor", "op")
+	if code != 0 {
+		t.Fatalf("exit %d: %q", code, errS)
+	}
+	if !strings.Contains(out, "  actor: op\n") {
+		t.Fatalf("stdout missing the actor line: %q", out)
+	}
+	if got := r3Actor(t, root, cid); got != "op" {
+		t.Fatalf("event actor = %q, want op", got)
+	}
+}
+
+// Without --actor the historic default is "model" — the writer convention
+// amend/supersede carry, stated explicitly on the event.
+func TestVerdictDefaultActorIsModel(t *testing.T) {
+	c, root := t15Campaign(t, "verdict")
+	cid := c.CampaignID
+	fid := validation.ObjStr(t15Finding(t, c, "an inflation claim", "logic-error"),
+		"finding_id")
+	code, out, errS := run(t, "--root", root, "verdict", cid, fid,
+		"--verdict", "possible", "--reason", "mechanism plausible, unproven")
+	if code != 0 {
+		t.Fatalf("exit %d: %q", code, errS)
+	}
+	if !strings.Contains(out, "  actor: model\n") {
+		t.Fatalf("stdout missing the default actor: %q", out)
+	}
+	if got := r3Actor(t, root, cid); got != "model" {
+		t.Fatalf("event actor = %q, want model", got)
+	}
+}
+
+// --actor joins the argparse shape: empty value refused, = form accepted.
+func TestVerdictActorArgparse(t *testing.T) {
+	c, root := t15Campaign(t, "verdict")
+	cid := c.CampaignID
+	fid := validation.ObjStr(t15Finding(t, c, "an inflation claim", "logic-error"),
+		"finding_id")
+	code, _, errS := run(t, "--root", root, "verdict", cid, fid,
+		"--verdict", "confirmed", "--reason", "r", "--actor")
+	if code != 2 || !strings.Contains(errS,
+		"argument --actor: expected one argument") {
+		t.Fatalf("bare --actor: exit %d %q", code, errS)
+	}
+	code, out, errS := run(t, "--root", root, "verdict", cid, fid,
+		"--verdict", "confirmed", "--reason", "r", "--actor=op2")
+	if code != 0 || !strings.Contains(out, "  actor: op2") {
+		t.Fatalf("--actor= form: exit %d out %q err %q", code, out, errS)
+	}
+}
