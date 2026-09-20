@@ -342,12 +342,16 @@ func (g *gate) check14() error {
 // finding from being buried as "liveness-only, the owner can revert". The
 // trigger is findings.IsLivenessFinding (class in LivenessClasses, or
 // economic_impact.kind == "liveness", or a granted liveness terminal
-// capability). The clause is DATA on the finding (adversarial_game, three
+// capability). The clause is DATA on the finding (adversarial_game, four
 // fields, each >= 20 chars); the setter enforces on write and this check
 // re-validates the stored value, so a hand-edited field cannot sneak past.
 // Waivable per-finding (stage "adversarial-game", reason required) — a
 // named, recorded decision that the incentive question was answered
 // elsewhere (e.g. in the chain narrative) is legitimate.
+//
+// morph §7.2: the fourth field (strongest_attacker) is what stops a WRONG
+// challenge_interplay from travelling — the run filed "the challenge path
+// DOES undo it" and nothing forced the proof-VALID bad-state variant.
 func (g *gate) check15() error {
 	if !findings.IsLivenessFinding(g.f) {
 		g.add("adversarial-game", "pass", "not a liveness finding", "")
@@ -371,7 +375,7 @@ func (g *gate) check15() error {
 	if len(deficits) == 0 {
 		g.add("adversarial-game", "pass",
 			"incentive clause complete (who_profits / profit_mechanism / "+
-				"challenge_interplay)", "")
+				"challenge_interplay / strongest_attacker)", "")
 		return nil
 	}
 	detail := "liveness finding is missing the adversarial_game clause"

@@ -24,6 +24,11 @@ const (
 	cliAgInter = "the timelock challenge path expires into a no-op once " +
 		"the upgrade queue is blocked, so the freeze cannot be voted " +
 		"away before the challenge window closes"
+	// cliAgAttack (morph §7.2): the strongest attacker variant the interplay
+	// answer must survive — a proof-VALID bad state, not a malformed one.
+	cliAgAttack = "the strongest variant is a proof-valid bad batch: the " +
+		"operator posts a fake prev root and proves a valid transition " +
+		"FROM it, so the challenge verifies and the freeze survives"
 )
 
 func TestAdversarialGameRecordsAndPrints(t *testing.T) {
@@ -33,7 +38,8 @@ func TestAdversarialGameRecordsAndPrints(t *testing.T) {
 	code, out, errS := run(t, "--root", root, "adversarial-game",
 		c.CampaignID, fid,
 		"--who-profit", cliAgWho, "--mechanism", cliAgMech,
-		"--interplay", cliAgInter)
+		"--interplay", cliAgInter,
+		"--strongest-attacker", cliAgAttack)
 	if code != 0 {
 		t.Fatalf("exit %d, want 0: %q\n%s", code, errS, out)
 	}
@@ -50,7 +56,8 @@ func TestAdversarialGameRecordsAndPrints(t *testing.T) {
 	ag := validation.ObjAt(stored, "adversarial_game")
 	if validation.ObjStr(ag, "who_profits") != cliAgWho ||
 		validation.ObjStr(ag, "profit_mechanism") != cliAgMech ||
-		validation.ObjStr(ag, "challenge_interplay") != cliAgInter {
+		validation.ObjStr(ag, "challenge_interplay") != cliAgInter ||
+		validation.ObjStr(ag, "strongest_attacker") != cliAgAttack {
 		t.Errorf("persisted clause = %s", validation.CanonSpaced(ag))
 	}
 	events, err := c.Events()
@@ -71,7 +78,8 @@ func TestAdversarialGameEqualsForm(t *testing.T) {
 	code, out, errS := run(t, "--root", root, "adversarial-game",
 		c.CampaignID, fid,
 		"--who-profit="+cliAgWho, "--mechanism="+cliAgMech,
-		"--interplay="+cliAgInter)
+		"--interplay="+cliAgInter,
+		"--strongest-attacker="+cliAgAttack)
 	if code != 0 {
 		t.Fatalf("exit %d, want 0: %q\n%s", code, errS, out)
 	}
@@ -89,7 +97,8 @@ func TestAdversarialGameShortFieldExitsTwo(t *testing.T) {
 	code, out, errS := run(t, "--root", root, "adversarial-game",
 		c.CampaignID, fid,
 		"--who-profit", cliAgWho, "--mechanism", "short",
-		"--interplay", cliAgInter)
+		"--interplay", cliAgInter,
+		"--strongest-attacker", cliAgAttack)
 	if code != 2 {
 		t.Fatalf("exit %d, want 2: %q\n%s", code, errS, out)
 	}
@@ -106,6 +115,24 @@ func TestAdversarialGameShortFieldExitsTwo(t *testing.T) {
 	if validation.ObjAt(stored, "adversarial_game").Kind != validation.Null {
 		t.Error("a rejected clause must not persist")
 	}
+
+	// the fourth arm has its own floor (morph §7.2): a strongest_attacker
+	// stub is refused exactly like the other three.
+	c2, root2 := t15Campaign(t, "adversarial-game-short-attacker")
+	f2 := t15Finding(t, c2, "a sequencer-halt hypothesis", "sequencer-halt")
+	fid2 := validation.ObjStr(f2, "finding_id")
+	code, out, errS = run(t, "--root", root2, "adversarial-game",
+		c2.CampaignID, fid2,
+		"--who-profit", cliAgWho, "--mechanism", cliAgMech,
+		"--interplay", cliAgInter, "--strongest-attacker", "short")
+	if code != 2 {
+		t.Fatalf("exit %d, want 2: %q\n%s", code, errS, out)
+	}
+	if !strings.Contains(errS,
+		"adversarial_game.strongest_attacker must be >= 20 characters "+
+			"(have 5)") {
+		t.Fatalf("stderr %q", errS)
+	}
 }
 
 // TestAdversarialGameArgparseFailures: the required flags and positionals
@@ -115,7 +142,7 @@ func TestAdversarialGameArgparseFailures(t *testing.T) {
 	f := t15Finding(t, c, "a chain-freeze hypothesis", "chain-freeze")
 	fid := validation.ObjStr(f, "finding_id")
 
-	// all three flags missing
+	// all four flags missing
 	code, out, errS := run(t, "--root", root, "adversarial-game",
 		c.CampaignID, fid)
 	if code != 2 {
@@ -123,7 +150,7 @@ func TestAdversarialGameArgparseFailures(t *testing.T) {
 	}
 	if !strings.Contains(errS,
 		"the following arguments are required: --who-profit, "+
-			"--mechanism, --interplay") {
+			"--mechanism, --interplay, --strongest-attacker") {
 		t.Fatalf("stderr %q", errS)
 	}
 	if !strings.Contains(errS, "usage: webv2 adversarial-game") {
@@ -133,7 +160,8 @@ func TestAdversarialGameArgparseFailures(t *testing.T) {
 	// one flag missing: only it is listed
 	code, out, errS = run(t, "--root", root, "adversarial-game",
 		c.CampaignID, fid, "--who-profit", cliAgWho,
-		"--interplay", cliAgInter)
+		"--interplay", cliAgInter,
+		"--strongest-attacker", cliAgAttack)
 	if code != 2 {
 		t.Fatalf("exit %d, want 2: %q\n%s", code, errS, out)
 	}
@@ -145,7 +173,8 @@ func TestAdversarialGameArgparseFailures(t *testing.T) {
 	// the finding positional missing: campaign, finding order
 	code, out, errS = run(t, "--root", root, "adversarial-game",
 		"--who-profit", cliAgWho, "--mechanism", cliAgMech,
-		"--interplay", cliAgInter)
+		"--interplay", cliAgInter,
+		"--strongest-attacker", cliAgAttack)
 	if code != 2 {
 		t.Fatalf("exit %d, want 2: %q\n%s", code, errS, out)
 	}
@@ -165,11 +194,25 @@ func TestAdversarialGameArgparseFailures(t *testing.T) {
 		t.Fatalf("dangling-flag stderr %q", errS)
 	}
 
+	// dangling --strongest-attacker (morph §7.2: the new arm mirrors
+	// --interplay's bare/= /missing-value cases)
+	code, out, errS = run(t, "--root", root, "adversarial-game",
+		c.CampaignID, fid, "--who-profit", cliAgWho, "--mechanism", cliAgMech,
+		"--interplay", cliAgInter, "--strongest-attacker")
+	if code != 2 {
+		t.Fatalf("exit %d, want 2: %q\n%s", code, errS, out)
+	}
+	if !strings.Contains(errS,
+		"argument --strongest-attacker: expected one argument") {
+		t.Fatalf("dangling-strongest stderr %q", errS)
+	}
+
 	// overflow positional: unrecognized (root-parser message)
 	code, out, errS = run(t, "--root", root, "adversarial-game",
 		c.CampaignID, fid, "extra",
 		"--who-profit", cliAgWho, "--mechanism", cliAgMech,
-		"--interplay", cliAgInter)
+		"--interplay", cliAgInter,
+		"--strongest-attacker", cliAgAttack)
 	if code != 2 {
 		t.Fatalf("exit %d, want 2: %q\n%s", code, errS, out)
 	}
@@ -185,7 +228,8 @@ func TestAdversarialGameUnknownFinding(t *testing.T) {
 	code, out, errS := run(t, "--root", root, "adversarial-game",
 		c.CampaignID, "F-nope",
 		"--who-profit", cliAgWho, "--mechanism", cliAgMech,
-		"--interplay", cliAgInter)
+		"--interplay", cliAgInter,
+		"--strongest-attacker", cliAgAttack)
 	if code != 1 {
 		t.Fatalf("exit %d, want 1: %q\n%s", code, errS, out)
 	}

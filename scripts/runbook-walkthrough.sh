@@ -513,7 +513,8 @@ check adversarial-game ok "adversarial-game clause recorded" §8 -- "$WEBV2" --r
   "$CID" "$FID" \
   --who-profit "the operator who reopened the withdrawals window" \
   --mechanism "sealing a stale state root lets them collect exit fees" \
-  --interplay "the challenge path cannot unseal the batch once it is final"
+  --interplay "the challenge path cannot unseal the batch once it is final" \
+  --strongest-attacker "a proof-valid fake-root batch still wins the challenge"
 check doctor ok "state:" §0 -- "$WEBV2" --root . doctor "$CID"
 check doctor-json ok '"' §0 -- "$WEBV2" --root . doctor "$CID" --json
 check env-doctor 0or1 "docker:" §0 -- "$WEBV2" --root . env doctor

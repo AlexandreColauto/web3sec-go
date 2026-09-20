@@ -376,7 +376,9 @@ func livenessClauseWhat(cid, fid string, deficits []string) string {
 	}
 	cmd := "webv2 adversarial-game " + cid + " " + fid +
 		" --who-profit 'who profits from the freeze' --mechanism 'how the " +
-		"profit works' --interplay 'why the challenge path does not undo it'"
+		"profit works' --interplay 'why the challenge path does not undo it'" +
+		" --strongest-attacker 'does a proof-valid bad batch still win the " +
+		"challenge?'"
 	waive := "webv2 waive " + cid + " adversarial-game --subject " + fid +
 		" --reason '...' if the incentive argument lives elsewhere, e.g. the " +
 		"chain narrative"

@@ -1,7 +1,8 @@
 // adversarial.go: the adversarial-game clause (IMPROVEMENTS B2). A liveness
 // finding is not "the protocol can be frozen" — it is "the protocol can be
 // frozen, and the freeze PAYS SOMEONE". The clause forces that answer into
-// the record (who_profits, profit_mechanism, challenge_interplay) so a
+// the record (who_profits, profit_mechanism, challenge_interplay,
+// strongest_attacker) so a
 // freeze finding can no longer be buried with "liveness-only, the owner can
 // revert" without first naming the incentive. The setter records the clause
 // as DATA on the finding and logs one finding.adversarial_game_set event;
@@ -22,9 +23,15 @@ import (
 const AdversarialGameFieldMin = 20
 
 // AdversarialGameFields is the clause's field order (schema, setter, gate,
-// report all walk it).
+// report all walk it). strongest_attacker was added after morph pass 1
+// (review §6.2): the run filed a WRONG challenge_interplay ("the challenge
+// path DOES undo it") and nothing forced the question the gold finding turns
+// on — does the interplay claim hold against the strongest attacker variant,
+// the one whose bad state transition is itself proof-VALID (a fake-root
+// batch that WINS its challenge)? A claim true only of proof-invalid batches
+// is not an interplay argument; it is the bug.
 var AdversarialGameFields = []string{"who_profits", "profit_mechanism",
-	"challenge_interplay"}
+	"challenge_interplay", "strongest_attacker"}
 
 // LivenessClasses is the liveness bug-class set: a finding whose
 // root_cause.class is one of these owes the clause. (The gate additionally
@@ -108,18 +115,21 @@ func AdversarialGameDeficits(f validation.Value) []string {
 // for a liveness finding. Every field is mandatory and must reach
 // AdversarialGameFieldMin runes (InputError → the CLI exits 2).
 func SetAdversarialGame(campaign *state.Campaign, findingID string,
-	whoProfits, profitMechanism, challengeInterplay string) (validation.Value, error) {
+	whoProfits, profitMechanism, challengeInterplay,
+	strongestAttacker string) (validation.Value, error) {
 	fields := map[string]string{
 		"who_profits":         whoProfits,
 		"profit_mechanism":    profitMechanism,
 		"challenge_interplay": challengeInterplay,
+		"strongest_attacker":  strongestAttacker,
 	}
 	for _, key := range AdversarialGameFields {
 		if n := len([]rune(fields[key])); n < AdversarialGameFieldMin {
 			return validation.VNull(), &InputError{Msg: fmt.Sprintf(
 				"adversarial_game.%s must be >= %d characters (have %d) "+
-					"— say who profits, how the profit works, and why the "+
-					"challenge path does not undo it", key,
+					"— say who profits, how the profit works, why the "+
+					"challenge path does not undo it, and whether that "+
+					"answer survives a proof-valid bad state", key,
 				AdversarialGameFieldMin, n)}
 		}
 	}

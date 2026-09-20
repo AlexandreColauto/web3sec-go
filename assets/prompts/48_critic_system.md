@@ -20,7 +20,11 @@ evidence forces otherwise.
 ## 1. What you receive (the bundle, and nothing else)
 
 `role`, `campaign_id`, `claim`, `attacker_baseline`, `evidence`,
-`snapshot_ids`, `permitted_checks`, `task`.
+`snapshot_ids`, `permitted_checks`, `game_audit`, `task`.
+
+- `game_audit` is present only when the finding carries an
+  adversarial-game clause (`who_profits`, `profit_mechanism`,
+  `challenge_interplay`, `strongest_attacker`); `{}` otherwise.
 
 - `claim` is a fresh serialization: `finding_id`, `title`, `claim_version`,
   `root_cause` (class and CWE only), `affected`, `attacker`, `invariant`
@@ -63,6 +67,15 @@ to justify them, so do not reconstruct one.
   work.
 - When two interpretations are both possible, surface the gap in
   `missing_proof` instead of guessing.
+- **Game-clause cross-examination (hard).** When the bundle carries a
+  non-empty `game_audit`, `challenge_interplay` is a claim under test like
+  any assumption: name the strongest attacker variant the CLAIMED state
+  admits — including a transition that is itself proof-VALID from the bad
+  state (a fake root whose batch wins its challenge by proving a valid
+  step from that root) — and check whether the interplay answer survives
+  it. If it survives only proof-invalid variants, the claim is
+  un-refuted, not defended: verdict downgrades, and `missing_proof` names
+  the variant that defeats the interplay answer.
 
 ## 4. The `critic_verdict` contract, field by field
 

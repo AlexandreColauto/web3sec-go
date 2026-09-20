@@ -269,6 +269,70 @@ only if the operator named a different workspace.
     / CHAIN finding carries a variant ladder, `ladder <C-id> start <F-xxx>`).
     Then reflect (stage 17) and roll learnings into the next `plan`.
 
+### The prover lane: what MiniProver buys, and when to run it
+`minicertora` answers a `.mspec` you already wrote; `miniprover` writes it for
+you — it analyses the contract, authors rules from this campaign's OWN INV
+ledger, drives the verifier in a verify/revise loop, and publishes
+`reports/report.json`. Two verbs, one file:
+
+```bash
+webv2 model <C-id> model.json          # the INV ledger (stage 4, already done)
+miniprover <path>:<Contract> --project-root . \
+    --invariants campaigns/<C-id>/artifacts/protocol_model.json --run-dir runs/INV-x
+webv2 verify <C-id> --autoprove INV-x --property INV-x --report runs/INV-x/reports/report.json
+```
+
+**What it buys — four goods, all of them scarce here:**
+1. **INV coverage: attestation → rung.** An INV row only an operator attested
+   (`test_status: untested`) becomes a machine verdict on
+   `verification.harness`, hash-chained as `harness_run` and re-derived by
+   `audit`. Nothing else in the stack moves an INV row without a human writing
+   the spec.
+2. **A second discovery door.** The prover attacks a NEGATIVE claim and, when it
+   fails, returns a bounded witness (`params`, `initial_storage`, `calls[]`,
+   `final_storage`, `failed_assertion`). That is a lead class the pattern
+   surfaces do not produce: `VIOLATED` → `exec` under `docker-networkless` /
+   `fork-runner` → `mint` → E4/E5. One run can refute a whole CLUSTER of
+   hypotheses that share one storage structure.
+3. **Zero-token wall detection.** `reports/feasibility.json` and the P1.5
+   fragment probe answer "can a rule even enter this call?" in ~1s and 0 tokens,
+   before any author is paid. Do not budget reproduction on a line the verifier
+   cannot check, and do not re-prompt a model when the wall is a requirement id.
+4. **Review of our own reasoning.** A DIFFERENT reviewer model flags rules that
+   cannot fail. When the ledger is operator attestation, that is quality control
+   on the INV text itself.
+
+**When to run it — all of these must hold:**
+- the invariant is **single-contract code semantics** (safety / state
+  transition), not liveness, economic, or cross-chain;
+- its entry points are **nameable** — confirm with the probe, never by reading
+  the invariant text;
+- it is **critical/high**, or load-bearing for several findings;
+- the **compile root is stageable** (target + import closure; a
+  `forge-artifacts/<C>.sol/` directory is a DIRECTORY named `*.sol` and kills
+  the loader — stage a scratch root instead);
+- you can afford the run **and a different reviewer model**.
+
+**The fragment rule decides most candidates.** A bounded rule can express "this
+state can never be reached". It cannot express **liveness** ("eventually",
+"cannot be permanently blocked"), **economic** impact, or **cross-chain**
+coordination. Liveness invariants are structurally unwritable — the probe says
+`out-of-fragment` for free, so do not pay to learn it.
+
+**What it does NOT buy:** E4/E5 evidence, a PoC, exploitability, chaining, or
+economic impact. The prover runs under a HOST profile and is **E3-capped**;
+`CONFIRMED` needs E5 (E4 for code-semantics classes). `PROVEN` means "no
+counterexample within bound k", never an unbounded proof. A `proved-bounded`
+rung strengthens the report; it does not confirm a finding.
+
+**Cost discipline.** Both token ceilings are OFF by default. Probe first, then
+author. The precedent is on this framework's own target: the 2026-09-16 Morph
+run (`gas-oracle/contracts/GasPriceOracle.sol`) spent 1505 s and **2 254 748
+tokens for 8 properties, 0 attempted, 0 verified** — which is why the prover
+now has an aggregate publish floor, and why the cheap probe precedes the
+expensive loop. The full bind, the artifact reading order, and the
+troubleshooting matrix are in `docs/MINIPROVER_INTEGRATION.md` (source tree).
+
 ### Hard rules (the framework's law — enforced in code, not in prose)
 - The orchestrator owns the flow; model stages are bounded workers that return
   structured data. You do not decide your own hypothesis is true — the

@@ -148,8 +148,10 @@ func appendFindingSectionEconomics(out []string, f validation.Value) []string {
 		}
 	}
 	// B2: the adversarial-game clause (liveness findings) — who profits,
-	// how, and why the challenge path does not undo it. Presence-gated:
-	// findings without the clause render nothing here.
+	// how, why the challenge path does not undo it, and whether that
+	// interplay answer survives the strongest attacker variant (morph
+	// §7.2). Presence-gated: findings without the clause render nothing
+	// here.
 	if ag := validation.AsObj(validation.ObjAt(f, "adversarial_game")); len(ag.O) > 0 {
 		out = append(out, fmt.Sprintf("- adversarial game: who profits — %s",
 			validation.PyStr(validation.ObjAt(ag, "who_profits"))))
@@ -157,6 +159,8 @@ func appendFindingSectionEconomics(out []string, f validation.Value) []string {
 			validation.PyStr(validation.ObjAt(ag, "profit_mechanism"))))
 		out = append(out, fmt.Sprintf("-   challenge interplay: %s",
 			validation.PyStr(validation.ObjAt(ag, "challenge_interplay"))))
+		out = append(out, fmt.Sprintf("-   strongest attacker: %s",
+			validation.PyStr(validation.ObjAt(ag, "strongest_attacker"))))
 	}
 	return out
 }

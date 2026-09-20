@@ -426,6 +426,80 @@ func TestCriticBundleIncludesMinimalEvidenceOnly(t *testing.T) {
 	}
 }
 
+// The four clause answers, each past the 20-rune floor (morph §7.2).
+const (
+	roleAgWho = "the sequencer operator — every frozen hour pays their " +
+		"uptime fees while rival bridges lose the deposits in transit"
+	roleAgMech = "freezing withdrawals lets the operator's own staked " +
+		"position absorb the fee flow while the halted bridge bleeds " +
+		"TVL to competitors"
+	roleAgInter = "the timelock challenge path expires into a no-op once " +
+		"the upgrade queue is blocked, so the freeze cannot be voted " +
+		"away before the challenge window closes"
+	roleAgAttack = "the strongest variant is a proof-valid bad batch: the " +
+		"operator posts a fake prev root and proves a valid transition " +
+		"FROM it, so the challenge verifies and the freeze survives"
+)
+
+// criticBundleFor builds the critic bundle or fails the test.
+func criticBundleFor(t *testing.T, c *state.Campaign, fid string) validation.Value {
+	t.Helper()
+	b, err := BuildCriticContext(c, fid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
+}
+
+// gameAuditKeyOrder is the comma-joined key order of a game_audit block.
+func gameAuditKeyOrder(ga validation.Value) string {
+	keys := []string{}
+	for _, pair := range ga.O {
+		keys = append(keys, pair.K)
+	}
+	return strings.Join(keys, ",")
+}
+
+// TestCriticBundleCarriesGameAudit is the morph §7.2 half of the
+// cross-examination: a finding carrying the adversarial-game clause hands
+// the critic the clause verbatim (claim-side data, not proposer narrative)
+// so challenge_interplay can be re-derived under the strongest attacker
+// variant. A finding without a clause carries an empty block, so the bundle
+// bytes of a non-liveness claim are unchanged.
+func TestCriticBundleCarriesGameAudit(t *testing.T) {
+	c := newCamp(t)
+	fid := validation.ObjStr(fullyLoadedFinding(t, c), "finding_id")
+	ga := validation.ObjAt(criticBundleFor(t, c, fid), "game_audit")
+	if ga.Kind != validation.Obj || len(ga.O) != 0 {
+		t.Fatalf("clause-less finding game_audit = %s, want {}",
+			validation.CanonCompact(ga))
+	}
+	if _, err := findings.SetAdversarialGame(c, fid, roleAgWho, roleAgMech,
+		roleAgInter, roleAgAttack); err != nil {
+		t.Fatal(err)
+	}
+	bundle := criticBundleFor(t, c, fid)
+	ga = validation.ObjAt(bundle, "game_audit")
+	if ga.Kind != validation.Obj {
+		t.Fatalf("game_audit = %s", validation.CanonCompact(ga))
+	}
+	if got := gameAuditKeyOrder(ga); got !=
+		"who_profits,profit_mechanism,challenge_interplay,strongest_attacker" {
+		t.Errorf("game_audit key order = %q", got)
+	}
+	if got := validation.ObjStr(ga, "strongest_attacker"); got != roleAgAttack {
+		t.Errorf("game_audit.strongest_attacker = %q", got)
+	}
+	// the critic's named duty rides the same bundle
+	task := validation.ObjAt(bundle, "task")
+	if got := validation.ObjStr(task, "game_interrogation"); !strings.Contains(
+		got, "strongest attacker variant") {
+		t.Errorf("task.game_interrogation = %q", got)
+	}
+	// the clause is claim-side data, not proposer reasoning
+	assertNoForbiddenKeys(t, bundle, "critic")
+}
+
 func TestProposerBundleExcludesCriticReasoningAndBounty(t *testing.T) {
 	c := newCamp(t)
 	fullyLoadedFinding(t, c)

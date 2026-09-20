@@ -23,6 +23,11 @@ const (
 	rvInter = "the timelock challenge path expires into a no-op once " +
 		"the upgrade queue is blocked, so the freeze cannot be voted " +
 		"away before the challenge window closes"
+	// rvAttack (morph §7.2): the strongest attacker variant the interplay
+	// answer must survive — a proof-VALID bad state, not a malformed one.
+	rvAttack = "the strongest variant is a proof-valid bad batch: the " +
+		"operator posts a fake prev root and proves a valid transition " +
+		"FROM it, so the challenge verifies and the freeze survives"
 )
 
 // classifyLiveness rewrites a finding's economic_impact as the B1
@@ -41,7 +46,7 @@ func classifyLiveness(t *testing.T, camp *state.Campaign, fid string) {
 	}
 }
 
-// TestReportRendersAdversarialGameClause: the clause renders as three lines
+// TestReportRendersAdversarialGameClause: the clause renders as four lines
 // inside the finding's own section once the data is present, and the sibling
 // without the data keeps the pre-B2 shape (no lines at all).
 func TestReportRendersAdversarialGameClause(t *testing.T) {
@@ -52,7 +57,7 @@ func TestReportRendersAdversarialGameClause(t *testing.T) {
 		"Sibling surface without the clause")
 	afid := validation.ObjStr(answered, "finding_id")
 	if _, err := findings.SetAdversarialGame(camp, afid, rvWho, rvMech,
-		rvInter); err != nil {
+		rvInter, rvAttack); err != nil {
 		t.Fatal(err)
 	}
 	gen := mustGenerate(t, camp)
@@ -61,6 +66,7 @@ func TestReportRendersAdversarialGameClause(t *testing.T) {
 		"- adversarial game: who profits — " + rvWho,
 		"-   mechanism: " + rvMech,
 		"-   challenge interplay: " + rvInter,
+		"-   strongest attacker: " + rvAttack,
 	} {
 		if !strings.Contains(sec, want) {
 			t.Errorf("answered section missing %q\n---\n%s", want, sec)
@@ -96,7 +102,7 @@ func TestReportLivenessSectionSurfacesWhoProfits(t *testing.T) {
 	}
 
 	if _, err := findings.SetAdversarialGame(camp, fid, rvWho, rvMech,
-		rvInter); err != nil {
+		rvInter, rvAttack); err != nil {
 		t.Fatal(err)
 	}
 	gen = mustGenerate(t, camp)

@@ -1,8 +1,11 @@
 // cmd_adversarial: `webv2 adversarial-game <campaign> <finding>
-// --who-profit WHO --mechanism MECH --interplay INTERPLAY` — records the
+// --who-profit WHO --mechanism MECH --interplay INTERPLAY
+// --strongest-attacker ATTACKER` — records the
 // adversarial-game clause (IMPROVEMENTS B2): who profits from the
-// freeze/halt, how the profit works, and why the challenge path does not
-// undo it. All three fields are mandatory and must reach 20 chars (the gate,
+// freeze/halt, how the profit works, why the challenge path does not
+// undo it, and whether that answer survives the strongest attacker variant
+// (morph §7.2: a proof-VALID bad state). All four fields are mandatory and
+// must reach 20 chars (the gate,
 // check15, re-validates the stored values). The clause is DATA on the
 // finding (adversarial_game) plus one finding.adversarial_game_set event.
 //
@@ -24,6 +27,7 @@ import (
 )
 
 const adversarialUsage = `usage: webv2 adversarial-game [-h] --who-profit WHO --mechanism MECH --interplay INTERPLAY
+                               --strongest-attacker ATTACKER
                                campaign finding
 `
 
@@ -32,7 +36,9 @@ const adversarialUsage = `usage: webv2 adversarial-game [-h] --who-profit WHO --
 const adversarialHelp = adversarialUsage + `
 record the adversarial-game answers the bounty gate requires of a live
 liveness finding: who profits from the protocol being down, the mechanism
-that pays them, and how it interacts with the path to the terminal.
+that pays them, how it interacts with the path to the terminal, and
+whether that interplay claim survives the strongest attacker variant (a
+bad state whose transition is itself proof-valid).
 
 positional arguments:
   campaign              campaign id
@@ -43,6 +49,7 @@ options:
   --who-profit WHO      who profits while the protocol is degraded
   --mechanism MECH      how the profit is realised
   --interplay INTERPLAY how that interacts with the exploit path
+  --strongest-attacker ATTACKER  whether the interplay answer survives a proof-valid bad state
 `
 
 func runAdversarialGame(root string, args []string, r *Runner) int {
@@ -53,11 +60,11 @@ func runAdversarialGame(root string, args []string, r *Runner) int {
 
 // adversarialArgs carries the parsed argv of the adversarial-game verb.
 type adversarialArgs struct {
-	who, mech, inter string
-	pos              []string
-	posIdx           []int
-	unknown          []immunizeUnk
-	helpSeen         bool
+	who, mech, inter, strongest string
+	pos                         []string
+	posIdx                      []int
+	unknown                     []immunizeUnk
+	helpSeen                    bool
 }
 
 // adversarialParseArgs parses the flag loop, printing the help block and
@@ -95,6 +102,14 @@ func adversarialParseArgs(args []string, r *Runner) (*adversarialArgs, error) {
 		case a == "--interplay":
 			return nil, t14ArgparseErr(adversarialUsage, "adversarial-game",
 				"argument --interplay: expected one argument")
+		case a == "--strongest-attacker" && i+1 < len(args) && !looksLikeOption(args[i+1]):
+			pa.strongest = args[i+1]
+			i++
+		case strings.HasPrefix(a, "--strongest-attacker="):
+			pa.strongest = strings.TrimPrefix(a, "--strongest-attacker=")
+		case a == "--strongest-attacker":
+			return nil, t14ArgparseErr(adversarialUsage, "adversarial-game",
+				"argument --strongest-attacker: expected one argument")
 		case strings.HasPrefix(a, "-"):
 			pa.unknown = append(pa.unknown, immunizeUnk{i, a})
 		default:
@@ -125,6 +140,9 @@ func adversarialCheckArgs(pa *adversarialArgs) error {
 	}
 	if pa.inter == "" {
 		missing = append(missing, "--interplay")
+	}
+	if pa.strongest == "" {
+		missing = append(missing, "--strongest-attacker")
 	}
 	if len(missing) > 0 {
 		return t14ArgparseErr(adversarialUsage, "adversarial-game",
@@ -157,7 +175,8 @@ func adversarialRecord(root string, pa *adversarialArgs, r *Runner) error {
 	if err != nil {
 		return err
 	}
-	f, err := findings.SetAdversarialGame(c, pa.pos[1], pa.who, pa.mech, pa.inter)
+	f, err := findings.SetAdversarialGame(c, pa.pos[1], pa.who, pa.mech,
+		pa.inter, pa.strongest)
 	if err != nil {
 		var ie *findings.InputError
 		if errors.As(err, &ie) {

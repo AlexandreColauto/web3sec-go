@@ -473,9 +473,14 @@
           "type": "string",
           "minLength": 20,
           "description": "WHY the challenge/governance path does not undo the freeze (the interplay that makes the halt stick)"
+        },
+        "strongest_attacker": {
+          "type": "string",
+          "minLength": 20,
+          "description": "whether the challenge_interplay claim survives the STRONGEST attacker variant: a bad state whose transition is itself proof-valid (e.g. a fake prev-root batch that wins its challenge by proving a valid transition FROM the fake root). Say which variant defeats the claim, or why none does."
         }
       },
-      "required": ["who_profits", "profit_mechanism", "challenge_interplay"]
+      "required": ["who_profits", "profit_mechanism", "challenge_interplay", "strongest_attacker"]
     },
     "reported_severity": {
       "enum": ["low", "medium", "high", "critical"],

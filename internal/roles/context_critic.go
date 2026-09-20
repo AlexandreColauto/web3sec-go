@@ -140,6 +140,25 @@ func invariantVerificationBlock(campaign *state.Campaign,
 	return validation.VArr(out...), nil
 }
 
+// gameAuditBlock is the morph §7.2 cross-examination input: when the claim
+// carries an adversarial_game clause, the critic gets the clause verbatim
+// (it is claim-side data, not proposer narrative) so the interplay answer
+// can be checked against the strongest attacker variant before the claim
+// travels. Empty object when the finding owes no clause.
+func gameAuditBlock(finding validation.Value) validation.Value {
+	ag := validation.ObjAt(finding, "adversarial_game")
+	if ag.Kind != validation.Obj || len(ag.O) == 0 {
+		return validation.VObj()
+	}
+	out := validation.VObj()
+	for _, k := range findings.AdversarialGameFields {
+		if v := validation.ObjAt(ag, k); v.Kind != validation.Null {
+			out.O = append(out.O, validation.KV{K: k, V: v})
+		}
+	}
+	return out
+}
+
 // BuildCriticContext is build_critic_context.
 func BuildCriticContext(campaign *state.Campaign,
 	findingID string) (validation.Value, error) {
@@ -188,10 +207,17 @@ func BuildCriticContext(campaign *state.Campaign,
 		validation.KV{K: "invariant_verification", V: invVer},
 		validation.KV{K: "sequence_requirement", V: seqReq},
 		validation.KV{K: "benign_actor_audit", V: benignActorAuditBlock(campaign, finding)},
+		validation.KV{K: "game_audit", V: gameAuditBlock(finding)},
 		validation.KV{K: "task", V: validation.VObj(
 			validation.KV{K: "per_assumption", V: validation.VStr(
 				"classify each assumption SUPPORTED, REFUTED, or UNKNOWN " +
 					"and cite evidence or explain the gap")},
+			validation.KV{K: "game_interrogation", V: validation.VStr(
+				"if game_audit is present, re-derive challenge_interplay " +
+					"under the strongest attacker variant the code allows; " +
+					"a claim true only of proof-invalid transitions is a " +
+					"refutation, not a defense — record it in " +
+					"missing_proof")},
 			validation.KV{K: "final_question", V: validation.VStr(
 				"does the verified assumption set actually imply the " +
 					"claimed security-property violation and attacker " +

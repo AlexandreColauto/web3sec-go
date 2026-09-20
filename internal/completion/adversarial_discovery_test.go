@@ -22,12 +22,14 @@ import (
 	"websec/internal/validation"
 )
 
-// The three clause answers, each well past the 20-rune floor (the same
-// incentive argument the bounty-gate matrix uses).
+// The four clause answers, each well past the 20-rune floor (the same
+// incentive argument the bounty-gate matrix uses). f7Attack is the morph
+// §7.2 arm: the strongest attacker variant — a proof-VALID bad state.
 const (
-	f7Who   = "the sequencer operator — every frozen hour pays their uptime fees while rival bridges lose the deposits in transit"
-	f7Mech  = "freezing withdrawals lets the operator's own staked position absorb the fee flow while the halted bridge bleeds TVL to competitors"
-	f7Inter = "the timelock challenge path expires into a no-op once the upgrade queue is blocked, so the freeze cannot be voted away before the challenge window closes"
+	f7Who    = "the sequencer operator — every frozen hour pays their uptime fees while rival bridges lose the deposits in transit"
+	f7Mech   = "freezing withdrawals lets the operator's own staked position absorb the fee flow while the halted bridge bleeds TVL to competitors"
+	f7Inter  = "the timelock challenge path expires into a no-op once the upgrade queue is blocked, so the freeze cannot be voted away before the challenge window closes"
+	f7Attack = "the strongest variant is a proof-valid bad batch: the operator posts a fake prev root and proves a valid transition FROM it, so the challenge verifies and the freeze survives"
 )
 
 // f7Payload is the discovery-slot ingestBare shape: a schema-valid
@@ -177,7 +179,7 @@ func TestDiscoveryExitRefusesClassFreezeWithoutClause(t *testing.T) {
 		}
 	}
 	if _, err := findings.SetAdversarialGame(c, fid, f7Who, f7Mech,
-		f7Inter); err != nil {
+		f7Inter, f7Attack); err != nil {
 		t.Fatal(err)
 	}
 	res = t35DiscoveryProof(t, c)
@@ -223,7 +225,7 @@ func TestDiscoveryExitPassesOnceClauseRecorded(t *testing.T) {
 		t.Fatal("precondition: the missing clause must block")
 	}
 	if _, err := findings.SetAdversarialGame(c, fid, f7Who, f7Mech,
-		f7Inter); err != nil {
+		f7Inter, f7Attack); err != nil {
 		t.Fatal(err)
 	}
 	res := t35DiscoveryProof(t, c)
@@ -251,7 +253,8 @@ func TestDiscoveryExitRefusesShortClause(t *testing.T) {
 	vf.O = validation.SetOrAppend(vf.O, "adversarial_game", validation.VObj(
 		kv("who_profits", validation.VStr(f7Who)),
 		kv("profit_mechanism", validation.VStr("short")),
-		kv("challenge_interplay", validation.VStr(f7Inter))))
+		kv("challenge_interplay", validation.VStr(f7Inter)),
+		kv("strongest_attacker", validation.VStr(f7Attack))))
 	if err := validation.WriteJson(findings.FindingPath(c, fid), vf, ""); err != nil {
 		t.Fatal(err)
 	}

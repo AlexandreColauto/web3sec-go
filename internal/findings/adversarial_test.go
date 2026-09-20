@@ -14,7 +14,7 @@ import (
 	"websec/internal/validation"
 )
 
-// The three clause arguments, each well past the 20-rune floor.
+// The four clause arguments, each well past the 20-rune floor.
 const (
 	agWho = "the sequencer operator — every frozen hour pays their " +
 		"uptime fees while rival bridges lose the deposits in transit"
@@ -24,6 +24,11 @@ const (
 	agInter = "the timelock challenge path expires into a no-op once " +
 		"the upgrade queue is blocked, so the freeze cannot be voted " +
 		"away before the challenge window closes"
+	// agAttack (morph §7.2): the strongest attacker variant defeats the
+	// interplay answer — the claim must say which one, or why none does.
+	agAttack = "the strongest variant is a proof-valid bad batch: the " +
+		"operator posts a fake prev root and proves a valid transition " +
+		"FROM it, so the challenge verifies and the freeze survives"
 )
 
 // livenessPayload is hypoPayload re-classed as a chain-freeze finding.
@@ -103,18 +108,36 @@ func TestAdversarialGameDeficits(t *testing.T) {
 		kv("adversarial_game", validation.VObj(
 			kv("who_profits", validation.VStr(agWho)),
 			kv("profit_mechanism", validation.VStr("short")))))
-	if got := AdversarialGameDeficits(partial); len(got) != 2 ||
-		got[0] != "profit_mechanism" || got[1] != "challenge_interplay" {
+	if got := AdversarialGameDeficits(partial); len(got) != 3 ||
+		got[0] != "profit_mechanism" || got[1] != "challenge_interplay" ||
+		got[2] != "strongest_attacker" {
 		t.Errorf("partial: deficits = %v, want [profit_mechanism "+
-			"challenge_interplay]", got)
+			"challenge_interplay strongest_attacker]", got)
 	}
 	complete := validation.VObj(
 		kv("adversarial_game", validation.VObj(
 			kv("who_profits", validation.VStr(agWho)),
 			kv("profit_mechanism", validation.VStr(agMech)),
-			kv("challenge_interplay", validation.VStr(agInter)))))
+			kv("challenge_interplay", validation.VStr(agInter)),
+			kv("strongest_attacker", validation.VStr(agAttack)))))
 	if got := AdversarialGameDeficits(complete); len(got) != 0 {
 		t.Errorf("complete: deficits = %v, want []", got)
+	}
+}
+
+// The morph pass-1 lesson (review §7.2): a three-field clause whose interplay
+// claim is "the challenge path undoes it" passed the gate unexamined. The
+// fourth field — the claim under the STRONGEST attacker variant (a
+// proof-VALID bad batch wins the challenge) — is what forces the half-step.
+func TestAdversarialGameStrongestAttackerRequired(t *testing.T) {
+	partial := validation.VObj(
+		kv("adversarial_game", validation.VObj(
+			kv("who_profits", validation.VStr(agWho)),
+			kv("profit_mechanism", validation.VStr(agMech)),
+			kv("challenge_interplay", validation.VStr(agInter)))))
+	if got := AdversarialGameDeficits(partial); len(got) != 1 ||
+		got[0] != "strongest_attacker" {
+		t.Fatalf("deficits = %v, want [strongest_attacker]", got)
 	}
 }
 
@@ -128,21 +151,23 @@ func TestSetAdversarialGame(t *testing.T) {
 		t.Fatal(err)
 	}
 	fid := validation.ObjStr(f, "finding_id")
-	got, err := SetAdversarialGame(c, fid, agWho, agMech, agInter)
+	got, err := SetAdversarialGame(c, fid, agWho, agMech, agInter, agAttack)
 	if err != nil {
 		t.Fatal(err)
 	}
 	ag := validation.ObjAt(got, "adversarial_game")
 	if validation.ObjStr(ag, "who_profits") != agWho ||
 		validation.ObjStr(ag, "profit_mechanism") != agMech ||
-		validation.ObjStr(ag, "challenge_interplay") != agInter {
+		validation.ObjStr(ag, "challenge_interplay") != agInter ||
+		validation.ObjStr(ag, "strongest_attacker") != agAttack {
 		t.Errorf("clause = %s", validation.CanonSpaced(ag))
 	}
 	keys := make([]string, 0, len(ag.O))
 	for _, kvv := range ag.O {
 		keys = append(keys, kvv.K)
 	}
-	if s := strings.Join(keys, ","); s != "who_profits,profit_mechanism,challenge_interplay" {
+	if s := strings.Join(keys, ","); s !=
+		"who_profits,profit_mechanism,challenge_interplay,strongest_attacker" {
 		t.Errorf("clause key order = %q", s)
 	}
 	stored, err := LoadFinding(c, fid)
@@ -171,7 +196,9 @@ func TestSetAdversarialGame(t *testing.T) {
 		validation.ObjAt(data, "profit_mechanism_chars").I !=
 			int64(len([]rune(agMech))) ||
 		validation.ObjAt(data, "challenge_interplay_chars").I !=
-			int64(len([]rune(agInter))) {
+			int64(len([]rune(agInter))) ||
+		validation.ObjAt(data, "strongest_attacker_chars").I !=
+			int64(len([]rune(agAttack))) {
 		t.Errorf("event data = %s", validation.CanonSpaced(data))
 	}
 }
@@ -180,11 +207,12 @@ func TestSetAdversarialGame(t *testing.T) {
 // InputError naming the field; nothing persists, no event fires.
 func TestSetAdversarialGameShortField(t *testing.T) {
 	shorts := []struct {
-		who, mech, inter, field string
+		who, mech, inter, attack, field string
 	}{
-		{"short", agMech, agInter, "who_profits"},
-		{agWho, "short", agInter, "profit_mechanism"},
-		{agWho, agMech, "short", "challenge_interplay"},
+		{"short", agMech, agInter, agAttack, "who_profits"},
+		{agWho, "short", agInter, agAttack, "profit_mechanism"},
+		{agWho, agMech, "short", agAttack, "challenge_interplay"},
+		{agWho, agMech, agInter, "short", "strongest_attacker"},
 	}
 	for _, s := range shorts {
 		c := ingestCamp(t)
@@ -193,7 +221,7 @@ func TestSetAdversarialGameShortField(t *testing.T) {
 			t.Fatal(err)
 		}
 		fid := validation.ObjStr(f, "finding_id")
-		_, err = SetAdversarialGame(c, fid, s.who, s.mech, s.inter)
+		_, err = SetAdversarialGame(c, fid, s.who, s.mech, s.inter, s.attack)
 		if err == nil {
 			t.Fatalf("%s: expected an error for a short field", s.field)
 		}
@@ -229,7 +257,7 @@ func TestSetAdversarialGameShortField(t *testing.T) {
 func TestSetAdversarialGameUnknownFinding(t *testing.T) {
 	c := ingestCamp(t)
 	_, err := SetAdversarialGame(c, "F-doesnotexist", agWho, agMech,
-		agInter)
+		agInter, agAttack)
 	if err == nil {
 		t.Fatal("expected an error for an unknown finding")
 	}
@@ -247,12 +275,14 @@ func TestSetAdversarialGameOverwrites(t *testing.T) {
 		t.Fatal(err)
 	}
 	fid := validation.ObjStr(f, "finding_id")
-	if _, err := SetAdversarialGame(c, fid, agWho, agMech, agInter); err != nil {
+	if _, err := SetAdversarialGame(c, fid, agWho, agMech, agInter,
+		agAttack); err != nil {
 		t.Fatal(err)
 	}
 	who2 := "the bridge operator — the halt strands the relay fees they " +
 		"were paid to earn, and the insurance fund pays the stuck users"
-	if _, err := SetAdversarialGame(c, fid, who2, agMech, agInter); err != nil {
+	if _, err := SetAdversarialGame(c, fid, who2, agMech, agInter,
+		agAttack); err != nil {
 		t.Fatal(err)
 	}
 	stored, err := LoadFinding(c, fid)

@@ -47,6 +47,27 @@ evidence — the container profiles execute a real `docker run` in
 optional `gvisor` and a fork-RPC endpoint for `fork-runner` (point
 `FORK_RPC_URL` at your anvil fork).
 
+**When the auto-prover is worth its tokens.** What a MiniProver run buys a
+campaign is narrow and specific: it turns an INV row that only an operator
+attested into a machine verdict on `verification.harness` (hash-chained as
+`harness_run`, re-derived by `audit`); it can hand back a bounded
+counterexample witness that feeds `exec` → `mint`; and its P1.5 fragment probe
+answers "can a rule even enter this call?" in about a second for zero tokens,
+before any author is paid. Run it only on a **single-contract code-semantics**
+invariant whose entry points the probe has confirmed nameable, on a stageable
+compile root, and only when a second, **different** reviewer model is
+available. A bounded rule cannot express **liveness** ("eventually", "cannot be
+permanently blocked"), **economic** impact, or **cross-chain** coordination —
+those invariants are structurally unwritable, and the probe will say so for
+free. It does not buy E4/E5 evidence, a PoC, or a confirmation: the prover runs
+under a HOST profile and is **E3-capped**, and `PROVEN` means "no counterexample
+within bound k". Both token ceilings are OFF by default; probe first, then
+author. The 2026-09-16 Morph run (`gas-oracle/contracts/GasPriceOracle.sol`) is
+the precedent: 1505 s and 2 254 748 tokens for 8 properties, 0 attempted, 0
+verified. The agent-facing version of this law is `AGENT_BOOTSTRAP.md` § "The
+prover lane"; the bind, the artifact reading order and the troubleshooting
+matrix are in `docs/MINIPROVER_INTEGRATION.md`.
+
 `solc` is downloaded by the container on first use. With the network cut
 (networkless / gvisor / vm-snapshot profiles), a missing solc binary is an
 **environment failure, not a harness bug**. Provision it one of two ways:
@@ -1235,7 +1256,7 @@ webv2 chain <C-xxx> F-aaa F-bbb [F-ccc] [--title T] [--note N]    # materialize 
 webv2 chain <C-xxx> F-aaa F-bbb --unproven [--note N]             # ... at HYPOTHESIS level: a LEAD, never counted as confirmed
 webv2 terminals <C-xxx>     # reachable economic terminal states (EOA baseline -> asset extraction)
 webv2 privileged <C-xxx>    # per-privilege-role attacker track (baseline, exposure band, constraints + terminal paths)
-webv2 adversarial-game <C-xxx> F-xxx --who-profit NAME --mechanism M --interplay I   # required of a live liveness finding
+webv2 adversarial-game <C-xxx> F-xxx --who-profit NAME --mechanism M --interplay I --strongest-attacker A   # required of a live liveness finding
 webv2 gate <C-xxx>          # submission-readiness gate against the pinned policy (unknown checks never count as pass)
 webv2 gate --explain <CHECK>  # what a single gate check means
 ```
@@ -1255,8 +1276,13 @@ class-typed freeze owes the clause even when no `economic_impact` object
 exists), an `economic_impact.kind == "liveness"`, or a granted capability
 whose terminal is liveness loss — additionally needs the adversarial game:
 who profits while the protocol is degraded, how the profit is
-realised, and why that interplay cannot be undone by the challenge path. All
-three flags are required and each answer must be at least 20 characters; the
+realised, why that interplay cannot be undone by the challenge path, and
+whether that answer survives the **strongest attacker variant** (morph §7.2:
+a bad state whose transition is itself proof-valid — a fake root whose batch
+wins its challenge by proving a valid step from that root; an interplay claim
+that holds only against proof-invalid batches is un-refuted, not defended).
+All
+four flags are required and each answer must be at least 20 characters; the
 gate refuses a live liveness finding without it (live = the open statuses
 plus CONFIRMED/CHAIN — a dead terminal disposition owes nothing) — the
 discovery completion
@@ -1697,7 +1723,7 @@ webv2 chains <C>                                                   capability li
 webv2 chain <C> <F> <F> [<F>...] [--unproven] [--title T] [--note N]   materialize a chain (--unproven = a lead, no super-finding)
 webv2 terminals <C>                                                reachable economic terminal states
 webv2 privileged <C>                                               bounded privileged-role attacker track
-webv2 adversarial-game <C> F-xxx --who-profit W --mechanism M --interplay I   adversarial-game answers (required of a live liveness finding)
+webv2 adversarial-game <C> F-xxx --who-profit W --mechanism M --interplay I --strongest-attacker A   adversarial-game answers (required of a live liveness finding)
 webv2 exploit <C> F-xxx (--paid | --unpaid) [--arg A]              who pays, and why the bug makes them pay (check14)
 webv2 enforce <C> NAME [--contract 0x..] [--json]                  write/read stage table for one variable or concept key (L-03)
 webv2 symmetry <C> [--family 0x..] [--json]                        family custody-primitive matrix + divergences (L-04)
