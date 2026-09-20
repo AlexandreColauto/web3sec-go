@@ -155,6 +155,13 @@ func printEnvDoctor(r *Runner, report validation.Value) {
 		status = "chain " + scalarStr(validation.ObjAt(rpc, "chain_id"))
 	}
 	fmt.Fprintf(r.Out, "fork RPC:      %s — %s\n", url, status)
+	// R3-1b: a loopback pin is rewritten for the containers (host-gateway);
+	// say which URL the fork-runner profile REALLY dials, so an operator
+	// never debugs the host URL against a container failure.
+	if cu := validation.ObjStr(validation.ObjAt(report, "fork_rpc"),
+		"container_url"); cu != "" {
+		fmt.Fprintf(r.Out, "  in-container:  %s\n", cu)
+	}
 	// feedback-triage A7: when the doctor cross-checked the profiles
 	// against the campaign floor (profile_fit), an available profile whose
 	// evidence ceiling is below the floor is marked as such instead of a

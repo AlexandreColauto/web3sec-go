@@ -66,12 +66,34 @@ func (dc *doctorState) doctorResult() validation.Value {
 			validation.KV{K: "daemon", V: validation.VBool(
 				boolAt(dc.image, "daemon"))},
 			validation.KV{K: "image", V: dc.image})},
-		validation.KV{K: "fork_rpc", V: dc.rpc},
+		validation.KV{K: "fork_rpc", V: dc.forkSection()},
 		validation.KV{K: "profiles", V: dc.profiles},
 		validation.KV{K: "e4_capable", V: validation.VArr(dc.e4...)},
 		validation.KV{K: "issues", V: validation.VArr(dc.issues...)},
 		validation.KV{K: "ok", V: validation.VBool(len(dc.issues) == 0)},
 	)
+}
+
+// forkSection is the fork_rpc probe result plus, when the pinned URL is a
+// loopback one, the CONTAINER-facing URL the fork-runner profile actually
+// receives (R3-1b, through sandbox.ContainerForkURL — the same function
+// the launcher uses, so the report can never claim a rewrite the container
+// did not get). The host-facing probe object is otherwise untouched.
+func (dc *doctorState) forkSection() validation.Value {
+	if dc.rpc.Kind != validation.Obj {
+		return dc.rpc
+	}
+	u := strAt(dc.rpc, "url")
+	if u == "" {
+		return dc.rpc
+	}
+	cu := sandbox.ContainerForkURL(u)
+	if cu == u {
+		return dc.rpc
+	}
+	dc.rpc.O = append(dc.rpc.O, validation.KV{K: "container_url",
+		V: validation.VStr(cu)})
+	return dc.rpc
 }
 
 // doctorCampaign cross-checks the result against what the campaign's evidence

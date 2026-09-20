@@ -751,3 +751,35 @@ func TestPreflightNoCompilerPinIsNA(t *testing.T) {
 
 // strField keeps the linter honest about the helper's use in assertions.
 var _ = strField
+
+// TestDoctorNamesTheContainerForkURL (R3-1b): when the operator pins a
+// loopback fork, the CONTAINER is handed a rewritten URL
+// (host.docker.internal) — the report must say so, so nobody debugs the
+// host URL against a container failure. The host-facing probe stays
+// untouched; the key is absent for a non-loopback or unset URL.
+func TestDoctorNamesTheContainerForkURL(t *testing.T) {
+	t.Setenv("FORK_RPC_URL", "http://127.0.0.1:18545")
+	report, err := Doctor(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fr := validation.ObjAt(report, "fork_rpc")
+	if got := validation.ObjStr(fr, "url"); got != "http://127.0.0.1:18545" {
+		t.Fatalf("host url = %q, untouched", got)
+	}
+	if got := validation.ObjStr(fr, "container_url"); got !=
+		"http://host.docker.internal:18545" {
+		t.Fatalf("container_url = %q", got)
+	}
+	for _, url := range []string{"", "http://192.168.1.139:8545"} {
+		t.Setenv("FORK_RPC_URL", url)
+		rep2, err := Doctor(nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if v := validation.ObjAt(validation.ObjAt(rep2, "fork_rpc"),
+			"container_url"); v.Kind != validation.Null {
+			t.Fatalf("url %q must gain no container_url line: %v", url, v)
+		}
+	}
+}

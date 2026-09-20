@@ -141,3 +141,20 @@ func TestEnvBarePrintsOwnHelp(t *testing.T) {
 		t.Fatalf("bad action stderr = %q, want %q", errS, want)
 	}
 }
+
+// R3-1b: the text report surfaces the rewritten in-container URL when the
+// JSON carries one.
+func TestPrintEnvDoctorNamesContainerFork(t *testing.T) {
+	rep := t26EnvReport()
+	fr := validation.ObjAt(rep, "fork_rpc")
+	fr.O = validation.SetOrAppend(fr.O, "url",
+		validation.VStr("http://localhost:18545"))
+	fr.O = validation.SetOrAppend(fr.O, "container_url",
+		validation.VStr("http://host.docker.internal:18545"))
+	rep.O = validation.SetOrAppend(rep.O, "fork_rpc", fr)
+	var out strings.Builder
+	printEnvDoctor(&Runner{Out: &out}, rep)
+	if !strings.Contains(out.String(), "in-container:  http://host.docker.internal:18545") {
+		t.Fatalf("text report must name the container URL:\n%s", out.String())
+	}
+}
