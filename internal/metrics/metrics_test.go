@@ -9,6 +9,7 @@ package metrics
 // metrics must not depend on.
 
 import (
+	"fmt"
 	"path/filepath"
 	"testing"
 
@@ -48,10 +49,22 @@ func hypo() validation.Value {
 // makeFinding ingests a hypothesis, optionally adds low-tier evidence +
 // assumptions, then forces the terminal status directly (shape-validated,
 // gates bypassed — metrics reads files, not the transition API).
+// metricFindingSeq numbers the fixture findings: morph §7.5 folds an
+// identical payload into the finding that already carries its digest, and
+// these fixtures exist to produce SEVERAL findings.
+var metricFindingSeq int
+
 func makeFinding(t *testing.T, camp *state.Campaign, status, tier string,
 	assumptions []validation.Value, eid string) string {
 	t.Helper()
-	f, err := findings.IngestHypothesis(camp, hypo(), "code", "", "")
+	metricFindingSeq++
+	payload := hypo()
+	rc := validation.ObjAt(payload, "root_cause")
+	rc.O = validation.SetOrAppend(rc.O, "description", validation.VStr(
+		validation.ObjStr(rc, "description")+
+			fmt.Sprintf(" (variant %d)", metricFindingSeq)))
+	payload.O = validation.SetOrAppend(payload.O, "root_cause", rc)
+	f, err := findings.IngestHypothesis(camp, payload, "code", "", "")
 	if err != nil {
 		t.Fatal(err)
 	}

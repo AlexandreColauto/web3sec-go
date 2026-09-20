@@ -354,7 +354,10 @@ func TestTier1AutoMerge(t *testing.T) {
 	c := pinnedCamp(t)
 	f := hypoVault(t, c, "User can withdraw more than deposited via rounding",
 		"precision-rounding")
-	g := hypoVault(t, c, "User can withdraw more than deposited via rounding",
+	// morph §7.5: the second finding must be a DISTINCT claim (the ingest
+	// door folds an identical payload into the first), while keeping the
+	// identical class/path/function this tier-1 fixture is about.
+	g := hypoVault(t, c, "User can withdraw more than deposited via rounding (re-filed)",
 		"precision-rounding") // identical class/path/function
 	report, err := RunDedup(c, true)
 	if err != nil {
@@ -381,11 +384,13 @@ func TestTier1AutoMerge(t *testing.T) {
 	if got := validation.ObjStr(dedups[fid(g)], "duplicate_of"); got != fid(f) {
 		t.Fatalf("duplicate_of = %q, want %q", got, fid(f))
 	}
+	// morph §7.5: ingest now stamps dedup.content_sha (the idempotency key).
 	assertCanon(t, "dup dedup", dedups[fid(g)],
-		`{"duplicate_of":"<A>","technical_signature":"feb7d9e440f86a71"}`,
+		`{"content_sha":"12a56c0a98c30b02","duplicate_of":"<A>",`+
+			`"technical_signature":"feb7d9e440f86a71"}`,
 		tok{fid(f), "<A>"})
 	assertCanon(t, "kept dedup", dedups[fid(f)],
-		`{"technical_signature":"feb7d9e440f86a71"}`)
+		`{"content_sha":"b733abea37393f1e","technical_signature":"feb7d9e440f86a71"}`)
 }
 
 // Port of tests/test_findings.py::test_tier3_flag_never_auto_merges.
@@ -422,9 +427,10 @@ func TestTier3FlagNeverAutoMerges(t *testing.T) {
 		t.Fatalf("tier-3 must never auto-merge: statuses %q/%q",
 			validation.ObjStr(a, "status"), validation.ObjStr(b, "status"))
 	}
+	// morph §7.5: ingest now stamps dedup.content_sha (the idempotency key).
 	assertCanon(t, "flagged a", validation.ObjAt(a, "dedup"),
-		`{"economic_signature":"3b7b159a6831ef2d","possible_duplicate_of":["<B>"],`+
-			`"technical_signature":"feb7d9e440f86a71"}`,
+		`{"content_sha":"b733abea37393f1e","economic_signature":"3b7b159a6831ef2d",`+
+			`"possible_duplicate_of":["<B>"],"technical_signature":"feb7d9e440f86a71"}`,
 		tok{fid(g), "<B>"})
 	if ids := valueStrings(getDeep(b, "dedup", "possible_duplicate_of")); !slices.Contains(ids, fid(f)) {
 		t.Fatalf("b.possible_duplicate_of = %v, want %s", ids, fid(f))
@@ -462,8 +468,10 @@ func TestIncompatibleClassesNeverTier3(t *testing.T) {
 	if ids := valueStrings(getDeep(a, "dedup", "possible_duplicate_of")); len(ids) != 0 {
 		t.Fatalf("possible_duplicate_of = %v, want none", ids)
 	}
+	// morph §7.5: ingest now stamps dedup.content_sha (the idempotency key).
 	assertCanon(t, "incompatible a", validation.ObjAt(a, "dedup"),
-		`{"economic_signature":"3b7b159a6831ef2d","technical_signature":"feb7d9e440f86a71"}`)
+		`{"content_sha":"b733abea37393f1e","economic_signature":"3b7b159a6831ef2d",`+
+			`"technical_signature":"feb7d9e440f86a71"}`)
 }
 
 // ---- vector tests (byte-exact against the Python twin) ----------------------
@@ -553,8 +561,9 @@ func TestSetRootCauseSignatureShapes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// morph §7.5: ingest now stamps dedup.content_sha (the idempotency key).
 	assertCanon(t, "root cause dedup", validation.ObjAt(got, "dedup"),
-		`{"root_cause_signature":"25fb8f4a8ed723de",`+
+		`{"content_sha":"3e499571a8f4d7d4","root_cause_signature":"25fb8f4a8ed723de",`+
 			`"technical_signature":"48b7907d5bb641e3"}`)
 	assertCanon(t, "root cause meta", validation.ObjAt(got, "dedup_meta"),
 		`{"root_cause_sentence":"Normalized  Sentence  Here"}`)
@@ -567,8 +576,9 @@ func TestSetRootCauseSignatureShapes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// morph §7.5: ingest now stamps dedup.content_sha (the idempotency key).
 	assertCanon(t, "second root cause dedup", validation.ObjAt(got, "dedup"),
-		`{"root_cause_signature":"306557b4f21046c0",`+
+		`{"content_sha":"3e499571a8f4d7d4","root_cause_signature":"306557b4f21046c0",`+
 			`"technical_signature":"48b7907d5bb641e3"}`)
 	assertCanon(t, "second root cause meta", validation.ObjAt(got, "dedup_meta"),
 		`{"root_cause_sentence":"Second  Sentence"}`)
@@ -595,8 +605,9 @@ func TestSetEconomicSignatureShape(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// morph §7.5: ingest now stamps dedup.content_sha (the idempotency key).
 	assertCanon(t, "economic dedup", validation.ObjAt(got, "dedup"),
-		`{"economic_signature":"a04e53361f4e929f",`+
+		`{"content_sha":"3e499571a8f4d7d4","economic_signature":"a04e53361f4e929f",`+
 			`"technical_signature":"48b7907d5bb641e3"}`)
 	assertCanon(t, "economic meta", validation.ObjAt(got, "dedup_meta"),
 		`{"economic_effect_sentence":"attacker drains the pool"}`)
@@ -635,8 +646,10 @@ func TestCrossSnapshotTier1Flag(t *testing.T) {
 	if validation.ObjStr(flagged, "status") != "HYPOTHESIS" {
 		t.Fatalf("cross-snapshot dup status = %q, want HYPOTHESIS", validation.ObjStr(flagged, "status"))
 	}
+	// morph §7.5: ingest now stamps dedup.content_sha (the idempotency key).
 	assertCanon(t, "cross dedup", validation.ObjAt(flagged, "dedup"),
-		`{"possible_duplicate_of":["<A>"],"technical_signature":"48b7907d5bb641e3"}`,
+		`{"content_sha":"f7a492781b89b1fa","possible_duplicate_of":["<A>"],`+
+			`"technical_signature":"48b7907d5bb641e3"}`,
 		tok{fid(a), "<A>"})
 	evs, err := c.Events()
 	if err != nil {
@@ -811,8 +824,9 @@ func TestResolveCandidateDistinctRecordsBothSides(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// morph §7.5: ingest now stamps dedup.content_sha (the idempotency key).
 	assertCanon(t, "returned side", validation.ObjAt(got, "dedup"),
-		`{"candidate_verdicts":{"<B>":"distinct"},`+
+		`{"candidate_verdicts":{"<B>":"distinct"},"content_sha":"d0cb2041963342f9",`+
 			`"economic_signature":"b9c34f97454df07d","possible_duplicate_of":["<B>"],`+
 			`"technical_signature":"48b7907d5bb641e3"}`,
 		tok{fid(g), "<B>"})
@@ -822,12 +836,15 @@ func TestResolveCandidateDistinctRecordsBothSides(t *testing.T) {
 		tk    tok
 		want  string
 	}{
+		// morph §7.5: ingest now stamps dedup.content_sha (the idempotency key).
 		{"a side", f, tok{fid(g), "<B>"},
-			`{"candidate_verdicts":{"<B>":"distinct"},"economic_signature":"b9c34f97454df07d",` +
-				`"possible_duplicate_of":["<B>"],"technical_signature":"48b7907d5bb641e3"}`},
+			`{"candidate_verdicts":{"<B>":"distinct"},"content_sha":"d0cb2041963342f9",` +
+				`"economic_signature":"b9c34f97454df07d","possible_duplicate_of":["<B>"],` +
+				`"technical_signature":"48b7907d5bb641e3"}`},
 		{"b side", g, tok{fid(f), "<A>"},
-			`{"candidate_verdicts":{"<A>":"distinct"},"economic_signature":"b9c34f97454df07d",` +
-				`"possible_duplicate_of":["<A>"],"technical_signature":"b25d0bf93e92e3c0"}`},
+			`{"candidate_verdicts":{"<A>":"distinct"},"content_sha":"5e000d92dfd30c03",` +
+				`"economic_signature":"b9c34f97454df07d","possible_duplicate_of":["<A>"],` +
+				`"technical_signature":"b25d0bf93e92e3c0"}`},
 	} {
 		rec, err := findings.LoadFinding(c, fid(pair.f))
 		if err != nil {

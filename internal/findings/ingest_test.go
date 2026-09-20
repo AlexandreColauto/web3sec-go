@@ -77,6 +77,27 @@ func hypoE4Payload(over ...validation.KV) validation.Value {
 		over...)...)
 }
 
+// hypoVariant is hypoPayload under a distinguishing suffix on the title and
+// the root_cause description — a DIFFERENT claim to the ingest door, which
+// since morph §7.5 keys on title + root_cause + affected. The technical
+// signature (class/path/function) is unchanged, so a fixture that needs a
+// SECOND live finding (budget ceilings, merge targets, floor refusals) keeps
+// the shape it meant to test instead of folding into the first.
+func hypoVariant(n int, over ...validation.KV) validation.Value {
+	root := validation.VObj(
+		kv("class", validation.VStr("precision-rounding")),
+		kv("description", validation.VStr(fmt.Sprintf(
+			"share calculation rounds in the attacker's favor (variant %d)",
+			n))),
+	)
+	return hypoPayload(append([]validation.KV{
+		kv("title", validation.VStr(fmt.Sprintf(
+			"User can withdraw more than deposited via rounding (variant %d)",
+			n))),
+		kv("root_cause", root),
+	}, over...)...)
+}
+
 var execSeq int
 
 // testExec is the conftest `sandboxed_exec` equivalent: it writes the EXEC
@@ -196,7 +217,9 @@ func TestDiscoveryBudgetEnforced(t *testing.T) {
 		t.Fatal(err)
 	}
 	a := ingestBare(t, c)
-	b := ingestBare(t, c) // both hypotheses land at E0, ceiling untouched
+	// morph §7.5: the second hypothesis must be a DIFFERENT claim — an
+	// identical re-ingest folds into the first finding at the door.
+	b := ingestBareVariant(t, c, 1) // both land at E0, ceiling untouched
 	assertSlotCount(t, c, 0)
 	addEvidenceOfLevel(t, c, a, "E1") // the one affordable rise
 	_, err = AddEvidence(c, validation.ObjStr(b, "finding_id"), validation.VObj(
@@ -450,6 +473,18 @@ func ingestBare(t *testing.T, c *state.Campaign) validation.Value {
 	return f
 }
 
+// ingestBareVariant is ingestBare for the SECOND+ hypothesis of a fixture:
+// same technical signature, different claim (morph §7.5 — two identical
+// payloads are one finding now, so a fixture that wants two rows must say so).
+func ingestBareVariant(t *testing.T, c *state.Campaign, n int) validation.Value {
+	t.Helper()
+	f, err := IngestHypothesis(c, hypoVariant(n), "code", "05", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return f
+}
+
 // addEvidenceOfLevel appends one code-reading evidence item at [level].
 func addEvidenceOfLevel(t *testing.T, c *state.Campaign, f validation.Value,
 	level string) validation.Value {
@@ -537,8 +572,9 @@ func TestDiscoverySlotRefusalKeepsTheIngestText(t *testing.T) {
 	addEvidenceOfLevel(t, c, a, "E1")
 	assertSlotCount(t, c, 1)
 
-	// Bare suspicion is still free at the ceiling.
-	b := ingestBare(t, c)
+	// Bare suspicion is still free at the ceiling (morph §7.5: a second
+	// DISTINCT claim, since an identical payload folds into `a`).
+	b := ingestBareVariant(t, c, 1)
 	assertSlotCount(t, c, 1)
 	if _, err := AddEvidence(c, validation.ObjStr(b, "finding_id"), validation.VObj(
 		kv("evidence_id", validation.VStr("EV-b1")),
@@ -601,7 +637,9 @@ func TestDiscoverySlotRefusesPromotionAtCeiling(t *testing.T) {
 		"reachability shown", "", "", false); err != nil {
 		t.Fatal(err)
 	}
-	b := ingestBare(t, c) // at the ceiling: EVERY promotion is refused
+	// morph §7.5: a distinct claim — an identical payload would fold into
+	// `a` (which is already at the ceiling for other reasons).
+	b := ingestBareVariant(t, c, 1) // at the ceiling: EVERY promotion is refused
 	bid := validation.ObjStr(b, "finding_id")
 	// R3-3 ripple: the floor evidence a POSSIBLE stamp demands is itself
 	// a promotion above E0 — at the ceiling the AddEvidence step carries
@@ -669,8 +707,11 @@ func ingestWithEvidenceRaw(c *state.Campaign,
 		kv("type", validation.VStr("manual")),
 		kv("description", validation.VStr("pre-loaded code reading")),
 	)
+	// morph §7.5: a distinct claim from the test's earlier hypotheses — an
+	// identical payload folds into one of them at the door and no rise is
+	// attempted at all.
 	return IngestHypothesis(c,
-		hypoPayload(kv("evidence", validation.VArr(item))), "code", "05", "")
+		hypoVariant(2, kv("evidence", validation.VArr(item))), "code", "05", "")
 }
 
 func TestIntakeCheckpointSeamAdvisory(t *testing.T) {

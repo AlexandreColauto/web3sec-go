@@ -7,6 +7,7 @@ package sft
 // the TODO placeholders that block curation, and the CLI draft writer.
 
 import (
+	"fmt"
 	"slices"
 	"strconv"
 	"strings"
@@ -102,9 +103,19 @@ func criticVerdict(fid string) validation.Value {
 		kv("missing_proof", validation.VArr()))
 }
 
+// sftIngestSeq numbers the fixture findings: morph §7.5 folds an identical
+// payload into the finding that already carries its digest, and this test
+// needs a pre-existing finding AND a backfilled one.
+var sftIngestSeq int
+
 func ingestHyp(t *testing.T, c *state.Campaign) validation.Value {
 	t.Helper()
-	f, err := boundary.IngestModelHypothesis(c, backfillHypothesis(),
+	sftIngestSeq++
+	hyp := backfillHypothesis()
+	hyp.O = validation.SetOrAppend(hyp.O, "claim", validation.VStr(
+		validation.ObjStr(hyp, "claim")+
+			fmt.Sprintf(" (variant %d)", sftIngestSeq)))
+	f, err := boundary.IngestModelHypothesis(c, hyp,
 		boundary.HypothesisOpts{})
 	if err != nil {
 		t.Fatal(err)

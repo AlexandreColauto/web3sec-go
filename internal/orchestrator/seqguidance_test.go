@@ -9,6 +9,7 @@
 package orchestrator
 
 import (
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -38,15 +39,22 @@ func seqQueueCampaign(t *testing.T) *state.Campaign {
 	return c
 }
 
+// seqFindingSeq numbers the fixtures' findings: morph §7.5 folds an
+// identical payload into the finding that already carries its digest, and
+// these fixtures need a sequenced finding AND a solo control.
+var seqFindingSeq int
+
 // seqFindingIn is _mk: a live finding via the real ingest path, with the
 // requested exploit_sequence.
 func seqFindingIn(t *testing.T, c *state.Campaign, seq validation.Value) string {
 	t.Helper()
+	seqFindingSeq++
 	payload := validation.VObj(
 		kvOf("title", validation.VStr("multi-tx sequence bug")),
 		kvOf("root_cause", validation.VObj(
 			kvOf("class", validation.VStr("access-control")),
-			kvOf("description", validation.VStr("missing check across two calls")))),
+			kvOf("description", validation.VStr("missing check across two calls"+
+				fmt.Sprintf(" (variant %d)", seqFindingSeq))))),
 		kvOf("affected", validation.VArr(validation.VObj(
 			kvOf("path", validation.VStr("src/V.sol")),
 			kvOf("contract", validation.VStr("V")),

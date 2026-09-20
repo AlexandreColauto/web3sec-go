@@ -319,12 +319,20 @@ func TestTerminalDuplicateFreezes(t *testing.T) {
 
 // ---- Task 7c: targeted DUPLICATE + reopen --------------------------------
 
+// dupTargetSeq numbers the minted targets so a test that calls this helper
+// twice gets two DISTINCT findings (morph §7.5).
+var dupTargetSeq int
+
 // dupTargetIngest ingests a second finding to merge into: the --of target
 // must be a REAL finding (transition refuses a ghost id), so the fixtures
-// mint one instead of a fabricated F- id.
+// mint one instead of a fabricated F- id. morph §7.5: the second row must be
+// a DIFFERENT claim (an identical payload folds into the first at the door);
+// hypoVariant keeps the technical signature — the tier-1 match this fixture
+// models — and varies only the prose.
 func dupTargetIngest(t *testing.T, c *state.Campaign) string {
 	t.Helper()
-	tgt, err := IngestHypothesis(c, hypoPayload(), "code", "", "")
+	dupTargetSeq++
+	tgt, err := IngestHypothesis(c, hypoVariant(dupTargetSeq), "code", "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1332,8 +1340,9 @@ func TestMoveBelowEvidenceFloorIsRefused(t *testing.T) {
 		t.Fatalf("E0 floor move refused: %v", err)
 	}
 	// PROVISIONALLY_VALID carries an E1 floor: an E0 finding is refused
-	// with the table's verbatim text.
-	b, err := IngestHypothesis(c, hypoPayload(), "code", "", "")
+	// with the table's verbatim text. morph §7.5: a distinct claim, so the
+	// door does not fold it into `a`.
+	b, err := IngestHypothesis(c, hypoVariant(1), "code", "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1347,7 +1356,8 @@ func TestMoveBelowEvidenceFloorIsRefused(t *testing.T) {
 		t.Fatalf("message = %q", it.Error())
 	}
 	// POSSIBLE carries E2; the row is untouched by the refusal.
-	d, err := IngestHypothesis(c, hypoPayload(), "code", "", "")
+	// morph §7.5: a third distinct claim.
+	d, err := IngestHypothesis(c, hypoVariant(2), "code", "", "")
 	if err != nil {
 		t.Fatal(err)
 	}

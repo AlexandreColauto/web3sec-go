@@ -22,17 +22,24 @@ func amendEv(id, level, typ, desc string) validation.Value {
 	)
 }
 
+// supersedeIngestSeq numbers the fixtures' hypotheses (morph §7.5: an
+// identical payload folds into the finding that already carries its digest,
+// and a supersede fixture needs TWO live findings).
+var supersedeIngestSeq int
+
 // supersedeIngest ingests the ladder payload WITHOUT its invariant block
 // (so test evidence can rise without triaging the invariant guardrail)
 // and returns the minted finding id.
 func supersedeIngest(t *testing.T, c *state.Campaign) string {
 	t.Helper()
+	supersedeIngestSeq++
 	raw := `{"title":"reentrancy drain hypothesis",` +
 		`"root_cause":{"class":"reentrancy","description":"withdraw re-enters ` +
 		`the vault before the balance updates"},"affected":[{"path":` +
 		`"src/Vault.sol","contract":"Vault","function":"withdraw"}],` +
 		`"attacker":{"profile":"EOA","capabilities":[]}}`
-	payload, err := validation.ParseOrdered([]byte(raw))
+	payload, err := validation.ParseOrdered([]byte(
+		distinctPayload(t, raw, supersedeIngestSeq)))
 	if err != nil {
 		t.Fatal(err)
 	}

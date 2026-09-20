@@ -46,6 +46,17 @@
 // snapshots were replayed. Nothing else moved: exactly 6 lines changed — the
 // advisory substring in each snapshot and the event hashes that chain from it.
 //
+// Morph pass-2 §7.5 re-recorded the `ingested` scenario's five oracle strings
+// (steps 0,1,3,5,6) and its finding_placeholders list. Ingest is now
+// content-hash idempotent, so (a) every ingested finding carries the new
+// dedup.content_sha key, and (b) the scenario's second hypo — the SAME claim
+// as the first under a different trajectory — and step 6's re-submitted
+// payload are answered with the existing finding's twin instead of minting
+// F-<ID2>/F-<ID5>. The placeholders drop from 5 to 3 (three distinct claims:
+// hypo 1, hypo 3, step 5), and the old recorded bytes were the OLD behavior's
+// pin — exactly what §7.5 overturns. Replayed through dispatchGolden like the
+// re-records above; the diff is 6 lines, all oracle/placeholder values.
+//
 // The three seams a replay must supply (structural index, adapter context,
 // independent-evidence minting) are installed with fakes whose recorded
 // call-site arguments are compared against the Python recorder's — so the

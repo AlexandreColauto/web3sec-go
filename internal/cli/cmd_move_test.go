@@ -34,11 +34,35 @@ const moveLadderPayload = `{"title":"reentrancy drain hypothesis",` +
 	`"attacker":{"profile":"EOA","capabilities":[]},` +
 	`"invariant":{"id":"INV-1","statement":"balances move atomically"}}`
 
+// moveIngestSeq numbers the fixtures' hypotheses: morph §7.5 folds an
+// identical payload (same title + root_cause + affected) into the finding
+// that already carries its digest, and these fixtures exist to produce TWO
+// live findings.
+var moveIngestSeq int
+
+// distinctPayload rewrites [raw]'s root_cause.description with a per-call
+// suffix so a fixture that ingests twice gets two findings (morph §7.5). The
+// class/path/function — hence the technical signature — is untouched.
+func distinctPayload(t *testing.T, raw string, n int) string {
+	t.Helper()
+	v, err := validation.ParseOrdered([]byte(raw))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rc := validation.ObjAt(v, "root_cause")
+	rc.O = validation.SetOrAppend(rc.O, "description", validation.VStr(
+		validation.ObjStr(rc, "description")+fmt.Sprintf(" (variant %d)", n)))
+	v.O = validation.SetOrAppend(v.O, "root_cause", rc)
+	return validation.DumpIndented(v)
+}
+
 // moveIngest is tests/test_cli.py::_ingest: ingest one payload through the
 // CLI and return the minted finding id.
 func moveIngest(t *testing.T, root, cid, payload string) string {
 	t.Helper()
-	p := t14TestWrite(t, root, "hyp.json", payload)
+	moveIngestSeq++
+	p := t14TestWrite(t, root, "hyp.json",
+		distinctPayload(t, payload, moveIngestSeq))
 	code, out, errS := run(t, "--root", root, "ingest", cid, "--json-file", p)
 	if code != 0 {
 		t.Fatalf("ingest exit %d: %q", code, errS)

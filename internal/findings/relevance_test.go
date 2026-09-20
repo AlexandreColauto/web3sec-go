@@ -71,9 +71,16 @@ func installRelevanceStore(t *testing.T, shared, learned []validation.Value) {
 
 // mintRelevanceFinding is _mint: a finding with a class, an optional cwe and
 // explicit capability lists.
+// relevanceMintSeq keeps every minted fixture finding a DISTINCT claim: the
+// ingest door folds an identical payload (same title + root_cause + affected)
+// into the finding that already carries its digest (morph §7.5), and these
+// fixtures exist to produce N live rows.
+var relevanceMintSeq int
+
 func mintRelevanceFinding(t *testing.T, c *state.Campaign, class, cwe string,
 	granted, required []string) validation.Value {
 	t.Helper()
+	relevanceMintSeq++
 	root := validation.VObj(
 		kv("class", validation.VStr(class)),
 		kv("description", validation.VStr("mechanism described in detail here")),
@@ -82,7 +89,8 @@ func mintRelevanceFinding(t *testing.T, c *state.Campaign, class, cwe string,
 		root.O = append(root.O, kv("cwe", validation.VStr(cwe)))
 	}
 	f, err := IngestHypothesis(c, validation.VObj(
-		kv("title", validation.VStr("Untitled finding")),
+		kv("title", validation.VStr(fmt.Sprintf("Untitled finding %d",
+			relevanceMintSeq))),
 		kv("root_cause", root),
 		kv("affected", validation.VArr(validation.VObj(
 			kv("path", validation.VStr("src/V.sol")),

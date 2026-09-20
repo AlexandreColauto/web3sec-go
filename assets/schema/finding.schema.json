@@ -1291,6 +1291,14 @@
           ],
           "pattern": "^[0-9a-f]{16}$"
         },
+        "content_sha": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9a-f]{16}$",
+          "description": "content-hash idempotency key (morph §7.5): digest of the payload's semantic shape (title + root_cause + affected) over canonical bytes, stamped at ingest. A re-submitted payload with an equal digest on a LIVE finding is answered with the existing finding + a finding.ingest_idempotent event instead of minting a duplicate."
+        },
         "root_cause_signature": {
           "type": [
             "string",

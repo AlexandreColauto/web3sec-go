@@ -1,6 +1,7 @@
 package roles
 
 import (
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -13,15 +14,22 @@ import (
 
 // t35SeqFinding is test_sequence_guidance.py::_mk: ingest through the real
 // path, move to POSSIBLE, then attach the declared exploit_sequence.
+// t35SeqFindingSeq numbers the fixtures' findings: morph §7.5 folds an
+// identical payload (same title + root_cause + affected) into the finding
+// that already carries its digest, and this fixture needs TWO findings (a
+// sequenced one and a solo control).
+var t35SeqFindingSeq int
+
 func t35SeqFinding(t *testing.T, c *state.Campaign,
 	seq []validation.Value) string {
 	t.Helper()
+	t35SeqFindingSeq++
 	f, err := findings.IngestHypothesis(c, validation.VObj(
 		kv("title", validation.VStr("multi-tx sequence bug")),
 		kv("root_cause", validation.VObj(
 			kv("class", validation.VStr("access-control")),
-			kv("description", validation.VStr(
-				"missing check across two calls")))),
+			kv("description", validation.VStr("missing check across two calls"+
+				fmt.Sprintf(" (variant %d)", t35SeqFindingSeq))))),
 		kv("affected", validation.VArr(validation.VObj(
 			kv("path", validation.VStr("src/V.sol")),
 			kv("contract", validation.VStr("V")),

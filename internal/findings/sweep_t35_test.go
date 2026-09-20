@@ -30,7 +30,9 @@ func TestExhaustionMessageNamesTheCommand(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, err := IngestHypothesis(c, hypoPayload(), "code", "t", "")
+	// morph §7.5: a distinct second claim — an identical payload folds into
+	// `a` at the ingest door and there is no second rise to refuse.
+	b, err := IngestHypothesis(c, hypoVariant(1), "code", "t", "")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -540,9 +540,14 @@ func portStepDiscovery(t *testing.T, o *Orchestrator) (validation.Value,
 		"users", "precision-rounding",
 		"share minting rounds down in attacker favor", "INV-001",
 		"share redeem value is fully backed by vault assets", "code", "11")
+	// morph §7.5: the second claim must be DISTINCT — an identical payload
+	// (same title + root_cause + affected) is answered with the first
+	// finding's twin at the ingest door. The technical signature
+	// (class/path/function) is unchanged, so tier 1 still merges the pair.
 	portIngest(t, o, "First depositor steals rounding dust from next users",
 		"precision-rounding",
-		"share minting rounds down in attacker favor", "INV-001",
+		"share minting rounds down in attacker favor (economic restatement)",
+		"INV-001",
 		"share redeem value is fully backed by vault assets", "economic", "05")
 	h3 := portIngest(t, o, "Unguarded rescue function drains user staking "+
 		"balance", "access-control",

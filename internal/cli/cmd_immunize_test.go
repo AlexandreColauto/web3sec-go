@@ -4,6 +4,7 @@
 package cli
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -50,9 +51,15 @@ func t21ImmunizeCampaign(t *testing.T) (root, cid, fid, unmintedFid string) {
 
 // t21Confirm ingests + confirms one finding whose unit exec is execID. The
 // second finding's exec is fork-runner but stays unminted.
+// t21ConfirmSeq numbers the fixtures' findings: morph §7.5 folds an identical
+// payload into the finding that already carries its digest, and this fixture
+// needs TWO confirmed findings.
+var t21ConfirmSeq int
+
 func t21Confirm(t *testing.T, c *state.Campaign, execID,
 	profile string) string {
 	t.Helper()
+	t21ConfirmSeq++
 	f, err := findings.IngestHypothesis(c, validation.VObj(
 		kvT("title", validation.VStr(
 			"Rescue function drains user balances without role check")),
@@ -60,7 +67,8 @@ func t21Confirm(t *testing.T, c *state.Campaign, execID,
 			kvT("class", validation.VStr("access-control")),
 			kvT("cwe", validation.VStr("CWE-284")),
 			kvT("description", validation.VStr("rescue() sends every token "+
-				"to the caller, no role check")))),
+				"to the caller, no role check"+
+				fmt.Sprintf(" (variant %d)", t21ConfirmSeq))))),
 		kvT("affected", validation.VArr(validation.VObj(
 			kvT("path", validation.VStr("src/V.sol")),
 			kvT("contract", validation.VStr("V")),

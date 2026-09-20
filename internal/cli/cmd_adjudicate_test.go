@@ -44,10 +44,17 @@ func adjudicateCampaign(t *testing.T, program string) (*state.Campaign, string) 
 // adjudicateFinding ingests one live hypothesis through the schema-valid
 // path and returns its id. class and path are the only anchor keys the eval
 // join reads (root_cause.class, affected[0].path).
+// adjudicateSeq numbers the fixtures' findings: morph §7.5 folds an identical
+// payload (same title + root_cause + affected) into the finding that already
+// carries its digest, and the nudge fixtures need TWO live findings.
+var adjudicateSeq int
+
 func adjudicateFinding(t *testing.T, c *state.Campaign, class, path string) string {
 	t.Helper()
+	adjudicateSeq++
 	f, err := findings.IngestHypothesis(c, validation.VObj(
-		kvT("title", validation.VStr("a live finding")),
+		kvT("title", validation.VStr(fmt.Sprintf("a live finding %d",
+			adjudicateSeq))),
 		kvT("root_cause", validation.VObj(
 			kvT("class", validation.VStr(class)),
 			kvT("description", validation.VStr("the mechanism described in detail")),

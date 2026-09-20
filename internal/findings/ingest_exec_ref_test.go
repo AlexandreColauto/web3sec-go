@@ -251,6 +251,12 @@ func TestIngestExecRefRejectsFalseType(t *testing.T) {
 	// now flip the finding's recorded tier so the derivation says E5/fork-test
 	// while the payload still declares E4/foundry-test.
 	p2 := t2ExecRefPayload(id, "EV-lie2")
+	// morph §7.5: the door folds an identical payload into the finding the
+	// first ingest wrote, so the second payload must be a DISTINCT claim for
+	// the exec-ref gate below to run at all (the verification flip alone does
+	// not move the content digest).
+	p2.O = validation.SetOrAppend(p2.O, "title", validation.VStr(
+		"User can withdraw more than deposited via rounding (re-filed)"))
 	p2.O = validation.SetOrAppend(p2.O, "verification", validation.VObj(
 		kv("reproduction", validation.VObj(
 			kv("tier_reached", validation.VStr("T3"))))))

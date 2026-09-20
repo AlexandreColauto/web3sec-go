@@ -154,7 +154,16 @@ func findingWithInvariant(t *testing.T, c *state.Campaign, invID string) validat
 func findingWithInvariantAt(t *testing.T, c *state.Campaign, invID,
 	level string) validation.Value {
 	t.Helper()
-	f, err := findings.IngestHypothesis(c, findingPayload(), "code", "", "")
+	// morph §7.5: each call must be a DISTINCT claim — an identical payload
+	// is answered with the finding that already carries its digest.
+	invFindingSeq++
+	payload := findingPayload()
+	rc := validation.ObjAt(payload, "root_cause")
+	rc.O = validation.SetOrAppend(rc.O, "description", validation.VStr(
+		validation.ObjStr(rc, "description")+
+			fmt.Sprintf(" (variant %d)", invFindingSeq)))
+	payload.O = validation.SetOrAppend(payload.O, "root_cause", rc)
+	f, err := findings.IngestHypothesis(c, payload, "code", "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -172,6 +181,10 @@ func findingWithInvariantAt(t *testing.T, c *state.Campaign, invID,
 	}
 	return f
 }
+
+// invFindingSeq numbers the fixture findings (morph §7.5: two identical
+// payloads are ONE finding at the ingest door).
+var invFindingSeq int
 
 // floorSeq numbers the R3-3 floor items so their evidence ids stay unique
 // across the package's tests.

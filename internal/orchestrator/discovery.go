@@ -75,6 +75,11 @@ func (o *Orchestrator) Ingest(payload validation.Value,
 	if opts.Lint {
 		return f, nil
 	}
+	// The finding may be an IDEMPOTENT HIT (morph §7.5): the ingest door
+	// answered a re-submitted payload with the finding that already carries
+	// its content digest. The stage note and the priority closure below ride
+	// that EXISTING id — the payload did answer the question, and a closure
+	// that pointed at a finding nobody wrote would be a dangling ref.
 	fid := strAt(f, "finding_id")
 	note := "ingested " + fid
 	if err := o.C.SetStage("discovery-specialist", "needs-model",

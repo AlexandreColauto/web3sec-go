@@ -209,18 +209,19 @@ func TestIngestExamplePipeRoundTrip(t *testing.T) {
 	if errS != "" {
 		t.Fatalf("ingest stderr = %q", errS)
 	}
-	// a re-ingested payload is a NEW finding flagged as a possible
-	// duplicate (dedup does not silently merge) — Python parity
+	// morph §7.5: the door is IDEMPOTENT — a re-submitted payload is
+	// answered with the finding it would have created (plus a
+	// finding.ingest_idempotent event), not a second finding for the dedup
+	// sweep to flag. The OLD behavior here minted a duplicate per re-submit;
+	// morph pass 1 measured 258 of them.
 	code, out2, _ := run(t, "--root", root, "ingest", cid,
 		"--json-file", payload)
 	if code != 0 {
 		t.Fatalf("second ingest exit %d", code)
 	}
-	if !strings.Contains(out2, "[HYPOTHESIS]") {
-		t.Fatalf("second ingest = %q", out2)
-	}
-	if out2 == out {
-		t.Fatalf("second ingest reused the first finding id: %q", out2)
+	if out2 != out {
+		t.Fatalf("second ingest minted a new finding: %q, want the twin %q",
+			out2, out)
 	}
 }
 

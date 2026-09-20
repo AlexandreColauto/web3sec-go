@@ -417,7 +417,9 @@ func TestSupersedeTwoCycleRefused(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fb, err := IngestHypothesis(c, hypoPayload(), "code", "", "")
+	// morph §7.5: B must be a DIFFERENT claim — an identical payload now
+	// folds into A at the ingest door and the pair never exists.
+	fb, err := IngestHypothesis(c, hypoVariant(1), "code", "", "")
 	if err != nil {
 		t.Fatal(err)
 	}

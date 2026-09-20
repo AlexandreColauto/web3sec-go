@@ -71,6 +71,23 @@ func LintHypothesis(campaign *state.Campaign, payload validation.Value,
 func ingestHypothesis(campaign *state.Campaign, payload validation.Value,
 	trajectory, stage, model string, lint bool) (validation.Value, error) {
 	p, fid, rootClass := ingestBuildPayload(campaign, payload, trajectory, stage)
+	// The idempotent door (morph §7.5) sits AFTER the build (so the digest
+	// exists on p) and BEFORE the validate/gate half: a payload whose content
+	// digest already lives on a LIVE finding IS that finding, so it answers
+	// with the twin — no second finding file, no discovery-slot charge, no
+	// re-run gate math. The dedup sweep still owns prose similarity; this only
+	// folds the EXACT re-submit (the 258-duplicate ingest clutter of morph
+	// pass 1). `--lint` skips the exit: lint answers what a FRESH ingest would
+	// decide.
+	if !lint {
+		twin, hit, err := ingestContentTwin(campaign, p, fid, stage)
+		if err != nil {
+			return validation.VNull(), err
+		}
+		if hit {
+			return twin, nil
+		}
+	}
 	gated, err := ingestValidateAndGate(campaign, p, fid, rootClass, lint)
 	if err != nil {
 		return validation.VNull(), err
@@ -146,8 +163,86 @@ func ingestBuildPayload(campaign *state.Campaign, payload validation.Value,
 		sigOpt(first, "function"), sigOpt(validation.ObjAt(p, "invariant"), "id"))
 	dedup := validation.ObjAt(p, "dedup")
 	dedup.O = validation.SetOrAppend(dedup.O, "technical_signature", validation.VStr(sig))
+	dedup.O = validation.SetOrAppend(dedup.O, "content_sha",
+		validation.VStr(contentDigest(payload)))
 	p.O = validation.SetOrAppend(p.O, "dedup", dedup)
 	return p, fid, rootClass
+}
+
+// contentDigest is the ingest door's idempotency key (morph §7.5): the
+// payload's semantic shape — title + root_cause + affected — over canonical
+// bytes. NOT the whole payload (status/evidence/history differ per call);
+// NOT prose similarity (that is the dedup sweep's job). A re-submitted agent
+// row is the SAME digest, so the same claim cannot become 258 findings.
+//
+// The bytes come from validation.CanonSpaced (sorted keys — the repo's
+// documented hash form, jval.Canon), not the insertion-ordered DumpsOrdered
+// the plan sketched: the payload's NESTED objects (root_cause, each affected
+// entry) are caller-ordered, so an agent that re-serializes the same claim
+// with its keys in another order would otherwise mint a second digest and
+// slip past the door. Same semantic coverage, order-insensitive.
+//
+// The 16-hex derivation is the package's signatureHex16 — the same one every
+// SIBLING key in this dedup block uses (technical_signature,
+// root_cause_signature). NOT validation.Sha12Hex as the plan sketched: that
+// helper is 12 hex, and the schema + the door's own test pin 16.
+func contentDigest(payload validation.Value) string {
+	sem := validation.VObj(
+		validation.KV{K: "title", V: validation.ObjAt(payload, "title")},
+		validation.KV{K: "root_cause", V: validation.ObjAt(payload, "root_cause")},
+		validation.KV{K: "affected", V: validation.ObjAt(payload, "affected")},
+	)
+	return signatureHex16(validation.CanonSpaced(sem))
+}
+
+// ingestContentTwin is the door itself: when p's content digest already lives
+// on a LIVE finding, return that twin and record the hit on the ledger (the
+// operator has to see WHY nothing new appeared). hit=false means no twin, so
+// the ingest proceeds down the validate/gate path unchanged.
+func ingestContentTwin(campaign *state.Campaign, p validation.Value,
+	fid, stage string) (validation.Value, bool, error) {
+	sha := validation.ObjStr(validation.ObjAt(p, "dedup"), "content_sha")
+	if sha == "" {
+		return validation.VNull(), false, nil
+	}
+	twin, hit, err := findContentTwin(campaign, sha)
+	if err != nil || !hit {
+		return validation.VNull(), false, err
+	}
+	data := validation.VObj(
+		validation.KV{K: "finding_id", V: validation.VStr(fid)}, // id NOT created
+		validation.KV{K: "matched_finding", V: validation.VStr(
+			validation.ObjStr(twin, "finding_id"))},
+		validation.KV{K: "content_sha", V: validation.VStr(sha)},
+		validation.KV{K: "actor", V: validation.VStr(orDefault(stage, "ingest"))},
+	)
+	ref := validation.ObjStr(twin, "finding_id")
+	if _, lerr := campaign.Log("finding.ingest_idempotent", &ref, &data); lerr != nil {
+		return validation.VNull(), false, lerr
+	}
+	return twin, true, nil
+}
+
+// findContentTwin is the door's lookup: a LIVE finding already carrying this
+// digest. Terminal rows do not block an ingest — a re-filed DISPROVED claim
+// is an operator decision, not clutter to dedupe. O(n) over the store is the
+// right size (campaigns carry hundreds of findings, not millions).
+func findContentTwin(campaign *state.Campaign, digest string) (validation.Value, bool, error) {
+	live, err := LoadAllFindings(campaign)
+	if err != nil {
+		return validation.VNull(), false, err
+	}
+	for _, f := range live {
+		if status := validation.ObjStr(f, "status"); status != "" {
+			if _, terminal := TERMINAL[status]; terminal {
+				continue
+			}
+		}
+		if validation.ObjStr(validation.ObjAt(f, "dedup"), "content_sha") == digest {
+			return f, true, nil
+		}
+	}
+	return validation.VNull(), false, nil
 }
 
 // ingestValidateAndGate is the read-only half of the ingest pipeline: schema
