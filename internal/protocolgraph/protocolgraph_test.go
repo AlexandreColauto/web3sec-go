@@ -693,3 +693,34 @@ func TestGatewayModelArtifactRoundTrip(t *testing.T) {
 // build_brief) — none of those modules is ported yet, so they cannot be
 // ported here. Their protocol-model INPUT is the fixture above, which is
 // pinned byte-for-byte.
+
+// TestTrustBoundaryEvidenceRoundTrips (R3-9f): the boundary rows carry the
+// evidentiary standard in prose ("validated: false until you have seen the
+// code validate it") — `evidence` gives the SEEING a home: an optional
+// string naming the artifact/exec id or file#lines that validated the
+// crossing. It must validate and survive the model save/load round trip.
+func TestTrustBoundaryEvidenceRoundTrips(t *testing.T) {
+	camp := testCamp(t)
+	model := readTestJson(t, "gateway_model.json")
+	const cite = "EXEC-0123456789"
+	row := validation.VObj(
+		validation.KV{K: "from", V: validation.VStr("External")},
+		validation.KV{K: "to", V: validation.VStr("Vault")},
+		validation.KV{K: "crossing",
+			V: validation.VStr("user-supplied token")},
+		validation.KV{K: "validated", V: validation.VBool(true)},
+		validation.KV{K: "evidence", V: validation.VStr(cite)})
+	model.O = validation.SetOrAppend(model.O, "trust_boundaries",
+		validation.VArr(row))
+	path, err := SaveModel(camp, model, "")
+	if err != nil {
+		t.Fatalf("a boundary citing its evidence must validate: %v", err)
+	}
+	back, err := LoadModel(camp, path)
+	if err != nil {
+		t.Fatalf("LoadModel: %v", err)
+	}
+	if got := objStrOf(listField(back, "trust_boundaries")[0], "evidence"); got != cite {
+		t.Fatalf("evidence after round trip = %q, want %q", got, cite)
+	}
+}

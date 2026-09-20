@@ -255,7 +255,8 @@
           "from":     { "type": "string" },
           "to":       { "type": "string" },
           "crossing": { "type": "string", "description": "e.g. user-supplied token, callback, oracle read, message acceptance" },
-          "validated": { "type": "boolean" }
+          "validated": { "type": "boolean" },
+          "evidence": { "type": "string", "description": "artifact/exec id or file#lines that validated this crossing (R3-9f); the prose standard says a boundary is validated:false until you have SEEN the code validate it — this field is where the seeing is recorded" }
         }
       }
     },
