@@ -184,10 +184,16 @@ func amendApply(root string, pa *amendArgs, r *Runner) error {
 	// R3 (critic): a class amend that RAISES a filed finding's floor is the
 	// conversion path the T6 advisory recommends — legal, but never silent:
 	// name the new bar and the work it creates.
-	oldClass, oldStatus := "", ""
+	oldClass, oldStatus, oldVerdict := "", "", ""
+	oldClaim := "0"
 	if pre, perr := findings.LoadFinding(c, pa.pos[1]); perr == nil {
 		oldClass = validation.ObjStr(validation.ObjAt(pre, "root_cause"), "class")
 		oldStatus = validation.ObjStr(pre, "status")
+		oldVerdict = validation.ObjStr(
+			validation.ObjAt(pre, "verification"), "critic_verdict")
+		if v := validation.ObjAt(pre, "claim_version"); v.Kind == validation.Int {
+			oldClaim = validation.IntText(v)
+		}
 	}
 	f, err := findings.Amend(c, pa.pos[1], pa.opts)
 	if err != nil {
@@ -209,6 +215,16 @@ func amendApply(root string, pa *amendArgs, r *Runner) error {
 				"treats verification below %s as MANDATORY work — brief and "+
 				"rank will show it)\n", was, now, now)
 		}
+	}
+	// R3-9a: the verdict twin of the floor note. Every successful amend
+	// bumps claim_version (findings.Amend's law — even a same-bytes
+	// note-only amend), and the boundary critic refuses a verdict pinned
+	// to an older claim; a recorded verdict therefore silently goes stale
+	// the moment the claim is amended. Silence is the lie; say it, once,
+	// with the version it pinned and the verb that re-attests.
+	if oldVerdict != "" {
+		fmt.Fprintf(r.Err, "note: the critic verdict pinned claim version "+
+			"%s — re-run webv2 verdict to re-attest\n", oldClaim)
 	}
 	return nil
 }

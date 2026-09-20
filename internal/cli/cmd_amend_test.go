@@ -332,3 +332,55 @@ func TestSupersedeWarnsWhenGrantsDie(t *testing.T) {
 			code, errS2)
 	}
 }
+
+// R3-9a: bumping claim_version stale-grades the recorded critic verdict
+// (the boundary refuses a verdict pinned to an older claim) — amend must
+// announce that, the way it announces a moved CONFIRMED floor.
+func TestAmendAnnouncesRestaledVerdict(t *testing.T) {
+	c, root := t15Campaign(t, "amendstale")
+	fid := validation.ObjStr(t15Finding(t, c, "an inflation claim",
+		"logic-error"), "finding_id")
+	if code, _, errS := run(t, "--root", root, "verdict", c.CampaignID,
+		fid, "--verdict", "confirmed", "--reason",
+		"no compensating control"); code != 0 {
+		t.Fatalf("verdict fixture: exit %d %q", code, errS)
+	}
+	f0, err := findings.LoadFinding(c, fid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	oldTxt := "0"
+	if v := validation.ObjAt(f0, "claim_version"); v.Kind == validation.Int {
+		oldTxt = validation.IntText(v)
+	}
+	note := "note: the critic verdict pinned claim version " + oldTxt +
+		" — re-run webv2 verdict to re-attest\n"
+
+	// (1) a real claim edit: announced exactly once
+	if code, _, errS := run(t, "--root", root, "amend", c.CampaignID, fid,
+		"--title", "the corrected inflation claim", "--actor", "op"); code !=
+		0 || strings.Count(errS, note) != 1 {
+		t.Fatalf("title amend: exit %d stderr %q", code, errS)
+	}
+
+	// (2) a same-bytes note-only amend too: every successful amend bumps
+	// claim_version (findings.Amend's pinned law), so it re-stales and is
+	// announced — pinning the OBSERVED behavior, not a hoped-for one.
+	if code, _, errS := run(t, "--root", root, "amend", c.CampaignID, fid,
+		"--note", "clarified wording", "--actor", "op"); code != 0 ||
+		strings.Count(errS, note[:40]) != 1 {
+		t.Fatalf("note-only amend: exit %d stderr %q", code, errS)
+	}
+
+	// (3) a finding that never carried a verdict stays silent.
+	fid2 := validation.ObjStr(t15Finding(t, c, "a second inflation claim",
+		"logic-error"), "finding_id")
+	code, _, errS := run(t, "--root", root, "amend", c.CampaignID, fid2,
+		"--title", "the renamed second claim", "--actor", "op")
+	if code != 0 {
+		t.Fatalf("exit %d %q", code, errS)
+	}
+	if strings.Contains(errS, "critic verdict") {
+		t.Fatalf("no verdict on the row: the note must not fire: %q", errS)
+	}
+}
