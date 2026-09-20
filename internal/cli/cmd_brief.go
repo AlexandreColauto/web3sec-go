@@ -656,6 +656,6 @@ func t31Comma(f float64, decimals int) string {
 
 func init() {
 	register(command{ord: 21, name: "brief",
-		line: "brief <campaign>                     operator cockpit (what matters now)",
+		line: "brief <campaign> [--live-only]         operator cockpit (what matters now)",
 		run:  runBrief})
 }

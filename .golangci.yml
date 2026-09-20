@@ -1,0 +1,54 @@
+# golangci-lint config tuned for entropy, not just correctness.
+# 10 etc. are substituted from [thresholds] in .entropy-gate.toml
+# at `entropy-gate init` time -- edit the config, re-run init, don't hand-edit.
+# Docs: https://golangci-lint.run/usage/configuration/
+
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  disable-all: false
+  enable:
+    - gocyclo      # cyclomatic complexity
+    - gocognit     # cognitive complexity
+    - funlen       # long functions
+    - nestif       # deeply nested ifs
+    - dupl         # the big one: near-identical repeated blocks
+    - goconst      # repeated string literals
+    - unused       # dead code
+    - unparam      # unused params / always-same args
+    # Deliberately NOT enabled: revive/godot doc-comment rules are style, not
+    # entropy. They block nearly every commit on day one, which is how gates
+    # get bypassed. Comment slop is caught by the aislop layer instead.
+
+linters-settings:
+  gocyclo:
+    min-complexity: 10
+  gocognit:
+    min-complexity: 15
+  funlen:
+    lines: 30     # hard cap
+    statements: 20
+  nestif:
+    min-complexity: 3
+  dupl:
+    threshold: 60      # tokens; lower = stricter. 100 is the default, too loose
+  goconst:
+    min-len: 3
+    min-occurrences: 3
+
+issues:
+  # The ratchet: entropy-gate passes --new-from-rev HEAD so only NEW issues
+  # block. Everything already on HEAD is grandfathered.
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  # Vendored npm Go code is not ours to grade: `run ./...` walks
+  # node_modules/**/go packages (they resolve inside this module), and the
+  # gate's own ignore_paths cannot stop the linter itself. Without this the
+  # pre-commit gate is permanently un-passable without ENTROPY_GATE_SKIP.
+  exclude-rules:
+    - path: node_modules
+      linters: [gocognit, goconst, gocyclo, funlen, nestif, dupl, unused, unparam, govet, errcheck, staticcheck, ineffassign]
+

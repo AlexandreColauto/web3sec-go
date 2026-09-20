@@ -426,7 +426,7 @@ func orUnknown(s string) string {
 
 func init() {
 	register(command{ord: 31, name: "memory",
-		line: "memory <campaign> [--approve M] [--reflect T] [--reject M]   " +
+		line: "memory <campaign> [--list [--live-only]] [--approve M] [--reflect T] [--reject M]   " +
 			"list learning memory / approve / reflect / reject",
 		run: runMemory})
 }

@@ -210,6 +210,6 @@ func adversarialCmd(root string, args []string, r *Runner) error {
 
 func init() {
 	register(command{ord: 71, name: "adversarial-game",
-		line: "adversarial-game <campaign> <f>  record who profits from the freeze, how, and why the challenge path can't undo it",
+		line: "adversarial-game <campaign> <f>  record who profits from the freeze, how, why the challenge path can't undo it, and whether that answer survives the strongest attacker",
 		run:  runAdversarialGame})
 }
