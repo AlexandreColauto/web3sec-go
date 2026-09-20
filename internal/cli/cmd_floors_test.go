@@ -16,7 +16,9 @@ func TestFloorsListTable(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit %d: %q", code, errS)
 	}
-	if !strings.HasPrefix(out, "effective CONFIRMED floors (22 classes):\n") {
+	// morph §7.3: liveness floor E5->E4 — chain-freeze, sequencer-halt and
+	// liveness joined the floor table, so the table grew 22 -> 25 classes.
+	if !strings.HasPrefix(out, "effective CONFIRMED floors (25 classes):\n") {
 		t.Fatalf("stdout = %q", out[:60])
 	}
 	for _, want := range []string{

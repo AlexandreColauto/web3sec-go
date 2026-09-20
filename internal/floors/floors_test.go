@@ -516,6 +516,10 @@ func orDefault(v *string, fallback string) string {
 
 // TestFloorTableReportGolden pins the report's bytes (key order, null
 // overrides, pinned timestamps) against the Python twin's json.dumps.
+//
+// morph §7.3: liveness floor E5->E4 — the golden's rows gained chain-freeze,
+// liveness and sequencer-halt (E4, no override), 22 -> 25 rows; the pin
+// encodes the built-in table, so the fixture moved with the floor.
 func TestFloorTableReportGolden(t *testing.T) {
 	t.Setenv("WEBV2_NOW", "2026-01-01T00:00:00.000000+00:00")
 	t.Setenv("WEBV2_UUID", "report-golden")

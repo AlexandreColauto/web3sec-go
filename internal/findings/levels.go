@@ -57,8 +57,16 @@ var (
 		// equation): code semantics only. Distinct from
 		// share-price-inflation (E6), whose impact lives in mainnet state.
 		"share-price-accounting": "E4",
-		"oracle-manipulation":    "E5",
-		"flash-loan":             "E5",
+		// Liveness family (morph pass-1 review §7.3): the impact lives in
+		// SEQUENCE semantics — commit, challenge window, finalize order —
+		// which a repo's own unit harness reproduces without mainnet
+		// state. Mirror dos-griefing's E4: a local lifecycle PoC is the
+		// proof; fork reality adds nothing the harness cannot decide.
+		"chain-freeze":        "E4",
+		"sequencer-halt":      "E4",
+		"liveness":            "E4",
+		"oracle-manipulation": "E5",
+		"flash-loan":          "E5",
 		// Mechanism-design classes: the subtle failure is an UNREALISTIC
 		// BENIGN-ACTOR MODEL — a single green fork run does not catch it.
 		// E6 = independent reproduction, reachable on single-chain forks.

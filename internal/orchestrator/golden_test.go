@@ -38,6 +38,14 @@
 // (M-3) and REPRODUCTION leads with `mint` for the same proof-closing
 // property. Go-authored like the 27 above; no other snapshot moved.
 //
+// Morph pass-2 §7.3 re-recorded 6 further snapshots the same way: `gates`
+// step 0 and `queues` steps 2 and 3 (state AND events each). The liveness
+// family joined the floor table (chain-freeze, sequencer-halt, liveness), so
+// the class_advisory text grew from "22 known classes" to 25 — and event_hash
+// covers those bytes, which is why a textual splice is not enough and the
+// snapshots were replayed. Nothing else moved: exactly 6 lines changed — the
+// advisory substring in each snapshot and the event hashes that chain from it.
+//
 // The three seams a replay must supply (structural index, adapter context,
 // independent-evidence minting) are installed with fakes whose recorded
 // call-site arguments are compared against the Python recorder's — so the

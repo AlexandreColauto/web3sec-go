@@ -157,9 +157,12 @@ func TestClassAdvisoryUnknownNamesConservativeFloor(t *testing.T) {
 func TestClassAdvisoryKnownStricterFloorWarns(t *testing.T) {
 	a := ClassAdvisory(ptr("bridge-message"), nil)
 	for _, want := range []string{
-		"CONFIRMED floor of E6",                           // the class's own floor
-		"loosest known-class floor E4",                    // what a cheap class costs
-		"13 of the 22 known classes pin a stricter floor", // the count
+		"CONFIRMED floor of E6",        // the class's own floor
+		"loosest known-class floor E4", // what a cheap class costs
+		// morph §7.3: liveness floor E5->E4 — chain-freeze, sequencer-halt and
+		// liveness joined the known set (22 -> 25); the stricter pool stays 13,
+		// because all three land at the loosest floor.
+		"13 of the 25 known classes pin a stricter floor", // the count
 		// two examples of that stricter pool, sorted by (floor, name)
 		"(e.g. centralization-risk (E5), donation (E5))",
 		"`webv2 amend <campaign> <finding> --class <cls>`", // how to re-file
@@ -220,7 +223,9 @@ func TestClassAdvisoryNoFloorEntryIsHonestAboutInheritance(t *testing.T) {
 		for _, want := range []string{
 			"class '" + cls + "' has no floor-table entry",
 			"it inherits the CONFIRMED default E5",
-			"9 known classes pin looser floors",
+			// morph §7.3: liveness floor E5->E4 — the three new E4 entries
+			// widened the looser-than-E5 pool from 9 to 12.
+			"12 known classes pin looser floors",
 			"(e.g. access-control (E4), authorization (E4))",
 			"The class choice is the author's",
 		} {
@@ -275,8 +280,10 @@ func TestCanonicalClassesIsTheKnownSet(t *testing.T) {
 			t.Errorf("canonical class %q is not known", cls)
 		}
 	}
-	if len(canonical) != 22 {
-		t.Errorf("canonical class count = %d, want 22", len(canonical))
+	// morph §7.3: liveness floor E5->E4 added chain-freeze, sequencer-halt and
+	// liveness to the floor table, which IS the known set: 22 -> 25.
+	if len(canonical) != 25 {
+		t.Errorf("canonical class count = %d, want 25", len(canonical))
 	}
 }
 
@@ -758,6 +765,11 @@ type classAdvisoryVector struct {
 	Advisory *string `json:"advisory"`
 }
 
+// morph §7.3: liveness floor E5->E4 — the captured vectors were re-derived
+// for the widened known set: the embedded known-class list gained chain-freeze,
+// liveness and sequencer-halt, the entry-less count moved 9 -> 12 and the
+// stricter-floor total 22 -> 25. The advisory LOGIC is unchanged; only the
+// membership it reports moved.
 func TestClassAdvisoryVectors(t *testing.T) {
 	var vectors []classAdvisoryVector
 	loadVectors(t, "class_advisory.json", &vectors)
@@ -882,6 +894,9 @@ type mapFileVector struct {
 	MapJSON   *string `json:"map_json"`
 }
 
+// morph §7.3: liveness floor E5->E4 — the fail-loud canonical-class wall in
+// taxonomy_errors.json now enumerates 25 classes (the list gained chain-freeze,
+// liveness and sequencer-halt); the error SHAPE is unchanged.
 func TestMapFileVectors(t *testing.T) {
 	var vectors []mapFileVector
 	loadVectors(t, "taxonomy_errors.json", &vectors)

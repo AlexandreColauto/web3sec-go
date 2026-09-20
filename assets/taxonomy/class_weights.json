@@ -57,6 +57,20 @@
         }
       ]
     },
+    "chain-freeze": {
+      "search": 1.0,
+      "acceptance": 1.0,
+      "severity_default": "high",
+      "provenance": [
+        {
+          "source_url": "taxonomy: canonical class addition (morph §7.3)",
+          "checked_date": "2026-09-20",
+          "primary": true,
+          "figure": "new canonical class; no loss history — weights neutral until a G3 backtest graduates them",
+          "note": "severity_default is DISPLAY-only (floors refuse it)"
+        }
+      ]
+    },
     "cross-chain-replay": {
       "search": 1.0,
       "acceptance": 1.0,
@@ -169,6 +183,20 @@
         }
       ]
     },
+    "liveness": {
+      "search": 1.0,
+      "acceptance": 1.0,
+      "severity_default": "high",
+      "provenance": [
+        {
+          "source_url": "taxonomy: canonical class addition (morph §7.3)",
+          "checked_date": "2026-09-20",
+          "primary": true,
+          "figure": "new canonical class; no loss history — weights neutral until a G3 backtest graduates them",
+          "note": "severity_default is DISPLAY-only (floors refuse it)"
+        }
+      ]
+    },
     "logic-error": {
       "search": 1.0,
       "acceptance": 1.0,
@@ -222,6 +250,20 @@
           "primary": true,
           "figure": "recurring exploit-loss class; dollar share varies by edition — quote docs/IMPROVEMENTS.md G2, not this row",
           "note": "weights neutral until the G3 backtest graduates them; severity_default is DISPLAY-only (floors refuse it)"
+        }
+      ]
+    },
+    "sequencer-halt": {
+      "search": 1.0,
+      "acceptance": 1.0,
+      "severity_default": "high",
+      "provenance": [
+        {
+          "source_url": "taxonomy: canonical class addition (morph §7.3)",
+          "checked_date": "2026-09-20",
+          "primary": true,
+          "figure": "new canonical class; no loss history — weights neutral until a G3 backtest graduates them",
+          "note": "severity_default is DISPLAY-only (floors refuse it)"
         }
       ]
     },

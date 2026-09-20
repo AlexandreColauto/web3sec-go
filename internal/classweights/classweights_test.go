@@ -7,6 +7,10 @@ import (
 	"websec/internal/validation"
 )
 
+// TestEveryCanonicalClassPresentOnce pins the fixture to the taxonomy: every
+// canonical class has exactly one weight row. morph §7.3 moved the FIXTURE,
+// not the expectation — chain-freeze, sequencer-halt and liveness joined the
+// floor table, so class_weights.json gained their (neutral) rows.
 func TestEveryCanonicalClassPresentOnce(t *testing.T) {
 	doc, err := Load()
 	if err != nil {
