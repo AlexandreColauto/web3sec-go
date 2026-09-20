@@ -42,8 +42,21 @@ func dgSeedProbeCampaign(t *testing.T, root, cid string) {
 }
 
 // dgWriteExecRecord puts one exec record on disk so an EXEC ref is
-// refutation-backed.
+// refutation-backed. R3-5(ii): the record names the finding the exec ran
+// for — an unattributed record no longer escapes the anchor rule, and
+// dgWriteAnonymousExec pins what that refusal looks like.
 func dgWriteExecRecord(t *testing.T, root, cid, execID string) {
+	t.Helper()
+	writeExecRecordBody(t, root, cid, execID, `{"exec_id":"`+execID+
+		`","finding_id":"F-000000000000"}`)
+}
+
+func dgWriteAnonymousExec(t *testing.T, root, cid, execID string) {
+	t.Helper()
+	writeExecRecordBody(t, root, cid, execID, `{"exec_id":"`+execID+`"}`)
+}
+
+func writeExecRecordBody(t *testing.T, root, cid, execID, body string) {
 	t.Helper()
 	c, err := state.Open(root, cid)
 	if err != nil {
@@ -54,7 +67,7 @@ func dgWriteExecRecord(t *testing.T, root, cid, execID string) {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(dir, "exec_record.json"),
-		[]byte(`{"exec_id":"`+execID+`"}`), 0o644); err != nil {
+		[]byte(body), 0o644); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -889,5 +902,81 @@ func TestAnsweredCLIFindingMustBeLive(t *testing.T) {
 	p := dgStoredPriority(t, root, cid, "Q-001")
 	if got := validation.ObjStr(p, "interim_finding"); got != "F-1a2b3c4d5e6f" {
 		t.Errorf("interim_finding = %q", got)
+	}
+}
+
+// TestAnsweredExecEscapeRequiresAttribution pins R3-5(ii) at the CLI edge:
+// an EXEC ref that stands in for the anchor must be attributed, and the
+// refusal reads as a handler-class 'answered failed:' at exit 2.
+func TestAnsweredExecEscapeRequiresAttribution(t *testing.T) {
+	root := mkroot(t)
+	cid := initOne(t, root)
+	t14TestSeed(t, root, cid)
+	dgSeedProbeCampaign(t, root, cid)
+	dgWriteAnonymousExec(t, root, cid, "EXEC-abcdef1234")
+	code, out, errS := run(t, "--root", root, "answered", cid, "Q-005",
+		"answered", "--reason",
+		"liveness-only, the owner can revert", "--anchor", "consumer",
+		"--ref", "EXEC-abcdef1234")
+	if code != 2 {
+		t.Fatalf("exit %d: %q", code, errS)
+	}
+	if out != "" {
+		t.Fatalf("stdout = %q, want empty", out)
+	}
+	for _, want := range []string{"answered failed:",
+		"must be the anchor it claims",
+		"must name the finding it ran for (--finding"} {
+		if !strings.Contains(errS, want) {
+			t.Errorf("stderr missing %q:\n%s", want, errS)
+		}
+	}
+	p := dgStoredPriority(t, root, cid, "Q-005")
+	if got := validation.ObjStr(p, "status"); got != "open" {
+		t.Fatalf("refused closure changed status to %q", got)
+	}
+}
+
+// TestAnsweredLinkedFindingWarnsOnStderr pins R3-5(i) at the CLI edge: the
+// mis-linked closure LANDS (exit 0, stdout unchanged) and the notice rides
+// stderr beside the success line.
+func TestAnsweredLinkedFindingWarnsOnStderr(t *testing.T) {
+	root := mkroot(t)
+	cid := initOne(t, root)
+	t14TestSeed(t, root, cid)
+	dgSeedProbeCampaign(t, root, cid)
+	c, err := state.Open(root, cid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(c.FindingsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	const fid = "F-aaaaaaaaaaaa"
+	body := `{"finding_id":"` + fid +
+		`","title":"unrelated","status":"HYPOTHESIS",` +
+		`"root_cause":{"class":"logic-error",` +
+		`"mechanism":"the Treasury multisig rotates keys quarterly",` +
+		`"description":"no row symbol anywhere"}}`
+	if err := os.WriteFile(filepath.Join(c.FindingsDir, fid+".json"),
+		[]byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	code, out, errS := run(t, "--root", root, "answered", cid, "Q-005",
+		"answered", "--reason",
+		"commitBatch guards the entry path; read line by line",
+		"--anchor", "consumer", "--finding", fid)
+	if code != 0 {
+		t.Fatalf("a mis-linked closure warns, it is not refused: exit %d %q",
+			code, errS)
+	}
+	if !strings.Contains(out, "Q-005: status -> answered") {
+		t.Fatalf("stdout = %q", out)
+	}
+	for _, want := range []string{"closes probe row 81dfad6492", fid,
+		"webv2 anchors", "commitBatch"} {
+		if !strings.Contains(errS, want) {
+			t.Errorf("stderr missing %q:\n%s", want, errS)
+		}
 	}
 }

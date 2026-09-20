@@ -397,11 +397,30 @@ func resolveAnchor(campaign *state.Campaign, priorityID string,
 		// it backs the dismissal, while the anchor record above keeps its
 		// own citation of the field the probe covered. Anything else is
 		// still rejected: the disposition has to be falsifiable.
-		if !refutationBacked(campaign, *ref) {
+		backed, rec := refutationRecord(campaign, *ref)
+		if !backed {
 			return nil, validation.VNull(), errValue("a probe disposition's " +
 				"--ref must be the anchor it claims: got " +
 				validation.PyReprStr(*ref) + ", expected " +
 				validation.PyReprStr(rendered) + " (" + anchor + ")")
+		}
+		// R3-5(ii): the escape hatch was a bare existence check, so ANY
+		// exec record could close a row whose anchor it never matched,
+		// without naming which finding that exec ran for. An EXEC standing
+		// in for the anchor must now be attributed — by --finding, or by
+		// the record's own finding_id. An unattributed escape is refused
+		// in the same sentence the rule lives in; INV refs keep their
+		// registered-invariant provenance and stay untouched.
+		if rec.Kind != validation.Null && execIDPattern.MatchString(*ref) &&
+			opts.Finding == nil &&
+			strings.TrimSpace(validation.ObjStr(rec, "finding_id")) == "" {
+			return nil, validation.VNull(), errValue(
+				"a probe disposition's --ref must be the anchor it claims: got " +
+					validation.PyReprStr(*ref) + ", expected " +
+					validation.PyReprStr(rendered) + " (" + anchor +
+					"); an EXEC that stands in for the anchor must name the " +
+					"finding it ran for (--finding F-<id>), or ride an exec " +
+					"record that records one")
 		}
 		out = *ref
 	}

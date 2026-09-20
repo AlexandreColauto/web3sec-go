@@ -242,6 +242,18 @@ func checkDeferredConsequenceRow(campaign *state.Campaign, priorityID,
 		}
 		return nil
 	}
+	// R3-5(i): a closure that links a finding never checked the finding
+	// DESCRIBES this row — the report's arm-1 loss is a row closed with a
+	// causally wrong reason quoting the row's own identifiers while the
+	// linked finding talks about other code. Causal truth is not
+	// statically decidable (the repo's own doctrine, and a refusal would
+	// fight the FP budget), so this WARNS on the notice channel —
+	// mechanically, on symbol overlap — and lets the closure land. It runs
+	// BEFORE the high-risk and trigger early-returns so every linked
+	// closure is covered, not just deferred-consequence ones.
+	if opts.Finding != nil {
+		warnUnrelatedFinding(campaign, opts, priorityID, rowID, row)
+	}
 	if !HighRiskRow(row) {
 		return nil
 	}
@@ -305,4 +317,52 @@ func overrideDeferredConsequence(campaign *state.Campaign, priorityID string,
 	// the justification is validated here, the event is recorded by the
 	// apply pass's dismissal gate.
 	return nil
+}
+
+// warnUnrelatedFinding is the R3-5(i) cross-check: the linked finding's
+// root_cause mechanism+description must name at least one of the row's own
+// surface symbols, or the notice channel carries a line saying the link is
+// unverified and pointing at `webv2 anchors` (the mechanical overlap check
+// B8 made possible). Everything it cannot judge it stays silent about: a
+// malformed or ghost id belongs to the strict gates (they refuse it where
+// they run), an empty mechanism is no signal, a symbol-less row has nothing
+// to match, and a notice already set this run is APPENDED to, never
+// clobbered — two stand-downs in one pass deserve two lines.
+func warnUnrelatedFinding(campaign *state.Campaign, opts AnsweredOpts,
+	priorityID, rowID string, row validation.Value) {
+	if opts.SkipNotice == nil {
+		return
+	}
+	ref := strings.TrimSpace(*opts.Finding)
+	if !findingRefPattern.MatchString(ref) {
+		return
+	}
+	raw, err := os.ReadFile(filepath.Join(campaign.FindingsDir, ref+".json"))
+	if err != nil {
+		return
+	}
+	f, err := validation.ParseOrdered(raw)
+	if err != nil {
+		return
+	}
+	rc := validation.ObjAt(f, "root_cause")
+	text := strings.TrimSpace(validation.ObjStr(rc, "mechanism") + " " +
+		validation.ObjStr(rc, "description"))
+	if text == "" {
+		return
+	}
+	syms := RowSymbols(row)
+	if len(syms) == 0 || namesSymbol(text, syms) != "" {
+		return
+	}
+	line := "notice: priority " + priorityID + " closes probe row " + rowID +
+		" citing finding " + ref + ", whose mechanism names nothing from " +
+		"that row's surface entry (" + strings.Join(syms, ", ") + ") — " +
+		"verify the link before leaning on this closure: webv2 anchors " +
+		campaign.CampaignID + " <symbol>"
+	if *opts.SkipNotice == "" {
+		*opts.SkipNotice = line
+	} else {
+		*opts.SkipNotice += "\n" + line
+	}
 }

@@ -24,15 +24,33 @@ var (
 // Anything else — a file#L anchor, a finding id, bare prose — is an
 // assertion, not a refutation.
 func refutationBacked(campaign *state.Campaign, ref string) bool {
+	backed, _ := refutationRecord(campaign, ref)
+	return backed
+}
+
+// refutationRecord is the record-returning form (R3-5(ii)): the EXEC half
+// reads the exec_record.json whose EXISTENCE refutationBacked was checking,
+// so a caller can ask whose finding the run belongs to. Existence is still
+// the acceptance — an unreadable record backs the dismissal but attributes
+// nothing (the caller sees a null record and applies its own law).
+func refutationRecord(campaign *state.Campaign,
+	ref string) (bool, validation.Value) {
 	if execIDPattern.MatchString(ref) {
-		_, err := os.Stat(filepath.Join(campaign.ExecsDir, ref,
+		raw, err := os.ReadFile(filepath.Join(campaign.ExecsDir, ref,
 			"exec_record.json"))
-		return err == nil
+		if err != nil {
+			return false, validation.VNull()
+		}
+		rec, perr := validation.ParseOrdered(raw)
+		if perr != nil {
+			return true, validation.VNull()
+		}
+		return true, rec
 	}
 	if invariantPattern.MatchString(ref) {
-		return invariantRegistered(campaign, ref)
+		return invariantRegistered(campaign, ref), validation.VNull()
 	}
-	return false
+	return false, validation.VNull()
 }
 
 // checkDismissalGate is the B4 v2 hard gate: a high-risk row (tier 0 or

@@ -153,14 +153,18 @@ func TestDismissalGateMatrix(t *testing.T) {
 		t.Fatalf("ghost EXEC ref must be rejected as fabricated, err = %v", err)
 	}
 
-	// (d) a real exec record on disk: the refutation backs the closure
+	// (d) a real exec record on disk: the refutation backs the closure.
+	// R3-5(ii): the record names the finding the exec ran for — an
+	// ANONYMOUS exec no longer escapes the anchor rule (TestExecEscapeMust-
+	// NameItsFinding pins that refusal).
 	refExec := "EXEC-abcdef1234"
 	exDir := filepath.Join(camp.ExecsDir, refExec)
 	if err := os.MkdirAll(exDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(exDir, "exec_record.json"),
-		[]byte(`{"exec_id":"`+refExec+`"}`), 0o644); err != nil {
+		[]byte(`{"exec_id":"`+refExec+
+			`","finding_id":"F-000000000000"}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	plan, err = MarkAnswered(camp, deepCopy(t, plan), "Q-005", "answered",
