@@ -22,7 +22,8 @@ const DefaultCriticActor = "model"
 // the model path (the boundary sweep, every test fixture that seeds a
 // verdict to move a gate): a mandatory parameter would have been 30 edits
 // all spelling "model". An absent or blank actor normalizes to
-// DefaultCriticActor on the event — never an anonymous record.
+// DefaultCriticActor on the event — never an anonymous record. Only the
+// FIRST variadic value is read; a second is a caller bug, not a committee.
 func SetCriticVerdict(campaign *state.Campaign, findingID, verdict,
 	reasoning string, actor ...string) (validation.Value, error) {
 	switch verdict {

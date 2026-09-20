@@ -169,8 +169,12 @@ func ApplyCriticVerdict(campaign *state.Campaign, findingID string,
 			validation.PyListRepr(applied), err)}
 	}
 	reasoning := composeReasoning(raw)
+	// This call site IS the model path — name it explicitly (R3-9c review):
+	// the default would say so anyway, but a reader of this line should
+	// not have to know the default to see who authored the verdict.
 	if _, err := findings.SetCriticVerdict(campaign, findingID,
-		validation.ObjStr(raw, "verdict"), reasoning); err != nil {
+		validation.ObjStr(raw, "verdict"), reasoning,
+		findings.DefaultCriticActor); err != nil {
 		return validation.VNull(), err
 	}
 	return findings.LoadFinding(campaign, findingID)

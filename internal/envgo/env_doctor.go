@@ -83,6 +83,9 @@ func (dc *doctorState) forkSection() validation.Value {
 	if dc.rpc.Kind != validation.Obj {
 		return dc.rpc
 	}
+	if validation.ObjAt(dc.rpc, "container_url").Kind != validation.Null {
+		return dc.rpc // already named (idempotence for a second caller)
+	}
 	u := strAt(dc.rpc, "url")
 	if u == "" {
 		return dc.rpc
