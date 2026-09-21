@@ -63,6 +63,23 @@ func logHypothesisRequest(campaign *state.Campaign,
 	if request.Kind != validation.Obj {
 		return nil
 	}
+	return LogRequest(campaign, request)
+}
+
+// LogRequest records the model request that produced a response: the ledger's
+// ONE writer of model.request. It is EXPORTED for the file-drop transport
+// (internal/feed), which validates a drop's request record with the same
+// ValidateRequest and must then record the SAME event — "one model.request per
+// accepted request" is a fact about one function, not a convention two
+// transports must each remember (v1.6 Part 1: the declaration is a LEDGER
+// FACT, so a stage invocation the feed accepted may not vanish with the drop
+// file).
+//
+// Validate-before-write, exactly as this package has always done it: a request
+// failing the record contract is a returned error, not a log row, and the one
+// refusal that IS a ledger fact — the declared-input-set clause — is recorded
+// as model.rejected instead, never as a model.request.
+func LogRequest(campaign *state.Campaign, request validation.Value) error {
 	if err := ValidateRequest(request); err != nil {
 		// Record the declared-input-set refusals — and only those. A request
 		// that fails the record contract itself keeps the pre-v1.6 behaviour

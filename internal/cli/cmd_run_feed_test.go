@@ -4,6 +4,7 @@ package cli
 // stage; an unwired stage and a missing file are exit-2 refusals that say why.
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -179,9 +180,12 @@ func TestRunFeedRefusesAnOutOfSetDrop(t *testing.T) {
 	// is derived from the bundle it shipped).
 	drop := inboxDrop(t, c, "discovery",
 		discoveryDrop(t, []string{"ART-aaaa1111", "ART-cccc3333"}, []string{"ART-aaaa1111"}))
-	code, _, errS := run(t, "--root", root, "run", "--feed", drop)
+	code, out, errS := run(t, "--root", root, "run", "--feed", drop)
 	if code != 1 {
 		t.Fatalf("code = %d, want 1 (stderr: %s)", code, errS)
+	}
+	if out != "" {
+		t.Fatalf("stdout = %q, want nothing: a refused drop ingests nothing", out)
 	}
 	if !strings.Contains(errS, "outside its declared input set") {
 		t.Fatalf("stderr = %q, want the out-of-set refusal", errS)
@@ -190,13 +194,107 @@ func TestRunFeedRefusesAnOutOfSetDrop(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	recorded := false
+	rejected, requested := 0, 0
 	for _, e := range evs {
-		if validation.ObjStr(e, "type") == "model.rejected" {
-			recorded = true
+		switch validation.ObjStr(e, "type") {
+		case "model.rejected":
+			rejected++
+		case "model.request":
+			requested++
 		}
 	}
-	if !recorded {
-		t.Fatal("the refusal was not recorded as model.rejected")
+	if rejected != 1 {
+		t.Fatalf("model.rejected events = %d, want 1 (the refusal is a ledger fact)",
+			rejected)
+	}
+	// The ORDER the two branches must keep: a refused drop's declaration was
+	// never accepted, so it carries no model.request — only the rejection.
+	if requested != 0 {
+		t.Fatalf("model.request events = %d, want 0 for a refused drop", requested)
+	}
+}
+
+// TestRunFeedRecordsTheAcceptedInvocation is the I-1 covering test: the drop
+// file is the ONLY sanctioned model-stage transport, so a drop the feed ACCEPTS
+// must leave its declaration on the ledger as a model.request event — and the
+// v16_coverage section the plan added to notice a stopped writer must read 1
+// rather than 0 on a campaign built entirely through the CLI.
+func TestRunFeedRecordsTheAcceptedInvocation(t *testing.T) {
+	c, root := t15Campaign(t, "Acme")
+	drop := inboxDrop(t, c, "discovery",
+		discoveryDrop(t, []string{"ART-aaaa1111"}, []string{"ART-aaaa1111"}))
+	code, out, errS := run(t, "--root", root, "run", "--feed", drop)
+	if code != 0 {
+		t.Fatalf("code = %d, want 0 (stderr: %s)", code, errS)
+	}
+	if !strings.Contains(out, "ingested F-") {
+		t.Fatalf("stdout = %q, want the ingested line", out)
+	}
+	requireOneDeclaredRequest(t, c, "ART-aaaa1111")
+	requireCoverageDeclared(t, root, c.CampaignID, 1)
+}
+
+// requireOneDeclaredRequest: exactly one model.request event, declaring the
+// artifact the drop declared — with the cited set the feed DERIVED from the
+// bundle beside it.
+func requireOneDeclaredRequest(t *testing.T, c *state.Campaign, want string) {
+	t.Helper()
+	evs, err := c.Events()
+	if err != nil {
+		t.Fatal(err)
+	}
+	reqs := []validation.Value{}
+	for _, e := range evs {
+		if validation.ObjStr(e, "type") == "model.request" {
+			reqs = append(reqs, e)
+		}
+	}
+	if len(reqs) != 1 {
+		t.Fatalf("model.request events = %d, want exactly 1 for an accepted "+
+			"drop (the declaration is a ledger fact)", len(reqs))
+	}
+	data := validation.ObjAt(reqs[0], "data")
+	declared := boundary.DeclaredInputArtifacts(data)
+	if len(declared) != 1 || declared[0] != want {
+		t.Fatalf("input_artifacts = %v, want [%s] (what the drop declared)",
+			declared, want)
+	}
+	cited := []string{}
+	for _, v := range validation.ObjAt(data, "context_artifacts").A {
+		cited = append(cited, v.S)
+	}
+	if len(cited) != 1 || cited[0] != want {
+		t.Fatalf("context_artifacts = %v, want [%s] (derived from the bundle)",
+			cited, want)
+	}
+}
+
+// requireCoverageDeclared reads the shipped v16_coverage counters over the
+// campaign the CLI built: the section exists to make a field that stopped
+// being written a visible 0, so a declaration the feed accepted must move
+// model_requests and requests_declared off zero.
+func requireCoverageDeclared(t *testing.T, root, cid string, want int) {
+	t.Helper()
+	code, out, errS := run(t, "--root", root, "audit", cid, "--json")
+	var rep map[string]any
+	if err := json.Unmarshal([]byte(out), &rep); err != nil {
+		t.Fatalf("audit --json (exit %d) not JSON: %v\n%s", code, err, errS)
+	}
+	secs, ok := rep["sections"].(map[string]any)
+	if !ok {
+		t.Fatalf("audit --json has no sections object: %s", out)
+	}
+	sec, ok := secs["v16_coverage"].(map[string]any)
+	if !ok {
+		t.Fatal("audit --json lacks the v16_coverage section")
+	}
+	cov, ok := sec["coverage"].(map[string]any)
+	if !ok {
+		t.Fatal("v16_coverage has no coverage object")
+	}
+	for _, key := range []string{"model_requests", "requests_declared"} {
+		if got := cov[key]; got != float64(want) {
+			t.Fatalf("%s = %v, want %d", key, got, want)
+		}
 	}
 }

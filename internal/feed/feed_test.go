@@ -153,6 +153,46 @@ func requireAdvertisedStagesResolve(t *testing.T) {
 	}
 }
 
+// TestFeedRecordsTheAcceptedInvocation is the I-1 covering test at the package
+// level: a drop the feed ACCEPTS leaves its declaration on the ledger as
+// exactly one model.request event carrying what the file declared. Before the
+// fix the feed validated the declaration and threw it away, so the ledger's
+// only model.request writer (boundary.IngestModelHypothesis) had no non-test
+// caller and the event never existed on the sanctioned transport.
+func TestFeedRecordsTheAcceptedInvocation(t *testing.T) {
+	root := t.TempDir()
+	c, err := state.Init(root, "Acme", state.InitOpts{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fs, _ := FeedStageFor("discovery")
+	if _, err := fs.Ingest(c, feedDoc(t, "ART-aaaa1111")); err != nil {
+		t.Fatalf("ingest: %v", err)
+	}
+	evs, err := c.Events()
+	if err != nil {
+		t.Fatal(err)
+	}
+	reqs := []validation.Value{}
+	for _, e := range evs {
+		if validation.ObjStr(e, "type") == "model.request" {
+			reqs = append(reqs, e)
+		}
+	}
+	if len(reqs) != 1 {
+		t.Fatalf("model.request events = %d, want exactly 1 for an accepted "+
+			"drop (the declaration is a ledger fact)", len(reqs))
+	}
+	got := boundary.DeclaredInputArtifacts(validation.ObjAt(reqs[0], "data"))
+	if len(got) != 1 || got[0] != "ART-aaaa1111" {
+		t.Fatalf("input_artifacts = %v, want [ART-aaaa1111] (what the drop declared)", got)
+	}
+	// The new writer's row must satisfy the contract verify_trajectory
+	// re-validates — the framework may not write the one event that turns a
+	// healthy campaign red.
+	requireTrajectoryOK(t, c)
+}
+
 func TestFeedDiscoveryIngestsAHypothesis(t *testing.T) {
 	root := t.TempDir()
 	c, err := state.Init(root, "Acme", state.InitOpts{})

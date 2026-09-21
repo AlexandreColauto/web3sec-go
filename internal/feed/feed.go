@@ -61,8 +61,18 @@ func discoveryIngest(role, kind string) func(*state.Campaign, validation.Value) 
 }
 
 // ingestDiscovery is the discovery stage's ingest path: validate the stage
-// INVOCATION before its output is read, then hand the output to the ordinary
-// hypothesis ingest.
+// INVOCATION before its output is read, record the accepted invocation on the
+// ledger, then hand the output to the ordinary hypothesis ingest.
+//
+// The ORDER is the honest one: the model.request event belongs to the
+// INVOCATION, so it is written once the declaration has validated and the
+// drop's shape has been read, and BEFORE the output is ingested — a downstream
+// ingest refusal must not erase the fact that the declaration was accepted and
+// checked (the whole point of Task 9 counting it). Every refusal above returns
+// before this line, so a refused drop carries its model.rejected event and no
+// model.request; and the ledger write precedes the finding write, so a log
+// that cannot land fails the drop instead of leaving a finding nothing
+// declares.
 func ingestDiscovery(c *state.Campaign, doc validation.Value, role, kind string) (string, error) {
 	request, err := invocationRequest(c, doc, role, kind)
 	if err != nil {
@@ -71,6 +81,9 @@ func ingestDiscovery(c *state.Campaign, doc validation.Value, role, kind string)
 	output := validation.ObjAt(doc, "output")
 	if output.Kind != validation.Obj {
 		return "", fmt.Errorf("drop file has no output payload")
+	}
+	if err := boundary.LogRequest(c, request); err != nil {
+		return "", err
 	}
 	f, err := findings.IngestHypothesis(c, output, "model",
 		stageOf(request, "discovery"), validation.ObjStr(request, "model_id"))
@@ -84,7 +97,9 @@ func ingestDiscovery(c *state.Campaign, doc validation.Value, role, kind string)
 // request record with its cited set DERIVED from the bundle the file shipped.
 // An undeclared or out-of-set input set is refused AND recorded here, on the
 // only production path that reaches the boundary check
-// (boundary.IngestModelHypothesis has no CLI caller).
+// (boundary.IngestModelHypothesis has no CLI caller); an accepted invocation is
+// recorded as model.request by ingestDiscovery through boundary.LogRequest,
+// the ledger's single writer of that event.
 func invocationRequest(c *state.Campaign, doc validation.Value,
 	role, kind string) (validation.Value, error) {
 	request := validation.ObjAt(doc, "request")
