@@ -77,3 +77,37 @@ Recon of `websec` (webv2 control plane, Go, module `websec`) against framework-p
 - **Waiver singularity:** the accepted-risk/ladder escape hatches all NAME `waive` (remediation.go:33, cmd_ladder.go:92); the probe-row `--override-dismissal` path is separately logged — folding it into waive or leaving it must be an explicit decision, not silent duplication.
 - **Part 4 cut conflicts in code:** `internal/wilson`, `internal/backtest`, `internal/classweights` implement the CUT statistical layer; new work must not lean on them for gating, and removal would touch their tests — coordinate deletion as its own task.
 - **Deleted-code archaeology:** `internal/datasets/scabench` and `internal/routing` are gone (docs/archive/README.md:11); do not resurrect imports from `docs/archive/testmap-2026-09.json` rows — they document the pre-deletion tree.
+
+---
+
+## P1 update (post-merge)
+
+**Refreshed 2026-09-21 · HEAD `7a131e90` · re-read range `528b6ae9..HEAD`.**
+C6 and Part 3a are P5/P0 work and P1 did not touch them; the three rows that moved are the C8 `review_session` row, the attributed-cost row's ingest half, and the Part 4 cut conflict. Focused tests at this HEAD (prefix `GOCACHE=$PWD/.scratch/gocache`): `go test ./internal/boundary ./internal/feed ./internal/risk ./internal/reviewsession ./internal/audit/sections -count=1` → `ok` (all five); `go test ./internal/cli -run 'TestRunFeed|TestImpactReplayable|TestFactRead|TestForkDependence|TestReviewSession' -count=1` → `ok`; `go test ./internal/cli -run TestP3ArgparseGolden -count=1` → `ok`.
+
+### Claims P1 changed
+
+| Claim (as stated above) | Old | New | Evidence now |
+|---|---|---|---|
+| Part 5: "Cost per confirmed finding, attributed: `origin_stage` and `contributing_stages` recorded at ingest" | **PARTIAL** | **PARTIAL** — the record half closed; the attribution *aggregation* half did not | Fields: `assets/schema/finding.schema.json:1099` (`origin_stage`), `:1104` (`contributing_stages`); ingest writer `internal/findings/ingest.go:140-143` (origin set from the payload's stage, contributing defaulted to the origin alone unless the caller supplies the set). Still absent: no cost/yield key on origin — `rg -n "origin" internal/costs/*.go internal/cli/cmd_yields.go` → 0 non-test hits, so `yields` remains per-trajectory, not `--by-origin`. |
+| Part 5: "`review_session` events: start, end, artifacts covered, LOC" (line 381; Part 1 line 46) | **ABSENT** | **EXISTS** | `internal/reviewsession/reviewsession.go:30` (`Start`, one open session at a time, campaign lock held end-to-end), `:55` (`End`, takes `loc int64` and records it), `:78` (`Open`); projection key `assets/schema/campaign_state.schema.json:219` (`review_sessions`); CLI `internal/cli/cmd_review_session.go:253` (ord 93, `{start\|end} [campaign] [--actor A] [--artifact A]... [--loc N]`); tests `internal/reviewsession/reviewsession_test.go`. The ~60-minute / 400-line budget is stated as a soft target in the package header (`:1-4`) and is not enforced. |
+| Part 4 cut: "Statistical eval layer (Wilson CI, gold join, backtest, acceptance bands)" — CUT | **CONFLICT — code exists for cut items** | **CONFLICT → GUARDED** (deletion still open) | `internal/audit/part4_guard_test.go:35` (`part4Allow`) pins the importer set for `internal/wilson` (12 files), `internal/backtest` (1), `internal/classweights` (4) and asserts the allowlist equals the tree **in both directions**, so a new importer is a red test and a free-text edit; each package now carries a `DEPRECATED — DO NOT BUILD ON THIS PACKAGE` header (`internal/wilson/wilson.go:1`, `internal/backtest/backtest.go:1`, `internal/classweights/classweights.go:1`). Deletion is P0b, still open. |
+
+### Claims re-checked and UNCHANGED
+
+- **C6 target scoring (stage 1), §C6.1 `scope --check`, clone sweep, §C6.2 out-of-language ledger, §3.2 abandonment/null records — unchanged ABSENT/PARTIAL (P5).** `rg -n "target-score|target_score|scope_class|abandon" internal --glob '!*_test.go'` → 0 hits; `internal/cli/cmd_scorecard.go:198` is still the read-only post-hoc view at ord 81.
+- **Part 5 effective-FP, override rate, unknown ledger, closure-quality log, external acceptance telemetry, excluded-disclosure duplicate-risk rate, delta-by-class, negative-closure tranche distribution, key-transcription disagreement rate, `policy.amended` — unchanged.**
+- **Part 7 Phase 0/3a: ScaBench harness, checkout/pin tooling, contamination controls, double transcription, commit-before-reveal, fresh targets, ScaBench scorer — unchanged (P0).**
+- **Part 6: below-Medium refusal, contest-vs-continuous routing, runner-level fork pin, submission-rubric gate extension, waiver singularity, phase tracking — unchanged (P5).**
+- **Trap "Audit section order … a telemetry section must be appended after them, never interleaved" — satisfied, not violated.** P1's `v16_coverage` is registered last (`internal/audit/sections/register.go:47`), so this report's cited range `register.go:25-45` now ends at `:47` with the ported order intact.
+- **Trap "Argparse golden surface" — the append discipline held, but the trap's description of the fixture does not.** The three P1 verbs are appended at the top ords (`review-session` 93, `fact-read` 94, `fork-dependence` 95), so no existing verb's own usage text changed and `internal/cli/testdata/p3_args_golden.json` was **not** regenerated — it is byte-identical at `528b6ae9` and HEAD (md5 `7b67da12…`, 88 entries). See the observation below.
+
+### Observations — wrong today for a reason P1 did not cause
+
+- Line 57 cites `internal/metrics/metrics_campaign.go:11` for `CampaignMetrics`. The function is at `:17` today, and it was already at `:17` at `528b6ae9` (`git diff --name-only 528b6ae9..HEAD -- internal/metrics` → empty). The row's substance (unscoped per-campaign metrics, no stage-12/13 funnel) is correct.
+- Line 56 cites `internal/coverage/coverage_gaps.go:9` for `ThinCoverage`. It is at `:19` today, and was already at `:19` at `528b6ae9`. The header citation for the same package (`:1-5`) is still accurate.
+- The Traps entry for the argparse fixture ("`internal/cli/testdata/p3_args_golden.json` … embed the FULL verb list in every stderr usage block — adding/renaming a verb requires regenerating this fixture") does not describe the file. Every entry is a **single verb's own** usage line; the largest `webv2 ` count in any one `stderr` string is 2, there are 88 entries, and the file is byte-identical at `528b6ae9` and HEAD (`git diff --stat 528b6ae9..HEAD -- internal/cli/testdata/p3_args_golden.json` → empty) even though P1 added three verbs. `TestP3ArgparseGolden` (`internal/cli/cmd_p3_args_test.go:26`) is green with `fact-read`/`fork-dependence`/`review-session` absent from the fixture, so adding a verb does **not** require regenerating it. No full-verb-list usage surface exists in `internal/cli` (`rg -n "CommandNames\(\)" internal/cli/*.go` finds only per-verb test guards). P1 did not cause this; the claim was already inaccurate at the base commit.
+
+### Could not verify
+
+- Nothing in this area failed verification. The two observations above are line-reference drift only; no status changed because of them.

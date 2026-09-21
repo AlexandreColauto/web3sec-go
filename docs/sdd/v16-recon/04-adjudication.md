@@ -103,3 +103,13 @@ probe, §C7.3 bypass analysis), Part 3 stage 12 (line 216), Part 7 Phase 4 row
   is a r18-P2 audit violation. `audit` flags engine-failed magnitudes and
   provisional-without-final rows (Part 5 line 404) — keep that path untouched
   when adding gate clauses.
+
+---
+
+## P1 update (post-merge)
+
+**Refreshed 2026-09-21 · HEAD `7a131e90` · re-read range `528b6ae9..HEAD`.**
+
+P1 did not touch this area; the statuses below are unchanged as of 2026-09-21, last verified at the recon run (commit `4b06c114`, 2026-09-21). The C7 rows were re-run: `--external` still absent (`internal/cli/cmd_dedup_signature.go:63` flags remain `--root-cause/--economic/--cwe`; ord 76 unchanged at `:125`), `DUPLICATE-KNOWN`/`PATCHED-KNOWN`, dual-arm critic (`theft-first`/`liveness-first`), directional measurement, and `bypass_statement` all still return zero code hits (`rg -n "theft-first|dual-arm|liveness-first|DUPLICATE-KNOWN|bypass_statement" internal --glob '!*_test.go'` → 0; the only `--external` matches are MiniCertora testdata). Re-checked anchors still hold: `internal/dedup/dedup_signatures.go:40`, `internal/roles/context_critic.go:163` (`BuildCriticContext`, still single-arm), `internal/findings/adversarial.go:33` (`AdversarialGameFields`), `internal/bounty/bounty.go:355` (`check15`).
+
+P1 added no new signature, no new corpus loader, no report section in `internal/report/`, and no new audit section that reads a C7 artifact; the `v16_coverage` section P1 appended (`internal/audit/sections/register.go:47`) counts the eight C1/C2/C3/C8 record fields and touches none of this report's claims.

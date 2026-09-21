@@ -75,3 +75,32 @@ Scope read: Part 1 (C4, C9), Part 2 §2.1–§2.7, §3.1, §3.2, Part C9 (incl. 
 - **Schema version discipline.** Policy/records are validated with explicit versions (`validation.Validate(policy, "bounty_policy", 1)`); adding rubric keys means a schema bump plus the loaders in `internal/bounty/policy.go`, not a lenient read.
 - **Audit sections are golden.** `audit`'s section set (snapshots, artifacts, unpriceable, sequence_coverage, adjudications) is asserted in `internal/audit/*_test.go`; the `stale-severity`/`stale-price` flags of §2.6 are additive sections, not mutations of existing ones.
 - **Python truthiness helpers.** Field presence/absence semantics go through `pyTruthy*` (`pyTruthyInt64Only`, `pyTruthyBigNonEmpty`) — a new boolean schema key rendered in reports must pick the right helper or "absent vs false" diverges from pinned outputs.
+
+---
+
+## P1 update (post-merge)
+
+**Refreshed 2026-09-21 · HEAD `7a131e90` · re-read range `528b6ae9..HEAD`.**
+This report's area is P4 work; P1 moved exactly four rows, and each moved only part of the way. Every other status below is unchanged.
+
+### Claims P1 changed (all four moved to PARTIAL, not to EXISTS)
+
+| Claim (as stated above) | Old | New | Evidence now |
+|---|---|---|---|
+| §2.1/§2.2 `fork_decidable_set` priors; per-hypothesis `fork_dependence` | **ABSENT (in this area)** | **PARTIAL** — `fork_dependence` EXISTS; the class-level prior/`fork_decidable_set` half is still ABSENT | Field: `assets/schema/finding.schema.json:1109`. Writer: `internal/findings/fork_dependence.go:40` (`SetForkDependence`), event `finding.fork_dependence_set` `:63`; CLI `internal/cli/cmd_fork_dependence.go:67` (ord 95). Readers: `internal/findings/fork_dependence.go:29` (`ForkDependent`), `:34` (`ExistenceFundingRequired`). The rubric half is unchanged: `rg -n "fork_decidable" internal assets --glob '!*_test.go'` → 0 hits. |
+| §2.2 maximization `status: converged\|no-improvement\|budget-expired\|engine-failed`; `--tier existence\|maximized` | **ABSENT** | **PARTIAL** — the tier vocabulary landed (`mint --poc-tier {existence,maximized}`, a **separate** flag from the unchanged T1–T4 `--tier`); the `status` enum is still ABSENT | Tier: `internal/cli/cmd_mint.go:48` (`--poc-tier`), ordering law `internal/findings/poc_tier.go:64` (`ValidatePocTierOrder`, enforced at `internal/cli/cmd_mint.go:100`), enum `assets/schema/finding.schema.json:1248`. Status: `rg -n "converged\|no-improvement\|budget-expired\|engine-failed" internal` → no code hits. |
+| Part C9 report content: demonstrated vs computed impact separately labeled | **PARTIAL** | **PARTIAL** — the data and the CLI's two labeled lines now exist; the report does not render them | `internal/cli/cmd_impact.go:367-390` prints `demonstrated:` and `computed:` on separate lines from one record; `internal/risk/replay.go:28` keeps them as separate sub-objects. Report side unchanged: `rg -n "replay" internal/report/` → **0 hits**. |
+| Part C9 report fields: `replay_assumptions`/`replay_blockers`, `cumulative_attack_cost_usd`, named loser and asset, bypass statement, remediation | **PARTIAL/ABSENT** | **PARTIAL** — the three replay fields now exist on the finding; report sections and the other fields do not | `assets/schema/finding.schema.json:1092-1096` (`rule_cited`, `replay_assumptions`, `replay_blockers`), `:1090` (`cumulative_attack_cost_usd`); written by `internal/risk/replay.go:28-54` and `SetReplayAssumptions` (`:56`). Report template untouched: `internal/report/immunefi.go:45` is still `{Summary, Impact, Severity, PoC, Recommendation, Related}`, and there is still no bypass section, no named loser/asset, and remediation remains a gate-check catalog (`internal/bounty/remediation.go:18`), not a report section. |
+
+### Claims re-checked and UNCHANGED
+
+- **§2.6 event-sourced severity, `rescore`, `stale-severity`/`stale-price` — unchanged ABSENT.** No `severity.*` ledger event; `internal/bounty/policy.go:135` (`SeverityFor`) still recomputes live from current policy; no `rescore` verb.
+- **§2.5 typed magnitude bound, provisional/authoritative passes, `severity_authoritative_pass`, EV-gated `submit --on provisional` — unchanged ABSENT.** No typed-bound value type; the report gate is still status-only (`internal/report/immunefi.go:78-79`, `internal/report/report.go:116`); no `submit` verb.
+- **§2.1 `platform_rubric`/`program_scope`, composition/`impact_transforms`/`admissibility_filters`, per-class `impact_metric`/`maximization_required` — unchanged ABSENT.**
+- **§2.3 `role_obtainable`/`capital_available`, precondition `--enumerate/--status/--readjudicate`, `assumed` ceiling, `permissionlessness_required`, negative-closure floor/space cap — unchanged ABSENT.** `internal/cli/cmd_precondition.go:17-32` is still `--enforced | --not-enforced` only.
+- **§3.1 tranche funding/vouchers, §3.2 abandonment/null records, Part C9 `policy init`, per-platform report formats, emission-gate pass half, bundling-vs-split — unchanged ABSENT/PARTIAL.** `internal/cli/cmd_report.go:13-24` still offers `{md,immunefi}` only.
+- **Traps stand.** The live-recompute law, the Immunefi golden surface (`internal/report/immunefi.go:45`), the remediation-keyed check-id API, and the determinism pins are all as written; P1 added no severity/policy event and changed no report byte.
+
+### Observation — wrong today for a reason P1 did not cause
+
+- Line 19 cites `internal/evalscore/adjudicate.go:278` for `Record` ("replaces any prior row"). `Record` is at `:284` today, and it was already at `:284` at `528b6ae9` — `internal/evalscore/` is not in the P1 diff (`git diff --name-only 528b6ae9..HEAD -- internal/evalscore` → empty). The row's substance (mutable single row, no append-only severity history) is correct; the line number was stale before the delta.

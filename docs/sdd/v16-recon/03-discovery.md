@@ -55,3 +55,13 @@
 
 ---
 *Search patterns tried for ABSENT items: `rg -i "no-violating-state-constructible|closed-by-failed-construction|EXEC-negative"`; `rg -i "closure.quality|closure_quality"`; `rg -i "tranche"` (non-test); `rg "platform_rubric|policy.amended"`; `rg -i "attacker.settable|settable|terminal reader|field.validation"`; `rg -i "chimera|broad fuzz"; `rg -i "coverage limitation|coverage_limitation"` — all zero relevant hits outside docs/testdata.*
+
+---
+
+## P1 update (post-merge)
+
+**Refreshed 2026-09-21 · HEAD `7a131e90` · re-read range `528b6ae9..HEAD`.**
+
+P1 did not touch this area; the statuses below are unchanged as of 2026-09-21, last verified at the recon run (commit `4b06c114`, 2026-09-21). The re-run found no C5 symbol moved: the probes registry, closure states, lenses, divergence gate, symmetry/enforce tables, dismissal stack, and every ABSENT row (`no-violating-state-constructible`, `closed-by-failed-construction`, `platform_rubric`/`policy.amended`, tranche/truncation records, stage 4 and 7a) still return the same results — `rg -n "no-violating-state-constructible|closed-by-failed-construction|platform_rubric|policy.amended|field-validation" internal assets --glob '!*_test.go'` → 0 hits.
+
+One cited line did move, for a reason outside this area: the audit section registry this report references at `internal/audit/sections/register.go:26-43` now runs to `:47` because P1 appended `v16_coverage` **last** (`:47`). No C5 claim depends on the section set, and the append is exactly the discipline this report's Traps section demands ("appended after them, never interleaved").
