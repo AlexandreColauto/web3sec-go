@@ -50,7 +50,7 @@ If the ord maximum moved, take the next free slots in Task order; if a caller of
 | `internal/boundary/boundary.go` *(modify)* | declared-input-set refusal in `ValidateRequest` | 2 |
 | `assets/schema/model_request.schema.json` *(modify)* | `input_artifacts[]` declaration | 2 |
 | `internal/cli/cmd_run.go` *(modify)* | `--feed FILE` drop-file handoff | 3 |
-| `internal/pipeline/feed.go` | stage output-schema registry + ingest of a drop file | 3 |
+| `internal/feed/feed.go` | stage output-schema registry + ingest of a drop file (its own package: `internal/pipeline` cannot import `internal/boundary` — boundary already reaches pipeline transitively) | 3 |
 | `internal/reviewsession/reviewsession.go` | `review_session` start/end records | 4 |
 | `internal/cli/cmd_review_session.go` | the `review-session` verb | 4 |
 | `internal/findings/fact_read.go` | deployment-fact records | 5 |
@@ -736,9 +736,9 @@ The stage is read from the **file stem**, not a flag: the drop file's name *is* 
 The feed then: derives `context_artifacts` with `boundary.BundleArtifacts(context)`; checks `boundary.ContextHash(context) == request.context_hash` (so the hash is a fact about bytes the framework has, not a claim the file makes); runs `boundary.ValidateRequest` on the request *with the derived cited set* — so an undeclared or out-of-set drop is refused **and recorded** on the real path; and only then ingests `output`. `run --feed` is the production caller that Task 2's refusal was missing.
 
 **Files:**
-- Create: `internal/pipeline/feed.go`
+- Create: `internal/feed/feed.go`
 - Modify: `internal/cli/cmd_run.go` (add `--feed FILE`, its usage/help text, and the feed branch in `runRun`)
-- Create: `internal/pipeline/feed_test.go`
+- Create: `internal/feed/feed_test.go`
 - Create: `internal/cli/cmd_run_feed_test.go`
 
 **Interfaces:**
@@ -747,7 +747,7 @@ The feed then: derives `context_artifacts` with `boundary.BundleArtifacts(contex
 
 - [ ] **Step 1: Write the failing test**
 
-Create `internal/pipeline/feed_test.go`:
+Create `internal/feed/feed_test.go`:
 
 ```go
 package pipeline
@@ -964,7 +964,7 @@ Expected: FAIL to compile — `FeedStageFor` undefined.
 
 - [ ] **Step 3: Implement the registry**
 
-Create `internal/pipeline/feed.go`:
+Create `internal/feed/feed.go`:
 
 ```go
 package pipeline
@@ -1379,7 +1379,7 @@ Add to `assets/runbook/RUNBOOK.md`, next to the `run` entry: the drop-file conve
 ```bash
 python3 scripts/sync-asset-manifest.py
 go test ./internal/pipeline ./internal/cli -count=1
-git add internal/pipeline/feed.go internal/pipeline/feed_test.go \
+git add internal/feed/feed.go internal/feed/feed_test.go \
         internal/cli/cmd_run.go internal/cli/cmd_run_feed_test.go \
         assets/runbook/RUNBOOK.md assets/testdata/asset_manifest.json
 git commit -m "feat(run): --feed drop-file transport for model stages (v1.6 P1)"
