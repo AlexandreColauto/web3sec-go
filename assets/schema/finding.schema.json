@@ -1043,6 +1043,72 @@
           }
         }
       }
+    },
+    "deployment_facts": {
+      "type": "array",
+      "description": "Values READ from the deployment (v1.6 Part 8): each carries the exact cast command, the raw value, and the pinned block. A value not recorded here is an assumption, not a fact.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["command", "value", "chain", "block", "read_at"],
+        "properties": {
+          "command": { "type": "string", "minLength": 10 },
+          "value": { "type": "string" },
+          "chain": { "type": "string", "minLength": 1 },
+          "block": { "type": "integer", "minimum": 1 },
+          "read_at": { "type": "string" },
+          "actor": { "type": "string" },
+          "read_only_attested": {
+            "type": "boolean",
+            "description": "The actor's explicit attestation that an unrecognized command writes nothing (non-EVM reads). False for the recognized read shapes."
+          }
+        }
+      }
+    },
+    "replay": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Replayability (v1.6 §2.4). demonstrated and computed are SEPARATE, LABELED quantities: a report carries both and never presents the computed ceiling as an extraction.",
+      "required": ["demonstrated", "computed", "rule_cited"],
+      "properties": {
+        "demonstrated": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["rounds_run", "extracted_usd_per_round"],
+          "properties": {
+            "rounds_run": { "type": "integer", "minimum": 2 },
+            "extracted_usd_per_round": { "type": "number", "minimum": 0 }
+          }
+        },
+        "computed": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["rounds_to_exhaustion", "ceiling_usd", "cumulative_attack_cost_usd"],
+          "properties": {
+            "rounds_to_exhaustion": { "type": "integer", "minimum": 0 },
+            "ceiling_usd": { "type": "number", "minimum": 0 },
+            "cumulative_attack_cost_usd": { "type": "number", "minimum": 0 },
+            "time_to_exhaustion_days": { "type": "number", "minimum": 0 }
+          }
+        },
+        "rule_cited": { "type": "string", "minLength": 3 },
+        "replay_assumptions": { "type": "array", "items": { "type": "string" } },
+        "replay_blockers": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "origin_stage": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The pipeline stage that authored this hypothesis (v1.6 C2). Attribution: cost-per-confirmed is uncomputable without it."
+    },
+    "contributing_stages": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Every stage that contributed to this hypothesis, origin first."
+    },
+    "fork_dependence": {
+      "enum": ["external-protocol-state", "real-price-feed", "real-balances-liquidity", "proxy-implementation", "none"],
+      "description": "Per-hypothesis fork dependence (v1.6 §2.2). Absent = unknown = dependent: an unrecorded value must never silently defund the evidence that would correct it."
     }
   },
   "definitions": {
@@ -1178,6 +1244,10 @@
         "fork_stale": {
           "type": "string",
           "description": "G15 fork-freshness advisory at mint: the pinned snapshot's fork age against the exec clock. Advisory metadata only — never blocks the mint."
+        },
+        "poc_tier": {
+          "enum": ["existence", "maximized"],
+          "description": "Two-tier fork evidence (v1.6 §2.2). existence = the state break demonstrated on a pinned fork at any magnitude; maximized = the maximization loop's output. Absent = untiered (every pre-existing evidence item)."
         }
       }
     },

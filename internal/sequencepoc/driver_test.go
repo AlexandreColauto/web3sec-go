@@ -694,7 +694,7 @@ func TestCapturedPassStdoutMintsE5(t *testing.T) {
 	tier, etype := "T4", "fork-test"
 	if _, err := reproduction.AttemptAndMint(c, fid, validation.ObjStr(rec, "exec_id"),
 		"sequence PoC SEQ-TEST-02 (2 steps) on the pinned fork", &tier,
-		&etype); err != nil {
+		&etype, ""); err != nil {
 		t.Fatal(err)
 	}
 	f2, err := findings.LoadFinding(c, fid)
@@ -718,7 +718,7 @@ func TestCapturedPassStdoutMintsE5(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err = reproduction.MintReproEvidence(c, fid2, validation.ObjStr(rec2, "exec_id"),
-		"silent run", &tier, &etype)
+		"silent run", &tier, &etype, "")
 	if err == nil || !strings.Contains(err.Error(), "EMPTY") {
 		t.Fatalf("want EMPTY refusal, got %v", err)
 	}

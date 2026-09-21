@@ -738,7 +738,7 @@ func privConfirmed(t *testing.T, camp *state.Campaign, spec privSpec) string {
 		t.Fatal(err)
 	}
 	if _, err := reproduction.MintReproEvidence(camp, fid, execID,
-		"sandboxed unit PoC", &tier, nil); err != nil {
+		"sandboxed unit PoC", &tier, nil, ""); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := findings.SetCriticVerdict(camp, fid, "confirmed",

@@ -33,8 +33,13 @@ func EffectiveEvidenceType(tier, evidenceType *string, f validation.Value) strin
 // the same exec may back a second item of a different type (feedback-triage
 // A2: the reference keyed on exec alone, so a second type silently never
 // landed and the economic floors demanded a duplicate run).
+//
+// pocTier is the v1.6 §2.2 two-tier declaration ("" = untiered, the
+// pre-v1.6 shape). The §2.2 ordering law is enforced HERE, in the shared
+// write path, so `mint`, the ladder and Phase 5's maximization loop all
+// inherit it; cmd_mint's pre-check only exists to give a better message.
 func MintReproEvidence(c *state.Campaign, findingID, execID, description string,
-	tier, evidenceType *string) (validation.Value, error) {
+	tier, evidenceType *string, pocTier string) (validation.Value, error) {
 	setMintNotice("")
 	if evidenceType != nil && !slices.Contains(MintableTypes, *evidenceType) {
 		return validation.VNull(), mintErrf("unknown evidence type %s; one of %s",
@@ -76,11 +81,17 @@ func MintReproEvidence(c *state.Campaign, findingID, execID, description string,
 		claimTier = *tier
 	}
 	level, _ := findings.MintEvidenceLevelType(claimTier, evidenceType)
+	// §2.2 ordering law, in the WRITE path (findings.ValidatePocTierOrder):
+	// a fork-dependent hypothesis may not be maximized before its existence
+	// tier is on the finding. Fork-independent findings are exempt.
+	if err := findings.ValidatePocTierOrder(f, pocTier); err != nil {
+		return validation.VNull(), err
+	}
 	// etype was derived above (EffectiveEvidenceType) for the idempotency
 	// check — the same value, so the minted item and the no-op decision
 	// always agree.
 	item := findings.MintedExecEvidenceItem(execID, level, etype, description,
-		rec, f)
+		rec, f, pocTier)
 	item, notice := applyMintAdvisories(c, item, f, rec)
 	setMintNotice(notice)
 	out, err := findings.AddEvidence(c, findingID, item)

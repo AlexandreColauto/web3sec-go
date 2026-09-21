@@ -127,6 +127,20 @@ func ingestBuildPayload(campaign *state.Campaign, payload validation.Value,
 	p.O = validation.SetOrAppend(p.O, "updated_at", validation.VStr(ts))
 	p.O = validation.SetOrAppend(p.O, "status", validation.VStr("HYPOTHESIS"))
 	p.O = validation.SetOrAppend(p.O, "trajectory", validation.VStr(trajectory))
+	// Attribution (v1.6 Part 1/C2): the stage that AUTHORED the hypothesis and
+	// every stage that contributed to it. Omit, do not invent: with no stage
+	// the keys are absent, never "unknown" — a fake attribution silently
+	// counts as a real stage in any cost-per-confirmed grouping, while a
+	// missing key is visibly missing. A caller that already knows the
+	// contributing stages (the discovery trajectory dispatcher) may set them
+	// on the payload; the default is the origin stage alone.
+	if stage != "" {
+		p.O = validation.SetOrAppend(p.O, "origin_stage", validation.VStr(stage))
+		if _, ok := fieldAt(p, "contributing_stages"); !ok {
+			p.O = validation.SetOrAppend(p.O, "contributing_stages",
+				validation.VArr(validation.VStr(stage)))
+		}
+	}
 	for _, k := range []string{"evidence", "risk", "dedup"} {
 		if _, ok := fieldAt(p, k); !ok {
 			if k == "evidence" {

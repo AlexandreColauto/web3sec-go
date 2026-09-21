@@ -9,6 +9,7 @@ package cli
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"websec/internal/findings"
@@ -34,6 +35,17 @@ type impactArgs struct {
 	// irreversible | trusted-party | reversible, or "none" to clear. May be
 	// passed alone (a classification-only call) or alongside the USD flags.
 	reversibility string
+	// replayable (v1.6 §2.4): the replayability calculator. perRound/gasCost
+	// are required with it, frequency is optional, roundsRun nil = the
+	// two-round default (the repeatability law's floor), and the two lists
+	// are the record's assumptions and blockers.
+	replayable  bool
+	perRound    *float64
+	gasCost     *float64
+	frequency   *float64
+	roundsRun   *int64
+	assumptions []string
+	blockers    []string
 }
 
 func runImpact(root string, args []string, r *Runner) int {
@@ -54,6 +66,10 @@ func impactBody(c *state.Campaign, a *impactArgs, r *Runner) error {
 	if a.unpriceable {
 		return impactUnpriceable(c, a, r)
 	}
+	rec, err := impactReplayRecord(a)
+	if err != nil {
+		return err
+	}
 	hasUSD := a.extractable != nil || a.maxLoss != nil
 	if !hasUSD && a.reversibility == "" {
 		return t14ExitErr(2, "impact requires --extractable USD and/or "+
@@ -68,6 +84,11 @@ func impactBody(c *state.Campaign, a *impactArgs, r *Runner) error {
 	if a.reversibility != "" {
 		if _, err := risk.RecordReversibility(c, a.finding,
 			a.reversibility); err != nil {
+			return err
+		}
+	}
+	if a.replayable {
+		if err := impactReplayWrite(c, a, rec, r); err != nil {
 			return err
 		}
 	}
@@ -220,6 +241,9 @@ func impactFlag(args []string, i int, a *impactArgs,
 		a.unpriceable = true
 		return 0, false, true, nil
 	}
+	if consumed, handled, err := impactReplayFlag(args, i, a); handled || err != nil {
+		return consumed, false, handled, err
+	}
 	if name, dst := impactFloatDst(a, arg); dst != nil {
 		raw, err := t23ValueArg(args, i, t23ImpactUsage, "impact", name)
 		if err != nil {
@@ -308,6 +332,189 @@ func impactEq(a *impactArgs, arg string) (bool, error) {
 		}
 	}
 	return false, nil
+}
+
+// ---- the --replayable family (v1.6 §2.4) ----------------------------------
+
+// impactReplayRecord is the pre-write half of the replayability calculator:
+// every refusal below fires BEFORE the economic-impact write, so a refused
+// total-loss claim leaves the finding byte-identical. !replayable is VNull.
+func impactReplayRecord(a *impactArgs) (validation.Value, error) {
+	if !a.replayable {
+		return validation.VNull(), nil
+	}
+	if a.perRound == nil || a.maxLoss == nil || a.gasCost == nil {
+		return validation.VNull(), t14ExitErr(2, "impact --replayable "+
+			"requires --extractable-per-round, --max-loss and --gas-cost\n")
+	}
+	if a.replayRounds() < 2 {
+		return validation.VNull(), t14ExitErr(2, "impact --replayable requires "+
+			"at least two rounds (the repeatability law, v1.6 §2.4)\n")
+	}
+	if *a.perRound <= 0 || *a.maxLoss <= 0 {
+		return validation.VNull(), t14ExitErr(2, "impact --replayable requires "+
+			"positive --extractable-per-round and --max-loss\n")
+	}
+	rec := risk.ComputeReplay(a.replayRounds(), *a.perRound, *a.maxLoss,
+		*a.gasCost, a.frequency)
+	rec = risk.SetReplayAssumptions(rec, a.assumptions, a.blockers)
+	if err := risk.ValidateReplayProfitability(rec); err != nil {
+		return validation.VNull(), t14ExitErr(2, "%v\n", err)
+	}
+	return rec, nil
+}
+
+// impactReplayWrite records the built replay block and prints BOTH labeled
+// quantities: demonstrated first (what the run extracted), computed second
+// (the arithmetic ceiling). The report never conflates them; neither does
+// this line.
+func impactReplayWrite(c *state.Campaign, a *impactArgs, rec validation.Value,
+	r *Runner) error {
+	if _, err := risk.RecordReplay(c, a.finding, rec, risk.ReplayRuleCited,
+		a.actor); err != nil {
+		return err
+	}
+	demo := validation.ObjAt(rec, "demonstrated")
+	comp := validation.ObjAt(rec, "computed")
+	rounds := validation.ObjAt(demo, "rounds_run").I
+	per := validation.ObjAt(demo, "extracted_usd_per_round").F
+	if _, err := fmt.Fprintf(r.Out, "demonstrated: %d rounds x $%.2f = $%.2f "+
+		"extracted\n", rounds, per, float64(rounds)*per); err != nil {
+		return err
+	}
+	_, err := fmt.Fprintf(r.Out, "computed:     %d rounds to exhaustion, "+
+		"ceiling $%.2f, attack cost $%.2f\n",
+		validation.ObjAt(comp, "rounds_to_exhaustion").I,
+		validation.ObjAt(comp, "ceiling_usd").F,
+		validation.ObjAt(comp, "cumulative_attack_cost_usd").F)
+	return err
+}
+
+// replayRounds is --rounds-run with the law's floor as the default: an absent
+// flag means two rounds, never the one-round claim the schema refuses.
+func (a *impactArgs) replayRounds() int64 {
+	if a.roundsRun == nil {
+		return 2
+	}
+	return *a.roundsRun
+}
+
+// impactReplayFlag consumes one --replayable-family option. handled=false
+// means the token is not ours and the caller keeps scanning.
+func impactReplayFlag(args []string, i int, a *impactArgs) (int, bool, error) {
+	arg := args[i]
+	switch {
+	case arg == "--replayable":
+		a.replayable = true
+		return 0, true, nil
+	case strings.HasPrefix(arg, "--replay-"):
+		return impactReplayList(args, i, a, arg)
+	case strings.HasPrefix(arg, "--extractable-per-round") ||
+		strings.HasPrefix(arg, "--gas-cost") ||
+		strings.HasPrefix(arg, "--frequency") ||
+		strings.HasPrefix(arg, "--rounds-run"):
+		return impactReplayScalar(args, i, a, arg)
+	}
+	return 0, false, nil
+}
+
+// impactReplayList appends one repeatable --replay-assumption/--replay-blocker.
+func impactReplayList(args []string, i int, a *impactArgs,
+	arg string) (int, bool, error) {
+	blocker := strings.HasPrefix(arg, "--replay-blocker")
+	name := "--replay-assumption"
+	if blocker {
+		name = "--replay-blocker"
+	}
+	raw, eq, err := impactOptValue(args, i, name)
+	if err != nil {
+		return 0, true, err
+	}
+	if blocker {
+		a.blockers = append(a.blockers, raw)
+	} else {
+		a.assumptions = append(a.assumptions, raw)
+	}
+	if eq {
+		return 0, true, nil
+	}
+	return 1, true, nil
+}
+
+// impactReplayScalar consumes one valued replay option: --rounds-run is an
+// int, the three cost figures are floats.
+func impactReplayScalar(args []string, i int, a *impactArgs,
+	arg string) (int, bool, error) {
+	name := impactReplayName(arg)
+	raw, eq, err := impactOptValue(args, i, name)
+	if err != nil {
+		return 0, true, err
+	}
+	if err := impactReplayAssign(a, name, raw); err != nil {
+		return 0, true, err
+	}
+	if eq {
+		return 0, true, nil
+	}
+	return 1, true, nil
+}
+
+// impactReplayName is the option name an argv token spells. The list is
+// longest-first so --extractable-per-round never resolves to a shorter name.
+func impactReplayName(arg string) string {
+	for _, n := range []string{"--extractable-per-round", "--gas-cost",
+		"--frequency", "--rounds-run"} {
+		if strings.HasPrefix(arg, n) {
+			return n
+		}
+	}
+	return ""
+}
+
+// impactReplayAssign parses one replay option's value into its field.
+func impactReplayAssign(a *impactArgs, name, raw string) error {
+	if name == "--rounds-run" {
+		n, err := impactRoundsArg(raw)
+		if err != nil {
+			return err
+		}
+		a.roundsRun = &n
+		return nil
+	}
+	f, err := t23FloatArg("impact", name, raw)
+	if err != nil {
+		return err
+	}
+	switch name {
+	case "--extractable-per-round":
+		a.perRound = &f
+	case "--gas-cost":
+		a.gasCost = &f
+	case "--frequency":
+		a.frequency = &f
+	}
+	return nil
+}
+
+// impactOptValue reads an option's raw value in either spelling: the
+// --flag=value tail, or the next token under argparse's value-slot rules.
+func impactOptValue(args []string, i int, name string) (string, bool, error) {
+	if strings.HasPrefix(args[i], name+"=") {
+		return strings.TrimPrefix(args[i], name+"="), true, nil
+	}
+	raw, err := t23ValueArg(args, i, t23ImpactUsage, "impact", name)
+	return raw, false, err
+}
+
+// impactRoundsArg parses --rounds-run with argparse's int error text.
+func impactRoundsArg(raw string) (int64, error) {
+	n, err := strconv.ParseInt(strings.TrimSpace(raw), 10, 64)
+	if err != nil {
+		return 0, t14ArgparseErr(t23ImpactUsage, "impact",
+			"argument --rounds-run: invalid int value: %s",
+			validation.PyReprStr(raw))
+	}
+	return n, nil
 }
 
 func init() {

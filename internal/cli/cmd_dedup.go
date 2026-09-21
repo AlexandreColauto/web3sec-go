@@ -158,6 +158,7 @@ var argparseUsageBlocks = map[string]string{
 		"                  campaign\n",
 	"mint": "usage: webv2 mint [-h] --exec EXEC_ID --description DESCRIPTION\n" +
 		"                  [--tier {T1,T2,T3,T4}]\n" +
+		"                  [--poc-tier {existence,maximized}]\n" +
 		"                  [--type {balance-delta,differential,fork-test," +
 		"foundry-test,fuzz,historical-analog,invariant-test,manual," +
 		"reachability,reasoning,static-analysis,symbolic-witness,trace," +

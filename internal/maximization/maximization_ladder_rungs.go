@@ -182,7 +182,7 @@ func ReproduceRung(c *state.Campaign, findingID, rungID, execID string,
 		return validation.VNull(), err
 	}
 	if _, err := reproduction.MintReproEvidence(c, findingID, execID, desc,
-		nil, evidenceType); err != nil {
+		nil, evidenceType, ""); err != nil {
 		return validation.VNull(), unwindLadderPair(preMint, err)
 	}
 	f, err := findings.LoadFinding(c, findingID)

@@ -114,7 +114,7 @@ var remediationFlags = map[string]map[string]bool{
 		"--outlook-reason"),
 	"recall": remediationFlagSet("--finding", "--mode", "--note"),
 	"mint": remediationFlagSet("--exec", "--description", "--tier", "--type",
-		"--verify-reruns"),
+		"--verify-reruns", "--poc-tier"),
 	"floors": remediationFlagSet("--json", "--actor", "--reason"),
 	"impact": remediationFlagSet("--unpriceable", "--ceiling", "--reason",
 		"--actor", "--extractable", "--max-loss", "--required-capital",

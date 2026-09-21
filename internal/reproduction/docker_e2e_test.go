@@ -62,7 +62,7 @@ func TestDockerNetworklessMintsE4(t *testing.T) {
 	}
 	tier := "T2"
 	minted, err := AttemptAndMint(c, fid, validation.ObjStr(rec, "exec_id"),
-		"containerized forge test proves the two() invariant", &tier, nil)
+		"containerized forge test proves the two() invariant", &tier, nil, "")
 	if err != nil {
 		t.Fatalf("mint: %v", err)
 	}

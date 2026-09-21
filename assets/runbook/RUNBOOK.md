@@ -592,6 +592,25 @@ pin covers the working tree; it says nothing about the instance. When the
 value is genuinely unreadable (unverified source, no RPC), record that as a
 coverage gap on the priority rather than closing it.
 
+Record the read as a fact on the finding, so the value carries the command
+that produced it and the block it was read at:
+
+```bash
+webv2 fact-read <C> <F-xxx> --command "cast call 0x.. 'cap()(uint256)' --block 21000000" --value 1000000000000000000000 --block 21000000
+```
+
+`--block N` is REQUIRED and must be positive: an unpinned read of a mutable
+chain proves nothing, so it is refused (exit 2), not recorded. A command
+carrying a mutating verb (`cast send`, `cast mktx`, `cast publish`,
+`cast wallet`, `forge create`, `forge script`) or a signing flag
+(`--private-key`, `--ledger`, `--unlocked`) is refused for the same reason.
+`cast call|storage|code|balance|block|logs` and `<tool> query` are the
+recognized read shapes; anything else — a non-EVM client, for instance — needs
+`--read-only`, the actor's explicit attestation that the command writes
+nothing. `--chain` defaults to `ethereum` and `--actor` to `operator`; both are
+recorded on the row with `read_at`. The row lands in the finding's
+`deployment_facts` and the ledger carries one `finding.fact_read` event.
+
 ## 4d. Reading the schemas: `webv2 schema` and `--example`
 
 Every refusal in this CLI names a schema (`... validation failed at
@@ -644,6 +663,16 @@ CONFIRMED gate runs (instance `floors set` overrides included), and a class
 stricter than the loosest known class also prints the class-floor advisory, so
 a taxonomy choice is never a silent evidence wall. **Never
 hand-write a finding file** — ingest is the only path in.
+
+**Attribution (v1.6 Part 1/C2).** `ingest --stage S` is not just the history
+row's actor any more: it is recorded as `origin_stage` (the stage that
+AUTHORED the hypothesis) and, when the caller declares no wider set,
+`contributing_stages: [S]`. A payload that already knows the full contributing
+set may carry `contributing_stages` itself; the default is the origin stage
+alone. With no `--stage` both keys are **omitted, never `"unknown"`** — a fake
+attribution silently counts as a real stage in any cost-per-confirmed grouping,
+while a missing key is visibly missing. A pipeline run (`webv2 run`) passes its
+stage, so a hypothesis filed by the run carries its origin.
 
 **Write-time hygiene note (B9).** A successful `ingest --json-file` (the
 `--from slither|aderyn` lane included) and a successful `mint` end by resolving
@@ -1090,6 +1119,23 @@ webv2 classify <C-xxx> EXEC-xxx        # classify a FAILED exec: environment / s
   enum. A REFUSED mint (e.g. the invariant guardrail) **rolls the recorded
   attempt back** (`repro.attempt_rolled_back`) — the EXEC citation survives:
   fix the guardrail and retry the SAME exec, no fresh sandbox run demanded.
+- `--poc-tier {existence,maximized}` records the **v1.6 §2.2 two-tier PoC**
+  on the evidence item, beside the unchanged `--tier` claim tier. `existence`
+  is the state break on a pinned fork at any magnitude; `maximized` is the
+  maximization loop's output. On a **fork-dependent** hypothesis
+  (`fork_dependence` absent = unknown = dependent) a `maximized` mint is
+  refused (exit 2) until an `existence` item is on the finding; a
+  fork-independent one is exempt, because it has no fork to break. The law
+  lives in the shared write path (`MintReproEvidence`), so the ladder and the
+  maximization loop obey it too — the CLI check only improves the message.
+  `fork-dependence <C> <F-xxx> --set V --reason R [--actor A]` records the
+  per-hypothesis value that rule reads. `--set none` is the only
+  fork-INDEPENDENT value; every other value — and an absent key — is
+  dependent. Fork-dependence is a property of the HYPOTHESIS, not the class,
+  so the class-level value is only a prior and the override needs a recorded
+  `--reason` (an override without one is a guess, exit 2). Each set logs
+  `finding.fork_dependence_set` carrying `prior_fork_dependence`, which is
+  what makes "how often was the prior wrong?" measurable.
 - Forge output is checked for **MEANINGFULNESS** before minting: "No tests
   found" (Ran 0 tests) or a failing suite cannot back evidence — the output
   must show a test actually ran and passed. Truncated logs are rejected.
@@ -1744,11 +1790,13 @@ webv2 audit <C> [--json]                                           full integrit
 webv2 brief <C> [--json] [--deep] [--live-only]                    operator cockpit (where it is + decisions waiting; pure view; every next-action line is a copyable `webv2` command — run `webv2 prove <C> --stage <stage>` for the per-item detail a line's `# n missing` counts; --live-only hides DUPLICATE/SUPERSEDED/INFORMATIONAL rows)
 webv2 scorecard <C> [--json] [--no-surface]                        one read-only view: surface, findings, process, eval
 webv2 review-session {start|end} [campaign] [--actor A] [--artifact A]... [--loc N]   # measured operator review session (v1.6 Part 1): `start` opens (one open at a time), `end` closes the open one and records --loc; the campaign positional is optional when exactly one campaign sits under --root and required when several do (the session is stored in that campaign's review_sessions). WEBV2_NOW is a TEST pin — an operator run must use the real wall clock, or the session is a fixture, not telemetry
+webv2 fact-read <C> <F-xxx> --command C --value V --block N [--chain C] [--actor A] [--read-only]   # record a deployment read as a fact (v1.6 Part 8): the command, the raw value and the PINNED block, appended to the finding's deployment_facts with one finding.fact_read event. An unpinned read, a mutating command (`cast send`, signing flags), or an unrecognized command without `--read-only` is refused (exit 2) — the snapshot proves which code runs, never what the instance holds (§4c)
+webv2 fork-dependence <C> <F-xxx> --set V --reason R [--actor A]   # per-hypothesis fork dependence (v1.6 §2.2): V is external-protocol-state|real-price-feed|real-balances-liquidity|proxy-implementation|none; `none` is the only fork-independent value (absent = unknown = dependent). The class value is only a prior, so the override needs a recorded --reason; each set logs finding.fork_dependence_set with prior_fork_dependence
 
 webv2 move <C> <finding> TO_STATUS --reason R [--actor A] [--adjacent SIBLING] [--adjacent-clear] [--of FINDING]   # the ONLY status-transition path; --of REQUIRED for DUPLICATE (target exists, != self)
 webv2 amend <C> <finding> [--title T] [--class C] [--claim K] [--note N] [--actor A]   # correct a filed finding (bumps claim_version; status never moves)
 webv2 supersede <C> <new> --of <old> [--actor A]   # old -> SUPERSEDED; evidence COPIED into new (re_parented_from), old array untouched
-webv2 mint <C> <finding> --exec E --description D [--tier T1|T2|T3|T4] [--type TYPE] [--verify-reruns]   # record+mint evidence (idempotent per exec); --verify-reruns re-runs the PoC 3x (flaky advisories ride the evidence, fail-open)
+webv2 mint <C> <finding> --exec E --description D [--tier T1|T2|T3|T4] [--poc-tier existence|maximized] [--type TYPE] [--verify-reruns]   # record+mint evidence (idempotent per exec); --verify-reruns re-runs the PoC 3x (flaky advisories ride the evidence, fail-open); --poc-tier is the v1.6 §2.2 two-tier PoC on the evidence item — a fork-dependent finding cannot be `maximized` before an `existence` item is minted (exit 2)
 webv2 verdict <C> <finding> --verdict V --reason R [--outlook O --outlook-reason R] [--actor A]   hostile-critic verdict — --actor says WHOSE judgment it is (absent: the model convention)
 webv2 assume <C> <finding> A1 --status UNKNOWN|SUPPORTED|REFUTED [--ref R] [--actor A]   # assumption status; every --ref must resolve in the store (evidence id / ART- / EXEC-), and a move off UNKNOWN needs at least one
 webv2 recall <C> --finding F [--mode negative|comparative] [--note N]   # recorded graph-memory consult

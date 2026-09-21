@@ -174,7 +174,7 @@ func recordTier4(c *state.Campaign, spec, rec validation.Value,
 		_, err := reproduction.AttemptAndMint(c, findingID,
 			validation.ObjStr(rec, "exec_id"), fmt.Sprintf(
 				"sequence PoC %s (%d steps) on the pinned fork", specID,
-				nSteps), &tier, &etype)
+				nSteps), &tier, &etype, "")
 		return err
 	}
 	failure, t4 := "logic", "T4"

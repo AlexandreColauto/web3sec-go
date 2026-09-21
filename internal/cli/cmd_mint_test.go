@@ -184,6 +184,10 @@ func TestMintArgparseErrors(t *testing.T) {
 			"--description", "d", "--tier", "T9"},
 			"argument --tier: invalid choice: 'T9' (choose from 'T1', 'T2', " +
 				"'T3', 'T4')"},
+		{"bad-poc-tier", []string{"mint", "C-x", "F-y", "--exec", "E",
+			"--description", "d", "--poc-tier", "best"},
+			"argument --poc-tier: invalid choice: 'best' (choose from " +
+				"'existence', 'maximized')"},
 		{"bad-type", []string{"mint", "C-x", "F-y", "--exec", "E",
 			"--description", "d", "--type", "nope"},
 			"argument --type: invalid choice: 'nope' (choose from " +
@@ -215,7 +219,51 @@ func TestMintHelp(t *testing.T) {
 	if !strings.HasPrefix(out, "usage: webv2 mint [-h] --exec EXEC_ID "+
 		"--description DESCRIPTION\n") ||
 		!strings.Contains(out, "--tier {T1,T2,T3,T4}") ||
+		!strings.Contains(out, "--poc-tier {existence,maximized}") ||
 		!strings.Contains(out, "symbolic-witness,trace,unit-test}") {
 		t.Fatalf("out %q", out)
+	}
+}
+
+// TestMintMaximizedRequiresExistenceFirst pins the v1.6 §2.2 ordering law at
+// the CLI: the t20 fixture's finding carries no fork_dependence, and absent is
+// unknown is DEPENDENT, so a maximized mint without an existence tier is
+// refused with exit 2 and the law's own message.
+func TestMintMaximizedRequiresExistenceFirst(t *testing.T) {
+	f := t20Setup(t)
+	code, _, errS := run(t, "--root", f.root, "mint", f.c.CampaignID, f.fid,
+		"--exec", f.pass, "--description", "maximized drain",
+		"--poc-tier", "maximized")
+	if code != 2 {
+		t.Fatalf("code = %d, want 2 (stderr %s)", code, errS)
+	}
+	if !strings.Contains(errS, "requires an existence-tier PoC first") {
+		t.Fatalf("stderr = %q, want the ordering refusal", errS)
+	}
+}
+
+// TestMintMaximizedAfterExistenceLands is the law's happy path AND the write
+// proof: the declared tier lands on the evidence item, and once the existence
+// item is on the finding the maximized mint is accepted.
+func TestMintMaximizedAfterExistenceLands(t *testing.T) {
+	f := t20Setup(t)
+	code, _, errS := run(t, "--root", f.root, "mint", f.c.CampaignID, f.fid,
+		"--exec", f.pass, "--description", "state break on the pinned fork",
+		"--poc-tier", "existence")
+	if code != 0 {
+		t.Fatalf("existence mint exit %d: %q", code, errS)
+	}
+	if got := validation.ObjStr(g15MintItem(t, f, f.pass), "poc_tier"); got != "existence" {
+		t.Fatalf("poc_tier = %q, want existence", got)
+	}
+	second := t2RegisterExec(t, f.c, f.fid)
+	code, _, errS = run(t, "--root", f.root, "mint", f.c.CampaignID, f.fid,
+		"--exec", second, "--description", "maximized drain",
+		"--poc-tier", "maximized")
+	if code != 0 {
+		t.Fatalf("maximized mint exit %d: %q", code, errS)
+	}
+	if got := validation.ObjStr(g15MintItem(t, f, second), "poc_tier"); got != "maximized" {
+		t.Fatalf("poc_tier = %q, want maximized", got)
 	}
 }

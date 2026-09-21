@@ -82,6 +82,7 @@ var t14FindingLegend = []string{
 	"preconditions[]/enforced_by_poc: true|false|unknown|null",
 	"evidence[]/level: E0|E1|E2|E3|E4|E5|E6|E7",
 	"evidence[]/type: reasoning|static-analysis|reachability|unit-test|foundry-test|fuzz|invariant-test|symbolic-witness|fork-test|trace|balance-delta|differential|historical-analog|manual",
+	"evidence[]/poc_tier: existence|maximized",
 	"economic_impact/kind: liveness",
 	"economic_impact/blast_radius: single-user|subset-of-users|all-users|protocol-solvency|bridge-canonical",
 	"reported_severity: low|medium|high|critical",
@@ -105,6 +106,7 @@ var t14FindingLegend = []string{
 	"bounty/policy_checks[]/result: pass|fail|unknown|human-review",
 	"provenance/memory_checks[]/mode: negative|comparative",
 	"provenance/memory_checks[]/relevance/basis[]: bug_class|capability|cwe",
+	"fork_dependence: external-protocol-state|real-price-feed|real-balances-liquidity|proxy-implementation|none",
 }
 
 func TestIngestExampleStdoutIsPureJSON(t *testing.T) {

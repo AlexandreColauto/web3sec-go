@@ -239,3 +239,33 @@ func TestImpactArtifactMints(t *testing.T) {
 		t.Fatalf("line 1 %q", lines[1])
 	}
 }
+
+func TestImpactReplayableComputesAndRefusesOneRound(t *testing.T) {
+	c, root := t15Campaign(t, "Acme")
+	f := t15Finding(t, c, "Repeated drain", "economic-invariant")
+	fid := validation.ObjStr(f, "finding_id")
+	code, out, errS := run(t, "--root", root, "impact", c.CampaignID, fid,
+		"--replayable", "--extractable-per-round", "500", "--max-loss", "1000000",
+		"--gas-cost", "0.05", "--frequency", "1000",
+		"--replay-assumption", "no pause triggered",
+		"--replay-blocker", "PAUSER_ROLE exists, unexercised")
+	if code != 0 {
+		t.Fatalf("code = %d (stderr %s)", code, errS)
+	}
+	if !strings.Contains(out, "demonstrated") || !strings.Contains(out, "computed") {
+		t.Fatalf("stdout = %q, want both labeled quantities", out)
+	}
+	code, _, errS = run(t, "--root", root, "impact", c.CampaignID, fid,
+		"--replayable", "--extractable-per-round", "500", "--max-loss", "1000",
+		"--gas-cost", "0.05", "--rounds-run", "1")
+	if code != 2 || !strings.Contains(errS, "two rounds") {
+		t.Fatalf("code = %d stderr = %q, want the two-round refusal", code, errS)
+	}
+	// 1 round extracts 500 from a 500 ceiling, at 5000 of gas: unprofitable.
+	code, _, errS = run(t, "--root", root, "impact", c.CampaignID, fid,
+		"--replayable", "--extractable-per-round", "500", "--max-loss", "500",
+		"--gas-cost", "5000")
+	if code != 2 || !strings.Contains(errS, "unprofitable") {
+		t.Fatalf("code = %d stderr = %q, want the profitability refusal", code, errS)
+	}
+}

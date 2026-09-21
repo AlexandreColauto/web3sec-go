@@ -57,6 +57,24 @@
 // pin — exactly what §7.5 overturns. Replayed through dispatchGolden like the
 // re-records above; the diff is 6 lines, all oracle/placeholder values.
 //
+// Task 8 (fork_dependence and ingest attribution) re-recorded the `ingested`
+// scenario's three ingest oracles — step 0 (ingest_all) and steps 5 and 6
+// (ingest) — by the same dispatchGolden replay. Ingest now records the
+// authoring stage as `origin_stage`, seeding `contributing_stages` with it,
+// whenever the caller passes --stage, which every hypo in this scenario does
+// (hypos are staged 11/05/06, steps 5 and 6 are staged 11); the recorded bytes
+// predate that field, so they are the OLD behavior's pin — exactly what
+// C2's attribution law overturns. The
+// replayed twin answers the same three findings — hypo 2 remains the
+// content-hash twin of hypo 1 from §7.5, so its origin_stage stays 11 — each
+// gaining exactly origin_stage plus the one-element contributing_stages (4
+// payload lines per finding, 20 in all); oracles.json moves 3 lines with no
+// net line delta because each oracle is one escaped string. Nothing else
+// moved: the state and events oracles replayed byte-identical (attribution
+// rides the finding payload, not the history line, whose actor/reason were
+// already the stage) and the placeholder list stays at 3. Go-authored like the
+// re-records above, tooling deleted, not committed.
+//
 // The three seams a replay must supply (structural index, adapter context,
 // independent-evidence minting) are installed with fakes whose recorded
 // call-site arguments are compared against the Python recorder's — so the

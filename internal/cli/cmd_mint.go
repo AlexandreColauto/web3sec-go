@@ -1,11 +1,17 @@
 package cli
 
 // cmd_mint: `webv2 mint <campaign> <finding> --exec E --description D
-// [--tier T] [--type TYPE] [--verify-reruns] [--no-hints]` — record a
-// successful reproduction attempt AND mint its evidence in one call
-// (forge-meaningfulness checked, type validated against the schema enum).
-// Idempotent per exec: re-minting the same exec is a no-op that returns the
-// finding unchanged.
+// [--tier T] [--type TYPE] [--poc-tier {existence,maximized}]
+// [--verify-reruns] [--no-hints]` — record a successful reproduction attempt
+// AND mint its evidence in one call (forge-meaningfulness checked, type
+// validated against the schema enum). Idempotent per exec: re-minting the
+// same exec is a no-op that returns the finding unchanged.
+//
+// `--tier` is the T1–T4 CLAIM tier, unchanged; `--poc-tier` is the
+// orthogonal v1.6 §2.2 two-tier PoC declaration that lands on the evidence
+// item. Its ordering law (maximized needs an existence tier first, on a
+// fork-dependent finding) is enforced in reproduction.MintReproEvidence —
+// the CLI pre-check below only turns it into a clean exit-2 message.
 //
 // `--no-hints` (B9) suppresses the write-time hygiene note; it is documented
 // in the verb's help and implemented in hints.go.
@@ -24,6 +30,7 @@ import (
 // mintHelp is argparse's `webv2 mint --help` output, byte-exact.
 const mintHelp = `usage: webv2 mint [-h] --exec EXEC_ID --description DESCRIPTION
                   [--tier {T1,T2,T3,T4}]
+                  [--poc-tier {existence,maximized}]
                   [--type {balance-delta,differential,fork-test,foundry-test,fuzz,historical-analog,invariant-test,manual,reachability,reasoning,static-analysis,symbolic-witness,trace,unit-test}]
                   [--verify-reruns]
                   [--no-hints]
@@ -38,6 +45,12 @@ options:
   --exec EXEC_ID
   --description DESCRIPTION
   --tier {T1,T2,T3,T4}
+  --poc-tier {existence,maximized}
+                        two-tier fork evidence (v1.6 2.2): existence = the
+                        state break on a pinned fork at any magnitude;
+                        maximized = the maximization loop's output, refused on
+                        a fork-dependent finding until an existence tier is
+                        minted
   --type {balance-delta,differential,fork-test,foundry-test,fuzz,historical-analog,invariant-test,manual,reachability,reasoning,static-analysis,symbolic-witness,trace,unit-test}
   --verify-reruns       re-run the PoC 3x and record the variance advisory
                         (fail-open; needs a container runtime)
@@ -64,7 +77,31 @@ func runMint(root string, args []string, r *Runner) int {
 	if out, done := mintIdempotentNoop(root, r, c, m); done {
 		return out
 	}
+	if code, refused := mintPocTierRefusal(root, r, c, m); refused {
+		return code
+	}
 	return mintExecute(root, r, c, m)
+}
+
+// mintPocTierRefusal is the CLI half of the §2.2 ordering law: the operator
+// gets a named exit-2 refusal instead of the write path's generic error. It
+// is a PRE-CHECK only — reproduction.MintReproEvidence enforces the same law
+// for every caller (the ladder and Phase 5's maximization loop included).
+// refused=false means the mint may proceed.
+func mintPocTierRefusal(root string, r *Runner, c *state.Campaign,
+	m *mintParsed) (int, bool) {
+	if m.pocTier != "maximized" {
+		return 0, false
+	}
+	finding, err := findings.LoadFinding(c, m.pos[1])
+	if err != nil {
+		return r.withErr(root, func() error { return err }), true
+	}
+	if err := findings.ValidatePocTierOrder(finding, "maximized"); err != nil {
+		_, _ = fmt.Fprintf(r.Err, "%v\n", err)
+		return 2, true
+	}
+	return 0, false
 }
 
 // mintParsed carries the parsed `mint` command line: the flag values, their
@@ -74,10 +111,12 @@ type mintParsed struct {
 	execID       string
 	description  string
 	tier         string
+	pocTier      string
 	etype        string
 	haveExec     bool
 	haveDesc     bool
 	haveTier     bool
+	havePocTier  bool
 	haveType     bool
 	verifyReruns bool
 	noHints      bool
@@ -121,6 +160,16 @@ func mintParseArgs(root string, args []string, r *Runner) (*mintParsed, int) {
 			i++
 		case strings.HasPrefix(a, "--tier="):
 			m.tier, m.haveTier = strings.TrimPrefix(a, "--tier="), true
+		case a == "--poc-tier":
+			next, ok := flagValue(args, i)
+			if !ok {
+				return nil, r.fail(root, argErrf("mint",
+					"argument --poc-tier: expected one argument"))
+			}
+			m.pocTier, m.havePocTier = next, true
+			i++
+		case strings.HasPrefix(a, "--poc-tier="):
+			m.pocTier, m.havePocTier = strings.TrimPrefix(a, "--poc-tier="), true
 		case a == "--type":
 			next, ok := flagValue(args, i)
 			if !ok {
@@ -177,12 +226,18 @@ func mintRequireArgs(root string, m *mintParsed, r *Runner) int {
 	return 0
 }
 
-// mintCheckChoices validates the --tier and --type argparse choice lists.
+// mintCheckChoices validates the --tier, --poc-tier and --type argparse
+// choice lists.
 func mintCheckChoices(root string, m *mintParsed, r *Runner) int {
 	if m.haveTier && !containsStrCLI(mintTiers, m.tier) {
 		return r.fail(root, argErrf("mint",
 			"argument --tier: invalid choice: %s (choose from %s)",
 			validation.PyReprStr(m.tier), quotedList(mintTiers)))
+	}
+	if m.havePocTier && !containsStrCLI(findings.PocTiers, m.pocTier) {
+		return r.fail(root, argErrf("mint",
+			"argument --poc-tier: invalid choice: %s (choose from %s)",
+			validation.PyReprStr(m.pocTier), quotedList(findings.PocTiers)))
 	}
 	if m.haveType && !containsStrCLI(reproduction.MintableTypes, m.etype) {
 		return r.fail(root, argErrf("mint",
@@ -257,7 +312,7 @@ func mintExecute(root string, r *Runner, c *state.Campaign, m *mintParsed) int {
 	reproduction.VerifyReruns = m.verifyReruns
 	defer func() { reproduction.VerifyReruns = prevVerify }()
 	out, err := reproduction.AttemptAndMint(c, m.pos[1], m.execID, m.description,
-		tierPtr, typePtr)
+		tierPtr, typePtr, m.pocTier)
 	if err != nil {
 		var me *reproduction.MintError
 		if errors.As(err, &me) {

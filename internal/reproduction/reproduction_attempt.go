@@ -273,9 +273,11 @@ func undoAttempt(c *state.Campaign, findingID string, priorStatus,
 
 // AttemptAndMint is attempt_and_mint: record a successful attempt AND mint
 // its evidence in one call. If the mint fails after the attempt is recorded,
-// the attempt is rolled back so the exec citation is not burned.
+// the attempt is rolled back so the exec citation is not burned. pocTier is
+// the v1.6 §2.2 two-tier declaration ("" = untiered) and rides through to
+// MintReproEvidence, which enforces the ordering law.
 func AttemptAndMint(c *state.Campaign, findingID, execID, description string,
-	tier, evidenceType *string) (validation.Value, error) {
+	tier, evidenceType *string, pocTier string) (validation.Value, error) {
 	f, err := findings.LoadFinding(c, findingID)
 	if err != nil {
 		return validation.VNull(), err
@@ -314,7 +316,7 @@ func AttemptAndMint(c *state.Campaign, findingID, execID, description string,
 		}
 	}
 	out, err := MintReproEvidence(c, findingID, execID, description, tier,
-		evidenceType)
+		evidenceType, pocTier)
 	if err != nil {
 		if !execCited {
 			if rollErr := undoAttempt(c, findingID, priorStatus, priorTier); rollErr != nil {

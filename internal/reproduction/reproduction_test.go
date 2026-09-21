@@ -174,7 +174,7 @@ func TestE4EvidenceRejectsHostProfile(t *testing.T) {
 			kv("capabilities", validation.VArr())))),
 		"code", "")
 	_, err = MintReproEvidence(c, fid, validation.ObjStr(rec, "exec_id"), "unit repro",
-		nil, nil)
+		nil, nil, "")
 	if err == nil || !strings.Contains(err.Error(), "sandbox") {
 		t.Fatalf("err = %v, want a sandbox-profile refusal", err)
 	}
@@ -358,11 +358,11 @@ func TestMintReproEvidenceIsIdempotent(t *testing.T) {
 		RecordOpts{ExecID: &execID, Tier: &tier}); err != nil {
 		t.Fatal(err)
 	}
-	out1, err := MintReproEvidence(c, fid, execID, "drains via reentry", &tier, nil)
+	out1, err := MintReproEvidence(c, fid, execID, "drains via reentry", &tier, nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	out2, err := MintReproEvidence(c, fid, execID, "drains via reentry", &tier, nil)
+	out2, err := MintReproEvidence(c, fid, execID, "drains via reentry", &tier, nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -397,14 +397,14 @@ func TestMintReproEvidenceSameExecDifferentType(t *testing.T) {
 	}
 	// First mint: no explicit type → tier-derived foundry-test (E4).
 	out1, err := MintReproEvidence(c, fid, execID, "drains via reentry",
-		&tier, nil)
+		&tier, nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	// Second mint: same exec, explicit second type → must land.
 	diff := "differential"
 	out2, err := MintReproEvidence(c, fid, execID, "differential check", &tier,
-		&diff)
+		&diff, "")
 	if err != nil {
 		t.Fatalf("second-type mint refused: %v", err)
 	}
@@ -419,7 +419,7 @@ func TestMintReproEvidenceSameExecDifferentType(t *testing.T) {
 			"differential", count)
 	}
 	// Third mint: same exec, same type as the first → still a no-op.
-	out3, err := MintReproEvidence(c, fid, execID, "again", &tier, nil)
+	out3, err := MintReproEvidence(c, fid, execID, "again", &tier, nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -438,7 +438,7 @@ func TestMintRejectForgeNoTests(t *testing.T) {
 		"No tests found in test\nRan 0 tests\n", "operator", 0, fid)
 	tier := "T2"
 	_, err := MintReproEvidence(c, fid, validation.ObjStr(rec, "exec_id"), "nothing ran",
-		&tier, nil)
+		&tier, nil, "")
 	if err == nil || !strings.Contains(err.Error(), "No tests found") {
 		t.Fatalf("err = %v", err)
 	}
@@ -453,7 +453,7 @@ func TestMintRejectFailingForge(t *testing.T) {
 		"Ran 1 test for test/poc.t.sol\n[FAIL] poc\n", "operator", 0, fid)
 	tier := "T2"
 	_, err := MintReproEvidence(c, fid, validation.ObjStr(rec, "exec_id"), "suite failed",
-		&tier, nil)
+		&tier, nil, "")
 	if err == nil || !strings.Contains(err.Error(), "failing") {
 		t.Fatalf("err = %v", err)
 	}
@@ -484,7 +484,7 @@ func TestAttemptAndMintOneCallForPassingRepro(t *testing.T) {
 	rec := sandboxedExec(t, c, fid, "docker-networkless", "pytest-harness")
 	execID := validation.ObjStr(rec, "exec_id")
 	tier, etype := "T2", "foundry-test"
-	out, err := AttemptAndMint(c, fid, execID, "unit PoC drains", &tier, &etype)
+	out, err := AttemptAndMint(c, fid, execID, "unit PoC drains", &tier, &etype, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -525,7 +525,7 @@ func TestMintValidatesEvidenceType(t *testing.T) {
 	tier := "T2"
 	bad := "not-a-real-type"
 	_, err := MintReproEvidence(c, fid, validation.ObjStr(rec, "exec_id"), "mislabelled",
-		&tier, &bad)
+		&tier, &bad, "")
 	if err == nil || !strings.Contains(err.Error(), "evidence type") {
 		t.Fatalf("err = %v", err)
 	}
@@ -623,7 +623,7 @@ func TestGuardrailRejectionPreservesCitation(t *testing.T) {
 	execID := validation.ObjStr(rec, "exec_id")
 	tier := "T2"
 	if _, err := AttemptAndMint(c, fid, execID, "PoC inflates price",
-		&tier, nil); err == nil || !strings.Contains(err.Error(), "level rise blocked") {
+		&tier, nil, ""); err == nil || !strings.Contains(err.Error(), "level rise blocked") {
 		t.Fatalf("err = %v, want the guardrail refusal", err)
 	}
 	f, err := findings.LoadFinding(c, fid)
@@ -654,7 +654,7 @@ func TestGuardrailRejectionPreservesCitation(t *testing.T) {
 		t.Fatalf("verify invariant: %v", err)
 	}
 	// the SAME exec now mints
-	out, err := AttemptAndMint(c, fid, execID, "PoC inflates price", &tier, nil)
+	out, err := AttemptAndMint(c, fid, execID, "PoC inflates price", &tier, nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -700,13 +700,13 @@ func TestRollbackRestoresPriorAttemptState(t *testing.T) {
 	}
 	tier := "T2"
 	if _, err := AttemptAndMint(c, fid, validation.ObjStr(rec1, "exec_id"), "PoC #1",
-		&tier, nil); err != nil {
+		&tier, nil, ""); err != nil {
 		t.Fatal(err)
 	}
 	rec2 := sandboxedExec(t, c, fid, "docker-networkless", "pytest-harness")
 	bad := "not-a-type"
 	if _, err := AttemptAndMint(c, fid, validation.ObjStr(rec2, "exec_id"), "PoC #2",
-		&tier, &bad); err == nil ||
+		&tier, &bad, ""); err == nil ||
 		!strings.Contains(err.Error(), "unknown evidence type") {
 		t.Fatalf("err = %v", err)
 	}
@@ -722,6 +722,23 @@ func TestRollbackRestoresPriorAttemptState(t *testing.T) {
 	if len(arts) != 1 || arts[0] != validation.ObjStr(rec1, "exec_id") {
 		t.Errorf("attempt artifact_ids = %v, want [%s]", arts,
 			validation.ObjStr(rec1, "exec_id"))
+	}
+}
+
+// TestAttemptAndMintRefusesMaximizedWithoutExistence pins the v1.6 §2.2
+// ordering law in the WRITE path: bypassing cmd_mint's pre-check must not
+// bypass the law, because `mint`, the ladder and Phase 5's maximization loop
+// all reach MintReproEvidence. The citationCamp finding carries no
+// fork_dependence, and absent is unknown is DEPENDENT.
+func TestAttemptAndMintRefusesMaximizedWithoutExistence(t *testing.T) {
+	c, fid := citationCamp(t)
+	rec := sandboxedExec(t, c, fid, "docker-networkless", "pytest-harness")
+	tier := "T2"
+	_, err := AttemptAndMint(c, fid, validation.ObjStr(rec, "exec_id"),
+		"maximized drain", &tier, nil, "maximized")
+	if err == nil ||
+		!strings.Contains(err.Error(), "requires an existence-tier PoC first") {
+		t.Fatalf("err = %v, want the ordering refusal", err)
 	}
 }
 
@@ -953,7 +970,7 @@ func TestRunbookConfirmFlow(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := MintReproEvidence(c, fid, validation.ObjStr(rec, "exec_id"),
-		"unit PoC drains", &tier, nil); err != nil {
+		"unit PoC drains", &tier, nil, ""); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := findings.SetCriticVerdict(c, fid, "confirmed",
@@ -1005,7 +1022,7 @@ func TestRunbookIndependentVerificationFlow(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := MintReproEvidence(c, fid, validation.ObjStr(rec, "exec_id"), "PoC drains",
-		&tier, nil); err != nil {
+		&tier, nil, ""); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := findings.SetCriticVerdict(c, fid, "confirmed",

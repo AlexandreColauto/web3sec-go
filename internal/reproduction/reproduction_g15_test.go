@@ -86,7 +86,7 @@ func g15Mint(t *testing.T, c *state.Campaign, startedAt string) validation.Value
 		t.Fatal(err)
 	}
 	out, err := MintReproEvidence(c, fid, execID, "drains via reentry",
-		&tier, nil)
+		&tier, nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -531,7 +531,7 @@ func TestG15RerunJoinLeavesOriginalUntouched(t *testing.T) {
 		t.Fatal(err)
 	}
 	out, err := MintReproEvidence(c, fid, execID, "drains via reentry",
-		&tier, nil)
+		&tier, nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}

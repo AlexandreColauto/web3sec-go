@@ -14,7 +14,7 @@ func TestMintRejectsExecWithNonzeroExit(t *testing.T) {
 	rec := registerExec(t, c, "docker-networkless", "forge test",
 		"", "ops", 1, fid)
 	_, err := MintReproEvidence(c, fid, validation.ObjStr(rec, "exec_id"), "unit repro",
-		nil, nil)
+		nil, nil, "")
 	if err == nil || !strings.Contains(err.Error(), "exited with status") {
 		t.Fatalf("err = %v, want the nonzero-exit refusal", err)
 	}
@@ -27,7 +27,7 @@ func TestMintRejectsSilentExec(t *testing.T) {
 	rec := registerExec(t, c, "docker-networkless", "forge test",
 		"", "ops", 0, fid)
 	_, err := MintReproEvidence(c, fid, validation.ObjStr(rec, "exec_id"), "no-op run",
-		nil, nil)
+		nil, nil, "")
 	if err == nil || !strings.Contains(err.Error(), "EMPTY captured output") {
 		t.Fatalf("err = %v, want the empty-output refusal", err)
 	}
@@ -61,7 +61,7 @@ func TestIndependentMintRejectsSilentExec(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := MintReproEvidence(c, fid, execID, "unit repro", &tier,
-		nil); err != nil {
+		nil, ""); err != nil {
 		t.Fatal(err)
 	}
 	silent := registerExec(t, c, "fork-runner", "forge test",
@@ -81,7 +81,7 @@ func TestMintRejectsTierAboveRecordedLadder(t *testing.T) {
 		"Ran 1 test\n[PASS] poc\n", "alice", 0, fid)
 	execID := validation.ObjStr(rec, "exec_id")
 	tier := "T3"
-	_, err := MintReproEvidence(c, fid, execID, "unit repro", &tier, nil)
+	_, err := MintReproEvidence(c, fid, execID, "unit repro", &tier, nil, "")
 	if err == nil || !strings.Contains(err.Error(), "cannot mint at tier") {
 		t.Fatalf("err = %v, want the tier-ladder refusal", err)
 	}
@@ -91,7 +91,7 @@ func TestMintRejectsTierAboveRecordedLadder(t *testing.T) {
 		RecordOpts{ExecID: &execID, Tier: &tier2}); err != nil {
 		t.Fatal(err)
 	}
-	out, err := MintReproEvidence(c, fid, execID, "unit repro", &tier2, nil)
+	out, err := MintReproEvidence(c, fid, execID, "unit repro", &tier2, nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}

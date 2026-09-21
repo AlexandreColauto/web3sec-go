@@ -193,10 +193,12 @@ func ValidateExecRecord(execID string, rec validation.Value) error {
 
 // MintedExecEvidenceItem builds the E4/E5 evidence dict mint records for an
 // exec, in Python's key order: the id is a fresh EV- id, the metadata comes
-// from the exec record, the snapshot pin from the finding.
+// from the exec record, the snapshot pin from the finding. pocTier is the
+// v1.6 §2.2 two-tier declaration and lands ONLY when non-empty, so every
+// pre-existing (untiered) evidence item keeps its exact bytes.
 func MintedExecEvidenceItem(execID, level, etype, description string, rec,
-	f validation.Value) validation.Value {
-	return validation.VObj(
+	f validation.Value, pocTier string) validation.Value {
+	item := validation.VObj(
 		validation.KV{K: "evidence_id", V: validation.VStr(state.NewID("EV", 8))},
 		validation.KV{K: "level", V: validation.VStr(level)},
 		validation.KV{K: "type", V: validation.VStr(etype)},
@@ -209,6 +211,11 @@ func MintedExecEvidenceItem(execID, level, etype, description string, rec,
 		validation.KV{K: "snapshot_id", V: validation.ObjAt(validation.ObjAt(f, "snapshot_ids"),
 			"source")},
 	)
+	if pocTier != "" {
+		item.O = validation.SetOrAppend(item.O, "poc_tier",
+			validation.VStr(pocTier))
+	}
+	return item
 }
 
 // execFindingMatch is _verify_exec_reference's binding rule: an exec bound to
@@ -286,7 +293,7 @@ func IngestExecRefEvidence(c *state.Campaign, findingID string, finding,
 			validation.PyReprStr(level))
 	}
 	return MintedExecEvidenceItem(ref, level, etype,
-		validation.ObjStr(item, "description"), rec, finding), nil
+		validation.ObjStr(item, "description"), rec, finding, ""), nil
 }
 
 // pyReprScalar is Python's repr for the JSON scalars an exec field holds
