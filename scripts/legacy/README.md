@@ -39,3 +39,27 @@ directories must stay readable forever, with no Python required to prove it.
   inert data; the auditors follow campaign-relative files.
 * A regeneration path would need the twin checkout; it is deliberately
   undocumented, because regeneration is not what this fixture is for.
+
+## Repair log
+
+* **2026-09-21 — `REP-adc3248d` was not self-contained.** Step 9's audit
+  failed with `[artifacts] REP-adc3248d: missing file
+  <ROOT>/.scratch/verify-p1/fixtures/note.md`: the reference had registered
+  `note.md` from the harness scratch dir, so the row recorded the capturing
+  machine's ABSOLUTE path (and no file the fixture shipped). Six of the seven
+  rows record a campaign-relative path; this one did not, and step 10 creates
+  a *different* `note.md` later. `internal/audit/sections/artifacts.go` was
+  right. The file now ships at `artifacts/note.md` and the row records
+  `campaigns/C-45488bdaf5/artifacts/note.md`, like its siblings.
+  Consequences, all inside the fixture: the `artifact.registered` event
+  (seq 17) was re-pointed at the same path and the log re-sealed from seq 17
+  on — in Go, with `validation.CanonSpaced`/`Sha256Hex` over
+  `state.eventHash`'s own six-field body; `artifact-reconcile` re-hashed the
+  row against the shipped bytes (`artifact.refreshed`, seq 54), which is what
+  recorded the new sha256; and `doctor --state-only` rebuilt the `events`
+  mirror from the re-sealed log. The `at`-stamps of the repair events are the
+  repair date, not the fixture's pinned 2026-09-09 clock — the repair is not
+  pretending the reference did it. The remaining `/home/xand/...` strings in
+  event payloads are inert data, exactly as the invariant above says.
+  `.superpowers/sdd/2026-09-21-v16-p1-p2-record-and-evidence/step9-fixture.md`
+  carries the full proof.

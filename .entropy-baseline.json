@@ -1,0 +1,7 @@
+{
+  "metrics": {
+    "python/ruff": 195,
+    "python/ruff-format": 8
+  },
+  "schema": "entropy-gate.baseline.v1"
+}

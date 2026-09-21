@@ -46,7 +46,22 @@ enabled = true
 enabled = true
 extensions = [".sh"]
 checks = [
-  { name = "bash-syntax", scope = "file", command = ["bash", "-n", "{files}"] },
+  { name = "bash-syntax", scope = "file", command = ["bash", "-n", "{files}"] },]
+
+# The committed event logs under scripts/legacy/ are .jsonl. Without a block
+# here, fail_on_unknown_language blocks ANY commit that touches one — including
+# a commit that only repairs the fixture — and the message it prints is about
+# the language, not about the file being wrong.
+[languages.jsonl]
+enabled = true
+extensions = [".jsonl"]
+checks = [
+  # Every non-blank line must parse. Exit-code judged, and file scope is right
+  # here: a line that does not parse is always an error, so there is no
+  # pre-existing-findings ceiling to ratchet. The hash chain over these lines
+  # is a different check and lives where it can see the chain: `webv2 verify`,
+  # which scripts/verify-full.sh step 9 runs against this very fixture.
+  { name = "jsonl-parses", scope = "file", command = ["python3", "-c", "import json,sys\nfor p in sys.argv[1:]:\n for i,l in enumerate(open(p),1):\n  if l.strip():\n   try: json.loads(l)\n   except ValueError as e:\n    print('%s:%d: %s'%(p,i,e)); sys.exit(1)", "{files}"] },
 ]
 
 # --- adding a language later ---------------------------------------------- #
