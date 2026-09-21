@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"websec/internal/boundary"
+	"websec/internal/chainengine"
 	"websec/internal/findings"
 	"websec/internal/reviewsession"
 	"websec/internal/risk"
@@ -347,6 +348,135 @@ func TestV16CoverageCountsTheDeclaredInputSets(t *testing.T) {
 	if got := validation.ObjAt(cov, "model_rejections").I; got != 1 {
 		t.Fatalf("model_rejections = %d, want 1", got)
 	}
+}
+
+// TestV16CoverageCountsChainMaterializedSuperFindings pins the other half of
+// the enumeration. A proven chain writes its super-finding with a bare
+// findings.SaveFinding plus a chain.materialized event and NO finding.ingested
+// (chainengine.MaterializeChain), so a reader that took only the ingested refs
+// would count the two members and silently drop the chain — which the
+// projection section and every other reader do count. The chain below is
+// materialized through the REAL writer, so the test fails if the union is ever
+// narrowed back to the ingested refs alone.
+func TestV16CoverageCountsChainMaterializedSuperFindings(t *testing.T) {
+	c, superID := coverageMaterializedChain(t)
+	if _, inIngested := refsOf(coverageEvents(t, c), "finding.ingested")[superID]; inIngested {
+		t.Fatalf("the chain super-finding has a finding.ingested event — this "+
+			"test no longer exercises the blind spot (super id %s)", superID)
+	}
+	sec, err := V16Coverage(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cov := validation.ObjAt(sec, "coverage")
+	for _, w := range []struct {
+		key       string
+		got, want int64
+	}{
+		{"checked", validation.ObjAt(sec, "checked").I, 3},
+		{"coverage.findings", validation.ObjAt(cov, "findings").I, 3},
+		{"coverage.confirmed", validation.ObjAt(cov, "confirmed").I, 2},
+	} {
+		if w.got != w.want {
+			t.Errorf("%s = %d, want %d (2 members + the chain super-finding; "+
+				"the chain row is CHAIN, not CONFIRMED)", w.key, w.got, w.want)
+		}
+	}
+}
+
+// coverageMaterializedChain materializes a real two-member proven chain and
+// returns the campaign plus the super-finding id its chain.materialized event
+// names — the row that carries no finding.ingested event.
+func coverageMaterializedChain(t *testing.T) (*state.Campaign, string) {
+	t.Helper()
+	c := coverageCampaign(t)
+	a := coverageChainMember(t, c, "Attacker skews the oracle (member A)",
+		"control oracle price feed", "")
+	b := coverageChainMember(t, c, "Attacker borrows unbacked funds (member B)",
+		"", "control oracle price feed")
+	if _, err := chainengine.MaterializeChain(c, []string{a, b},
+		"Oracle skew into an unbacked borrow",
+		"the oracle skew funds the unbacked borrow in one transaction",
+		nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	superID := coverageChainSuperID(t, c)
+	super, err := findings.LoadFinding(c, superID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := validation.ObjStr(super, "status"); got != "CHAIN" {
+		t.Fatalf("super-finding status = %q, want CHAIN", got)
+	}
+	return c, superID
+}
+
+// coverageChainMember ingests one chain member through the real ingest path —
+// with the affected row and the capability the link needs — and stamps it
+// CONFIRMED through coverageStampStatus, the same direct status stamp the rest
+// of the fixture uses: the chain gate reads status as data, and re-proving the
+// CONFIRMED bundle is the gate's own test.
+func coverageChainMember(t *testing.T, c *state.Campaign, title, granted,
+	required string) string {
+	t.Helper()
+	f, err := findings.IngestHypothesis(c, validation.VObj(
+		validation.KV{K: "title", V: validation.VStr(title)},
+		validation.KV{K: "root_cause", V: validation.VObj(
+			validation.KV{K: "class", V: validation.VStr("oracle-manipulation")},
+			validation.KV{K: "description", V: validation.VStr(
+				"the spot price read lets the attacker trade against its own quote")})},
+		validation.KV{K: "affected", V: validation.VArr(validation.VObj(
+			validation.KV{K: "path", V: validation.VStr("src/V.sol")}))},
+		validation.KV{K: "attacker", V: validation.VObj(
+			validation.KV{K: "profile", V: validation.VStr("arbitrary EOA")},
+			validation.KV{K: "capabilities", V: validation.VArr()})},
+		validation.KV{K: "capabilities", V: validation.VObj(
+			validation.KV{K: "granted", V: validation.StrArr(coverageCaps(granted))},
+			validation.KV{K: "required", V: validation.StrArr(coverageCaps(required))})},
+	), "economic", "discovery", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fid := validation.ObjStr(f, "finding_id")
+	coverageStampStatus(t, c, fid, true)
+	return fid
+}
+
+// coverageCaps is the one-capability list a chain member's granted/required
+// slot carries, empty for the member that does not use that half.
+func coverageCaps(one string) []string {
+	if one == "" {
+		return []string{}
+	}
+	return []string{one}
+}
+
+// coverageEvents is the campaign ledger, for tests that assert on the events
+// the real writers left behind.
+func coverageEvents(t *testing.T, c *state.Campaign) []validation.Value {
+	t.Helper()
+	events, err := c.Events()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return events
+}
+
+// coverageChainSuperID is the super_finding the chain.materialized event names
+// — the id the chain writer persisted with no finding.ingested beside it.
+func coverageChainSuperID(t *testing.T, c *state.Campaign) string {
+	t.Helper()
+	for _, e := range coverageEvents(t, c) {
+		if validation.ObjStr(e, "type") != "chain.materialized" {
+			continue
+		}
+		if id := validation.ObjStr(validation.ObjAt(e, "data"),
+			"super_finding"); id != "" {
+			return id
+		}
+	}
+	t.Fatal("no chain.materialized event names a super_finding")
+	return ""
 }
 
 // coverageLogRequest records the request the way boundary.logHypothesisRequest

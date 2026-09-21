@@ -214,18 +214,24 @@ func (v *v16Coverage) coverageValue() validation.Value {
 	return validation.VObj(out...)
 }
 
-// listedFindings is the set of findings the coverage counts read: the ids the
-// ledger's finding.ingested events recorded — the projection, not a directory
-// glob — loaded through findings.LoadFinding in id order. Rows in a terminal
-// junk state are skipped: a SUPERSEDED row is bookkeeping noise, and counting
-// it would inflate coverage its successor already carries.
+// listedFindings is the set of findings the coverage counts read: the
+// projection's ids — the ledger's finding.ingested refs UNION the
+// chain.materialized super-finding ids, the exact pair projectionFindings
+// treats as legitimate (projection.go) — not a directory glob, loaded through
+// findings.LoadFinding in id order. The chain half is load-bearing: a
+// chainengine super-finding is written with a bare findings.SaveFinding plus a
+// chain.materialized event and carries NO finding.ingested, so reading only
+// the ingested half would silently skip a whole way of creating a finding —
+// and its three impossible-state checks with it. Rows in a terminal junk
+// state are skipped: a SUPERSEDED row is bookkeeping noise, and counting it
+// would inflate coverage its successor already carries.
 func listedFindings(c *state.Campaign) ([]validation.Value, error) {
 	events, err := c.Events()
 	if err != nil {
 		return nil, err
 	}
 	ids := make([]string, 0, len(events))
-	for id := range refsOf(events, "finding.ingested") {
+	for id := range v16FindingIDs(events) {
 		ids = append(ids, id)
 	}
 	sort.Strings(ids)
@@ -241,6 +247,20 @@ func listedFindings(c *state.Campaign) ([]validation.Value, error) {
 		out = append(out, f)
 	}
 	return out, nil
+}
+
+// v16FindingIDs is the projection's finding id set: the refs of
+// finding.ingested unioned with the data.super_finding ids of
+// chain.materialized — the same two halves projectionFindings checks on-disk
+// files against. MaterializeChain persists a CHAIN super-finding with a bare
+// findings.SaveFinding and no finding.ingested event, so a reader that took
+// only the ingested half would miss every chain-materialized finding.
+func v16FindingIDs(events []validation.Value) map[string]struct{} {
+	ids := refsOf(events, "finding.ingested")
+	for id := range superOf(events) {
+		ids[id] = struct{}{}
+	}
+	return ids
 }
 
 // v16JunkStatus is the terminal junk set findings.LoadLiveFindings skips:

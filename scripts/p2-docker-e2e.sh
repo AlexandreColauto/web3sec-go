@@ -318,16 +318,17 @@ else:
     if not re.fullmatch(r"sha256:[0-9a-f]{64}", str(d.get("spec_hash"))):
         fails.append(f"bad spec_hash {d.get('spec_hash')!r}")
 
-# 4. the audit: ok + all 14 rendered sections (15 registered; `eval` is
-#    presence-gated) + the VACUOUS sequence_coverage pin
+# 4. the audit: ok + all 15 rendered sections (17 registered; `eval` and
+#    `price_table` are presence-gated, `v16_coverage` is unconditional and
+#    registered last) + the VACUOUS sequence_coverage pin
 #    (no fork pin is attachable through the Go CLI, D19; a future chain-pin
 #    wiring must FLIP this assertion, not delete it)
 rep = json.loads((work / "captures" / "go" / "10-audit-json.out").read_text())
 if rep.get("ok") is not True:
     fails.append(f"audit ok={rep.get('ok')!r}, want true")
 secs = rep.get("sections") or {}
-if len(secs) != 14:
-    fails.append(f"{len(secs)} audit sections, want 14")
+if len(secs) != 15:
+    fails.append(f"{len(secs)} audit sections, want 15")
 sec = secs.get("sequence_coverage")
 if sec is None:
     fails.append("audit report has no sequence_coverage section")
