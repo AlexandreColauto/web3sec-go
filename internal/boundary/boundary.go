@@ -111,20 +111,38 @@ func ContextHash(bundle validation.Value) string {
 	return hex.EncodeToString(sum[:])
 }
 
-// artifactIDPattern matches every id shape the framework mints: artifacts,
-// execs, evidence, findings, invariants, snapshots, prices.
-var artifactIDPattern = regexp.MustCompile(
-	`^(ART|EXEC|EV|F|INV|SNAP|PRC)-[0-9a-zA-Z_-]{4,48}$`)
-
 // artifactKeyPattern matches the bundle keys that CARRY ids — the ones the
 // role context builders actually emit (`internal/roles/context.go`,
 // context_critic.go:163, context_reproducer.go:15).
 var artifactKeyPattern = regexp.MustCompile(
 	`^(artifact|evidence|finding|snapshot|exec|invariant|plan)_ids?$|^active_snapshot_id$`)
 
+// saneArtifactID is the ONLY bound the derivation puts on a string under an
+// id-bearing key: 3..64 bytes, no whitespace. The KEY is the scoping rule —
+// it is what keeps an id quoted in prose out of the cited set — not the id's
+// shape.
+//
+// An earlier revision filtered on a hardcoded prefix list (ART|EXEC|EV|F|INV|
+// SNAP|PRC). That list was fiction: state.RegisterArtifact mints
+// `<KIND-first-3-upper>-<8hex>` (internal/state/artifacts.go:56), snapshots
+// are `src-content-<12hex>` (internal/snapshot/pin.go:334), so on a REAL
+// bundle the derived cited set held only finding ids and the out-of-set
+// refusal could never fire on the snapshot or artifact a stage actually
+// consumed. The bounds mirror the item bounds model_request.schema.json puts
+// on input_artifacts/context_artifacts, so an id the walk accepts can never
+// make the record BuildRequest emits schema-invalid.
+func saneArtifactID(s string) bool {
+	if len(s) < 3 || len(s) > 64 {
+		return false
+	}
+	return !strings.ContainsAny(s, " \t\r\n")
+}
+
 // BundleArtifacts returns every id the bundle carries under an id-bearing key,
 // deduped in first-seen order. Derivation, not declaration: the set is read
-// off the bytes that are actually sent.
+// off the bytes that are actually sent, and a string under one of those keys
+// IS an id — no shape is guessed, because guessing the shape is what made the
+// cited set empty on real bundles.
 //
 // The walk is scoped to those keys on purpose. Scanning every leaf string
 // would also match ids quoted in prose, diffs and pasted file contents — the
@@ -136,7 +154,7 @@ func BundleArtifacts(bundle validation.Value) []string {
 	out := []string{}
 	seen := map[string]bool{}
 	add := func(s string) {
-		if artifactIDPattern.MatchString(s) && !seen[s] {
+		if saneArtifactID(s) && !seen[s] {
 			seen[s] = true
 			out = append(out, s)
 		}
@@ -162,17 +180,21 @@ func BundleArtifacts(bundle validation.Value) []string {
 	return out
 }
 
-// collectIDs adds the id(s) under one id-bearing key: a bare string, or an
-// array of strings.
+// collectIDs adds the id(s) under one id-bearing key: a bare string, an array
+// of ids, or a mapping whose VALUES are ids — `snapshot_ids` is
+// {source: <id>, deployment: <id>} (internal/findings/ingest.go:121), the
+// shape the critic and reproducer bundles carry their pinned snapshot under.
 func collectIDs(v validation.Value, add func(string)) {
 	switch v.Kind {
 	case validation.Str:
 		add(v.S)
 	case validation.Arr:
 		for _, x := range v.A {
-			if x.Kind == validation.Str {
-				add(x.S)
-			}
+			collectIDs(x, add)
+		}
+	case validation.Obj:
+		for _, kv := range v.O {
+			collectIDs(kv.V, add)
 		}
 	}
 }
@@ -242,12 +264,21 @@ func strValues(ids []string) []validation.Value {
 // just a returned error. The ref is nil: at request time there is no finding
 // id yet, and a fabricated empty-string ref is a ghost id.
 //
-// The event data satisfies trajectory.schema.json#model_rejected — the caller
-// records only requests that already passed the record contract, so role and
-// kind are the vocabulary that definition requires.
+// The event data satisfies trajectory.schema.json#model_rejected — callers
+// admit a request through InputSetRecordable first, so role and kind are the
+// vocabulary that definition requires.
 func RecordInputSetRefusal(c *state.Campaign, request validation.Value,
 	why string) error {
-	data := validation.VObj(
+	data := refusalData(request, why)
+	_, err := c.Log("model.rejected", nil, &data)
+	return err
+}
+
+// refusalData builds the model.rejected payload for a declared-input-set
+// refusal, mirroring RecordRejection's event shape rather than inventing a
+// second rejection vocabulary.
+func refusalData(request validation.Value, why string) validation.Value {
+	return validation.VObj(
 		validation.KV{K: "role", V: validation.VStr(validation.ObjStr(request, "role"))},
 		validation.KV{K: "kind", V: validation.VStr(validation.ObjStr(request, "response_schema"))},
 		validation.KV{K: "error", V: validation.VStr(pyTrunc(why, 1000))},
@@ -258,8 +289,50 @@ func RecordInputSetRefusal(c *state.Campaign, request validation.Value,
 		validation.KV{K: "outside", V: validation.VArr(strValues(InputArtifactsOutsideDeclaration(request))...)},
 		validation.KV{K: "action", V: validation.VStr(
 			"re-declare the stage's input artifact set, or stop consuming the artifact")})
-	_, err := c.Log("model.rejected", nil, &data)
-	return err
+}
+
+// InputSetRecordable is the recorder's admission test. A refusal is written
+// only when BOTH hold:
+//
+//  1. the record contract holds WITHOUT the input_artifacts key — so the
+//     declared input set was the request's ONLY defect. The schema refuses the
+//     EMPTY array (minItems 1) and an entry with no id before ValidateRequest's
+//     own clause can see them; without this test those two refusals would be
+//     returned to the caller and never reach the ledger, which is the orphan
+//     Step 6 exists to prevent.
+//  2. the event refusalData derives satisfies model_rejected's own contract
+//     (trajectory.schema.json), so the framework never writes an event that
+//     turns verify_trajectory red on a campaign it wrote itself.
+//
+// A request that fails the record contract anywhere else is still refused with
+// no event: its role/kind may not be model_rejected's vocabulary at all, and
+// writing it would violate that definition.
+//
+// EXPORTED for the file-drop transport (internal/feed): the feed refuses a
+// drop file's own request record on the same ValidateRequest error and must
+// draw this exact distinction — record the declared-input-set refusal, stay
+// silent on a malformed record. Feed cannot reach the unexported predicate,
+// and duplicating the rule would let the two transports drift apart, so the
+// gate is shared rather than copied.
+func InputSetRecordable(request validation.Value, why string) bool {
+	if validation.Validate(withoutDeclaration(request), "model_request", 1) != nil {
+		return false
+	}
+	violation, err := validation.ValidateDefinition(refusalData(request, why),
+		"trajectory", "model_rejected")
+	return err == nil && violation == nil
+}
+
+// withoutDeclaration is request minus its input_artifacts key (a copy: the
+// caller's record is never modified).
+func withoutDeclaration(request validation.Value) validation.Value {
+	out := validation.VObj()
+	for _, kv := range request.O {
+		if kv.K != "input_artifacts" {
+			out.O = append(out.O, kv)
+		}
+	}
+	return out
 }
 
 // schemaFailures is _schema_failures.

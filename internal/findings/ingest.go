@@ -4,6 +4,8 @@
 package findings
 
 import (
+	"fmt"
+
 	"websec/internal/state"
 	"websec/internal/validation"
 )
@@ -280,6 +282,14 @@ func ingestValidateAndGate(campaign *state.Campaign, p validation.Value,
 			}
 		}
 	}
+	// Payload discipline (v1.6 §2.2, critic I-2): the fields the schema now
+	// tolerates but the write path must NOT take from a payload — a
+	// fork_dependence override with no recorded reason and no event, and a PoC
+	// tier on evidence the EXEC ledger never produced. Same phase as the
+	// affected-path rule above: after SCHEMA, before the LEDGER/GATE half.
+	if err := refuseDeclaredFields(p); err != nil {
+		return validation.VNull(), err
+	}
 	// ---- ingest phase order (wave N, T2 ruling) ---------------------------
 	// 1. SCHEMA: the WHOLE payload is validated above — before any ledger read
 	//    or gate math — so a schema typo is never masked by a later refusal.
@@ -338,6 +348,65 @@ func ingestValidateAndGate(campaign *state.Campaign, p validation.Value,
 		}
 	}
 	return p, nil
+}
+
+// refuseDeclaredFields is the ingest payload-discipline gate (v1.6 §2.2): the
+// two keys this plan made schema-legal whose write path is a VERB, not a
+// payload. Refusing is the same rule the exec_ref path applies to a declared
+// type/level — the write path refuses what the schema merely tolerates — and
+// it is what stops a second write path from bypassing the laws the briefs
+// call load-bearing (critic I-2).
+func refuseDeclaredFields(p validation.Value) error {
+	if err := refuseDeclaredForkDependence(p); err != nil {
+		return err
+	}
+	for _, item := range validation.ObjAt(p, "evidence").A {
+		if validation.ObjStr(item, "exec_ref") != "" {
+			continue // IngestExecRefEvidence refuses its own declared tier
+		}
+		why := "the item carries no exec_ref, and a PoC tier is a claim " +
+			"about a demonstration the EXEC ledger holds"
+		if err := refuseDeclaredPocTier(item, why); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// refuseDeclaredForkDependence is the §2.2 write-path law at ingest: the key
+// is legal on a finding, but the door that records it is
+// `fork-dependence --set V --reason R`, which demands the reason and logs
+// finding.fork_dependence_set. A payload-declared value lands with neither,
+// and an override without a recorded reason is a guess — the exact hole the
+// finding describes (critic I-2).
+func refuseDeclaredForkDependence(p validation.Value) error {
+	value := validation.ObjStr(p, "fork_dependence")
+	if value == "" {
+		return nil
+	}
+	return fmt.Errorf("ingest refused: the payload declares fork_dependence "+
+		"%s — record it with `webv2 fork-dependence <campaign> <finding> "+
+		"--set %s --reason R`, which logs finding.fork_dependence_set; an "+
+		"override without a recorded reason is a guess",
+		validation.PyReprStr(value), value)
+}
+
+// refuseDeclaredPocTier is the §2.2 law for a payload item that declares a
+// PoC tier: the tier is recorded by the verb that MINTS the evidence, never by
+// the payload that cites it. On the exec_ref path the item lands as `mint`
+// would have minted it — untiered, because the tier comes from mint's
+// --poc-tier — so a declared tier would vanish silently (critic I-3); with no
+// exec_ref at all there is no demonstration for a tier to describe (critic
+// I-2). why names which of the two doors refused it.
+func refuseDeclaredPocTier(item validation.Value, why string) error {
+	tier := validation.ObjStr(item, "poc_tier")
+	if tier == "" {
+		return nil
+	}
+	return fmt.Errorf("ingest refused: evidence %s declares poc_tier %s, but "+
+		"%s — record it with `webv2 mint --poc-tier %s`",
+		validation.ObjStr(item, "evidence_id"), validation.PyReprStr(tier), why,
+		tier)
 }
 
 // ingestWriteFinding is the write half of the ingest pipeline: the finding

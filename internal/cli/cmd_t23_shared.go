@@ -31,6 +31,12 @@ const t23ImpactUsage = `usage: webv2 impact [-h] [--extractable EXTRACTABLE] [--
                     [--artifact ARTIFACT] [--description DESCRIPTION]
                     [--unpriceable] [--ceiling CEILING] [--reason REASON]
                     [--actor ACTOR] [--reversibility REVERSIBILITY]
+                    [--replayable]
+                    [--extractable-per-round EXTRACTABLE_PER_ROUND]
+                    [--gas-cost GAS_COST] [--frequency FREQUENCY]
+                    [--rounds-run ROUNDS_RUN]
+                    [--replay-assumption REPLAY_ASSUMPTION]
+                    [--replay-blocker REPLAY_BLOCKER]
                     campaign finding
 `
 
@@ -81,6 +87,12 @@ const t23ImpactHelp = `usage: webv2 impact [-h] [--extractable EXTRACTABLE] [--m
                     [--artifact ARTIFACT] [--description DESCRIPTION]
                     [--unpriceable] [--ceiling CEILING] [--reason REASON]
                     [--actor ACTOR] [--reversibility REVERSIBILITY]
+                    [--replayable]
+                    [--extractable-per-round EXTRACTABLE_PER_ROUND]
+                    [--gas-cost GAS_COST] [--frequency FREQUENCY]
+                    [--rounds-run ROUNDS_RUN]
+                    [--replay-assumption REPLAY_ASSUMPTION]
+                    [--replay-blocker REPLAY_BLOCKER]
                     campaign finding
 
 positional arguments:
@@ -110,6 +122,29 @@ options:
                         (+3.0), trusted-party (+2.0) or reversible (+0.0) in
                         validated_risk; 'none' clears the classification
                         (IMPROVEMENTS E5)
+  --replayable          record the v1.6 2.4 replayability calculator: a
+                        single-shot loss repeatable without bound is scored as
+                        total loss, and the demonstrated and computed figures
+                        are kept separate; requires --extractable-per-round,
+                        --max-loss and --gas-cost
+  --extractable-per-round EXTRACTABLE_PER_ROUND
+                        USD the verification run actually extracted per round
+                        (the DEMONSTRATED figure)
+  --gas-cost GAS_COST   USD of attack cost per round (rounds x this is the
+                        computed attack cost)
+  --frequency FREQUENCY
+                        rounds per day; omit rather than guess, and the time-
+                        to-exhaustion figure is omitted too
+  --rounds-run ROUNDS_RUN
+                        rounds the run actually executed (default 2; the
+                        repeatability law refuses fewer)
+  --replay-assumption REPLAY_ASSUMPTION
+                        repeatable: a stated assumption behind the computed
+                        ceiling
+  --replay-blocker REPLAY_BLOCKER
+                        repeatable: a recorded reason the attack cannot
+                        exhaust the pool (the escape from the profitability
+                        refusal)
 `
 
 const t23LadderHelp = `usage: webv2 ladder [-h] [--name NAME] [--description DESCRIPTION]

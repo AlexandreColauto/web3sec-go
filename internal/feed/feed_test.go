@@ -202,6 +202,61 @@ func TestFeedRefusesAnUndeclaredRequest(t *testing.T) {
 	requireRefusalsRecorded(t, c)
 }
 
+// TestFeedRefusesAMalformedRecordWithoutRecording is the regression guard for
+// the defect fix round 2 found. ValidateRequest fails for TWO reasons, and the
+// feed recorded both: the declared-input-set clause (a ledger fact) and the
+// request violating the model_request record contract itself (a malformed
+// file). The second must be refused with NO event — its role/kind may not be
+// model.rejected's vocabulary at all, so the framework's own ledger row would
+// violate trajectory.schema.json#model_rejected and turn verify_trajectory red
+// on a campaign the framework wrote.
+func TestFeedRefusesAMalformedRecordWithoutRecording(t *testing.T) {
+	root := t.TempDir()
+	c, err := state.Init(root, "Acme", state.InitOpts{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fs, _ := FeedStageFor("discovery")
+
+	// (b) the record contract itself: refused, and NOT a ledger fact.
+	refuseBadRoleDrop(t, c, fs)
+	if n := countRejections(t, c); n != 0 {
+		t.Fatalf("model.rejected events after a malformed request record = %d, "+
+			"want 0: role %q is not model_rejected's vocabulary, so recording "+
+			"it violates trajectory.schema.json#model_rejected", n, "gremlin")
+	}
+	requireTrajectoryOK(t, c)
+
+	// (a) the declared-input-set clause alone: refused AND recorded.
+	refuseOutOfSetDrop(t, c, fs)
+	if n := countRejections(t, c); n != 1 {
+		t.Fatalf("model.rejected events = %d, want 1 (the out-of-set drop is "+
+			"still a ledger fact)", n)
+	}
+	requireTrajectoryOK(t, c)
+}
+
+// refuseBadRoleDrop: a request record whose role is outside model_request's
+// enum — a record-contract violation, not a declared-input-set one. The
+// request's input_artifacts are derived from a bundle that cites nothing
+// outside them, so the input-set clause is satisfied.
+func refuseBadRoleDrop(t *testing.T, c *state.Campaign, fs FeedStage) {
+	t.Helper()
+	doc := feedDoc(t, "ART-aaaa1111")
+	req := validation.ObjAt(doc, "request")
+	req.O = validation.SetOrAppend(req.O, "role", validation.VStr("gremlin"))
+	doc.O = validation.SetOrAppend(doc.O, "request", req)
+	_, err := fs.Ingest(c, doc)
+	if err == nil {
+		t.Fatal("a request record with role gremlin was accepted")
+	}
+	if strings.Contains(err.Error(), "input artifact set") ||
+		strings.Contains(err.Error(), "outside its declared input set") {
+		t.Fatalf("err = %v, want the RECORD-CONTRACT refusal, not an "+
+			"input-set one (the test would then prove nothing)", err)
+	}
+}
+
 // refuseBareDrop: no request record at all.
 func refuseBareDrop(t *testing.T, c *state.Campaign, fs FeedStage) {
 	t.Helper()
@@ -244,20 +299,33 @@ func refuseHashMismatch(t *testing.T, c *state.Campaign, fs FeedStage) {
 // itself may not be the one event that turns a healthy campaign red.
 func requireRefusalsRecorded(t *testing.T, c *state.Campaign) {
 	t.Helper()
+	if n := countRejections(t, c); n != 2 {
+		t.Fatalf("model.rejected events = %d, want 2 (the bare drop and the "+
+			"out-of-set drop; the hash mismatch logs nothing)", n)
+	}
+	requireTrajectoryOK(t, c)
+}
+
+// countRejections is the number of model.rejected events in the ledger.
+func countRejections(t *testing.T, c *state.Campaign) int {
+	t.Helper()
 	evs, err := c.Events()
 	if err != nil {
 		t.Fatal(err)
 	}
-	rejections := 0
+	n := 0
 	for _, e := range evs {
 		if validation.ObjStr(e, "type") == "model.rejected" {
-			rejections++
+			n++
 		}
 	}
-	if rejections != 2 {
-		t.Fatalf("model.rejected events = %d, want 2 (the bare drop and the "+
-			"out-of-set drop; the hash mismatch logs nothing)", rejections)
-	}
+	return n
+}
+
+// requireTrajectoryOK: the campaign verifies — no framework-written event may
+// violate the contract verify_trajectory re-checks.
+func requireTrajectoryOK(t *testing.T, c *state.Campaign) {
+	t.Helper()
 	report, err := trajectory.VerifyTrajectory(c)
 	if err != nil {
 		t.Fatal(err)

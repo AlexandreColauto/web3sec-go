@@ -292,6 +292,15 @@ func IngestExecRefEvidence(c *state.Campaign, findingID string, finding,
 			validation.ObjStr(item, "evidence_id"), validation.PyReprStr(dl), ref,
 			validation.PyReprStr(level))
 	}
+	// I-3 (critic round 1): a declared poc_tier is refused for the same reason
+	// as the type/level lies above — this item LANDS as mint would have minted
+	// it, and mint records the tier from --poc-tier, so the payload's word
+	// would be dropped without a trace (the silent-drop failure mode the
+	// two-tier law exists to remove).
+	if err := refuseDeclaredPocTier(item, "this item lands as `mint` would "+
+		"have minted exec_ref "+ref+" (untiered)"); err != nil {
+		return validation.VNull(), err
+	}
 	return MintedExecEvidenceItem(ref, level, etype,
 		validation.ObjStr(item, "description"), rec, finding, ""), nil
 }

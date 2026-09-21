@@ -115,14 +115,42 @@ func invocationRequest(c *state.Campaign, doc validation.Value,
 	request.O = validation.SetOrAppend(request.O, "context_artifacts",
 		validation.VArr(strValues(boundary.BundleArtifacts(context))...))
 	if err := boundary.ValidateRequest(request); err != nil {
-		return validation.VNull(), refuseInputSet(c, request, err)
+		return validation.VNull(), refuseFileRequest(c, request, err)
 	}
 	return request, nil
 }
 
-// refuseInputSet records a declared-input-set refusal and returns it. The
-// ledger write wins: a refusal that could not be recorded is not a refusal an
-// auditor can see, so its failure is the error the caller reports.
+// refuseFileRequest refuses a drop file's OWN request record, recording the
+// refusal only when boundary.InputSetRecordable admits it. ValidateRequest
+// fails for two reasons and only one of them is a ledger fact:
+//
+//   - the declared-input-set clause (no declaration, or a citation outside it)
+//     — the fabrication attempt this path exists to record; and
+//   - the request failing the model_request record contract itself (bad role,
+//     missing model_id, malformed declaration entry, ...). That is a malformed
+//     file, not a fabrication attempt, and the file's role/kind may not be
+//     model.rejected's vocabulary at all: recording it would write an event
+//     violating trajectory.schema.json#model_rejected and turn
+//     verify_trajectory red on a campaign the framework wrote itself.
+//
+// The distinction is boundary's own rule, not a second copy of it: the record
+// contract path (internal/boundary/ingest.go) gates its recording with the
+// same predicate, which is why it is exported.
+func refuseFileRequest(c *state.Campaign, request validation.Value, err error) error {
+	if !boundary.InputSetRecordable(request, err.Error()) {
+		return err
+	}
+	return refuseInputSet(c, request, err)
+}
+
+// refuseInputSet records a declared-input-set refusal and returns it, with no
+// admission test: its callers pass a request the framework OWNS — the
+// synthesized record refusalRequest builds for a bare drop, whose role/kind
+// are the stage's own facts and whose shape is chosen to satisfy
+// model_rejected. A drop file's own record goes through refuseFileRequest,
+// which applies boundary.InputSetRecordable first. The ledger write wins: a
+// refusal that could not be recorded is not a refusal an auditor can see, so
+// its failure is the error the caller reports.
 func refuseInputSet(c *state.Campaign, request validation.Value, err error) error {
 	if logErr := boundary.RecordInputSetRefusal(c, request, err.Error()); logErr != nil {
 		return logErr

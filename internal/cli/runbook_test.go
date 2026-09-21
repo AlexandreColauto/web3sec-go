@@ -250,3 +250,30 @@ func TestWalkthroughAnchorsPointAtTheRunbook(t *testing.T) {
 		t.Errorf("every check cites §cheat — the anchors carry no information")
 	}
 }
+
+// TestRunbookDocumentsTheReplayFamily is the critic I-1 guard on the runbook
+// half of the finding: `impact` was already documented, so the verb-level
+// checks above passed while the §2.4 flag family appeared nowhere in the
+// operator's one-page reference. The cheat-sheet line is the surface an
+// operator reads before a run, so it must name every accepted flag.
+func TestRunbookDocumentsTheReplayFamily(t *testing.T) {
+	text := runbookText(t)
+	// The cheat sheet's canonical line uses the `<C>` placeholder form; the
+	// walkthrough examples spell a real campaign id (`<C-xxx>`) and are not
+	// the flag reference.
+	line := ""
+	for _, l := range strings.Split(text, "\n") {
+		if strings.HasPrefix(strings.TrimSpace(l), "webv2 impact <C> ") {
+			line = l
+			break
+		}
+	}
+	if line == "" {
+		t.Fatal("the runbook has no `webv2 impact <C>` cheat-sheet line")
+	}
+	for _, flag := range impactReplayFlags {
+		if !strings.Contains(line, flag) {
+			t.Errorf("the runbook's impact line omits %s:\n%s", flag, line)
+		}
+	}
+}

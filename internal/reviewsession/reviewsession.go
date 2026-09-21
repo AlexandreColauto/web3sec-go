@@ -18,7 +18,20 @@ const projectionKey = "review_sessions"
 // Start opens a session and records review_session.started. One session may be
 // open at a time: two concurrent sessions are two contexts, and the whole
 // point of the measurement is one operator's attention.
+//
+// r14 (processlock.go's law): the load-modify-write window of the
+// review_sessions projection holds the campaign lock END TO END — the
+// one-open-session CHECK included, not just the write. Locking only
+// SaveState still lost updates when the State() load happened outside
+// (two `review-session start|end` processes racing a `run` that writes
+// campaign_state at every stage: both exit 0, one row vanishes). The
+// inner SaveState/Log re-enter the lock by depth, exactly as
+// floors.SetFloorPolicy relies on.
 func Start(c *state.Campaign, actor string, artifacts []string) (validation.Value, error) {
+	if err := c.LockProcess(); err != nil {
+		return validation.VNull(), err
+	}
+	defer c.UnlockProcess()
 	if _, open := Open(c); open {
 		return validation.VNull(), fmt.Errorf("already open: close the current review session first")
 	}
@@ -37,7 +50,13 @@ func Start(c *state.Campaign, actor string, artifacts []string) (validation.Valu
 }
 
 // End closes an open session, recording LOC and the artifacts covered.
+// The same r14 window as Start: resolve the open row and replace it under
+// one lock hold, so a sibling writer cannot land between the two.
 func End(c *state.Campaign, sessionID, actor string, loc int64) (validation.Value, error) {
+	if err := c.LockProcess(); err != nil {
+		return validation.VNull(), err
+	}
+	defer c.UnlockProcess()
 	row, ok := Open(c)
 	if !ok || validation.ObjStr(row, "session_id") != sessionID {
 		return validation.VNull(), fmt.Errorf("no open review session %s", sessionID)
@@ -70,8 +89,11 @@ func Open(c *state.Campaign) (validation.Value, bool) {
 	return validation.VNull(), false
 }
 
-// appendRow adds a row to the projection and logs its event.
+// appendRow adds a row to the projection and logs its event. Callers hold
+// the campaign lock (Start/End); the r17 snapshot is taken BEFORE the first
+// write so a refused append can put the exact pre-write bytes back.
 func appendRow(c *state.Campaign, row validation.Value, eventType, sid string) error {
+	priorRaw, hadRaw := c.RawState()
 	prior, err := c.State()
 	if err != nil {
 		return err
@@ -80,11 +102,13 @@ func appendRow(c *state.Campaign, row validation.Value, eventType, sid string) e
 	next := make([]validation.Value, 0, len(rows)+1)
 	next = append(next, rows...)
 	next = append(next, row)
-	return saveThenLog(c, withRows(prior, next), eventType, sid, row, prior)
+	return saveThenLog(c, withRows(prior, next), eventType, sid, row, priorRaw, hadRaw)
 }
 
-// replaceRow replaces the row carrying sid and logs its event.
+// replaceRow replaces the row carrying sid and logs its event, under the
+// same lock and with the same pre-write snapshot as appendRow.
 func replaceRow(c *state.Campaign, row validation.Value, eventType, sid string) error {
+	priorRaw, hadRaw := c.RawState()
 	prior, err := c.State()
 	if err != nil {
 		return err
@@ -97,12 +121,12 @@ func replaceRow(c *state.Campaign, row validation.Value, eventType, sid string) 
 		}
 		next = append(next, r)
 	}
-	return saveThenLog(c, withRows(prior, next), eventType, sid, row, prior)
+	return saveThenLog(c, withRows(prior, next), eventType, sid, row, priorRaw, hadRaw)
 }
 
 // withRows returns a copy of st whose projection array is rows. The KV list is
-// copied because SetOrAppend writes in place, and the caller still needs the
-// untouched prior projection to unwind onto.
+// copied because SetOrAppend writes in place (and SaveState rewrites
+// updated_at in place), so the caller's parsed projection is left untouched.
 func withRows(st validation.Value, rows []validation.Value) validation.Value {
 	kvs := make([]validation.KV, len(st.O))
 	copy(kvs, st.O)
@@ -112,15 +136,18 @@ func withRows(st validation.Value, rows []validation.Value) validation.Value {
 }
 
 // saveThenLog is the paired-write + unwind door (internal/planner's
-// planWindow law): the projection row and its ledger event land together or
-// not at all, and a refused append restores the pre-write projection.
+// planWindow law, r16/r17): the projection row and its ledger event land
+// together or not at all, and a refused append restores the exact pre-write
+// BYTES (state.RawState/UnwindState) — a re-save of the parsed prior value
+// would bump updated_at and re-validate, i.e. it would not be the state the
+// operator had.
 func saveThenLog(c *state.Campaign, next validation.Value, eventType, sid string,
-	row, prior validation.Value) error {
+	row validation.Value, priorRaw []byte, hadRaw bool) error {
 	if err := c.SaveState(next); err != nil {
 		return err
 	}
 	if _, err := c.Log(eventType, &sid, &row); err != nil {
-		if rerr := c.SaveState(prior); rerr != nil {
+		if rerr := c.UnwindState(priorRaw, hadRaw); rerr != nil {
 			return fmt.Errorf("%w (UNWIND ALSO FAILED: %v — the review_sessions "+
 				"projection holds post-write rows with no event; repair by hand "+
 				"before continuing)", err, rerr)

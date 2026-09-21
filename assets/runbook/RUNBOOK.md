@@ -1802,7 +1802,7 @@ webv2 assume <C> <finding> A1 --status UNKNOWN|SUPPORTED|REFUTED [--ref R] [--ac
 webv2 recall <C> --finding F [--mode negative|comparative] [--note N]   # recorded graph-memory consult
 webv2 gate <C> [F-xxx] | webv2 gate --explain <CHECK>              bounty gate / per-finding CONFIRMED dry-run
 webv2 adjudicate <C> [<finding>] [--json] [--verdict V] [--severity S] [--basis B] [--assumption TEXT] [--exec EXEC] [--actor A] [--reason R]   non-gold verdict (moves the adjusted precision)
-webv2 impact <C> <finding> --extractable USD [--max-loss USD] [--artifact ART] | --unpriceable --ceiling C --reason R --actor A
+webv2 impact <C> <finding> --extractable USD [--max-loss USD] [--artifact ART] | --unpriceable --ceiling C --reason R --actor A | --replayable --extractable-per-round USD --gas-cost USD [--frequency N] [--rounds-run N] [--replay-assumption S]... [--replay-blocker S]...   # the replayability transform (v1.6 §2.4): a repeatable single-shot loss is scored as total loss, and the DEMONSTRATED and COMPUTED figures are printed as separate labeled quantities that are never conflated; an attack cost above the ceiling is refused (exit 2) without a --replay-blocker
 webv2 sequence run <C> SPEC.json --finding F [--workdir W]         # T4 multi-tx PoC under fork-runner
 webv2 sequence verify <C> F-xxx [--exec E]                         # do the attempts have verified coverage?
 

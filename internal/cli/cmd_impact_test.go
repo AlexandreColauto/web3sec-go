@@ -269,3 +269,39 @@ func TestImpactReplayableComputesAndRefusesOneRound(t *testing.T) {
 		t.Fatalf("code = %d stderr = %q, want the profitability refusal", code, errS)
 	}
 }
+
+// impactReplayFlags is the §2.4 family, in the order the parser accepts it.
+var impactReplayFlags = []string{"--replayable", "--extractable-per-round",
+	"--gas-cost", "--frequency", "--rounds-run", "--replay-assumption",
+	"--replay-blocker"}
+
+// TestImpactHelpDocumentsTheReplayFamily is the critic I-1 guard: the flags
+// the parser accepts must be discoverable from the operator surfaces that
+// describe the verb. Both halves are checked, because both were missing —
+// `--help` listed none of the seven, and every usage error (the --gas-cost
+// "expected one argument" path included) printed a signature that omitted
+// them.
+func TestImpactHelpDocumentsTheReplayFamily(t *testing.T) {
+	code, out, errS := run(t, "impact", "--help")
+	if code != 0 || errS != "" {
+		t.Fatalf("exit %d stderr %q", code, errS)
+	}
+	for _, flag := range impactReplayFlags {
+		if !strings.Contains(out, flag) {
+			t.Errorf("impact --help does not document %s:\n%s", flag, out)
+		}
+	}
+	// An argparse usage error prints the usage block; it must name the family.
+	code, _, errS = run(t, "impact", "C", "F", "--gas-cost")
+	if code != 2 {
+		t.Fatalf("exit %d, want 2 (stderr %q)", code, errS)
+	}
+	if !strings.Contains(errS, "argument --gas-cost: expected one argument") {
+		t.Fatalf("stderr %q, want the argparse value-slot error", errS)
+	}
+	for _, flag := range impactReplayFlags {
+		if !strings.Contains(errS, flag) {
+			t.Errorf("the usage on a --gas-cost error omits %s:\n%s", flag, errS)
+		}
+	}
+}

@@ -734,3 +734,50 @@ func TestIntakeCheckpointSeamAdvisory(t *testing.T) {
 		t.Fatalf("status = %q", validation.ObjStr(f, "status"))
 	}
 }
+
+// TestIngestRefusesDeclaredForkDependence pins critic I-2: `fork_dependence`
+// is schema-legal on a finding, but the door that records it is
+// `fork-dependence --set V --reason R`, which demands the reason and logs
+// finding.fork_dependence_set. A payload-declared value would land with
+// neither — an override with no recorded reason — so the ingest write path
+// refuses it, and nothing is written.
+func TestIngestRefusesDeclaredForkDependence(t *testing.T) {
+	c := ingestCamp(t)
+	_, err := IngestHypothesis(c,
+		hypoPayload(kv("fork_dependence", validation.VStr("none"))),
+		"code", "", "")
+	wantErr(t, err, "ingest refused: the payload declares fork_dependence "+
+		"'none'")
+	live, err := LoadAllFindings(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(live) != 0 {
+		t.Fatalf("a refused payload wrote %d finding(s)", len(live))
+	}
+}
+
+// TestIngestRefusesDeclaredPocTierWithoutAnExec pins critic I-2's second half:
+// an E0–E3 item with no execution behind it must not land a `maximized` tier —
+// PocTierOf would then report a maximized PoC that was never demonstrated.
+func TestIngestRefusesDeclaredPocTierWithoutAnExec(t *testing.T) {
+	c := ingestCamp(t)
+	item := validation.VObj(
+		kv("evidence_id", validation.VStr("EV-e0")),
+		kv("level", validation.VStr("E3")),
+		kv("type", validation.VStr("reasoning")),
+		kv("description", validation.VStr("reasoned about the state break")),
+		kv("poc_tier", validation.VStr("maximized")),
+	)
+	_, err := IngestHypothesis(c,
+		hypoPayload(kv("evidence", validation.VArr(item))), "code", "", "")
+	wantErr(t, err, "ingest refused: evidence EV-e0 declares poc_tier "+
+		"'maximized'")
+	live, err := LoadAllFindings(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(live) != 0 {
+		t.Fatalf("a refused payload wrote %d finding(s)", len(live))
+	}
+}

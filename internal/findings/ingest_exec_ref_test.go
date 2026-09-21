@@ -268,3 +268,25 @@ func TestIngestExecRefRejectsFalseType(t *testing.T) {
 		t.Fatalf("refusal must name the derived type: %v", err)
 	}
 }
+
+// TestIngestExecRefRejectsDeclaredPocTier pins critic I-3: the exec_ref path
+// lands the item `mint` would have minted, and mint records the tier from
+// --poc-tier — so a tier declared on the payload item is REFUSED, never
+// silently dropped. Before this refusal the operator saw a success and an
+// untiered item, and the later `mint --poc-tier maximized` failed with
+// "requires an existence-tier PoC first" for a tier the operator had declared.
+func TestIngestExecRefRejectsDeclaredPocTier(t *testing.T) {
+	c := ingestCamp(t)
+	rec := testExec(t, c, "docker-networkless", "", 0, "PASS: test_exploit\n")
+	id := validation.ObjStr(rec, "exec_id")
+	item := t2ExecRefItem(id, "EV-tier")
+	item.O = validation.SetOrAppend(item.O, "poc_tier",
+		validation.VStr("existence"))
+	_, err := IngestHypothesis(c,
+		hypoPayload(kv("evidence", validation.VArr(item))), "code", "", "")
+	wantErr(t, err, "ingest refused: evidence EV-tier declares poc_tier "+
+		"'existence'")
+	if !strings.Contains(err.Error(), "webv2 mint --poc-tier existence") {
+		t.Fatalf("the refusal must name the door that records the tier: %v", err)
+	}
+}
