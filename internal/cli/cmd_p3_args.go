@@ -43,6 +43,11 @@ type posOpt struct {
 	name string
 	val  string
 	seen bool
+	// optional marks a positional the parser does not require. It exists for
+	// `run --feed FILE`, where the drop file's path names its campaign and no
+	// positional is needed; every other spec leaves it false, so the required
+	// check below is unchanged for them.
+	optional bool
 }
 
 // argSpec is one argparse parser.
@@ -189,7 +194,7 @@ func (sp *argSpec) parsePositional(a string, i int, st *parseState) {
 func (sp *argSpec) parseCheckMissing() error {
 	var missing []string
 	for _, p := range sp.pos {
-		if !p.seen {
+		if !p.seen && !p.optional {
 			missing = append(missing, p.name)
 		}
 	}
@@ -233,10 +238,11 @@ func helpToken(a string) (explicit string, ok bool) {
 }
 
 // valNamed returns the value option a names (--src, --path, ...), if any.
+// Matching is done on the token itself — bare (`--src`) or inline (`--src=X`) —
+// so the lookup needs neither splitFlag's value nor its has-value flag.
 func (sp *argSpec) valNamed(a string) *valOpt {
-	name, _, _ := splitFlag(a)
 	for _, v := range sp.vals {
-		if v.name == name {
+		if a == v.name || strings.HasPrefix(a, v.name+"=") {
 			return v
 		}
 	}
@@ -245,9 +251,8 @@ func (sp *argSpec) valNamed(a string) *valOpt {
 
 // flagNamed returns the store_true option a names, if any.
 func (sp *argSpec) flagNamed(a string) *boolOpt {
-	name, _, _ := splitFlag(a)
 	for _, f := range sp.flags {
-		if f.name == name {
+		if a == f.name || strings.HasPrefix(a, f.name+"=") {
 			return f
 		}
 	}

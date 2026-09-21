@@ -8,19 +8,22 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"path/filepath"
 	"strconv"
 	"strings"
 
 	"websec/internal/adapter"
+	"websec/internal/feed"
 	"websec/internal/orchestrator"
 	"websec/internal/pipeline"
+	"websec/internal/state"
 	"websec/internal/validation"
 )
 
-const t30RunUsage = `usage: webv2 run [-h] [--until UNTIL] [--max-stages MAX_STAGES] campaign
+const t30RunUsage = `usage: webv2 run [-h] [--until UNTIL] [--max-stages MAX_STAGES] [--feed FEED] campaign
 `
 
-const t30RunHelp = `usage: webv2 run [-h] [--until UNTIL] [--max-stages MAX_STAGES] campaign
+const t30RunHelp = `usage: webv2 run [-h] [--until UNTIL] [--max-stages MAX_STAGES] [--feed FEED] campaign
 
 positional arguments:
   campaign
@@ -29,6 +32,7 @@ options:
   -h, --help            show this help message and exit
   --until UNTIL
   --max-stages MAX_STAGES
+  --feed FEED           ingest one model-stage drop file (campaigns/<C>/inbox/<stage>.json)
 `
 
 func runRun(root string, args []string, r *Runner) error {
@@ -42,8 +46,9 @@ func runRun(root string, args []string, r *Runner) error {
 		vals: []*valOpt{
 			{name: "--until"},
 			{name: "--max-stages"},
+			{name: "--feed"},
 		},
-		pos: []*posOpt{{name: "campaign"}},
+		pos: []*posOpt{{name: "campaign", optional: true}},
 	}
 	if err := sp.parse(args); err != nil {
 		return err
@@ -51,6 +56,25 @@ func runRun(root string, args []string, r *Runner) error {
 	if sp.helpSeen {
 		fmt.Fprint(r.Out, t30RunHelp)
 		return nil
+	}
+	// `--feed` is resolved BY NAME: a positional index into sp.vals is a bug
+	// waiting for the next flag insertion. `--feed ""` must not fall through
+	// to the normal run path either — a malformed invocation would silently
+	// become a full pipeline run.
+	for _, v := range sp.vals {
+		if v.name == "--feed" && v.seen {
+			if v.val == "" {
+				return t14ExitErr(2, "--feed requires a path\n")
+			}
+			return runFeed(root, sp.pos[0].val, v.val, r)
+		}
+	}
+	// The campaign positional is optional only because `--feed` names its
+	// campaign through the drop file's path; without the flag it is required,
+	// with argparse's own error text.
+	if !sp.pos[0].seen {
+		return t14ArgparseErr(t30RunUsage, "run",
+			"the following arguments are required: campaign")
 	}
 	var until *string
 	if sp.vals[0].seen {
@@ -81,6 +105,94 @@ func runRun(root string, args []string, r *Runner) error {
 	}
 	restoreMaxStagesHalt(summary, maxStages, haltDigits)
 	return emitRunSummary(r, summary)
+}
+
+// runFeed is `run --feed FILE`: the non-interactive model-stage handoff (v1.6
+// Part 1). The file's STEM names the pipeline stage; the file must live in the
+// campaign's own inbox (a drop file from anywhere else is not a handoff); the
+// drop carries the stage's request record — so the input-artifact declaration
+// is validated, and a violation refused AND recorded — plus the output
+// payload; a stage with no wired ingest path is refused by name.
+//
+// The drop file's PATH names its campaign (campaigns/<C>/inbox/<stage>.json),
+// so the campaign positional is optional here; when it is given it must agree
+// with the path, and a path outside the convention is refused.
+//
+// Exit codes: 0 ingested, 1 handled error (unreadable file, ingest or
+// input-set refusal), 2 usage (unwired stage, drop outside the inbox). Exit 3
+// belongs to the run path's model-stage halt and is never returned here.
+func runFeed(root, cid, path string, r *Runner) error {
+	stage := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
+	fs, ok := feed.FeedStageFor(stage)
+	if !ok {
+		return t14ExitErr(2, "no ingest path for stage %q (drop file %s): %s; "+
+			"wired stages: %s\n", stage, path, unwiredReason(stage),
+			strings.Join(feed.FeedStageIDs(), ", "))
+	}
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return t14ExitErr(1, "feed %s: %v\n", path, err)
+	}
+	c, err := feedCampaign(root, cid, abs)
+	if err != nil {
+		return err
+	}
+	doc, err := validation.ReadJson(abs)
+	if err != nil {
+		return t14ExitErr(1, "feed %s: %v\n", path, err)
+	}
+	fid, err := fs.Ingest(c, doc)
+	if err != nil {
+		return t14ExitErr(1, "feed %s: %v\n", path, err)
+	}
+	_, _ = fmt.Fprintf(r.Out, "ingested %s from %s (stage %s, contract %s)\n",
+		fid, abs, fs.Stage, fs.Schema)
+	return nil
+}
+
+// feedCampaign opens the campaign a drop file belongs to. The drop lives in
+// <root>/campaigns/<C>/inbox/<stage>.json (docs/CRITICAL_HUNTING_PLAN.md §0.2),
+// so its path IS its campaign; a path outside that convention is not a
+// handoff, and an explicit campaign positional that disagrees with the path is
+// an operator mistake, not a second source of truth.
+func feedCampaign(root, cid, abs string) (*state.Campaign, error) {
+	derived, ok := feedCampaignID(root, abs)
+	if !ok {
+		return nil, t14ExitErr(2, "drop file must live in the campaign inbox "+
+			"(campaigns/<campaign>/inbox/<stage>.json under %s), got %s\n",
+			root, abs)
+	}
+	if cid != "" && cid != derived {
+		return nil, t14ExitErr(2,
+			"drop file belongs to campaign %s, not %s\n", derived, cid)
+	}
+	return t14Open(root, derived)
+}
+
+// feedCampaignID reads the campaign id out of a drop file's path.
+func feedCampaignID(root, abs string) (string, bool) {
+	rootAbs, err := filepath.Abs(root)
+	if err != nil {
+		return "", false
+	}
+	rel, err := filepath.Rel(rootAbs, abs)
+	if err != nil {
+		return "", false
+	}
+	parts := strings.Split(filepath.ToSlash(rel), "/")
+	if len(parts) != 4 || parts[0] != "campaigns" || parts[2] != "inbox" {
+		return "", false
+	}
+	return parts[1], parts[1] != ""
+}
+
+// unwiredReason is the declared reason a stage has no ingest path (the drop
+// file's stem named something the handoff does not carry).
+func unwiredReason(stage string) string {
+	if why := feed.FeedUnwired[stage]; why != "" {
+		return why
+	}
+	return "unknown stage"
 }
 
 // restoreMaxStagesHalt rewrites the halt text a clamped budget produced.

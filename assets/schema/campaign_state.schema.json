@@ -216,6 +216,26 @@
       }
     },
 
+    "review_sessions": {
+      "type": "array",
+      "description": "Operator review sessions (v1.6 Part 1): start/end, artifacts covered, LOC. The ~60-minute / 400-line budget is a soft target measured here.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["session_id", "actor", "started_at", "artifacts_covered", "open"],
+        "properties": {
+          "session_id": { "type": "string", "pattern": "^RS-[0-9a-zA-Z]{4,16}$" },
+          "actor": { "type": "string", "minLength": 1 },
+          "started_at": { "type": "string" },
+          "ended_at": { "type": "string" },
+          "closed_by": { "type": "string" },
+          "artifacts_covered": { "type": "array", "items": { "type": "string" } },
+          "loc": { "type": "integer", "minimum": 0 },
+          "open": { "type": "boolean" }
+        }
+      }
+    },
+
     "events": {
       "type": "array",
       "description": "append-only, hash-chained event log; the source of truth for what happened. prev_hash/event_hash are optional only for logs written before the chain existed.",

@@ -195,6 +195,32 @@ file**, its budget class, and the structured output to feed back. Run that
 model stage out-of-band (read the prompt, produce the artifact), ingest it
 (§4/§5), then `webv2 run <C-xxx>` again — completed stages skip.
 
+**The drop-file handoff (`webv2 run --feed`).** The only sanctioned transport
+for a model stage's output is a drop file in the campaign's own inbox —
+`campaigns/<C>/inbox/<stage>.json`. The file's **stem names the stage**, so a
+mislabelled file cannot be ingested as another stage's output. The file carries
+the stage invocation: the `request` record (with its declared
+`input_artifacts`), the `context` bundle the stage was given, and the `output`
+payload. `context_artifacts` is **derived from the bundle by the feed**, never
+authored by the file, and `context_hash` is checked against those same bytes —
+so a drop file cannot assert a cited set it did not ship. The declaration is
+validated before the output is ingested: an undeclared or out-of-set drop is
+refused **and recorded** as a `model.rejected` event.
+
+```bash
+webv2 run --feed campaigns/<C-xxx>/inbox/discovery.json   # the drop path names its campaign
+webv2 run <C-xxx> --feed campaigns/<C-xxx>/inbox/discovery.json   # the positional must agree with it
+```
+
+`--feed` exits **0** ingested, **1** handled refusal (unreadable file, ingest
+refusal, or an input-set refusal — a well-formed file refused on its
+declaration), **2** usage (unwired stage, drop outside the campaign inbox,
+empty `--feed`). It never returns **3**: that code belongs to the run path's
+model-stage halt. The only wired stage today is `discovery`; every other
+model/mixed stage is refused **by name** with its reason (protocol-model,
+campaign-planning, dedup, hostile-review, reproduction, maximal-exploitation,
+independent-verification, mainnet-fork-poc, learning) — each keeps its own verb.
+
 Model stage → prompt file (the pack is embedded; the paths are the repo
 paths, also under `assets/prompts/`):
 
@@ -1717,6 +1743,7 @@ webv2 verify <C> --post-patch F-xxx --exec EXEC-xxx [--snapshot SNAP-xxx]   # re
 webv2 audit <C> [--json]                                           full integrity audit
 webv2 brief <C> [--json] [--deep] [--live-only]                    operator cockpit (where it is + decisions waiting; pure view; every next-action line is a copyable `webv2` command — run `webv2 prove <C> --stage <stage>` for the per-item detail a line's `# n missing` counts; --live-only hides DUPLICATE/SUPERSEDED/INFORMATIONAL rows)
 webv2 scorecard <C> [--json] [--no-surface]                        one read-only view: surface, findings, process, eval
+webv2 review-session {start|end} [campaign] [--actor A] [--artifact A]... [--loc N]   # measured operator review session (v1.6 Part 1): `start` opens (one open at a time), `end` closes the open one and records --loc; the campaign positional is optional when exactly one campaign sits under --root and required when several do (the session is stored in that campaign's review_sessions). WEBV2_NOW is a TEST pin — an operator run must use the real wall clock, or the session is a fixture, not telemetry
 
 webv2 move <C> <finding> TO_STATUS --reason R [--actor A] [--adjacent SIBLING] [--adjacent-clear] [--of FINDING]   # the ONLY status-transition path; --of REQUIRED for DUPLICATE (target exists, != self)
 webv2 amend <C> <finding> [--title T] [--class C] [--claim K] [--note N] [--actor A]   # correct a filed finding (bumps claim_version; status never moves)
