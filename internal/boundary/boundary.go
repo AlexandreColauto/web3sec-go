@@ -118,6 +118,46 @@ func ContextHash(bundle validation.Value) string {
 var artifactKeyPattern = regexp.MustCompile(
 	`^(artifact|evidence|finding|snapshot|exec|invariant|plan)_ids?$|^active_snapshot_id$`)
 
+// ArtifactKeyPrefixes returns the id-key prefix vocabulary artifactKeyPattern
+// scopes the cited-set walk to: the singular kind words a bundle key starts
+// with when it carries a citation (`finding_ids`, `evidence_id`, ...).
+//
+// It reads the COMPILED pattern's own alternation instead of restating the
+// list, so the key vocabulary the walk matches on and the declaration's kind
+// vocabulary — model_request.schema.json, input_artifacts[].kind.enum — stay
+// two readable sets a test can hold equal (artifact_kind_test.go), never two
+// hand-maintained lists free to drift apart. `active_snapshot_id` is
+// deliberately absent: it is one standalone key, not a kind word, and
+// ArtifactKeyKind maps it to the snapshot kind.
+func ArtifactKeyPrefixes() []string {
+	src := artifactKeyPattern.String()
+	open := strings.IndexByte(src, '(')
+	end := strings.IndexByte(src, ')')
+	if open < 0 || end <= open {
+		return nil
+	}
+	return strings.Split(src[open+1:end], "|")
+}
+
+// ArtifactKeyKind names the kind of the id(s) an id-bearing key carries:
+// `finding_ids` -> finding, `evidence_id` -> evidence, `active_snapshot_id` ->
+// snapshot. ok is false for a key the cited-set walk does not enter.
+//
+// The kind IS the key's prefix, and that is what makes a truthful declaration
+// possible: the prefix vocabulary and input_artifacts[].kind.enum are the same
+// set, so an id the walk collects under `evidence_id` can be declared as kind
+// "evidence" and still satisfy the record contract.
+func ArtifactKeyKind(key string) (string, bool) {
+	m := artifactKeyPattern.FindStringSubmatch(key)
+	if m == nil {
+		return "", false
+	}
+	if m[1] != "" {
+		return m[1], true
+	}
+	return "snapshot", true
+}
+
 // saneArtifactID is the ONLY bound the derivation puts on a string under an
 // id-bearing key: 3..64 bytes, no whitespace. The KEY is the scoping rule —
 // it is what keeps an id quoted in prose out of the cited set — not the id's

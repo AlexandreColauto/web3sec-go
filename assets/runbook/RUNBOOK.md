@@ -931,11 +931,11 @@ re-opens the closed lens whose family produced it (shown as REOPENED in
 
 **Declared input artifact sets (v1.6 Part 1).** Every `model.request` record
 written from now on must carry `input_artifacts` — the set the stage declares
-it will consume, one `{kind, id}` per entry (`kind` ∈ artifact / exec /
-finding / snapshot / invariant / plan), at least one entry. `context_artifacts`
-is **derived**, never authored: the harness builds the record with
-`boundary.BuildRequest`, which reads the ids the assembled bundle actually
-cites (scoped to the id-bearing keys, so an id quoted in prose is not a
+it will consume, one `{kind, id}` per entry (`kind` ∈ artifact / evidence /
+exec / finding / snapshot / invariant / plan), at least one entry.
+`context_artifacts` is **derived**, never authored: the harness builds the
+record with `boundary.BuildRequest`, which reads the ids the assembled bundle
+actually cites (scoped to the id-bearing keys, so an id quoted in prose is not a
 citation) and stamps `context_hash` over the same bytes. `boundary.ValidateRequest`
 then refuses a request that declares nothing (`model request declares no input
 artifact set`) or cites an id outside its declaration (`model request cites

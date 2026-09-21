@@ -394,8 +394,8 @@
     "size": 27582
    },
    "RUNBOOK.md": {
-    "sha256": "0d4bfb5546a82ea246cdad6b7439dd10b32867d10d52b88b4f50299dc00ca6b5",
-    "size": 128477
+    "sha256": "9c1ca5be880dd8a12dbbf2968b47fe45db8f8ec9f04b15d28aa7d58da270777b",
+    "size": 128488
    }
   },
   "schema": {
@@ -452,8 +452,8 @@
     "size": 6807
    },
    "model_request.schema.json": {
-    "sha256": "b8ec8c39d83cc73e4a2dec4daaf0456707891f3804883c21062db8cda7558ccc",
-    "size": 3291
+    "sha256": "73f03db7e93519ddedc1c15a892b2c283053f84626fadceeafed2fe5325ea907",
+    "size": 3303
    },
    "model_response.schema.json": {
     "sha256": "3df7e4bf26b4999457522b26f2577bf6d0ba2759494aa58a7880507ca9370866",
@@ -520,8 +520,8 @@
     "size": 2037
    },
    "trajectory.schema.json": {
-    "sha256": "3b8e6ecb085b6285cc3f9c2518aba9fc335ff095699dc1cc80fd55f09e1db82f",
-    "size": 13999
+    "sha256": "23d4d2e23d6b11f3aece67b05eff9089dd391a1fbba43711f1c194fdbd957e30",
+    "size": 14011
    },
    "variant_ladder.schema.json": {
     "sha256": "2e7f6c8e002ff5885f682c6b7c6ff68ead29aeab170b183d73d8bdb5a468783f",
