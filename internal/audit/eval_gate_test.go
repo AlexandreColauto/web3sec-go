@@ -63,7 +63,8 @@ func hasSection(report validation.Value, name string) bool {
 }
 
 // TestEvalAbsentWithoutMatch: a campaign matching no suite case audits
-// to exactly the 14 ported sections — no eval key, no ## eval text.
+// to exactly the 14 ported sections plus the v1.6 coverage section — no eval
+// key, no ## eval text.
 func TestEvalAbsentWithoutMatch(t *testing.T) {
 	report, err := AuditCampaign(gateCampaign(t, "nothing-here", 0))
 	if err != nil {
@@ -72,8 +73,8 @@ func TestEvalAbsentWithoutMatch(t *testing.T) {
 	if hasSection(report, "eval") {
 		t.Fatal("report carries an eval section for an unmatched campaign")
 	}
-	if got := sectionNames(t, report); len(got) != 14 {
-		t.Fatalf("sections = %v, want the 14 ported names", got)
+	if got := sectionNames(t, report); len(got) != 15 {
+		t.Fatalf("sections = %v, want the 14 ported names + v16_coverage", got)
 	}
 	if text := validation.DumpIndented(report); strings.Contains(text, "## eval") {
 		t.Fatal("report text contains ## eval for an unmatched campaign")

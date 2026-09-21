@@ -156,12 +156,14 @@ func TestAuditClean(t *testing.T) {
 		t.Fatalf("audit --json not JSON: %v", err)
 	}
 	secs := rep["sections"].(map[string]any)
-	if len(secs) != 14 {
-		t.Fatalf("sections = %d, want 14", len(secs))
+	// The 14 ported sections plus the unconditional v1.6 coverage section
+	// (the presence-gated eval/price_table do not render here).
+	if len(secs) != 15 {
+		t.Fatalf("sections = %d, want 15", len(secs))
 	}
 	for _, name := range []string{"relations", "floor_policy",
 		"stage_completions", "baselines", "invariant_verification",
-		"sequence_coverage", "probe_surface"} {
+		"sequence_coverage", "probe_surface", "v16_coverage"} {
 		if _, ok := secs[name]; !ok {
 			t.Errorf("audit --json lacks section %q", name)
 		}

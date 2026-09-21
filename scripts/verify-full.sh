@@ -18,8 +18,9 @@
 #       produce a verdict, not a panic (Task 7 + hardening 7.2)
 #   9.  legacy cross-audit: a campaign written by the retired Python
 #       reference (committed fixture, scripts/legacy/) audits + verifies
-#       clean in Go, with all 14 rendered sections (16 registered; `eval` and
-#       `price_table` are presence-gated) and the P2/P3 state readable
+#       clean in Go, with all 15 rendered sections (17 registered; `eval` and
+#       `price_table` are presence-gated, v16_coverage unconditional) and the
+#       P2/P3 state readable
 #  10.  P1 CLI smoke: the 21 P1 commands each invoked once in a valid shape
 #       against a scratch Go campaign, asserting documented exit codes
 #  11.  P2 CLI smoke: the P2 commands each invoked once in a valid shape
@@ -39,11 +40,11 @@
 # coverage with zero external dependencies. Steps 10-12 build their
 # campaigns with P2 state (exec/mint/ladder/chains/impact) AND P3 state
 # (snap/index/sinks/prescreen/probes+emit/relations, a disproved rung's
-# queued memory row, report.md), so the audit covers all 14 unconditional
-# sections (16 registered; `eval` and `price_table` are presence-gated) incl.
+# queued memory row, report.md), so the audit covers all 15 unconditional
+# sections (17 registered; `eval` and `price_table` are presence-gated) incl.
 # sequence_coverage and probe_surface. Step 12 also prices the campaign
 # before auditing, so ITS report carries the presence-gated price_table row
-# too (15 sections); steps 9-11 never price and render exactly 14.
+# too (16 sections); steps 9-11 never price and render exactly 15.
 #
 # Exits non-zero at the first failing step, naming it.
 
@@ -239,23 +240,24 @@ PY
 }
 
 # p2_sections_ok LABEL JSON — the audit --json report must carry the 14
-# unconditional sections in the reference's order, sequence_coverage included
-# (D2 closed), PLUS any of the presence-gated extras that render. `eval` is
-# presence-gated since G4 and `price_table` since r4: each returns
-# sections.ErrSkip when its precondition is closed, and AuditCampaign omits a
-# skipped section from the report (internal/audit/audit.go;
-# internal/audit/sections/pricetable.go). Step 12 PRICES the campaign
-# (`price set`) before it audits, so its report legitimately carries
-# price_table as a 15th row — while step 9's legacy fixture and step 11's
-# smoke campaign never priced anything and must still render exactly 14. So
-# the gate is "14 base, in order, plus an allowed presence-gated tail" — it
-# must NOT be relaxed to a bare count of 15, which would make a never-priced
-# campaign that silently grew a fake price row pass. Mirrors the allowance in
-# scripts/check-golden.py's check_audit (its EXPECTED_SECTIONS keeps the 14
-# unconditional rows and treats the presence-gated tail as optional: 15
-# sections at its step 164, 14 at its step 194): the base rows and the
-# registration ORDER of whatever renders are hard failures; only the
-# presence-gated tail is optional.
+# unconditional ported sections in the reference's order, sequence_coverage
+# included (D2 closed), PLUS the v1.6 coverage section (unconditional since
+# v1.6 P1/P2, registered after price_table), PLUS any of the presence-gated
+# extras that render. `eval` is presence-gated since G4 and `price_table`
+# since r4: each returns sections.ErrSkip when its precondition is closed, and
+# AuditCampaign omits a skipped section from the report
+# (internal/audit/audit.go; internal/audit/sections/pricetable.go). Step 12
+# PRICES the campaign (`price set`) before it audits, so its report
+# legitimately carries price_table — while step 9's legacy fixture and step
+# 11's smoke campaign never priced anything and must still render exactly 15
+# (14 + v16_coverage). So the gate is "14 base + v16_coverage, in order, plus
+# an allowed presence-gated tail" — it must NOT be relaxed to a bare count,
+# which would make a never-priced campaign that silently grew a fake price row
+# pass, or a campaign whose coverage section vanished pass. Mirrors the
+# allowance in scripts/check-golden.py's check_audit (its EXPECTED_SECTIONS
+# keeps the 14 unconditional rows + v16_coverage and treats the presence-gated
+# tail as optional): the base rows and the registration ORDER of whatever
+# renders are hard failures; only the presence-gated tail is optional.
 p2_sections_ok() {
   python3 -c '
 import json, sys
@@ -266,20 +268,23 @@ want = ["event_log", "artifacts", "execs", "findings", "projection",
         "snapshots", "relations", "floor_policy", "stage_completions",
         "baselines", "invariant_verification", "sequence_coverage",
         "probe_surface", "unpriceable"]
-# Presence-gated, in registration order (internal/audit/sections/register.go):
-# eval then price_table, appended past the 14.
+# Unconditional since v1.6, in registration order after the presence-gated
+# tail (internal/audit/sections/register.go).
+always = ["v16_coverage"]
+# Presence-gated, in registration order: eval then price_table.
 gated = ["eval", "price_table"]
-missing = [x for x in want if x not in secs]
+required = want + always
+missing = [x for x in required if x not in secs]
 assert not missing, f"{label}: missing sections {missing}"
-extra = [x for x in secs if x not in want and x not in gated]
+extra = [x for x in secs if x not in required and x not in gated]
 assert not extra, f"{label}: unexpected sections {extra}"
 # Order: what rendered must equal the registration-order projection of the
 # base rows plus whatever gated rows rendered.
-proj = [n for n in want + gated if n in secs]
+proj = [n for n in want + gated + always if n in secs]
 assert list(secs) == proj, (f"{label}: sections out of registration order: "
                             f"{list(secs)} vs {proj}")
 on = [n for n in gated if n in secs]
-print(f"  ok {label}: {len(secs)} audit sections = 14 base"
+print(f"  ok {label}: {len(secs)} audit sections = 14 base + v16_coverage"
       + (f" + presence-gated {on}" if on else " (no presence-gated section rendered)")
       + ", incl sequence_coverage")
 ' "$1" <<<"$2"
@@ -522,7 +527,7 @@ echo "ok: 21 P1 commands exercised, exit codes as documented"
 #   impact --artifact    0   E7 evidence bound to a registered artifact
 #   impact --unpriceable 0   the named-decision path
 #   impact (incomplete)  2   documented refusal
-#   audit --json         0   all 14 unconditional sections (16 registered;
+#   audit --json         0   all 15 unconditional sections (17 registered;
 #                            eval + price_table presence-gated), seq coverage
 #   verify               0   event-log integrity
 step 11 "P2 CLI smoke: exec ledger, mint, ladder, chains, impact, sequence"
@@ -644,7 +649,7 @@ echo "ok: P2 commands exercised, exit codes as documented"
 #   run                        3  pipeline walk halts at the first model stage
 #   complete guard             2  documented refusal (short reason)
 #   complete                   0  completion
-#   audit / --json / verify    0  15 sections (14 unconditional + the
+#   audit / --json / verify    0  16 sections (15 unconditional + the
 #                                 presence-gated price_table, priced above)
 #                                 + event-log integrity
 step 12 "P3 CLI smoke: index/probes/memory/publish/baselines/costs/run"

@@ -41,4 +41,8 @@ func RegisterAll(register func(name string, fn SectionFunc)) {
 	// r4: the price-table reconciliation. Registered LAST: the ported
 	// audit.py sections keep their relative order, and PRICING is new.
 	register("price_table", PriceTable)
+	// v1.6: the record-coverage section. Registered LAST so the ported
+	// audit.py sections keep their relative order (the P1 gate goldens pin
+	// it) and so this new section is appended, never interleaved.
+	register("v16_coverage", V16Coverage)
 }

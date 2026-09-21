@@ -82,7 +82,7 @@ func writeLogLines(t *testing.T, c *state.Campaign, lines []string) {
 
 func TestAuditCleanCampaignPasses(t *testing.T) {
 	Setup()
-	if n := SectionNames(); len(n) != 16 || n[15] != "price_table" {
+	if n := SectionNames(); len(n) != 17 || n[16] != "v16_coverage" {
 		t.Fatalf("sections not registered; SectionNames()=%v", n)
 	}
 	c := initCampaign(t)
@@ -103,7 +103,7 @@ func TestAuditCleanCampaignPasses(t *testing.T) {
 	want := []string{"event_log", "artifacts", "execs", "findings",
 		"projection", "snapshots", "relations", "floor_policy",
 		"stage_completions", "baselines", "invariant_verification",
-		"sequence_coverage", "probe_surface", "unpriceable"}
+		"sequence_coverage", "probe_surface", "unpriceable", "v16_coverage"}
 	if got := sectionNames(t, report); !reflect.DeepEqual(got, want) {
 		t.Fatalf("sections = %v, want %v", got, want)
 	}
@@ -465,16 +465,16 @@ func TestAuditSummaryLineFail(t *testing.T) {
 // TestAuditRegistryOrderPinned: the section registry exposes every ported
 // section in Python's audit.py code order — all 14, sequence_coverage (12)
 // between invariant_verification (11) and probe_surface (13) — with the
-// presence-gated G4 eval section and, appended last, the presence-gated
-// r4 price_table reconciliation (both render conditionally and neither
-// joins the golden's rendered surface).
+// presence-gated G4 eval section, the presence-gated r4 price_table
+// reconciliation, and, appended last, the v1.6 record-coverage section
+// (eval and price_table render conditionally; v16_coverage always renders).
 func TestAuditRegistryOrderPinned(t *testing.T) {
 	Setup()
 	want := []string{"event_log", "artifacts", "execs", "findings",
 		"projection", "snapshots", "relations", "floor_policy",
 		"stage_completions", "baselines", "invariant_verification",
 		"sequence_coverage", "probe_surface", "unpriceable", "eval",
-		"price_table"}
+		"price_table", "v16_coverage"}
 	if got := SectionNames(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("SectionNames() = %v, want %v", got, want)
 	}

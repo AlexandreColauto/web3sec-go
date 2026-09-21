@@ -29,16 +29,16 @@ from probe_axes import EXPECTED_PROBE_AXES
 
 WORK = Path(__file__).resolve().parent.parent / ".scratch" / "golden"
 
-# The 15 audit sections these campaigns RENDER, in report (registration)
-# order. The registry (internal/audit/sections/register.go) carries 16: the
-# `eval` section is PRESENCE-GATED since G4 and renders only for a campaign
-# whose program matches the gold-eval suite. No golden campaign matches, so
-# eval stays off this list — but price_table (r4) DOES render here, because
-# the P4 recipe sets a price and pins a price-basis: the money path of the
-# golden campaign is exactly what the section exists to watch, so its output
-# is part of the golden surface. A section missing here is a hard failure in
-# either direction; this list is not a copy of the registry and must not be
-# "completed" to 16.
+# The audit sections these campaigns RENDER, in report (registration) order.
+# The registry (internal/audit/sections/register.go) carries 17: the `eval`
+# section is PRESENCE-GATED since G4 and renders only for a campaign whose
+# program matches the gold-eval suite. No golden campaign matches, so eval
+# stays off this list — but price_table (r4) DOES render here, because the P4
+# recipe sets a price and pins a price-basis: the money path of the golden
+# campaign is exactly what the section exists to watch, so its output is part
+# of the golden surface. v16_coverage (v1.6 P1/P2) is unconditional and always
+# renders last. A section missing here is a hard failure in either direction;
+# this list is not a copy of the registry and must not be "completed" to 17.
 EXPECTED_SECTIONS: list[str] = [
     "event_log",
     "artifacts",
@@ -55,7 +55,14 @@ EXPECTED_SECTIONS: list[str] = [
     "probe_surface",
     "unpriceable",
     "price_table",
+    "v16_coverage",
 ]
+
+# The presence-gated members of EXPECTED_SECTIONS: they render exactly when
+# their precondition holds, so a campaign may legitimately omit them. Every
+# other name above is REQUIRED — including v16_coverage, which is the one
+# unconditional addition past the 14 ported rows.
+OPTIONAL_SECTIONS: list[str] = ["price_table"]
 
 # Every registered probe axis, pinned to the Go registry
 # (internal/probes/registry.go probesTable), with the state this run must
@@ -87,6 +94,57 @@ def load_spec() -> dict:
     return json.loads((WORK / "spec.json").read_text())
 
 
+def _check_state_file(camp: Path) -> None:
+    """campaign_state.json must be present and parse."""
+    st_path = camp / "campaign_state.json"
+    if not st_path.is_file():
+        fails.append(f"tree: missing {st_path.name}")
+        return
+    try:
+        json.loads(st_path.read_text())
+    except ValueError as exc:
+        fails.append(f"tree: campaign_state.json does not parse: {exc}")
+
+
+def _check_events_chain(camp: Path) -> int | None:
+    """events.jsonl parses line-by-line and the hash chain is intact.
+
+    Returns the number of events walked, or None once a failure has been
+    appended — the walk stops at the first bad line, so a None result also
+    means the caller must not report the tree as well-formed.
+    """
+    ev_path = camp / "events.jsonl"
+    if not ev_path.is_file():
+        fails.append(f"tree: missing {ev_path.name}")
+        return None
+    prev = GENESIS_HASH
+    n = 0
+    for line in ev_path.read_text().splitlines():
+        if not line.strip():
+            continue
+        try:
+            e = json.loads(line)
+        except ValueError as exc:
+            fails.append(f"tree: events.jsonl line {n + 1} does not parse: {exc}")
+            return None
+        if e.get("prev_hash") != prev:
+            fails.append(
+                f"tree: events.jsonl line {n + 1} (seq "
+                f"{e.get('seq')}): prev_hash {e.get('prev_hash')!r} "
+                f"!= prior event_hash {prev!r}"
+            )
+            return None
+        eh = e.get("event_hash")
+        if not eh:
+            fails.append(
+                f"tree: events.jsonl line {n + 1} (seq {e.get('seq')}): no event_hash"
+            )
+            return None
+        prev = eh
+        n += 1
+    return n
+
+
 def check_tree(spec: dict) -> None:
     """Validate the Go campaign tree: key artifacts parse and the event
     hash chain is intact."""
@@ -95,53 +153,16 @@ def check_tree(spec: dict) -> None:
         fails.append(f"tree: campaign dir missing: {camp}")
         return
     # campaign_state.json parses
-    st_path = camp / "campaign_state.json"
-    if not st_path.is_file():
-        fails.append(f"tree: missing {st_path.name}")
-    else:
-        try:
-            json.loads(st_path.read_text())
-        except ValueError as exc:
-            fails.append(f"tree: campaign_state.json does not parse: {exc}")
+    _check_state_file(camp)
     # events.jsonl parses line-by-line and the hash chain is intact
-    ev_path = camp / "events.jsonl"
-    if not ev_path.is_file():
-        fails.append(f"tree: missing {ev_path.name}")
-    else:
-        prev = GENESIS_HASH
-        n = 0
-        for ln, line in enumerate(ev_path.read_text().splitlines(), 1):
-            if not line.strip():
-                continue
-            try:
-                e = json.loads(line)
-            except ValueError as exc:
-                fails.append(f"tree: events.jsonl line {n + 1} does not parse: {exc}")
-                break
-            if e.get("prev_hash") != prev:
-                fails.append(
-                    f"tree: events.jsonl line {n + 1} (seq "
-                    f"{e.get('seq')}): prev_hash {e.get('prev_hash')!r} "
-                    f"!= prior event_hash {prev!r}"
-                )
-                break
-            eh = e.get("event_hash")
-            if not eh:
-                fails.append(
-                    f"tree: events.jsonl line {n + 1} (seq "
-                    f"{e.get('seq')}): no event_hash"
-                )
-                break
-            prev = eh
-            n += 1
-        else:
-            n_files = sum(
-                1 for p in Path(spec["trees"]["go"]).rglob("*") if p.is_file()
-            )
-            print(
-                f"tree: campaign {spec['campaign_id']} well-formed "
-                f"({n} events, chain intact; {n_files} files archived)"
-            )
+    n = _check_events_chain(camp)
+    if n is None:
+        return
+    n_files = sum(1 for p in Path(spec["trees"]["go"]).rglob("*") if p.is_file())
+    print(
+        f"tree: campaign {spec['campaign_id']} well-formed "
+        f"({n} events, chain intact; {n_files} files archived)"
+    )
 
 
 def check_steps(spec: dict) -> None:
@@ -191,8 +212,12 @@ def check_steps(spec: dict) -> None:
     )
 
 
-def check_audit(spec: dict, step: int, name: str) -> None:
-    """An `audit --json` report must carry all 15 rendered sections + ok."""
+def check_audit(step: int, name: str) -> None:
+    """An `audit --json` report must carry all 15 rendered sections + ok.
+
+    Reads only its own capture: the recipe index is the caller's business,
+    so no spec is threaded through here.
+    """
     f = WORK / "captures" / "go" / f"{step:02d}-{name}.out"
     try:
         doc = json.loads(f.read_text())
@@ -210,15 +235,17 @@ def check_audit(spec: dict, step: int, name: str) -> None:
         fails.append(f"step {step:02d} {name}: audit sections missing/not an object")
         return
     have = list(sections)  # report order
-    # The rendered surface is EXPECTED_SECTIONS, optionally TRUNCATED after
-    # its 14 unconditional members: presence-gated sections (price_table
-    # since r4, eval since G4) render exactly when their precondition
-    # holds — the s2 campaign prices nothing and must not fake the row.
-    # What stays hard-failed: any unexpected name, and the ORDER of what
+    # The rendered surface is EXPECTED_SECTIONS, minus the presence-gated
+    # members when their precondition is closed: price_table renders exactly
+    # when the campaign priced something (eval, also presence-gated, stays off
+    # the list entirely) — the s2 campaign prices nothing and must not fake the
+    # row. Every other name is REQUIRED, v16_coverage included: it is the one
+    # unconditional addition past the 14 ported rows. What stays hard-failed:
+    # any unexpected name, any missing required name, and the ORDER of what
     # does render.
     want = EXPECTED_SECTIONS
-    core = want[: len(want) - 1]  # everything but the optional tail
-    tail = want[len(want) - 1 :]
+    core = [n for n in want if n not in OPTIONAL_SECTIONS]
+    tail = [n for n in want if n in OPTIONAL_SECTIONS]
     missing = sorted(set(core) - set(have))
     extra = sorted(set(have) - set(core) - set(tail))
     if missing:
@@ -242,7 +269,90 @@ def check_audit(spec: dict, step: int, name: str) -> None:
         )
 
 
-def check_probe_axes(spec: dict, step: int, name: str) -> None:
+def _probe_axes_by_name(axes: list) -> dict:
+    """Index the surface's axes by name, ignoring malformed entries."""
+    by_name = {}
+    for a in axes:
+        if isinstance(a, dict) and isinstance(a.get("axis"), str):
+            by_name[a["axis"]] = a
+    return by_name
+
+
+def _check_axis_names(where: str, by_name: dict) -> int:
+    """The surface must carry exactly the registered axes; returns failures."""
+    bad = 0
+    missing = sorted(set(EXPECTED_PROBE_AXES) - set(by_name))
+    extra = sorted(set(by_name) - set(EXPECTED_PROBE_AXES))
+    if missing:
+        fails.append(
+            f"{where}: axis(es) missing from the surface: " + ", ".join(missing)
+        )
+        bad += 1
+    if extra:
+        fails.append(f"{where}: unexpected axis(es): " + ", ".join(extra))
+        bad += 1
+    return bad
+
+
+def _check_axis_sites(where: str, axis: str, a: dict) -> int:
+    """A present axis must have examined at least one site."""
+    sites = a.get("sites")
+    status = a.get("status")
+    if not isinstance(sites, int) or sites < 1:
+        fails.append(
+            f"{where}: axis {axis} reports sites={sites!r} "
+            f"(status={status!r}) — the detector saw no code at all, "
+            "so nothing downstream can catch a regression on it"
+        )
+        return 1
+    return 0
+
+
+def _check_axis_state(where: str, axis: str, want: str, a: dict) -> int:
+    """One axis must reach the rows/blind state the table declares."""
+    bad = _check_axis_sites(where, axis, a)
+    if bad:
+        return bad
+    rows = a.get("rows")
+    status = a.get("status")
+    if want == "rows" and (not isinstance(rows, int) or rows < 1):
+        fails.append(
+            f"{where}: axis {axis} emitted rows={rows!r} "
+            f"(status={status!r}), the run is supposed to carry rows on it"
+        )
+        return 1
+    if want == "blind":
+        blind = a.get("blind_total")
+        if rows != 0:
+            fails.append(
+                f"{where}: axis {axis} emitted rows={rows!r}, "
+                "the fixture built to stay silent is firing"
+            )
+            return 1
+        if not isinstance(blind, int) or blind < 1:
+            fails.append(
+                f"{where}: axis {axis} is blind but published "
+                f"blind_total={blind!r} — `probes blank` has no key to cite"
+            )
+            return 1
+    return 0
+
+
+def _report_probe_axes(where: str, by_name: dict) -> None:
+    """The declared state held everywhere: report the surface as alive."""
+    rows_total = sum(
+        a.get("rows", 0) for a in by_name.values() if isinstance(a.get("rows"), int)
+    )
+    states = ", ".join(
+        f"{ax}={EXPECTED_PROBE_AXES[ax]}" for ax in sorted(EXPECTED_PROBE_AXES)
+    )
+    print(
+        f"{where}: {len(EXPECTED_PROBE_AXES)} probe axes alive, "
+        f"states as declared ({states}; rows={rows_total})"
+    )
+
+
+def check_probe_axes(step: int, name: str) -> None:
     """`probes list --all --json` must reach the declared state on EVERY axis.
 
     Both directions fail: an axis missing from the surface (registration or
@@ -250,106 +360,31 @@ def check_probe_axes(spec: dict, step: int, name: str) -> None:
     away), and an axis whose row/blind state moved the wrong way (a detector
     that started or stopped firing on the fixture built to pin it).
     """
+    where = f"step {step:02d} {name}"
     f = WORK / "captures" / "go" / f"{step:02d}-{name}.out"
     try:
         doc = json.loads(f.read_text())
     except ValueError as exc:
-        fails.append(f"step {step:02d} {name}: probes json unreadable: {exc}")
+        fails.append(f"{where}: probes json unreadable: {exc}")
         return
     axes = doc.get("axes")
     if not isinstance(axes, list):
-        fails.append(f"step {step:02d} {name}: no axes list in the surface")
+        fails.append(f"{where}: no axes list in the surface")
         return
-    by_name = {}
-    for a in axes:
-        if isinstance(a, dict) and isinstance(a.get("axis"), str):
-            by_name[a["axis"]] = a
-    bad = 0
-    missing = sorted(set(EXPECTED_PROBE_AXES) - set(by_name))
-    extra = sorted(set(by_name) - set(EXPECTED_PROBE_AXES))
-    if missing:
-        fails.append(
-            f"step {step:02d} {name}: axis(es) missing from the "
-            "surface: " + ", ".join(missing)
-        )
-        bad += 1
-    if extra:
-        fails.append(
-            f"step {step:02d} {name}: unexpected axis(es): " + ", ".join(extra)
-        )
-        bad += 1
+    by_name = _probe_axes_by_name(axes)
+    bad = _check_axis_names(where, by_name)
     for axis, want in sorted(EXPECTED_PROBE_AXES.items()):
         a = by_name.get(axis)
         if a is None:
             continue
-        sites = a.get("sites")
-        rows = a.get("rows")
-        status = a.get("status")
-        if not isinstance(sites, int) or sites < 1:
-            fails.append(
-                f"step {step:02d} {name}: axis {axis} reports "
-                f"sites={sites!r} (status={status!r}) — the detector "
-                "saw no code at all, so nothing downstream can catch "
-                "a regression on it"
-            )
-            bad += 1
-            continue
-        if want == "rows" and (not isinstance(rows, int) or rows < 1):
-            fails.append(
-                f"step {step:02d} {name}: axis {axis} emitted "
-                f"rows={rows!r} (status={status!r}), the run is "
-                "supposed to carry rows on it"
-            )
-            bad += 1
-        if want == "blind":
-            blind = a.get("blind_total")
-            if rows != 0:
-                fails.append(
-                    f"step {step:02d} {name}: axis {axis} emitted "
-                    f"rows={rows!r}, the fixture built to stay "
-                    "silent is firing"
-                )
-                bad += 1
-            elif not isinstance(blind, int) or blind < 1:
-                fails.append(
-                    f"step {step:02d} {name}: axis {axis} is blind "
-                    f"but published blind_total={blind!r} — "
-                    "`probes blank` has no key to cite"
-                )
-                bad += 1
+        bad += _check_axis_state(where, axis, want, a)
     if bad == 0:
-        rows_total = sum(
-            a.get("rows", 0) for a in by_name.values() if isinstance(a.get("rows"), int)
-        )
-        states = ", ".join(
-            f"{ax}={EXPECTED_PROBE_AXES[ax]}" for ax in sorted(EXPECTED_PROBE_AXES)
-        )
-        print(
-            f"step {step:02d} {name}: {len(EXPECTED_PROBE_AXES)} probe axes "
-            f"alive, states as declared ({states}; rows={rows_total})"
-        )
+        _report_probe_axes(where, by_name)
 
 
-def check_disposition_review(spec: dict) -> None:
-    """The report ARTIFACT must keep the B4/D1 decision visible.
-
-    The step captures prove the gate refused; the report is what a human reads
-    afterwards, and the G-01 miss was precisely a high-risk row that left no
-    visible trace of the argument that buried it. So the report must name the
-    row twice — once as a flagged dismissal (it was, and an override does not
-    make the reasoning safer) and once as a logged override with its actor and
-    the written reason. The row, actor and reason are read from the recipe's
-    own step, so nothing here is hardcoded.
-    """
-    cid = spec.get("campaign_id")
-    if not cid:
-        fails.append("spec carries no campaign_id")
-        return
-    report = WORK / "tree-go" / "campaigns" / cid / "report.md"
-    if not report.is_file():
-        fails.append(f"no report artifact at {report}")
-        return
-    argv = next(
+def _override_argv(spec: dict) -> list | None:
+    """The argv of the recipe step that logged the override, if it exists."""
+    return next(
         (
             c["argv"]
             for c in spec["captures"]["go"]
@@ -357,14 +392,12 @@ def check_disposition_review(spec: dict) -> None:
         ),
         None,
     )
-    if not argv:
-        fails.append("the recipe has no answered-dismissal-overridden step")
-        return
-    prio = argv[2]
-    reason = argv[argv.index("--override-reason") + 1]
-    actor = argv[argv.index("--actor") + 1]
-    text = report.read_text()
-    lines = text.splitlines()
+
+
+def _check_disposition_lines(
+    lines: list[str], prio: str, actor: str, reason: str
+) -> int:
+    """The report must carry the section, the flag and the logged override."""
     bad = 0
     if "## Disposition review" not in lines:
         fails.append(
@@ -387,7 +420,39 @@ def check_disposition_review(spec: dict) -> None:
     if not any(reason in line for line in overridden):
         fails.append("report records the override without its written reason")
         bad += 1
-    if bad == 0:
+    return bad
+
+
+def check_disposition_review(spec: dict) -> None:
+    """The report ARTIFACT must keep the B4/D1 decision visible.
+
+    The step captures prove the gate refused; the report is what a human reads
+    afterwards, and the G-01 miss was precisely a high-risk row that left no
+    visible trace of the argument that buried it. So the report must name the
+    row twice — once as a flagged dismissal (it was, and an override does not
+    make the reasoning safer) and once as a logged override with its actor and
+    the written reason. The row, actor and reason are read from the recipe's
+    own step, so nothing here is hardcoded.
+    """
+    cid = spec.get("campaign_id")
+    if not cid:
+        fails.append("spec carries no campaign_id")
+        return
+    report = WORK / "tree-go" / "campaigns" / cid / "report.md"
+    if not report.is_file():
+        fails.append(f"no report artifact at {report}")
+        return
+    argv = _override_argv(spec)
+    if not argv:
+        fails.append("the recipe has no answered-dismissal-overridden step")
+        return
+    prio = argv[2]
+    reason = argv[argv.index("--override-reason") + 1]
+    actor = argv[argv.index("--actor") + 1]
+    if (
+        _check_disposition_lines(report.read_text().splitlines(), prio, actor, reason)
+        == 0
+    ):
         print(
             f"report artifact: {prio} is on the record as both a flagged "
             "dismissal and a logged override"
@@ -401,9 +466,9 @@ def main() -> None:
     check_disposition_review(spec)
     for i, name in enumerate(spec["recipe"]):
         if name.startswith("audit-json"):
-            check_audit(spec, i, name)
+            check_audit(i, name)
         elif name == "probes-list-all-json":
-            check_probe_axes(spec, i, name)
+            check_probe_axes(i, name)
     print()
     if fails:
         print("GOLDEN RED — failures:")

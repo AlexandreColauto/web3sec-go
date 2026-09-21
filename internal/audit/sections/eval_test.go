@@ -263,11 +263,12 @@ func TestEvalRegisteredLast(t *testing.T) {
 	var names []string
 	RegisterAll(func(name string, _ SectionFunc) { names = append(names, name) })
 	// eval keeps its slot past all fourteen ported sections; the r4
-	// presence-gated price_table was appended after it (audit_test pins
-	// the full order). eval must stay immediately before price_table.
-	if len(names) < 2 || names[len(names)-1] != "price_table" ||
-		names[len(names)-2] != "eval" {
-		t.Fatalf("eval/price_table tail order wrong: %v", names)
+	// presence-gated price_table was appended after it, and the v1.6
+	// record-coverage section after that (audit_test pins the full order).
+	// eval must stay immediately before price_table.
+	if len(names) < 3 || names[len(names)-1] != "v16_coverage" ||
+		names[len(names)-2] != "price_table" || names[len(names)-3] != "eval" {
+		t.Fatalf("eval/price_table/v16_coverage tail order wrong: %v", names)
 	}
 }
 

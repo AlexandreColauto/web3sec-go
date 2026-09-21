@@ -9,7 +9,9 @@
 // Python emits one section the Go twin does not implement yet
 // (sequence_coverage, section 12, reserved by the P0 plan for a later
 // phase): the full-report parity check asserts that exact delta and strips
-// only that section from the summary line.
+// only that section from the summary line. The v1.6 coverage section is the
+// mirror image — Go-only, appended last, and stripped the same way — because
+// the twin predates v1.6.
 package audit
 
 import (
@@ -199,13 +201,51 @@ func assertSummaryOracle(t *testing.T, report validation.Value, pythonLine strin
 	if pythonLine == "" {
 		t.Fatal("fixture carries no summary_line oracle")
 	}
-	got, want := AuditSummaryLine(report), pythonLine
+	// The Python twin predates v1.6, so its summary line carries no
+	// v16_coverage token; that one Go-only section is stripped before the
+	// byte-exact comparison of the ported surface.
+	got, want := stripSummaryToken(AuditSummaryLine(report), "v16_coverage"),
+		pythonLine
 	if got != want {
 		t.Errorf("summary mismatch\n got: %s\nwant: %s", got, want)
 	}
 	if !strings.Contains(pythonLine, "sequence_coverage=") {
 		t.Errorf("python summary has no sequence_coverage token: %q", pythonLine)
 	}
+}
+
+// stripSummaryToken removes one "name=N problem(s)" token from an audit
+// summary line, with the separator that goes with it.
+func stripSummaryToken(line, name string) string {
+	marker := ", " + name + "="
+	i := strings.Index(line, marker)
+	if i < 0 {
+		return line
+	}
+	rest := line[i+len(marker):]
+	j := strings.Index(rest, ", ")
+	if j < 0 {
+		return line[:i]
+	}
+	return line[:i] + rest[j:]
+}
+
+// withoutV16Coverage is the report minus the Go-only v1.6 coverage section:
+// the Python twin predates v1.6, so the whole-report parity check compares the
+// ported surface and the added section is pinned by its own tests.
+func withoutV16Coverage(report validation.Value) validation.Value {
+	secs := validation.ObjAt(report, "sections")
+	out := make([]validation.KV, 0, len(secs.O))
+	for _, kv := range secs.O {
+		if kv.K != "v16_coverage" {
+			out = append(out, kv)
+		}
+	}
+	stripped := validation.Value{Kind: validation.Obj,
+		O: append([]validation.KV(nil), report.O...)}
+	stripped.O = validation.SetOrAppend(stripped.O, "sections",
+		validation.VObj(out...))
+	return stripped
 }
 
 // pythonSectionOrder is the section order of a Python full report (the
@@ -232,11 +272,14 @@ func TestAuditRegistryOrderMatchesPython(t *testing.T) {
 	sc := vec.fixture(t, "parity_p1")
 	want := pythonSectionOrder(t, sc.FullReport)
 	got := SectionNames()
+	// eval and price_table are presence-gated; v16_coverage is the
+	// unconditional v1.6 addition. All three are appended past the 14 ported
+	// sections, in registration order.
 	withAppended := append(append(append([]string{}, want...), "eval"),
-		"price_table") // both presence-gated, both appended past the 14
+		"price_table", "v16_coverage")
 	if !reflect.DeepEqual(got, withAppended) {
 		t.Fatalf("SectionNames() = %v\nwant %v + presence-gated eval, "+
-			"price_table", got, want)
+			"price_table, and the v1.6 coverage section", got, want)
 	}
 	if len(want) != 14 {
 		t.Fatalf("want 14 registered sections, got %d", len(want))
@@ -626,8 +669,9 @@ func TestP1FullReportParity(t *testing.T) {
 			}
 			assertSummaryOracle(t, report, sc.SummaryLine)
 			// one whole-report comparison: canonical JSON of the Go report
-			// must equal the Python report.
-			got := validation.CanonCompact(report)
+			// must equal the Python report — minus the Go-only v1.6
+			// coverage section, which the twin predates.
+			got := validation.CanonCompact(withoutV16Coverage(report))
 			want := validation.CanonCompact(py)
 			if got != want {
 				t.Errorf("full report mismatch\n got: %s\nwant: %s", got, want)
