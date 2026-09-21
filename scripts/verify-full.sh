@@ -562,7 +562,6 @@ F2="$(grep -oE 'F-[0-9a-f]+' <<<"$P1_OUT" | head -1)"
 [ -n "$F2" ] || fail 11 "smoke ingest f2: no finding id in output"
 p2_ok "verdict confirmed" 0 verdict "$CID2" "$F1" --verdict confirmed \
   --reason "verified by hand"
-p2_ok "move possible" 0 move "$CID2" "$F1" POSSIBLE --reason "triage passed"
 # The model fixture declares INV-1 on the finding: the invariants guardrail
 # refuses any level rise (mint) until it is log-anchored CHECKED_AGAINST_CODE
 # via a registered artifact.
@@ -584,6 +583,13 @@ seed_p2_exec "$SMOKE2" "$CID2" "$F1" "$SEEDEX" || fail 11 "smoke seed exec"
 p2_ok mint 0 mint "$CID2" "$F1" --exec "$SEEDEX" \
   --description "sandboxed PoC drains the vault in one withdraw" \
   --tier T2 --type foundry-test
+# R3-3 (2026-09-20): STATUS_FLOOR gates EVERY status move now, not only the
+# CONFIRMED gate — a POSSIBLE stamp demands E2. This fixture EARNS the floor
+# first (the mint above writes real E4 evidence, the same mechanism the
+# golden suite's gate-passing payload uses), so the row below keeps meaning
+# "the move verb works". Lowering its expectation to 2 would assert the
+# opposite — the refusal path is already covered by the unit suite.
+p2_ok "move possible" 0 move "$CID2" "$F1" POSSIBLE --reason "triage passed"
 p2_ok "ladder start" 0 ladder "$CID2" start "$F1"
 p2_ok "ladder show" 0 ladder "$CID2" show "$F1"
 p2_ok "ladder add" 0 ladder "$CID2" add "$F1" --name dust \
@@ -687,7 +693,6 @@ F1="$(grep -oE 'F-[0-9a-f]+' <<<"$P1_OUT" | head -1)"
 [ -n "$F1" ] || fail 12 "smoke ingest f1: no finding id in output"
 p3_ok "verdict confirmed" 0 verdict "$CID3" "$F1" --verdict confirmed \
   --reason "verified by hand"
-p3_ok "move possible" 0 move "$CID3" "$F1" POSSIBLE --reason "triage passed"
 p3_ok "artifact-register" 0 artifact-register "$CID3" "$P1F/fixtures/note.md" \
   --kind report
 REP3="$(grep -oE 'REP-[0-9a-f]+' <<<"$P1_OUT" | head -1)"
@@ -699,6 +704,12 @@ seed_p2_exec "$SMOKE3" "$CID3" "$F1" "$SEEDEX" || fail 12 "smoke seed exec"
 p3_ok mint 0 mint "$CID3" "$F1" --exec "$SEEDEX" \
   --description "sandboxed PoC drains the vault in one withdraw" \
   --tier T2 --type foundry-test
+# R3-3 (2026-09-20): the same POSSIBLE/E2 floor the P2 smoke above honors.
+# This campaign is built its own way (plan, then one finding, then the
+# precondition finding), so the stamp simply waits for the mint that earns
+# it: the seeded E4 record's evidence clears E2, and the row still proves
+# the move verb succeeds rather than refusing.
+p3_ok "move possible" 0 move "$CID3" "$F1" POSSIBLE --reason "triage passed"
 # A second finding carries a precondition row, so the `precondition`
 # adjudication has a target (the first finding has none).
 p3_ok "ingest f1-pre" 0 ingest "$CID3" --json-file "$P1F/fixtures/f1-pre.json" \
