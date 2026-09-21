@@ -8,11 +8,25 @@ import (
 	"websec/internal/validation"
 )
 
-// sourcePinOrUnpinned is active_snapshot_id_or_none() or "unpinned".
+// SourcePinUnpinned is the pin slot's "no pin" sentinel: the value the
+// framework substitutes for active_snapshot_id_or_none() when the campaign has
+// no active snapshot. It is written into a finding's snapshot_ids.source
+// (ingest.go:121-125) and, on the exec-evidence path, into that item's
+// snapshot_id (exec_evidence.go:205-215); every consumer that RESOLVES a pin
+// reads it as "not an id" (ackscan.go:183,
+// report/report_finding_verify.go:53, audit/sections/snapshots.go:241).
+//
+// It is therefore NOT an artifact id, and the boundary's cited-set walk must
+// skip it (internal/boundary/boundary.go) — otherwise an honest unpinned
+// bundle is refused for citing a non-artifact. Exported so that reader
+// references this one definition instead of re-spelling the literal.
+const SourcePinUnpinned = "unpinned"
+
+// sourcePinOrUnpinned is active_snapshot_id_or_none() or SourcePinUnpinned.
 func sourcePinOrUnpinned(campaign *state.Campaign) validation.Value {
 	id, err := campaign.ActiveSnapshotIDOrNone()
 	if err != nil || id == nil {
-		return validation.VStr("unpinned")
+		return validation.VStr(SourcePinUnpinned)
 	}
 	return validation.VStr(*id)
 }
@@ -35,8 +49,8 @@ func sigPath(first validation.Value) string {
 
 // sigOpt is (block.get(key) or "") — absent, null, and "" all fold to "".
 func sigOpt(block validation.Value, key string) string {
-	v, _ := fieldAt(block, key)
-	if v.Kind != validation.Str {
+	v, ok := fieldAt(block, key)
+	if !ok || v.Kind != validation.Str {
 		return ""
 	}
 	return v.S

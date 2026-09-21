@@ -19,6 +19,7 @@ import (
 	"sort"
 	"strings"
 
+	"websec/internal/findings"
 	"websec/internal/sandbox"
 	"websec/internal/state"
 	"websec/internal/validation"
@@ -138,11 +139,41 @@ func saneArtifactID(s string) bool {
 	return !strings.ContainsAny(s, " \t\r\n")
 }
 
+// isNonArtifactID reports whether a string sitting under an id-bearing key is
+// the framework's own "no id here" marker rather than a citation. It is the
+// second half of the key scoping: the key says WHERE ids live, this says which
+// of those values the framework itself uses to mean "absent".
+//
+// findings.SourcePinUnpinned is the pin slot's sentinel — ingest writes it into
+// a finding's snapshot_ids.source on an unpinned campaign
+// (internal/findings/ingest_payload.go) and the same value lands in each
+// exec-evidence item's snapshot_id, both of which the critic bundle carries
+// verbatim (internal/roles/context_critic.go:85-90,203). The framework's own
+// readers treat it as "not an id" (findings/ackscan.go:183,
+// report/report_finding_verify.go:53, audit/sections/snapshots.go:241), so a
+// walk that collected it refused an honest unpinned bundle and wrote a FALSE
+// model.rejected row naming a non-artifact — the exact failure class the
+// declaration exists to prevent.
+//
+// The owner's constant is REFERENCED, not re-spelled: boundary already imports
+// findings elsewhere in the package (boundary_critic.go, boundary_plan.go,
+// boundary_reproducer.go, ingest.go), so this adds no dependency edge and no
+// import cycle, and a pasted literal here would be a second definition of the
+// sentinel free to drift from the writer's. The empty string needs no entry:
+// saneArtifactID's 3-byte floor already drops it. No other sentinel word
+// reaches an id-bearing key in this framework's writers — every other
+// "none"/"unknown"/"absent" literal in the tree sits under a status, tier or
+// class key, which the walk never enters.
+func isNonArtifactID(s string) bool {
+	return s == findings.SourcePinUnpinned
+}
+
 // BundleArtifacts returns every id the bundle carries under an id-bearing key,
 // deduped in first-seen order. Derivation, not declaration: the set is read
 // off the bytes that are actually sent, and a string under one of those keys
 // IS an id — no shape is guessed, because guessing the shape is what made the
-// cited set empty on real bundles.
+// cited set empty on real bundles. The one exception is the framework's own
+// "no id here" sentinel, which those keys also carry (isNonArtifactID).
 //
 // The walk is scoped to those keys on purpose. Scanning every leaf string
 // would also match ids quoted in prose, diffs and pasted file contents — the
@@ -154,10 +185,11 @@ func BundleArtifacts(bundle validation.Value) []string {
 	out := []string{}
 	seen := map[string]bool{}
 	add := func(s string) {
-		if saneArtifactID(s) && !seen[s] {
-			seen[s] = true
-			out = append(out, s)
+		if !saneArtifactID(s) || isNonArtifactID(s) || seen[s] {
+			return
 		}
+		seen[s] = true
+		out = append(out, s)
 	}
 	var walk func(v validation.Value)
 	walk = func(v validation.Value) {

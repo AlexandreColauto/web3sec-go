@@ -180,7 +180,7 @@ func RecordAckScan(c *state.Campaign, findingID string) (bool, error) {
 // snapshot id.
 func ackSourceRoot(c *state.Campaign, f validation.Value) (string, error) {
 	sid := validation.ObjStr(validation.ObjAt(f, "snapshot_ids"), "source")
-	if sid == "" || sid == "unpinned" {
+	if sid == "" || sid == SourcePinUnpinned {
 		return "", fmt.Errorf("finding has no source pin")
 	}
 	snapPath := filepath.Join(c.Dir, "snapshots", sid, "snapshot.json")

@@ -11,6 +11,8 @@ import (
 	"strings"
 	"testing"
 
+	"websec/internal/findings"
+	"websec/internal/roles"
 	"websec/internal/state"
 	"websec/internal/trajectory"
 	"websec/internal/validation"
@@ -205,6 +207,68 @@ func TestInSetRealIDsPass(t *testing.T) {
 		"proposer", "qwen3-14b:local", "0123456789abcdef", "hypothesis")
 	if err := ValidateRequest(req); err != nil {
 		t.Fatalf("in-set request with real ids refused: %v", err)
+	}
+}
+
+// unpinnedCriticBundle is the re-review's reproducer, on the REAL builder: one
+// finding ingested into an UNPINNED campaign, whose critic bundle carries the
+// pin slot verbatim (internal/roles/context_critic.go:203).
+func unpinnedCriticBundle(t *testing.T) (string, validation.Value) {
+	t.Helper()
+	c := newCamp(t)
+	fid := validation.ObjStr(mustIngest(t, c, validHypothesis()), "finding_id")
+	b, err := roles.BuildCriticContext(c, fid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return fid, b
+}
+
+// TestBundleArtifactsSkipsTheUnpinnedPinSentinel is the regression test for the
+// sentinel leak. `unpinned` is the framework's own "no pin" marker, written
+// into snapshot_ids.source on an unpinned campaign — not a cited artifact.
+// Collecting it refused an honest drop and wrote a FALSE model.rejected row
+// naming a non-artifact (fix-rereview.md, "New Breakage in the Fix Diff").
+func TestBundleArtifactsSkipsTheUnpinnedPinSentinel(t *testing.T) {
+	fid, b := unpinnedCriticBundle(t)
+	if got := BundleArtifacts(b); !slices.Equal(got, []string{fid}) {
+		t.Fatalf("BundleArtifacts = %q, want exactly the finding id %q — the pin "+
+			"slot's %q sentinel is not a cited artifact", got, fid,
+			findings.SourcePinUnpinned)
+	}
+	// The honest declaration must PASS: the bundle cites one artifact and the
+	// stage declares that one. Before the fix the derived set also held the
+	// sentinel, so this exact request was refused.
+	req := BuildRequest(b, declaration(fid), "critic", "qwen3-14b:local",
+		"0123456789abcdef", "critic_verdict")
+	if err := ValidateRequest(req); err != nil {
+		t.Fatalf("a critic declaring the one id its bundle cites was refused: %v",
+			err)
+	}
+}
+
+// TestBundleArtifactsSkipsTheSentinelUnderAnEvidenceItem covers the sentinel's
+// second real producer: the exec-evidence path stamps each item's snapshot_id
+// from the finding's pin (internal/findings/exec_evidence.go:205-215), so on an
+// unpinned campaign that key holds the sentinel too and the critic bundle
+// carries the item verbatim (internal/roles/context_critic.go:85-90).
+func TestBundleArtifactsSkipsTheSentinelUnderAnEvidenceItem(t *testing.T) {
+	artID := realArtifactID(t, newCamp(t))
+	b := validation.VObj(
+		validation.KV{K: "snapshot_ids", V: validation.VObj(
+			validation.KV{K: "source", V: validation.VStr(findings.SourcePinUnpinned)},
+			validation.KV{K: "deployment", V: validation.VNull()},
+			validation.KV{K: "chain", V: validation.VNull()})},
+		validation.KV{K: "evidence", V: validation.VArr(validation.VObj(
+			validation.KV{K: "evidence_id", V: validation.VStr("EV-1")},
+			validation.KV{K: "artifact_id", V: validation.VStr(artID)},
+			validation.KV{K: "snapshot_id",
+				V: validation.VStr(findings.SourcePinUnpinned)}))},
+	)
+	want := []string{"EV-1", artID} // walk order: evidence_id, artifact_id
+	if got := BundleArtifacts(b); !slices.Equal(got, want) {
+		t.Fatalf("BundleArtifacts = %q, want %q — the sentinel is skipped under "+
+			"every id-bearing key, and the real ids survive", got, want)
 	}
 }
 
