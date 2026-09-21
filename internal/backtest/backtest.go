@@ -1,3 +1,12 @@
+// DEPRECATED — DO NOT BUILD ON THIS PACKAGE (framework-plan-v1.6 Part 4 cut).
+//
+// Part 4 cuts the statistical-eval surface. This package has one importer
+// today — `internal/cli/cmd_corpus_surface.go`, behind the documented
+// `corpus-surface --backtest` flag — so it cannot simply be deleted: the flag,
+// its byte-pinned help text and its RUNBOOK line have to go with it.
+// internal/audit/part4_guard_test.go fails if any file outside that importer
+// list imports it.
+//
 // Package backtest implements the G3 `corpus-surface --backtest`
 // scorecard: the ONLY place the framework may say a ranking "improved".
 //

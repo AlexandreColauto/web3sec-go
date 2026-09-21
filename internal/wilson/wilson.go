@@ -1,3 +1,13 @@
+// DEPRECATED — DO NOT BUILD ON THIS PACKAGE (framework-plan-v1.6 Part 4 cut).
+//
+// Part 4 cuts the statistical-eval surface, and this package is part of it.
+// It stays in the tree only until its twelve importers are cut with it:
+// deleting it today would be a refactor of internal/evalscore,
+// internal/planner/autotune.go, internal/risk/calibration.go and
+// internal/backtest — not a cleanup. internal/audit/part4_guard_test.go fails
+// if any file outside that importer list imports it; adding yourself to the
+// list is not the fix, cutting the dependency is.
+//
 // Package wilson computes Wilson score intervals — the ONLY interval the
 // framework may print for "X of Y" evidence counts (G4 discipline: a raw
 // ratio without an interval is a claim the suite cannot support). Pure

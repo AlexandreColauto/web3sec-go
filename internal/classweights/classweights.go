@@ -1,3 +1,10 @@
+// DEPRECATED — DO NOT BUILD ON THIS PACKAGE (framework-plan-v1.6 Part 4 cut).
+//
+// Part 4 cuts the statistical-eval surface. This package has four importers
+// today (internal/briefing, internal/corpus, internal/report) and cannot be
+// deleted until they are cut with it. internal/audit/part4_guard_test.go fails
+// if any file outside that importer list imports it.
+//
 // Package classweights loads the G2 per-class three-weight table. It is the
 // ONLY door through which historical-loss data may reach ranking, and the
 // door ships LOCKED: every weight starts 1.0 (neutral) and only a G3
