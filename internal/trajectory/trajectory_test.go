@@ -105,12 +105,19 @@ func validHypothesis() validation.Value {
 }
 
 func validRequest() validation.Value {
+	// v1.6 Part 1: a request record must carry its declared input artifact set
+	// (boundary.ValidateRequest refuses one without it). The fixture keeps its
+	// all-zero context_hash — the roundtrip test pins that stamp — so it
+	// declares directly instead of going through boundary.BuildRequest.
 	return validation.VObj(
 		kv("role", validation.VStr("proposer")),
 		kv("model_id", validation.VStr("qwen3-14b")),
 		kv("prompt_version", validation.VStr("0123456789abcdef")),
 		kv("response_schema", validation.VStr("hypothesis")),
-		kv("context_hash", validation.VStr(strings.Repeat("0", 64))))
+		kv("context_hash", validation.VStr(strings.Repeat("0", 64))),
+		kv("input_artifacts", validation.VArr(validation.VObj(
+			kv("kind", validation.VStr("artifact")),
+			kv("id", validation.VStr("ART-aaaa1111"))))))
 }
 
 func validCriticVerdict(fid string) validation.Value {

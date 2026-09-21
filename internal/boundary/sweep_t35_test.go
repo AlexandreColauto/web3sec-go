@@ -353,12 +353,11 @@ func TestTrajectoryIntegrityEndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	req := validation.VObj(
-		kv("role", validation.VStr("proposer")),
-		kv("model_id", validation.VStr("qwen3-14b")),
-		kv("prompt_version", validation.VStr(promptStamp)),
-		kv("response_schema", validation.VStr("hypothesis")),
-		kv("context_hash", validation.VStr(ContextHash(bundle))))
+	// v1.6 Part 1: the request declares the input set it will consume; the
+	// cited set is DERIVED from the bundle, so the fixture cannot drift from
+	// what is sent.
+	req := BuildRequest(bundle, declaredFromBundle(bundle), "proposer",
+		"qwen3-14b", promptStamp, "hypothesis")
 
 	// one rejected generation (a first-class event).
 	bad := setKV(validHypothesis(), "bug_class", validation.VStr("Not-A-Class"))
@@ -520,12 +519,8 @@ func TestEndToEndCampaignWalkthrough(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	req := validation.VObj(
-		kv("role", validation.VStr("proposer")),
-		kv("model_id", validation.VStr("qwen3-14b")),
-		kv("prompt_version", validation.VStr(promptStamp)),
-		kv("response_schema", validation.VStr("hypothesis")),
-		kv("context_hash", validation.VStr(ContextHash(pbundle))))
+	req := BuildRequest(pbundle, declaredFromBundle(pbundle), "proposer",
+		"qwen3-14b", promptStamp, "hypothesis")
 	f, err := IngestModelHypothesis(c, validHypothesis(),
 		HypothesisOpts{Request: req})
 	if err != nil {

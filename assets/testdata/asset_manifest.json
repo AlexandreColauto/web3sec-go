@@ -394,8 +394,8 @@
     "size": 27582
    },
    "RUNBOOK.md": {
-    "sha256": "cfadc6c1897db781d19c3d8e04078c8e4b8bc1c24647e637ff4d618afcf75b6b",
-    "size": 119998
+    "sha256": "58358e4e0aaf7c0392d0dd846166627e8a4dca8a3d56eaea342b3f9bf9c29ed5",
+    "size": 121344
    }
   },
   "schema": {
@@ -452,8 +452,8 @@
     "size": 6807
    },
    "model_request.schema.json": {
-    "sha256": "339832eee8b7087eb79b3cd28d340d5db0312e184d8585010e7412e29d04063b",
-    "size": 2044
+    "sha256": "b8ec8c39d83cc73e4a2dec4daaf0456707891f3804883c21062db8cda7558ccc",
+    "size": 3291
    },
    "model_response.schema.json": {
     "sha256": "3df7e4bf26b4999457522b26f2577bf6d0ba2759494aa58a7880507ca9370866",
@@ -520,8 +520,8 @@
     "size": 2037
    },
    "trajectory.schema.json": {
-    "sha256": "3ca65caeaa75cd03b92d0e1a2828c5a09add2de55e3f5881cbfb12f047b75b2c",
-    "size": 11801
+    "sha256": "3b8e6ecb085b6285cc3f9c2518aba9fc335ff095699dc1cc80fd55f09e1db82f",
+    "size": 13999
    },
    "variant_ladder.schema.json": {
     "sha256": "2e7f6c8e002ff5885f682c6b7c6ff68ead29aeab170b183d73d8bdb5a468783f",

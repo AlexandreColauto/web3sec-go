@@ -14,6 +14,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"regexp"
 	"slices"
 	"sort"
 	"strings"
@@ -110,6 +111,157 @@ func ContextHash(bundle validation.Value) string {
 	return hex.EncodeToString(sum[:])
 }
 
+// artifactIDPattern matches every id shape the framework mints: artifacts,
+// execs, evidence, findings, invariants, snapshots, prices.
+var artifactIDPattern = regexp.MustCompile(
+	`^(ART|EXEC|EV|F|INV|SNAP|PRC)-[0-9a-zA-Z_-]{4,48}$`)
+
+// artifactKeyPattern matches the bundle keys that CARRY ids — the ones the
+// role context builders actually emit (`internal/roles/context.go`,
+// context_critic.go:163, context_reproducer.go:15).
+var artifactKeyPattern = regexp.MustCompile(
+	`^(artifact|evidence|finding|snapshot|exec|invariant|plan)_ids?$|^active_snapshot_id$`)
+
+// BundleArtifacts returns every id the bundle carries under an id-bearing key,
+// deduped in first-seen order. Derivation, not declaration: the set is read
+// off the bytes that are actually sent.
+//
+// The walk is scoped to those keys on purpose. Scanning every leaf string
+// would also match ids quoted in prose, diffs and pasted file contents — the
+// bundle is full of them — and over-inclusion is not the safe direction it
+// looks like: an operator who must declare everything the bundle happens to
+// mention ends up declaring everything, and then the declaration means
+// nothing. Over-inclusion trains the declaration out of existence.
+func BundleArtifacts(bundle validation.Value) []string {
+	out := []string{}
+	seen := map[string]bool{}
+	add := func(s string) {
+		if artifactIDPattern.MatchString(s) && !seen[s] {
+			seen[s] = true
+			out = append(out, s)
+		}
+	}
+	var walk func(v validation.Value)
+	walk = func(v validation.Value) {
+		switch v.Kind {
+		case validation.Obj:
+			for _, kv := range v.O {
+				if artifactKeyPattern.MatchString(kv.K) {
+					collectIDs(kv.V, add)
+					continue
+				}
+				walk(kv.V)
+			}
+		case validation.Arr:
+			for _, x := range v.A {
+				walk(x)
+			}
+		}
+	}
+	walk(bundle)
+	return out
+}
+
+// collectIDs adds the id(s) under one id-bearing key: a bare string, or an
+// array of strings.
+func collectIDs(v validation.Value, add func(string)) {
+	switch v.Kind {
+	case validation.Str:
+		add(v.S)
+	case validation.Arr:
+		for _, x := range v.A {
+			if x.Kind == validation.Str {
+				add(x.S)
+			}
+		}
+	}
+}
+
+// BuildRequest assembles a model_request from the bundle that is actually
+// sent. context_hash pins the bytes; context_artifacts is DERIVED from those
+// same bytes, so no caller can declare a narrow set and send a wide one.
+func BuildRequest(bundle, declaration validation.Value, role, modelID,
+	promptVersion, responseSchema string) validation.Value {
+	return validation.VObj(
+		validation.KV{K: "role", V: validation.VStr(role)},
+		validation.KV{K: "model_id", V: validation.VStr(modelID)},
+		validation.KV{K: "prompt_version", V: validation.VStr(promptVersion)},
+		validation.KV{K: "response_schema", V: validation.VStr(responseSchema)},
+		validation.KV{K: "context_hash", V: validation.VStr(ContextHash(bundle))},
+		validation.KV{K: "input_artifacts", V: declaration},
+		validation.KV{K: "context_artifacts", V: validation.VArr(
+			strValues(BundleArtifacts(bundle))...)},
+	)
+}
+
+// DeclaredInputArtifacts returns the ids in a request's declared input artifact
+// set, in declaration order.
+func DeclaredInputArtifacts(request validation.Value) []string {
+	out := []string{}
+	for _, a := range validation.ObjAt(request, "input_artifacts").A {
+		if id := validation.ObjStr(a, "id"); id != "" {
+			out = append(out, id)
+		}
+	}
+	return out
+}
+
+// InputArtifactsOutsideDeclaration returns every id the context cites that the
+// stage did not declare, in first-seen order. The declaration is the whole
+// point: a stage that reads an artifact it did not declare is the same class
+// of fabrication as a ghost id (v1.6 Part 8, non-negotiable 4).
+func InputArtifactsOutsideDeclaration(request validation.Value) []string {
+	declared := map[string]bool{}
+	for _, id := range DeclaredInputArtifacts(request) {
+		declared[id] = true
+	}
+	seen := map[string]bool{}
+	out := []string{}
+	for _, c := range validation.ObjAt(request, "context_artifacts").A {
+		id := c.S
+		if id == "" || declared[id] || seen[id] {
+			continue
+		}
+		seen[id] = true
+		out = append(out, id)
+	}
+	return out
+}
+
+// strValues is the []string -> []validation.Value bridge for VArr.
+func strValues(ids []string) []validation.Value {
+	out := make([]validation.Value, len(ids))
+	for i, id := range ids {
+		out[i] = validation.VStr(id)
+	}
+	return out
+}
+
+// RecordInputSetRefusal logs the model.rejected event for a request whose
+// input set is undeclared or violated, so the refusal is a ledger fact and not
+// just a returned error. The ref is nil: at request time there is no finding
+// id yet, and a fabricated empty-string ref is a ghost id.
+//
+// The event data satisfies trajectory.schema.json#model_rejected — the caller
+// records only requests that already passed the record contract, so role and
+// kind are the vocabulary that definition requires.
+func RecordInputSetRefusal(c *state.Campaign, request validation.Value,
+	why string) error {
+	data := validation.VObj(
+		validation.KV{K: "role", V: validation.VStr(validation.ObjStr(request, "role"))},
+		validation.KV{K: "kind", V: validation.VStr(validation.ObjStr(request, "response_schema"))},
+		validation.KV{K: "error", V: validation.VStr(pyTrunc(why, 1000))},
+		validation.KV{K: "payload_sha256", V: validation.VStr(
+			sha256Hex(validation.CanonSpaced(request)))},
+		validation.KV{K: "context_hash", V: validation.VStr(validation.ObjStr(request, "context_hash"))},
+		validation.KV{K: "declared", V: validation.VArr(strValues(DeclaredInputArtifacts(request))...)},
+		validation.KV{K: "outside", V: validation.VArr(strValues(InputArtifactsOutsideDeclaration(request))...)},
+		validation.KV{K: "action", V: validation.VStr(
+			"re-declare the stage's input artifact set, or stop consuming the artifact")})
+	_, err := c.Log("model.rejected", nil, &data)
+	return err
+}
+
 // schemaFailures is _schema_failures.
 func schemaFailures(payload validation.Value, kind string) ([]string, error) {
 	return validation.ValidateDefinitionFailures(payload, "model_response", kind)
@@ -120,6 +272,17 @@ func schemaFailures(payload validation.Value, kind string) ([]string, error) {
 func ValidateRequest(request validation.Value) error {
 	if err := validation.Validate(request, "model_request", 1); err != nil {
 		return &BoundaryError{Msg: err.Error()}
+	}
+	// The schema cannot see a MISSING key (the record is still valid without
+	// it, which is what keeps historical requests validating); minItems covers
+	// the empty array. This clause covers the absence.
+	if len(DeclaredInputArtifacts(request)) == 0 {
+		return &BoundaryError{Msg: "model request declares no input artifact set"}
+	}
+	if outside := InputArtifactsOutsideDeclaration(request); len(outside) > 0 {
+		return &BoundaryError{Msg: fmt.Sprintf(
+			"model request cites artifact %s outside its declared input set",
+			outside[0])}
 	}
 	return nil
 }

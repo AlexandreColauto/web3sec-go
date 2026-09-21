@@ -64,6 +64,18 @@ func logHypothesisRequest(campaign *state.Campaign,
 		return nil
 	}
 	if err := ValidateRequest(request); err != nil {
+		// Record the v1.6 declared-input-set refusals — and only those. A
+		// request that fails the record contract itself keeps the pre-v1.6
+		// behaviour (a returned error, no event): it may carry no valid
+		// role/kind at all, and model.rejected's own contract
+		// (trajectory.schema.json#model_rejected) would then be violated by
+		// the framework's event, turning verify_trajectory red on a campaign
+		// the framework itself wrote.
+		if validation.Validate(request, "model_request", 1) == nil {
+			if logErr := RecordInputSetRefusal(campaign, request, err.Error()); logErr != nil {
+				return logErr
+			}
+		}
 		return err
 	}
 	_, err := campaign.Log("model.request", nil, &request)

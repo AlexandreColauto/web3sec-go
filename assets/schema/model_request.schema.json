@@ -46,6 +46,25 @@
       "pattern": "^[0-9a-f]{64}$",
       "description": "sha256 of the canonical serialization of the context bundle actually sent"
     },
+    "input_artifacts": {
+      "type": "array",
+      "minItems": 1,
+      "description": "The declared input artifact set for this stage invocation (v1.6 Part 1). The stage may consume nothing outside it; the declaration is recorded with the request, and an out-of-set input is refused at write time. minItems 1 covers the EMPTY array; the MISSING key is refused by boundary.ValidateRequest, which the schema cannot see. The two clauses are complementary — neither is decoration. The key stays OPTIONAL so requests logged before v1.6 keep validating (refuse-new, grandfather-old).",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "id"],
+        "properties": {
+          "kind": { "enum": ["artifact", "exec", "finding", "snapshot", "invariant", "plan"] },
+          "id": { "type": "string", "minLength": 3, "maxLength": 64 }
+        }
+      }
+    },
+    "context_artifacts": {
+      "type": "array",
+      "description": "Every artifact id the assembled context bundle actually cites, DERIVED by boundary.BuildRequest from the bundle itself (never hand-written). Must be a subset of input_artifacts.",
+      "items": { "type": "string", "minLength": 3, "maxLength": 64 }
+    },
     "campaign_id": { "type": ["string", "null"] },
     "finding_id": { "type": ["string", "null"] }
   }

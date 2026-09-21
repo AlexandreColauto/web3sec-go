@@ -756,7 +756,9 @@ func TestRequestRecordValidation(t *testing.T) {
 		kv("model_id", validation.VStr("qwen3-14b")),
 		kv("prompt_version", validation.VStr(pv)),
 		kv("context_hash", validation.VStr(strings.Repeat("0", 64))),
-		kv("response_schema", validation.VStr("hypothesis")))
+		kv("response_schema", validation.VStr("hypothesis")),
+		// v1.6 Part 1: the record must carry its declared input artifact set.
+		kv("input_artifacts", declaration("ART-aaaa1111")))
 	if err := ValidateRequest(req); err != nil {
 		t.Fatalf("valid request rejected: %v", err)
 	}
