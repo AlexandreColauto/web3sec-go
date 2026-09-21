@@ -54,7 +54,10 @@ func (g *gate) check6() error {
 	if err := g.check6Fork(req); err != nil {
 		return err
 	}
-	return g.check6Economic(req)
+	if err := g.check6Economic(req); err != nil {
+		return err
+	}
+	return g.check6ExploitContract(req)
 }
 
 // check6Fork is the require_fork_repro clause of check 6.
@@ -94,5 +97,27 @@ func (g *gate) check6Economic(req validation.Value) error {
 	g.add("economic-quantified", "fail", "extractable_usd missing or below floor", "")
 	g.blockers = append(g.blockers,
 		"economic impact not quantified to program floor")
+	return nil
+}
+
+// check6ExploitContract is the require_exploit_contract clause of check 6: the
+// program asks for a RUNNABLE exploit contract a triager can execute, not a
+// trace, a reasoning note or a static-analysis hit. Absent/false is a no-op,
+// so no existing campaign's check set changes.
+func (g *gate) check6ExploitContract(req validation.Value) error {
+	if !pyTruthyBigNonEmpty(validation.ObjAt(req, "require_exploit_contract")) {
+		return nil
+	}
+	for _, e := range validation.ObjAt(g.f, "evidence").A {
+		switch validation.ObjStr(e, "type") {
+		case "foundry-test", "fork-test":
+			g.add("exploit-contract", "pass",
+				"runnable contract "+validation.ObjStr(e, "evidence_id"), "")
+			return nil
+		}
+	}
+	g.add("exploit-contract", "fail", "no runnable exploit contract", "")
+	g.blockers = append(g.blockers,
+		"program requires a runnable exploit contract (foundry-test/fork-test evidence)")
 	return nil
 }

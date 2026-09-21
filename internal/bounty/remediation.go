@@ -24,6 +24,7 @@ var BountyRemediation = map[string]string{
 	"evidence-sufficient":  "webv2 mint <fid> --exec <EXEC>   (reproduce at the required tier)",
 	"fork-repro":           "webv2 mint <fid> --exec <EXEC>   (a T3/T4 fork reproduction)",
 	"economic-quantified":  "set economic_impact.extractable_usd from a MEASURED PoC run, priced against the campaign price table (webv2 price set ...)",
+	"exploit-contract":     "webv2 exec <campaign> --profile docker-networkless --command 'forge test --match-test test_exploit' --finding <fid>  then webv2 mint <fid> --exec <EXEC-ID> --type foundry-test   (the program asks for a contract a triager can run, not a trace)",
 	"maximal-exploitation": "webv2 ladder start <fid> ... webv2 ladder complete <fid>   (or: webv2 ladder waive <fid> --reason '...' \u2014 the named escape hatch)",
 	"e7-price-basis":       "webv2 price set <asset> <usd> --source '<where the price came from>' then webv2 price-basis <fid> <PRICE-ID>   (USD figures must name their price row \u2014 no unattributed $)",
 	"claim-drift":          "make the claim and the measurement agree: fix the title, or re-run the PoC and re-measure extraction_ratio",
