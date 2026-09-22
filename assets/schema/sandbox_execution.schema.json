@@ -92,6 +92,31 @@
         "note":               { "type": "string" }
       },
       "required": ["cap_bytes", "stdout_truncated", "stderr_truncated", "output_withheld"]
+    },
+    "expected_outcome": {
+      "enum": ["pass", "fail"],
+      "description": "v16 P1-10a §5.3: the expectation declared BEFORE the run — 'pass' (a passing suite; an ABSENT key means 'pass', which is what every pre-existing record carries) or 'fail' (an absent-guard reproduction, honest only with expected_failure declared here and a class-logic failure at admission)"
+    },
+    "expected_failure": {
+      "type": "string",
+      "minLength": 1,
+      "description": "with expected_outcome 'fail': the failure signature, committed to before the run, that admission must find on a captured line containing the case-sensitive substring FAIL. REQUIRED under 'fail', FORBIDDEN otherwise — a signature under 'pass' is a contradiction, and there is deliberately no 'no signature available' bypass"
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "required": ["expected_outcome"],
+        "properties": { "expected_outcome": { "enum": ["fail"] } }
+      },
+      "then": { "required": ["expected_failure"] }
+    },
+    {
+      "if": { "required": ["expected_failure"] },
+      "then": {
+        "required": ["expected_outcome"],
+        "properties": { "expected_outcome": { "enum": ["fail"] } }
+      }
+    }
+  ]
 }

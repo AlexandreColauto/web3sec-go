@@ -54,6 +54,13 @@ type RunOpts struct {
 	ArtifactID *string
 	Timeout    int
 	Env        []EnvVar
+	// Expect is the PRE-RUN declaration expected_outcome ("pass" or
+	// "fail"; "" leaves the key off the record, which reads as pass).
+	// ExpectFailure is the declared failure signature, required under
+	// "fail" and forbidden under "pass" — both land in the record's FIRST
+	// write, before the payload executes (v16 §5.3 route 2).
+	Expect        string
+	ExpectFailure string
 }
 
 // Run is Sandbox.run: execute with the profile's constraints, capture
@@ -159,6 +166,7 @@ func (f *runFlow) runOpenExecDir() error {
 func (f *runFlow) runWriteInitialRecord() error {
 	f.record = f.s.record(f.execID, f.command, f.opts, f.verdict, f.container,
 		f.started, f.stdoutPath, f.stderrPath)
+	f.record = applyExecExpectation(f.record, f.opts)
 	if err := validation.WriteJson(f.path, f.record, "sandbox_execution"); err != nil {
 		return f.txn.fail(err)
 	}

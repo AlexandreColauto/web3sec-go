@@ -57,27 +57,36 @@ func flagValue(args []string, i int) (string, bool) {
 // execHelp is argparse's `webv2 exec --help` output, byte-exact.
 const execHelp = `usage: webv2 exec [-h] [--profile PROFILE] [--dry-run] --command COMMAND
                   [--workdir WORKDIR] [--finding FINDING] [--timeout TIMEOUT]
-                  [--env K=V]
+                  [--env K=V] [--expect {pass,fail}] [--expect-failure TEXT]
                   campaign
 
 positional arguments:
   campaign
 
 options:
-  -h, --help         show this help message and exit
-  --profile PROFILE  execution profile: host-readonly (host shell — can NEVER
-                     back E4+ evidence) or a container profile (docker-
-                     networkless, docker-gvisor, vm-snapshot, fork-runner —
-                     required for E4+ evidence)
-  --dry-run          print the exact container argv, env keys, network and
-                     workdir mode, then exit — no execution, no EXEC record,
-                     works even when the runtime is absent
+  -h, --help            show this help message and exit
+  --profile PROFILE     execution profile: host-readonly (host shell — can
+                        NEVER back E4+ evidence) or a container profile
+                        (docker-networkless, docker-gvisor, vm-snapshot, fork-
+                        runner — required for E4+ evidence)
+  --dry-run             print the exact container argv, env keys, network and
+                        workdir mode, then exit — no execution, no EXEC
+                        record, works even when the runtime is absent
   --command COMMAND
-  --workdir WORKDIR  working directory (bind-mounted)
-  --finding FINDING  finding this exec is for
+  --workdir WORKDIR     working directory (bind-mounted)
+  --finding FINDING     finding this exec is for
   --timeout TIMEOUT
-  --env K=V          environment variable for the container (repeatable);
-                     recorded by key in the EXEC ledger
+  --env K=V             environment variable for the container (repeatable);
+                        recorded by key in the EXEC ledger
+  --expect {pass,fail}  what this run must do to count as a reproduction
+                        (default: pass — a passing suite). Declared BEFORE the
+                        run and recorded on the EXEC ledger; an absent-guard
+                        defect is evidenced by the expected refusal NOT
+                        happening, which fails by construction
+  --expect-failure TEXT
+                        with --expect fail: the failure signature the run must
+                        show, asserted to appear in the captured output
+                        (required, and refused under --expect pass)
 `
 
 // envKeyRe is Python's re.match(r"[A-Za-z_][A-Za-z0-9_]*", k) — a PREFIX
@@ -86,16 +95,18 @@ var envKeyRe = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*`)
 
 // execArgs carries the parsed argv of the exec verb.
 type execArgs struct {
-	command     string
-	profile     string
-	workdir     string
-	finding     string
-	timeout     int
-	haveTimeout bool
-	dryRun      bool
-	env         []sandbox.EnvVar
-	pos         []string
-	helpSeen    bool
+	command       string
+	profile       string
+	workdir       string
+	finding       string
+	timeout       int
+	haveTimeout   bool
+	dryRun        bool
+	expect        string
+	expectFailure string
+	env           []sandbox.EnvVar
+	pos           []string
+	helpSeen      bool
 }
 
 // execTimeoutSecs parses and range-checks one --timeout value.
@@ -143,7 +154,8 @@ func execParseArgs(args []string, r *Runner) (*execArgs, error) {
 		case a == "--dry-run":
 			pa.dryRun = true
 		case name == "--command" || name == "--profile" || name == "--workdir" ||
-			name == "--finding" || name == "--timeout" || name == "--env":
+			name == "--finding" || name == "--timeout" || name == "--env" ||
+			name == "--expect" || name == "--expect-failure":
 			if !hasVal {
 				next, ok := flagValue(args, i)
 				if !ok {
@@ -170,6 +182,18 @@ func execParseArgs(args []string, r *Runner) (*execArgs, error) {
 				pa.timeout, pa.haveTimeout = n, true
 			case "--env":
 				pa.env = append(pa.env, sandbox.EnvVar{Key: val})
+			case "--expect":
+				// argparse's choices check, byte-exact: an invalid
+				// choice fires DURING the parse loop, before any
+				// cross-field or required-argument check.
+				if val != "pass" && val != "fail" {
+					return nil, argErrf("exec",
+						"argument --expect: invalid choice: %s (choose from "+
+							"'pass', 'fail')", validation.PyReprStr(val))
+				}
+				pa.expect = val
+			case "--expect-failure":
+				pa.expectFailure = val
 			}
 		case a == "-h" || a == "--help":
 			fmt.Fprint(r.Out, execHelp)
@@ -201,6 +225,24 @@ func execCheckArgs(args []string, pa *execArgs) error {
 	if len(missing) > 0 {
 		return requiredErrf("exec", missing...)
 	}
+	// Program-level expectation checks, AFTER argparse's own checks (a
+	// missing --command must still win, like Python: parse_args raises
+	// first, then the program validates its own contract). The pair is
+	// declared together or not at all: a signature under pass is a
+	// contradiction the record cannot carry, and fail without a signature
+	// admits nothing (there is no signature-less admission).
+	if pa.expectFailure != "" && pa.expect != "fail" {
+		return argErrf("exec",
+			"argument --expect-failure: requires --expect fail — a declared "+
+				"failure signature on a run expected to pass is a "+
+				"contradiction (declare --expect fail with it, or drop it)")
+	}
+	if pa.expect == "fail" && pa.expectFailure == "" {
+		return argErrf("exec",
+			"argument --expect: --expect fail requires --expect-failure "+
+				"TEXT — the failure signature must be declared before the "+
+				"run; there is no signature-less admission")
+	}
 	return nil
 }
 
@@ -229,7 +271,7 @@ func runExec(root string, args []string, r *Runner) int {
 		return execPreview(r, pa.profile, pa.command, pa.workdir, parsedEnv)
 	}
 	return execRun(c, pa.pos[0], pa.profile, pa.command, pa.workdir, pa.finding,
-		pa.timeout, parsedEnv, r)
+		pa.timeout, parsedEnv, pa.expect, pa.expectFailure, r)
 }
 
 // haveFlag reports whether an option appeared at all (argparse's required
@@ -403,7 +445,8 @@ func execReport(rec validation.Value, campaignID string, r *Runner) {
 
 // execRun is the preflight + Sandbox.run + result block.
 func execRun(c *state.Campaign, campaignID, profile, command, workdir,
-	finding string, timeout int, env []sandbox.EnvVar, r *Runner) int {
+	finding string, timeout int, env []sandbox.EnvVar, expect, expectFailure string,
+	r *Runner) int {
 	// r4 (critic) / r5 issue 4: the binding check FIRST — it is a cheap
 	// findings-dir read, and a dead binding must not be discovered only
 	// after the operator fixes an unrelated environment problem. A ledger
@@ -427,7 +470,8 @@ func execRun(c *state.Campaign, campaignID, profile, command, workdir,
 		fmt.Fprintf(r.Err, "exec failed: %s\n", err)
 		return 2
 	}
-	opts := sandbox.RunOpts{Timeout: timeout}
+	opts := sandbox.RunOpts{Timeout: timeout, Expect: expect,
+		ExpectFailure: expectFailure}
 	if wd != nil {
 		opts.Workdir = wd
 	}

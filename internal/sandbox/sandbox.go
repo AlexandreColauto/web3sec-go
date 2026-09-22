@@ -131,7 +131,13 @@ func ExecOutputProblem(rec validation.Value) *string {
 			"'No tests found' is not a reproduction — check the "+
 			"--match-test filter / test path and re-run", pyReprOptInt(s.Ran))
 	}
-	if s.HasFailMarker || (s.Failed != nil && *s.Failed > 0) {
+	// v16 §5.3: under expected_outcome "fail" a failing suite is the
+	// EXPECTED shape — the whole point of an absent-guard reproduction —
+	// so that refusal only applies to records expecting (or, as always,
+	// not declaring anything, which reads as) "pass". The NoTests branch
+	// above and the no-counters branch below stay UNCONDITIONAL: a run
+	// that matched nothing proves nothing under either expectation.
+	if ExecExpectedOutcome(rec) == EXPECT_PASS && hasFailingSuite(s) {
 		return problem("forge output shows a failing suite "+
 			"(ran=%s, failed=%s, fail_marker=%s) — a failing test is "+
 			"not a passing reproduction",
@@ -143,6 +149,13 @@ func ExecOutputProblem(rec validation.Value) *string {
 			"full forge output and re-run")
 	}
 	return nil
+}
+
+// hasFailingSuite is the suite-failure verdict of the summary: a [FAIL]
+// marker or a positive failed counter (extracted so ExecOutputProblem's
+// own complexity stays under the house cap).
+func hasFailingSuite(s ForgeSummary) bool {
+	return s.HasFailMarker || (s.Failed != nil && *s.Failed > 0)
 }
 
 // problem renders one Python f-string message and returns its pointer.

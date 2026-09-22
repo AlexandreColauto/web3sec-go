@@ -141,54 +141,212 @@ func ExecTruncatedCapture(rec validation.Value) *TruncatedCapture {
 }
 
 // ValidateExecRecord is the exec-record gate `mint` has always run before it
-// attaches an E4+ item, unchanged in shape: the record must come from an
-// E4-capable sandbox profile, it must have SUCCEEDED (exit 0 with captured
-// output), its output must not trip the forge-meaningfulness check, and
-// (P2-2) a capture the record marks truncated is refused outright — the one
-// clause the kept-bytes readers were missing. The messages are
-// mint's, byte for byte — mint wraps the returned error in its MintError
-// class, ingest names it as a refusal.
+// attaches an E4+ item: the record must come from an E4-capable sandbox
+// profile, its exit status must match the record's DECLARED EXPECTATION
+// (absent expected_outcome means "pass" — today's exit-0 rule, byte-for-byte),
+// its output must not trip the forge-meaningfulness check, and (P2-2) a
+// capture the record marks truncated is refused outright.
+//
+// Under expected_outcome "fail" (v16 §5.3 route 2) the run is admitted only
+// when ALL THREE hold: exit_status is NON-ZERO; expected_failure is present
+// and appears on a captured line that also contains the case-sensitive
+// substring FAIL; and sandbox.ClassifyFailure reports class "logic" — the
+// already-existing authority on whether the run was a real test failure,
+// reused here rather than duplicated. Infrastructure causes (environment,
+// setup, unknown, none) are refused even when the signature matches.
+//
+// The messages are mint's, byte for byte — mint wraps the returned error in
+// its MintError class, ingest names it as a refusal.
 func ValidateExecRecord(execID string, rec validation.Value) error {
+	if err := checkExecExpectationShape(execID, rec); err != nil {
+		return err
+	}
+	if err := checkExecProfile(execID, rec); err != nil {
+		return err
+	}
+	if err := checkExecExit(execID, rec); err != nil {
+		return err
+	}
+	if err := checkExecOutputNonEmpty(execID, rec); err != nil {
+		return err
+	}
+	if err := checkExecCaptureComplete(execID, rec); err != nil {
+		return err
+	}
+	if prob := sandbox.ExecOutputProblem(rec); prob != nil {
+		return fmt.Errorf("exec %s: %s", execID, *prob)
+	}
+	if sandbox.ExecExpectedOutcome(rec) == sandbox.EXPECT_FAIL {
+		return checkExpectedFailure(execID, rec)
+	}
+	return nil
+}
+
+// checkExecExpectationShape refuses the two record shapes the schema itself
+// forbids (defense in depth for hand-edited ledger rows, which are read
+// without schema validation): an unreadable expected_outcome, and a declared
+// failure signature under any expectation other than "fail". No-op for every
+// record without the new keys — the load-bearing backward-compatibility
+// property.
+func checkExecExpectationShape(execID string, rec validation.Value) error {
+	outcome := validation.ObjStr(rec, "expected_outcome")
+	if outcome != "" && outcome != sandbox.EXPECT_PASS &&
+		outcome != sandbox.EXPECT_FAIL {
+		return fmt.Errorf("exec %s: expected_outcome %s is not one of "+
+			"'pass' | 'fail' — an unreadable expectation admits nothing "+
+			"— re-register the exec with a valid value", execID,
+			validation.PyReprStr(outcome))
+	}
+	if sig := sandbox.ExecExpectedFailure(rec); sig != "" &&
+		outcome != sandbox.EXPECT_FAIL {
+		shown := outcome
+		if shown == "" {
+			shown = "(absent)"
+		}
+		return fmt.Errorf("exec %s: expected_failure %s is declared under "+
+			"expected_outcome %s — a failure signature is required under "+
+			"'fail' and forbidden otherwise; a signature on a run expected "+
+			"to pass is a contradiction the record cannot carry",
+			execID, validation.PyReprStr(sig), shown)
+	}
+	return nil
+}
+
+// checkExecProfile is ValidateExecRecord's profile gate (unchanged).
+func checkExecProfile(execID string, rec validation.Value) error {
 	profile := validation.ObjStr(rec, "profile")
 	if _, ok := sandbox.E4_PROFILES[profile]; !ok {
 		return fmt.Errorf("exec %s ran under %s; E4+ evidence requires a "+
 			"container/VM profile — re-run the repro sandboxed", execID,
 			validation.PyReprStr(profile))
 	}
+	return nil
+}
+
+// checkExecExit compares exit_status against the record's declared
+// expectation: under "pass" (the default) exit must be 0 — today's rule and
+// message, byte for byte; under "fail" exit must be NON-ZERO, and a run
+// that succeeded cannot demonstrate the expected failure.
+func checkExecExit(execID string, rec validation.Value) error {
 	exit := validation.ObjAt(rec, "exit_status")
+	if sandbox.ExecExpectedOutcome(rec) == sandbox.EXPECT_FAIL {
+		if exit.Kind == validation.Int && exit.I != 0 {
+			return nil
+		}
+		return fmt.Errorf("exec %s: expected_outcome is 'fail' but "+
+			"exit_status is %s — an expected-failure reproduction must exit "+
+			"NON-ZERO; a run that succeeded does not demonstrate the "+
+			"expected failure — re-run the repro, or declare the "+
+			"expectation as pass if this run was meant to succeed",
+			execID, pyReprScalar(exit))
+	}
 	if !(exit.Kind == validation.Int && exit.I == 0) {
 		return fmt.Errorf("exec %s exited with status %s; a run that did not "+
 			"succeed is not a reproduction — fix the PoC and re-run before "+
 			"minting evidence", execID, pyReprScalar(exit))
 	}
-	if strings.TrimSpace(sandbox.ExecOutput(rec)) == "" {
-		return fmt.Errorf("exec %s exited 0 with EMPTY captured output; a run "+
-			"that printed nothing cannot demonstrate a reproduction — verify "+
-			"the exec actually ran (check image entrypoint/command wiring) and "+
-			"re-run before minting evidence", execID)
-	}
-	// P2-2: a capture the record itself marks TRUNCATED is unfit for
-	// evidence — whichever stream, whatever the kept bytes look like. The
-	// meaningfulness verdict below was computed over the KEPT bytes only,
-	// and the run's verdict lines could sit past the cap in either
-	// direction: their absence AND their presence are both unprovable from
-	// a truncated capture (exec.go's own comment — "a truncated log can
-	// never pass as complete" — was falsified by the mint path until this
-	// gate read the flag; the RUNBOOK's "truncated logs are rejected" is
-	// true again). The refusal names the observed capture accounting:
-	// which stream, kept vs total. Runs BEFORE the meaningfulness check:
-	// a truncated capture cannot argue its kept prefix either way.
-	if tc := ExecTruncatedCapture(rec); tc != nil {
-		return fmt.Errorf("exec %s: %s — the output verdict was computed "+
-			"over the kept bytes only, and the run's verdict lines could "+
-			"sit past the cap (their absence AND their presence are "+
-			"unprovable), so a truncated capture is unfit for evidence — "+
-			"re-run with output under the cap", execID, tc.Accounting())
-	}
-	if prob := sandbox.ExecOutputProblem(rec); prob != nil {
-		return fmt.Errorf("exec %s: %s", execID, *prob)
-	}
 	return nil
+}
+
+// checkExecOutputNonEmpty is the emptiness gate: under "pass" its message is
+// today's, byte for byte; under "fail" a non-empty capture is equally
+// required (a FAIL line with the signature cannot exist on silence).
+func checkExecOutputNonEmpty(execID string, rec validation.Value) error {
+	if strings.TrimSpace(sandbox.ExecOutput(rec)) != "" {
+		return nil
+	}
+	if sandbox.ExecExpectedOutcome(rec) == sandbox.EXPECT_FAIL {
+		return fmt.Errorf("exec %s: expected_outcome is 'fail' but the "+
+			"captured output is EMPTY (exit status %s) — an empty capture "+
+			"can never show the declared signature on a FAIL line — verify "+
+			"the exec actually ran and re-run before minting evidence",
+			execID, pyReprScalar(validation.ObjAt(rec, "exit_status")))
+	}
+	return fmt.Errorf("exec %s exited 0 with EMPTY captured output; a run "+
+		"that printed nothing cannot demonstrate a reproduction — verify "+
+		"the exec actually ran (check image entrypoint/command wiring) and "+
+		"re-run before minting evidence", execID)
+}
+
+// checkExecCaptureComplete is the P2-2 truncation refusal (moved verbatim):
+// a capture the record itself marks TRUNCATED is unfit for evidence —
+// whichever stream, whatever the kept bytes look like. The meaningfulness
+// verdict was computed over the KEPT bytes only, and the run's verdict lines
+// could sit past the cap in either direction: their absence AND their
+// presence are both unprovable from a truncated capture (exec.go's own
+// comment — "a truncated log can never pass as complete" — was falsified by
+// the mint path until this gate read the flag; the RUNBOOK's "truncated logs
+// are rejected" is true again). The refusal names the observed capture
+// accounting: which stream, kept vs total. Runs BEFORE the meaningfulness
+// check and before the expected-failure check: a truncated capture cannot
+// argue its kept prefix either way.
+func checkExecCaptureComplete(execID string, rec validation.Value) error {
+	tc := ExecTruncatedCapture(rec)
+	if tc == nil {
+		return nil
+	}
+	return fmt.Errorf("exec %s: %s — the output verdict was computed "+
+		"over the kept bytes only, and the run's verdict lines could "+
+		"sit past the cap (their absence AND their presence are "+
+		"unprovable), so a truncated capture is unfit for evidence — "+
+		"re-run with output under the cap", execID, tc.Accounting())
+}
+
+// checkExpectedFailure is admission predicate 2's record half under
+// expected_outcome "fail" (the exit half is checkExecExit): the declared
+// signature must be present and must occur on a captured line that ALSO
+// contains the case-sensitive substring FAIL — not a forge-format-specific
+// "[FAIL:" prefix (forge's punctuation drifts between versions) and not the
+// whole output blob (where a comment or a printed string could satisfy it) —
+// and the run must classify as class "logic". No signature nameable, no
+// mint: there is deliberately no bypass.
+func checkExpectedFailure(execID string, rec validation.Value) error {
+	sig := sandbox.ExecExpectedFailure(rec)
+	if sig == "" {
+		return fmt.Errorf("exec %s: expected_outcome is 'fail' but "+
+			"expected_failure is missing — the failure signature must be "+
+			"declared at exec time, before the run; a record that says "+
+			"'fail' without naming the failure proves nothing", execID)
+	}
+	if !failureSignatureOnFailLine(sandbox.ExecOutput(rec), sig) {
+		return fmt.Errorf("exec %s: expected_failure %s does not appear on "+
+			"any captured line containing the substring FAIL — the declared "+
+			"failure signature must be seen on a failing line of the "+
+			"captured output (declared before the run, checked now)",
+			execID, validation.PyReprStr(sig))
+	}
+	return checkFailureClassIsLogic(execID, rec)
+}
+
+// failureSignatureOnFailLine is the signature check: some single line holds
+// both the signature and the substring FAIL (case-sensitive).
+func failureSignatureOnFailLine(out, sig string) bool {
+	for _, line := range strings.Split(out, "\n") {
+		if strings.Contains(line, "FAIL") && strings.Contains(line, sig) {
+			return true
+		}
+	}
+	return false
+}
+
+// checkFailureClassIsLogic reuses sandbox.ClassifyFailure — the
+// already-existing authority on whether the run was a real test failure —
+// and admits only class "logic" ("the harness ran and the hypothesis lost a
+// round — this is the only class that argues the finding"). Every other
+// class, including the infrastructure causes, is refused even when the
+// signature matches: a typo, a missing dependency or a down daemon is
+// satisfied by an absent-guard signature just as well as an absent guard.
+func checkFailureClassIsLogic(execID string, rec validation.Value) error {
+	res := sandbox.ClassifyFailure(rec)
+	cls := validation.ObjStr(res, "class")
+	if cls == "logic" {
+		return nil
+	}
+	return fmt.Errorf("exec %s: the failure classified as class %s (%s) — "+
+		"only class 'logic' may back an expected-failure reproduction; "+
+		"infrastructure causes (environment, setup, unknown, none) are "+
+		"refused even when the signature matches", execID,
+		validation.PyReprStr(cls), validation.ObjStr(res, "note"))
 }
 
 // MintedExecEvidenceItem builds the E4/E5 evidence dict mint records for an

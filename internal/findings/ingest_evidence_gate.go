@@ -113,6 +113,22 @@ func verifyExecReference(campaign *state.Campaign, item validation.Value,
 				artifact, validation.PyRepr(validation.ObjAt(rec, "finding_id")),
 				validation.PyReprStr(findingID))
 		}
+		// v16 §5.3: the record's declared expectation governs the exit
+		// verdict here too — this trio runs AFTER mint's own gate on every
+		// mint path, so without this branch an admitted expected-failure
+		// record would still die on "must cite a run that succeeded" and
+		// the new admission rule would have no end-to-end path. Under
+		// "fail" the whole admission rule is ValidateExecRecord's (one
+		// function, one opinion — this file must not fork a second one; it
+		// also inherits the truncation and contradiction refusals). Under
+		// "pass" (the default, absent keys included) today's trio runs
+		// with its messages byte for byte.
+		if err := checkExecExpectationShape(artifact, rec); err != nil {
+			return err
+		}
+		if sandbox.ExecExpectedOutcome(rec) == sandbox.EXPECT_FAIL {
+			return ValidateExecRecord(artifact, rec)
+		}
 		exit := validation.ObjAt(rec, "exit_status")
 		if !isZero(exit) {
 			return fmt.Errorf("exec %s exited with status %s; E4+ evidence "+

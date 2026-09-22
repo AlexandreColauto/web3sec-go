@@ -154,7 +154,8 @@ var argparseUsageBlocks = map[string]string{
 		"--command COMMAND\n" +
 		"                  [--workdir WORKDIR] [--finding FINDING] " +
 		"[--timeout TIMEOUT]\n" +
-		"                  [--env K=V]\n" +
+		"                  [--env K=V] [--expect {pass,fail}] " +
+		"[--expect-failure TEXT]\n" +
 		"                  campaign\n",
 	"mint": "usage: webv2 mint [-h] --exec EXEC_ID --description DESCRIPTION\n" +
 		"                  [--tier {T1,T2,T3,T4}]\n" +
