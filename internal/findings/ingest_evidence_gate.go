@@ -102,6 +102,15 @@ func verifyExecReference(campaign *state.Campaign, item validation.Value,
 		if err != nil {
 			return err
 		}
+		// v16 §4.1: the ledger's anchor is checked FIRST — before any
+		// admission rule reads the record's own word. A record edited
+		// after its event (exit_status flipped, expected_outcome and
+		// expected_failure stamped in) is refused here, naming both
+		// digests, instead of being blessed below. Absent anchor keys
+		// are fail-open (exec_record_anchor.go).
+		if err := sandbox.VerifyExecRecordAnchor(campaign, artifact, rec); err != nil {
+			return err
+		}
 		if validation.ObjStr(rec, "profile") != profile {
 			return fmt.Errorf("evidence claims profile %s but exec %s ran "+
 				"under %s", validation.PyReprStr(profile), artifact,

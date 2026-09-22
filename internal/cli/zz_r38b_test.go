@@ -23,12 +23,12 @@ package cli
 // records.
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"websec/internal/findings"
-	"websec/internal/sandbox"
 	"websec/internal/state"
 	"websec/internal/validation"
 )
@@ -38,20 +38,9 @@ import (
 // MintError rendering, and NO evidence item on the finding.
 func TestR38bMintRefusesTruncatedCapture(t *testing.T) {
 	f := t20Setup(t)
-	rec, err := sandbox.RegisterExec(f.c, sandbox.RegisterOpts{
-		Profile:    "docker-networkless",
-		Command:    "forge test --match-test poc",
-		ReportedBy: "r38b",
-		ExitStatus: 0,
-		FindingID:  &f.fid,
-		StdoutText: "Ran 1 test in 3ms (test suite successful)\n",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	r38bMarkRecordCapture(t, f.c, validation.ObjStr(rec, "exec_id"),
+	id := r38bSeedExec(t, f.c, f.fid, 0,
+		"Ran 1 test in 3ms (test suite successful)\n",
 		r38bTruncatedCapture(10485819))
-	id := validation.ObjStr(rec, "exec_id")
 	code, out, errS := run(t, "--root", f.root, "mint", f.c.CampaignID,
 		f.fid, "--exec", id, "--description", "the PoC reproduced it",
 		"--type", "foundry-test")
@@ -82,21 +71,10 @@ func TestR38bMintRefusesTruncatedCapture(t *testing.T) {
 // stdout line keeps its pinned shape and the item lands at level E4.
 func TestR38bMintUntruncatedUnchanged(t *testing.T) {
 	f := t20Setup(t)
-	rec, err := sandbox.RegisterExec(f.c, sandbox.RegisterOpts{
-		Profile:    "docker-networkless",
-		Command:    "forge test --match-test poc",
-		ReportedBy: "r38b",
-		ExitStatus: 0,
-		FindingID:  &f.fid,
-		StdoutText: "Ran 1 test in 3ms (test suite successful)\n" +
+	id := r38bSeedExec(t, f.c, f.fid, 0,
+		"Ran 1 test in 3ms (test suite successful)\n"+
 			"Suite result: ok. 1 passed; 0 failed\n",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	r38bMarkRecordCapture(t, f.c, validation.ObjStr(rec, "exec_id"),
 		r38bCompleteCapture(105))
-	id := validation.ObjStr(rec, "exec_id")
 	code, out, errS := run(t, "--root", f.root, "mint", f.c.CampaignID,
 		f.fid, "--exec", id, "--description", "the PoC reproduced it",
 		"--type", "foundry-test")
@@ -208,4 +186,70 @@ func r38bMarkRecordCapture(t *testing.T, c *state.Campaign, execID string,
 	if err := validation.WriteJson(path, rec, "sandbox_execution"); err != nil {
 		t.Fatalf("rewriting %s: %v", path, err)
 	}
+}
+
+// r38bSeedExec writes the docker-networkless exec record these tests measure
+// — capture accounting INCLUDED — and NO carrier event, returning its exec id.
+//
+// The record is a FIXTURE standing in for what a live run writes, and it is
+// seeded out-of-band for the same reason the two harness seeds are
+// (scripts/verify-full.sh's seed_p2_exec, scripts/golden-run.py's seed_exec):
+// a sandbox.exec event commits the ledger to the record's digest (v1.6), so a
+// record shaped AFTER its event is exactly the post-hoc edit the anchor
+// refuses. These tests measure the truncation gate, not the anchor, so their
+// fixture must not be that edit — before the anchor they rewrote a
+// RegisterExec record in place, which is now indistinguishable from the
+// tamper (TestMintRefusesAnExecRecordEditedAfterTheEvent owns that subject).
+func r38bSeedExec(t *testing.T, c *state.Campaign, fid string, exitStatus int64,
+	stdout string, capture []validation.KV) string {
+	t.Helper()
+	execID := "EXEC-" + validation.Sha256Hex([]byte(stdout))[:10]
+	dir := filepath.Join(c.ExecsDir, execID)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	stdoutPath := filepath.Join(dir, "stdout.log")
+	stderrPath := filepath.Join(dir, "stderr.log")
+	if err := os.WriteFile(stdoutPath, []byte(stdout), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(stderrPath, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	rec := r38bRecord(c, fid, execID, exitStatus, stdout, stdoutPath,
+		stderrPath, capture)
+	if err := validation.WriteJson(filepath.Join(dir, "exec_record.json"),
+		rec, "sandbox_execution"); err != nil {
+		t.Fatal(err)
+	}
+	return execID
+}
+
+// r38bRecord is the record body r38bSeedExec writes: the docker-networkless
+// shape a live run produces, with the capture accounting already in place.
+func r38bRecord(c *state.Campaign, fid, execID string, exitStatus int64,
+	stdout, stdoutPath, stderrPath string, capture []validation.KV) validation.Value {
+	return validation.VObj(
+		kvT("exec_id", validation.VStr(execID)),
+		kvT("campaign_id", validation.VStr(c.CampaignID)),
+		kvT("profile", validation.VStr("docker-networkless")),
+		kvT("finding_id", validation.VStr(fid)),
+		kvT("artifact_id", validation.VNull()),
+		kvT("command", validation.VStr("forge test --match-test poc")),
+		kvT("policy_verdict", validation.VObj(
+			kvT("allowed", validation.VBool(true)),
+			kvT("violations", validation.VArr()))),
+		kvT("container", validation.VNull()),
+		kvT("origin", validation.VStr("locally-executed")),
+		kvT("reported_by", validation.VNull()),
+		kvT("started_at", validation.VStr("2026-09-11T05:06:07+00:00")),
+		kvT("finished_at", validation.VStr("2026-09-11T05:06:08+00:00")),
+		kvT("exit_status", validation.VInt(exitStatus)),
+		kvT("stdout_path", validation.VStr(stdoutPath)),
+		kvT("stderr_path", validation.VStr(stderrPath)),
+		kvT("artifact_hashes", validation.VObj(
+			kvT("stdout.log", validation.VStr(validation.Sha256Hex([]byte(stdout)))),
+			kvT("stderr.log", validation.VStr(validation.Sha256Hex(nil))))),
+		kvT("output_capture", validation.VObj(capture...)),
+	)
 }

@@ -455,6 +455,16 @@ func IngestExecRefEvidence(c *state.Campaign, findingID string, finding,
 		return validation.VNull(), fmt.Errorf("ingest refused: evidence %s "+
 			"exec_ref %s: %s", eid, ref, err)
 	}
+	// v16 §4.1: the ledger's anchor, checked AFTER ValidateExecRecord — the
+	// record's own word must first be admissible (a record that is not
+	// admitted needs no tamper verdict), and then the anchor decides
+	// whether that word was the one committed to at exec time. It cannot
+	// live inside ValidateExecRecord: that signature has no campaign to
+	// read the ledger from.
+	if err := sandbox.VerifyExecRecordAnchor(c, ref, rec); err != nil {
+		return validation.VNull(), fmt.Errorf("ingest refused: evidence %s "+
+			"exec_ref %s: %s", eid, ref, err)
+	}
 	level, etype := MintEvidenceLevelType(RecordedReproTier(finding), nil)
 	// I-4 (critic round 1): the derivation is authoritative — mint's own
 	// answer for this exec and finding — but a payload that DECLARED a

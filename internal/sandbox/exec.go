@@ -249,11 +249,14 @@ func (f *runFlow) runExecuteAndLog() error {
 		return f.txn.fail(err)
 	}
 	ref := f.execID
-	data := validation.VObj(
-		validation.KV{K: "profile", V: validation.VStr(f.s.Profile)},
-		validation.KV{K: "exit", V: validation.VInt(int64(exitStatus))},
-		validation.KV{K: "finding", V: optStrValue(f.opts.FindingID)},
-	)
+	// v1.6: the record has just been written above, so the event can anchor
+	// it — one digest over the whole final record, no ordering problem and
+	// no second write (exec_record_anchor.go).
+	data := validation.VObj(append([]validation.KV{
+		{K: "profile", V: validation.VStr(f.s.Profile)},
+		{K: "exit", V: validation.VInt(int64(exitStatus))},
+		{K: "finding", V: optStrValue(f.opts.FindingID)},
+	}, ExecRecordAnchorKVs(f.record)...)...)
 	if _, err := f.s.Campaign.Log("sandbox.exec", &ref, &data); err != nil {
 		// r39 F2: the payload has ALREADY RUN (execute() is above), so the
 		// honest answer is not "nothing happened". Restore the pre-write

@@ -157,12 +157,15 @@ func (f *registerExecFlow) regExecWriteRecord() error {
 // unwinds the exec dir.
 func (f *registerExecFlow) regExecLog() error {
 	ref := f.execID
-	data := validation.VObj(
-		validation.KV{K: "profile", V: validation.VStr(f.opts.Profile)},
-		validation.KV{K: "exit", V: validation.VInt(int64(f.opts.ExitStatus))},
-		validation.KV{K: "reported_by", V: validation.VStr(f.opts.ReportedBy)},
-		validation.KV{K: "finding", V: optStrValue(f.opts.FindingID)},
-	)
+	// v1.6: the same anchor as Run's sandbox.exec — the record is already on
+	// disk (regExecWriteRecord), and anchoring only the Run path would leave
+	// the same hand-edit open through this writer (exec_record_anchor.go).
+	data := validation.VObj(append([]validation.KV{
+		{K: "profile", V: validation.VStr(f.opts.Profile)},
+		{K: "exit", V: validation.VInt(int64(f.opts.ExitStatus))},
+		{K: "reported_by", V: validation.VStr(f.opts.ReportedBy)},
+		{K: "finding", V: optStrValue(f.opts.FindingID)},
+	}, ExecRecordAnchorKVs(f.record)...)...)
 	if _, err := f.c.Log("sandbox.exec.registered", &ref, &data); err != nil {
 		// r39 F2: same unwinding as Run. The execution happened OUTSIDE this
 		// process (origin=externally-reported), so nothing here can undo it —

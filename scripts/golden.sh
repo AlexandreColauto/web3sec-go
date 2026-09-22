@@ -6,7 +6,7 @@
 # committed P4 fixture behind WEBV2_POC_ROOT / WEBV2_EVAL_DIR /
 # WEBV2_SFT_STORE. The pins exist so a 179-step sequence of FRESH PROCESSES
 # replays reproducibly; check-golden.py then validates the resulting tree
-# (declared exit codes, intact event chain, 14 audit sections).
+# (declared exit codes, intact event chain, 16 rendered audit sections).
 # Go-only since the twin retired 2026-09-09; the P4 recipe and its fixture
 # are the frozen oracle. See docs/gates/P4-gate.md and golden-v5.
 set -u

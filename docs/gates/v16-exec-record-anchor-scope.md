@@ -498,6 +498,31 @@ as fail-closed: it breaks the two seeding harnesses, which have no event at all
 for the record they mint against. It would not close the residual either: it is
 still evaluated over the events that exist.
 
+**RESIDUAL — carrier-event deletion (named, accepted, NOT closed).** The threat
+is that an adversary deletes the carrier `sandbox.exec` event that anchors a
+record's digest — and, because `verify` compares the `campaign_state.json` mirror
+against the log's suffix, the mirrored copy of that event too — after which the
+exec's `exec_record.json` can be edited freely and the campaign still audits
+green: the section is event-driven by design (§5), so a deleted carrier produces
+no `exec_record_anchor` row at all, and no other section ever recomputes the
+digest. The capability this requires is **ledger-write** — rewriting the
+hash-chained `events.jsonl`, recomputing `prev_hash`/`event_hash` for the
+surviving events after the deleted one, and rewriting the projection — which is
+strictly stronger than editing a JSON projection; the anchor closes *post-hoc
+stamping of a live record* by whoever can write the record, not an adversary who
+can rewrite the ledger file itself. The single mechanism that would close it is
+an **external head-hash pin** (a committed head hash, or a copy of the mirror
+outside the campaign directory), which is a separate mechanism carrying its own
+trust question — where the head lives, who writes it, and what happens on
+deliberate drift. It is out of scope here and is deliberately left open (§9,
+question 2). The precise boundary of the residual: a DAMAGED ledger — an
+`events.jsonl` that cannot be read — fails closed at mint, because
+`VerifyExecRecordAnchor` propagates the `c.Events()` read error, while an
+ABSENT ledger folds to an empty log inside `(*state.Campaign).Events`
+(ENOENT → nil) and therefore fails OPEN at mint, exactly like the
+pre-anchor state; the audit still goes red on both through the `event_log`
+section, so the asymmetry is recorded here rather than closed.
+
 ### 4.4 The deferred strictness decision
 
 Whether an *unanchored* event should ever gate an admission is an operator-policy
@@ -950,6 +975,20 @@ so they are visible rather than buried.
    text surface moves); option (b) surface it in the text audit as a WARN, which
    would make the legacy fixture's text audit carry a WARN line while still
    exiting PASS. This is a reader-experience call, not an integrity one.
+
+**Decided by the operator (2026-09-21), recorded so the questions above are not
+re-opened:**
+
+- **Q1 — fail-open stands, permanently.** "Unanchored never gates" is the
+  intended posture, exactly as §4.2/§4.4 recommend.
+- **Q2 — the residual is ACCEPTED and documented, not closed.** See the named
+  residual at the end of §4.3. No external head pin is added in v1.6.
+- **Q3 — option (b), as an ADVISORY, never a WARN.** The count is surfaced in
+  the text audit (`webv2 audit`), on a channel that **cannot** count as a
+  problem: the audit grew a non-problem advisory channel
+  (`audit.AuditAdvisories` → `note:` lines on stderr, `internal/cli/cmd_audit.go`)
+  rather than a WARN row, because the frozen fixture's two unanchored events
+  would otherwise turn `scripts/verify-full.sh` step 9 red by construction.
 
 **Resolved here, not open — recorded so a reader does not re-litigate them:**
 

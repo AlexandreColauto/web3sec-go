@@ -50,4 +50,10 @@ func RegisterAll(register func(name string, fn SectionFunc)) {
 	// two gate scripts pin are unchanged for every campaign that is not a
 	// regression target. Registered LAST, after v16_coverage.
 	register("regression_suite", RegressionSuite)
+	// v1.6: the exec-record anchor. PRESENCE-GATED (ErrSkip when the
+	// campaign has no sandbox.exec / sandbox.exec.registered event at all),
+	// so the Python parity vectors and the pinned rendered-section lists are
+	// unchanged for campaigns that never exec. Registered LAST, after
+	// regression_suite, so every earlier section keeps its relative order.
+	register("exec_record_anchor", ExecRecordAnchor)
 }

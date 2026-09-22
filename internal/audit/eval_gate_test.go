@@ -74,6 +74,8 @@ func TestEvalAbsentWithoutMatch(t *testing.T) {
 		t.Fatal("report carries an eval section for an unmatched campaign")
 	}
 	if got := sectionNames(t, report); len(got) != 15 {
+		// gateCampaign only ingests hypotheses, so the presence-gated
+		// exec_record_anchor does not render either.
 		t.Fatalf("sections = %v, want the 14 ported names + v16_coverage", got)
 	}
 	if text := validation.DumpIndented(report); strings.Contains(text, "## eval") {

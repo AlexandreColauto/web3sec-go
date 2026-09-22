@@ -157,7 +157,9 @@ func TestAuditClean(t *testing.T) {
 	}
 	secs := rep["sections"].(map[string]any)
 	// The 14 ported sections plus the unconditional v1.6 coverage section
-	// (the presence-gated eval/price_table do not render here).
+	// (the presence-gated eval/price_table/exec_record_anchor do not render
+	// here: this campaign is a bare init, so it never priced anything and
+	// holds no sandbox.exec event).
 	if len(secs) != 15 {
 		t.Fatalf("sections = %d, want 15", len(secs))
 	}

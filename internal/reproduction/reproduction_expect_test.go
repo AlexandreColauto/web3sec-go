@@ -9,10 +9,12 @@ package reproduction
 // construction.
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"websec/internal/sandbox"
 	"websec/internal/state"
 	"websec/internal/validation"
 )
@@ -25,18 +27,80 @@ const absentGuardOut = "[FAIL] testFinalizeDeposit() MissingGuard was not " +
 	"Suite result: FAILED. 0 passed; 5 failed; 0 skipped; 0 pending\n" +
 	"Ran 5 tests for test/Bridge.t.sol:BridgeTest\n"
 
-// stampExpect rewrites the registered exec record with the expectation keys
-// `webv2 exec --expect ...` would have carried, and returns the updated
-// record. (RegisterExec has no expectation keyword — the CLI's own run path
-// stamps them at registration; the ledger-entry twin stays untouched.)
-func stampExpect(t *testing.T, c *state.Campaign, rec validation.Value,
-	kvs ...validation.KV) validation.Value {
+// expectExec seeds the docker-networkless exec record these tests measure —
+// the operator's PRE-RUN declaration included — and its ledger entry, and
+// returns the record.
+//
+// The declaration has to be on disk before the run's ledger entry exists.
+// v1.6's exec-record anchor commits `sandbox.exec.registered` to the digest of
+// the whole record, so a record whose expectation keys were stamped in
+// AFTERWARDS is indistinguishable from the tamper the anchor refuses
+// (internal/findings' TestMintRefusesAnExecRecordEditedAfterTheEvent owns that
+// subject). register_exec has no expectation keyword — the CLI's own run path
+// (`webv2 exec --expect ...`, sandbox.RunOpts.Expect -> applyExecExpectation)
+// stamps them into the record the FIRST write already carries — and a real
+// docker-networkless run is not available to a unit test, so the record is
+// written here and then anchored by its own event, in regExecLog's order:
+// record first, digest second. (Before the anchor this helper rewrote a
+// registered record in place.)
+func expectExec(t *testing.T, c *state.Campaign, fid, stdout string, exit int,
+	outcome, signature string) validation.Value {
 	t.Helper()
-	rec.O = append(rec.O, kvs...)
-	p := filepath.Join(c.ExecsDir, validation.ObjStr(rec, "exec_id"),
-		"exec_record.json")
-	if err := validation.WriteJson(p, rec, "sandbox_execution"); err != nil {
+	execID := "EXEC-" + validation.Sha256Hex([]byte(stdout))[:10]
+	dir := filepath.Join(c.ExecsDir, execID)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
+	}
+	stdoutPath := filepath.Join(dir, "stdout.log")
+	if err := os.WriteFile(stdoutPath, []byte(stdout), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	rec := expectRecord(c, fid, execID, stdoutPath, exit, outcome, signature)
+	if err := validation.WriteJson(filepath.Join(dir, "exec_record.json"),
+		rec, "sandbox_execution"); err != nil {
+		t.Fatal(err)
+	}
+	ref := execID
+	data := validation.VObj(append([]validation.KV{
+		{K: "profile", V: validation.VStr("docker-networkless")},
+		{K: "exit", V: validation.VInt(int64(exit))},
+	}, sandbox.ExecRecordAnchorKVs(rec)...)...)
+	if _, err := c.Log("sandbox.exec.registered", &ref, &data); err != nil {
+		t.Fatal(err)
+	}
+	return rec
+}
+
+// expectRecord is expectExec's record body: the docker-networkless shape
+// register_exec writes, with the pre-run declaration already in place.
+func expectRecord(c *state.Campaign, fid, execID, stdoutPath string, exit int,
+	outcome, signature string) validation.Value {
+	rec := validation.VObj(
+		kv("exec_id", validation.VStr(execID)),
+		kv("campaign_id", validation.VStr(c.CampaignID)),
+		kv("profile", validation.VStr("docker-networkless")),
+		kv("finding_id", validation.VStr(fid)),
+		kv("artifact_id", validation.VNull()),
+		kv("command", validation.VStr("forge test")),
+		kv("workdir", validation.VNull()),
+		kv("policy_verdict", validation.VObj(
+			kv("allowed", validation.VBool(true)),
+			kv("violations", validation.VArr()))),
+		kv("container", validation.VNull()),
+		kv("origin", validation.VStr("externally-reported")),
+		kv("reported_by", validation.VStr("tester")),
+		kv("started_at", validation.VStr("2026-09-11T05:06:07+00:00")),
+		kv("finished_at", validation.VStr("2026-09-11T05:06:08+00:00")),
+		kv("exit_status", validation.VInt(int64(exit))),
+		kv("stdout_path", validation.VStr(stdoutPath)),
+		kv("stderr_path", validation.VStr(filepath.Join(
+			filepath.Dir(stdoutPath), "stderr.log"))),
+	)
+	if outcome != "" {
+		rec.O = append(rec.O, kv("expected_outcome", validation.VStr(outcome)))
+	}
+	if signature != "" {
+		rec.O = append(rec.O, kv("expected_failure", validation.VStr(signature)))
 	}
 	return rec
 }
@@ -48,12 +112,7 @@ func TestMintExpectedFailureEndToEnd(t *testing.T) {
 	// non-zero exit, class logic.
 	c := newCampaign(t, "Acme Program")
 	fid := ingest(t, c, hypoPayload("access-control"), "code", "")
-	rec := registerExec(t, c, "docker-networkless", "forge test",
-		absentGuardOut, "tester", 1, fid)
-	rec = stampExpect(t, c, rec,
-		validation.KV{K: "expected_outcome", V: validation.VStr("fail")},
-		validation.KV{K: "expected_failure",
-			V: validation.VStr("MissingGuard")})
+	rec := expectExec(t, c, fid, absentGuardOut, 1, "fail", "MissingGuard")
 	execID := validation.ObjStr(rec, "exec_id")
 	out, err := MintReproEvidence(c, fid, execID,
 		"the guard that should have refused never fired", nil, nil, "")
@@ -113,12 +172,8 @@ func TestMintLegacyFailingRecordStillRefused(t *testing.T) {
 func TestMintExpectedFailureSignatureMissingEndToEnd(t *testing.T) {
 	c := newCampaign(t, "Acme Program")
 	fid := ingest(t, c, hypoPayload("access-control"), "code", "")
-	rec := registerExec(t, c, "docker-networkless", "forge test",
-		absentGuardOut, "tester", 1, fid)
-	rec = stampExpect(t, c, rec,
-		validation.KV{K: "expected_outcome", V: validation.VStr("fail")},
-		validation.KV{K: "expected_failure",
-			V: validation.VStr("TotallyAbsentSignature")})
+	rec := expectExec(t, c, fid, absentGuardOut, 1, "fail",
+		"TotallyAbsentSignature")
 	_, err := MintReproEvidence(c, fid, validation.ObjStr(rec, "exec_id"),
 		"wrong signature", nil, nil, "")
 	if err == nil || !strings.Contains(err.Error(),

@@ -11,8 +11,10 @@ golden-run.py captured:
      events.jsonl parse, and the event hash chain is intact: first
      prev_hash is the genesis hash, each next prev_hash is the prior
      event_hash);
-  3. every `audit --json` step reports all 15 rendered sections and a
-     boolean ok (the audit surface is complete for these campaigns).
+  3. every `audit --json` step reports the 15 required sections — the 14
+     ported rows plus v16_coverage — plus the optional tail
+     (price_table, exec_record_anchor), and a boolean ok (the audit surface
+     is complete for these campaigns).
 
 Exit 0 = GOLDEN GREEN; exit 1 = a validation failure is reported per
 step/tree/section.
@@ -30,15 +32,19 @@ from probe_axes import EXPECTED_PROBE_AXES
 WORK = Path(__file__).resolve().parent.parent / ".scratch" / "golden"
 
 # The audit sections these campaigns RENDER, in report (registration) order.
-# The registry (internal/audit/sections/register.go) carries 17: the `eval`
+# The registry (internal/audit/sections/register.go) carries 19: the `eval`
 # section is PRESENCE-GATED since G4 and renders only for a campaign whose
 # program matches the gold-eval suite. No golden campaign matches, so eval
 # stays off this list — but price_table (r4) DOES render here, because the P4
 # recipe sets a price and pins a price-basis: the money path of the golden
 # campaign is exactly what the section exists to watch, so its output is part
-# of the golden surface. v16_coverage (v1.6 P1/P2) is unconditional and always
-# renders last. A section missing here is a hard failure in either direction;
-# this list is not a copy of the registry and must not be "completed" to 17.
+# of the golden surface. v16_coverage (v1.6 P1/P2) is unconditional; the v1.6
+# exec_record_anchor is presence-gated on the campaign holding any
+# sandbox.exec / sandbox.exec.registered event, and the P2 recipe runs real
+# execs, so it renders and is listed (as an OPTIONAL member) after
+# v16_coverage, its registration position. A section missing here is a hard
+# failure in either direction; this list is not a copy of the registry and
+# must not be "completed" to 19.
 EXPECTED_SECTIONS: list[str] = [
     "event_log",
     "artifacts",
@@ -56,13 +62,16 @@ EXPECTED_SECTIONS: list[str] = [
     "unpriceable",
     "price_table",
     "v16_coverage",
+    "exec_record_anchor",
 ]
 
 # The presence-gated members of EXPECTED_SECTIONS: they render exactly when
-# their precondition holds, so a campaign may legitimately omit them. Every
-# other name above is REQUIRED — including v16_coverage, which is the one
-# unconditional addition past the 14 ported rows.
-OPTIONAL_SECTIONS: list[str] = ["price_table"]
+# their precondition holds, so a campaign may legitimately omit them — the s2
+# campaign prices nothing and must not fake the price_table row, and a
+# campaign that never execs skips the anchor. Every other name above is
+# REQUIRED — including v16_coverage, which is the one unconditional addition
+# past the 14 ported rows.
+OPTIONAL_SECTIONS: list[str] = ["price_table", "exec_record_anchor"]
 
 # Every registered probe axis, pinned to the Go registry
 # (internal/probes/registry.go probesTable), with the state this run must
@@ -213,7 +222,8 @@ def check_steps(spec: dict) -> None:
 
 
 def check_audit(step: int, name: str) -> None:
-    """An `audit --json` report must carry all 15 rendered sections + ok.
+    """An `audit --json` report must carry the 15 required sections + the
+    optional tail + ok.
 
     Reads only its own capture: the recipe index is the caller's business,
     so no spec is threaded through here.
@@ -237,12 +247,13 @@ def check_audit(step: int, name: str) -> None:
     have = list(sections)  # report order
     # The rendered surface is EXPECTED_SECTIONS, minus the presence-gated
     # members when their precondition is closed: price_table renders exactly
-    # when the campaign priced something (eval, also presence-gated, stays off
-    # the list entirely) — the s2 campaign prices nothing and must not fake the
-    # row. Every other name is REQUIRED, v16_coverage included: it is the one
-    # unconditional addition past the 14 ported rows. What stays hard-failed:
-    # any unexpected name, any missing required name, and the ORDER of what
-    # does render.
+    # when the campaign priced something, and exec_record_anchor exactly when
+    # the campaign holds a sandbox.exec / sandbox.exec.registered event (eval,
+    # also presence-gated, stays off the list entirely) — the s2 campaign
+    # prices nothing and must not fake the price_table row. Every other name is
+    # REQUIRED, v16_coverage included: it is the one unconditional addition
+    # past the 14 ported rows. What stays hard-failed: any unexpected name, any
+    # missing required name, and the ORDER of what does render.
     want = EXPECTED_SECTIONS
     core = [n for n in want if n not in OPTIONAL_SECTIONS]
     tail = [n for n in want if n in OPTIONAL_SECTIONS]

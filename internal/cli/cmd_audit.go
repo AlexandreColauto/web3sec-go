@@ -14,8 +14,8 @@ import (
 	"websec/internal/validation"
 )
 
-func runAudit(root string, args []string, stdout io.Writer) error {
-	if helpRequested(stdout, "audit", args) {
+func runAudit(root string, args []string, r *Runner) error {
+	if helpRequested(r.Out, "audit", args) {
 		return nil
 	}
 
@@ -46,7 +46,12 @@ func runAudit(root string, args []string, stdout io.Writer) error {
 	if len(pos) != 1 {
 		return usageErrf("audit requires exactly one <campaign> argument")
 	}
-	c, err := state.Open(root, pos[0])
+	return runAuditReport(root, pos[0], jsonOut, r)
+}
+
+// runAuditReport opens the campaign, runs the audit and renders it.
+func runAuditReport(root, id string, jsonOut bool, r *Runner) error {
+	c, err := state.Open(root, id)
 	if err != nil {
 		return err
 	}
@@ -56,14 +61,9 @@ func runAudit(root string, args []string, stdout io.Writer) error {
 		return err
 	}
 	if jsonOut {
-		fmt.Fprintln(stdout, validation.DumpIndentedASCII(report))
+		_, _ = fmt.Fprintln(r.Out, validation.DumpIndentedASCII(report))
 	} else {
-		fmt.Fprintln(stdout, audit.AuditSummaryLine(report))
-		for _, kv := range validation.ObjAt(report, "sections").O {
-			for _, p := range validation.ObjAt(kv.V, "problems").A {
-				fmt.Fprintf(stdout, "  [%s] %s\n", kv.K, p.S)
-			}
-		}
+		printAuditText(r.Out, r.Err, report)
 	}
 	if ok := validation.ObjAt(report, "ok"); ok.Kind != validation.Bool || !ok.B {
 		return failSilent{}
@@ -71,10 +71,31 @@ func runAudit(root string, args []string, stdout io.Writer) error {
 	return nil
 }
 
+// printAuditText renders the text audit: the summary line, then one
+// `  [section] problem` line per problem on stdout, then the non-problem
+// advisories as `note:` lines on stderr.
+//
+// The advisory channel (audit.AuditAdvisories) carries facts an operator
+// needs and that can never move the verdict or the exit code — v1.6's
+// unanchored exec-record count is its first member. `note:` is the house
+// advisory idiom (cmd_floors.go's unknown-class note), and stderr keeps
+// stdout's problem surface byte-identical.
+func printAuditText(stdout, errW io.Writer, report validation.Value) {
+	_, _ = fmt.Fprintln(stdout, audit.AuditSummaryLine(report))
+	for _, kv := range validation.ObjAt(report, "sections").O {
+		for _, p := range validation.ObjAt(kv.V, "problems").A {
+			_, _ = fmt.Fprintf(stdout, "  [%s] %s\n", kv.K, p.S)
+		}
+	}
+	for _, note := range audit.AuditAdvisories(report) {
+		_, _ = fmt.Fprintf(errW, "note: %s\n", note)
+	}
+}
+
 func init() {
 	register(command{ord: 52, name: "audit",
 		line: "audit <campaign> [--json]            full integrity audit",
 		run: func(root string, args []string, r *Runner) int {
-			return r.withErr(root, func() error { return runAudit(root, args, r.Out) })
+			return r.withErr(root, func() error { return runAudit(root, args, r) })
 		}})
 }

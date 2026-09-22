@@ -12,6 +12,7 @@ package audit
 
 import (
 	"errors"
+	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -108,6 +109,44 @@ func sectionOK(sec validation.Value) bool {
 	return sec.Kind == validation.Obj &&
 		validation.ObjAt(sec, "ok").Kind == validation.Bool &&
 		validation.ObjAt(sec, "ok").B
+}
+
+// AuditAdvisories is the audit's NON-PROBLEM advisory channel: facts an
+// operator needs to see that are deliberately not failures, so they can never
+// move `ok` or the exit code. It exists because a count visible only in
+// `audit --json` is invisible to an operator who runs `webv2 audit` and reads
+// PASS — and "0 unanchored" is cheap reassurance while "3 unanchored" is what
+// an operator needs to see. The house idiom is the floors CLI's advisory
+// visibility, never silent acceptance.
+//
+// Today it carries one fact: the exec_record_anchor section's unanchored
+// coverage count. That count MUST NOT be a problem — the committed Python-era
+// fixture carries two unanchored sandbox.exec events and verify-full step 9
+// asserts audit PASS over it — so it is reported here instead. A section that
+// did not render (ErrSkip) contributes nothing.
+func AuditAdvisories(report validation.Value) []string {
+	sec, ok := sectionAt(report, "exec_record_anchor")
+	if !ok {
+		return nil
+	}
+	un := validation.ObjAt(sec, "unanchored")
+	if un.Kind != validation.Arr || len(un.A) == 0 {
+		return nil
+	}
+	return []string{fmt.Sprintf("exec_record_anchor: %d unanchored exec "+
+		"record(s) — their sandbox.exec events carry no record digest, so "+
+		"their declared exit/expectation is not anchored to the ledger "+
+		"(coverage only: not a problem)", len(un.A))}
+}
+
+// sectionAt is (the named section's value, present) in report order.
+func sectionAt(report validation.Value, name string) (validation.Value, bool) {
+	for _, kv := range validation.ObjAt(report, "sections").O {
+		if kv.K == name {
+			return kv.V, true
+		}
+	}
+	return validation.VNull(), false
 }
 
 // AuditSummaryLine is audit_summary_line: "audit {PASS|FAIL}: {name}={n}
