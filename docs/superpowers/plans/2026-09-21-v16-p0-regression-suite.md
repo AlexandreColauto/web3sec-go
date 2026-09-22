@@ -27,7 +27,7 @@ Every task below implicitly includes this section. Values are copied verbatim fr
 - **One end-to-end branch test per plan.** Task 1 drives the real verbs in sequence — add target, pin it, record a run, then read it back through `audit` — and asserts the joined-up result. Task 10 adds the suite-level equivalent. Scoped task reviews structurally cannot see cross-task wiring; these two tests are the whole-branch review's substrate.
 - **A gate that ships red gets fixed or counted.** `scripts/verify-full.sh` and the pre-commit gate must be green before this plan's work starts; if a red is genuinely out of scope, record it in `docs/gates/` with a count that must not grow.
 - **D9 freeze.** The spec changes only in response to a measurement. When this plan's exit criteria run, record the measurement in `docs/gates/v16-P0.md` and cite it in any spec change.
-- **No network in the build or test loop.** This machine has no route to github.com, api.github.com or pypi.org, and no ScaBench snapshot exists locally (see *Operator prerequisites*). The Go half of every task is written and tested against **operator-committed or synthetic input files**; the network half is an operator step with the exact command and the exact record.
+- **No network in the build or test loop.** The plan was written on a machine with no route to github.com, api.github.com or pypi.org; that machine's network came up on 2026-09-21 and the ScaBench checkout now exists locally at `/home/xand/webv2-p0/scabench` (see *Operator prerequisites* §2 and *The dataset, as it actually is*). The rule does not change: the Go half of every task is written and tested against **operator-committed or synthetic input files**, and the network half is an operator step with the exact command and the exact record. A network that happens to be up is a convenience for the operator, never a build dependency.
 - **Operator output never enters the build.** Mirrors, checkouts and downloaded reports live outside the module tree (`$WEBV2_P0_DIR`, default `.scratch/p0/`); the only operator artefacts that are committed are the reviewed, schema-validated records under `eval/regression/` and the gate documents under `docs/gates/`.
 
 ---
@@ -111,11 +111,26 @@ rg -n 'git_commit' internal/snapshot/pin.go assets/schema/snapshot.schema.json |
 
 # 10. the schema-name registry a new schema must join (order is contractual)
 rg -n -A12 'var knownSchemas' internal/validation/schema.go
+
+# 11. the dataset's REAL shape and counts, before any task reads it as a flat
+#     list of findings. Every command is in Operator prerequisites §7; the
+#     headline: 31 projects, 32 codebases, 555 findings, 114 high, 10 unpinned.
+export SCABENCH=/home/xand/webv2-p0/scabench
+export DS="$SCABENCH/datasets/curated-2025-08-18/curated-2025-08-18.json"
+python3 -c 'import json,collections;d=json.load(open("'$DS'"));
+print(len(d),"projects",len([c for p in d for c in p["codebases"]]),"codebases",
+      len([v for p in d for v in p["vulnerabilities"]]),"findings",
+      collections.Counter(v["severity"] for p in d for v in p["vulnerabilities"]))'
+#   expect: 31 projects 32 codebases 555 findings Counter({'medium': 237, 'low': 184,
+#   'high': 114, 'informational': 20})  — a LIST OF PROJECTS, not a flat list, and a
+#   fourth severity value §3a does not mention.
 ```
 
 If the ord maximum moved, take the next free slot; if `v16_coverage` is no longer last, append after whatever is last and update the two gate-script lists in the same commit; if `go test ./...` is not green before you start, that is the first thing to fix — not something to discover at Task 10.
 
 **Premise 7 is a correction, not a formality.** `framework-plan-v1.6.md` §3a says the derived labels bucket onto "ARGUS's **23-class** taxonomy"; the live vocabulary is `taxonomy.CanonicalClasses()` and it holds **25** classes today (`chain-freeze`, `frontend-injection`, `infra-boundary`, `liveness`, `sequencer-halt` are the extra five). This plan pins the derived labels to the **live** set and Task 3 asserts the two are equal, so the day the taxonomy grows the label bucketing follows it instead of silently drifting. The spec's "23" is recorded as stale in `docs/gates/v16-P0.md` (Task 11) rather than edited here — D9: a spec change cites a measurement.
+
+**Premise 11 is a correction too, and a bigger one.** This plan was written from §3a's prose while the machine was offline, and the prose describes the ground truth as a flat list of vulnerability rows carrying a commit. The real snapshot is a list of **31 projects**, each with `codebases[]` (where the commit lives) and `vulnerabilities[]` (where the findings live), with a fourth severity value, a ten-codebase pin problem, and two empty commit fields. The tasks below have been corrected against it; *Operator prerequisites §7 — The dataset, as it actually is* is the verified description, and every task that reads the dataset says which field it reads.
 
 ---
 
@@ -123,30 +138,39 @@ If the ord maximum moved, take the next free slot; if `v16_coverage` is no longe
 
 Everything the operator must have or do, in one place. Each task's *Operator step* refers back here for the environment and the recording rules.
 
-**1. Network. Not available on the machine this plan was written on.** Verified by the controller 2026-09-21: `github.com`, `api.github.com` and `pypi.org` all fail to connect (`http_code 000`). Re-check before an operator run:
+**1. Network. Up as of 2026-09-21.** The plan was written offline (verified by the controller 2026-09-21: `github.com`, `api.github.com` and `pypi.org` all failed to connect, `http_code 000`). The network is now up and the checkout below was made over it. Re-check before an operator run:
 
 ```bash
 for u in https://github.com https://api.github.com https://pypi.org; do
   printf '%s -> ' "$u"
   curl -sS -m 10 -o /dev/null -w '%{http_code}\n' "$u" || true
 done
-# on the offline machine: 000 for all three; a connected machine prints 200/301.
+# offline: 000 for all three; connected: 200/301 (measured 2026-09-21: all three reachable).
+# On this box curl needs --cacert /etc/ssl/certs/ca-certificates.crt (CURL_CA_BUNDLE
+# points at a corrupt bundle); git is unaffected.
 ```
 
-The plan's Go half does not need this. The operator steps do: the ScaBench snapshot download, every `git clone`/`fetch`, the contest-report fetch, and `ScaBench`'s own baseline runner's dependency install. **If the network is down, the offline half still lands** — that is the point of the per-task split. Record which operator steps ran and which did not in `docs/gates/v16-P0.md` (Task 11).
+The plan's Go half does not need this. The operator steps do: the ScaBench checkout, every `git clone`/`fetch`, the contest-report fetch, and `ScaBench`'s own baseline runner's dependency install. **If the network is down, the offline half still lands** — that is the point of the per-task split. Record which operator steps ran and which did not in `docs/gates/v16-P0.md` (Task 11).
 
-**2. The dataset. No ScaBench snapshot exists anywhere locally.** Phase 0 needs exactly one: `curated-2025-08-18` (§3a: *"There is exactly **one** ScaBench snapshot — `curated-2025-08-18`; no releases, no tags"*). The operator downloads it once and commits the *derived* input files, never the raw repo:
+**2. The dataset. The checkout is already on this machine.** Phase 0 needs exactly one snapshot: `curated-2025-08-18` (§3a: *"There is exactly **one** ScaBench snapshot — `curated-2025-08-18`; no releases, no tags"* — verified 2026-09-21: `datasets/` holds exactly one directory, and `api.github.com/repos/scabench-org/scabench/{releases,tags}` both return `[]`). The upstream repo is:
+
+```
+https://github.com/scabench-org/scabench      # NOT scyfi-labs/ScaBench — that path 404s
+main @ eec0020939a47bbc06a98a7348a90908b96f4b4d (committed 2025-10-04)
+```
+
+The checkout lives at `/home/xand/webv2-p0/scabench`; if it is missing, re-make it with `git clone --depth 1 https://github.com/scabench-org/scabench <dir>`. The operator reads the *derived* input files into this repo, never the raw repo:
 
 | Operator artefact | Path (committed) | Produced by |
 |---|---|---|
-| the curated findings rows, as extracted | `eval/scabench/curated-2025-08-18.json` | Task 3 operator step |
+| the 114 `high` findings, as extracted (the four fields + the joined `project`) | `eval/scabench/curated-2025-08-18.json` | Task 3 operator step |
 | the derived label map | `eval/scabench/labels-2025-08-18.json` | Task 3 operator step |
 | the selected suite manifest | `eval/regression/suite.json` + `suite.sha256` | Task 4 / Task 10 operator step |
 | the mirror index | `eval/regression/mirrors.json` | Task 5 operator step |
 | the answer keys + their two transcriptions | `eval/scabench/keys/<target>/a.json`, `b.json` | Task 7 operator step |
 | the control target's handoff record | `docs/gates/v16-P0-control-target.md` | Task 2 operator step |
 
-**3. Tools.** `git` (mirrors, `rev-parse`, `bundle`), `python3` (the manifest sync, the offline gold scorer, the ScaBench scorer), ~10–20 GB of disk under `$WEBV2_P0_DIR` for the mirrors, and — for the control target's own harness only — whatever that project's build needs. No Docker is required by this plan (the P0 harness is ScaBench's baseline runner and the control target's own harness, both operator-run); Docker remains P1's problem.
+**3. Tools.** `git` (`ls-remote`, `fetch --depth 1`, `rev-parse`, `bundle`), `python3` (the manifest sync, the offline gold scorer, the ScaBench scorer), disk under `$WEBV2_P0_DIR` for the mirrors, and — for the baseline runner and the control target's harness only — that project's build needs. The pinning job is far cheaper than a full `--mirror` per repo: `git fetch --depth 1 origin <full-sha>` of one selected repo measured **252 KB**, and `git ls-remote <repo> <ref>` resolves a `main` hint with no clone at all. Only the three abbreviated SHAs need history (`git clone --depth 50`, then `--unshallow` for `Idle-Labs/idle-tranches`, measured 11 MB). Budget **1–2 GB**, not 10–20, for six selected targets plus their worktrees; the old 10–20 GB figure assumed a full mirror of all 32 codebases and was never measured. `ScaBench`'s baseline runner additionally needs `pip install -r requirements.txt` (`llm`, `rich`) and an `OPENAI_API_KEY` — it calls an LLM and cannot run keyless. No Docker is required by this plan (the P0 harness is ScaBench's baseline runner and the control target's own harness, both operator-run); Docker remains P1's problem.
 
 **4. Scratch.** Mirrors and checkouts live in `$WEBV2_P0_DIR` (default `.scratch/p0/`, which `.gitignore` already ignores). **Never** clone a target inside the repo tree: `internal/cli/cmd_scorecard.go` records a `campaign_inside_target` warning for exactly that geometry, and `snapshot.PinSourceSnapshot` prunes a store that would nest.
 
@@ -157,6 +181,66 @@ The plan's Go half does not need this. The operator steps do: the ScaBench snaps
 - An operator step that could not run because the network is down is recorded as `NOT RUN — offline`, never as passed. The exit criteria in `docs/gates/v16-P0.md` are then reported per criterion as `TEST-PROVEN` / `OPERATOR-RUN` / `NOT RUN — offline` (the `docs/gates/v16-P1.md` style: verified vs not, never one number for two different kinds of evidence).
 
 **6. Not P0's problem.** `FORK_RPC_URL` belongs to P1's Task 10 spike. P0's job is the *other* half of that dependency: a real, confirmed, already-exploited finding with a sourced loss figure (Task 2). The cross-plan handoff is written down in Task 2 and consumed by P1 Task 10 Step 4.
+
+**7. The dataset, as it actually is.** Everything in this subsection was measured against the checkout on 2026-09-21; each number carries the command that reproduces it. Do not take a number here on trust — re-run it. `DS` is the dataset file:
+
+```bash
+export SCABENCH=/home/xand/webv2-p0/scabench
+export DS=$SCABENCH/datasets/curated-2025-08-18/curated-2025-08-18.json
+
+# the file is a LIST OF 31 PROJECTS, not a flat list of findings
+python3 -c 'import json;d=json.load(open("'$DS'"));print(len(d), sorted(d[0]))'
+#   31 ['codebases', 'name', 'platform', 'project_id', 'vulnerabilities']
+
+# each project: {project_id, name, platform, codebases[], vulnerabilities[]}
+python3 -c 'import json;d=json.load(open("'$DS'"));print(sorted(d[0]["codebases"][0]), sorted(d[0]["vulnerabilities"][0]))'
+#   codebase keys: commit codebase_id repo_url tarball_url tree_url
+#   finding  keys: description finding_id severity title
+#   -> the commit lives on the CODEBASE; the vulnerability record has no commit and no project
+
+# counts: 32 codebases, 555 findings
+python3 -c 'import json,collections;d=json.load(open("'$DS'"));
+cbs=[c for p in d for c in p["codebases"]];v=[x for p in d for x in p["vulnerabilities"]];
+print(len(d),"projects",len(cbs),"codebases",len(v),"findings");
+print(collections.Counter(x["severity"] for x in v));
+print(collections.Counter(p["platform"] for p in d))'
+#   31 projects 32 codebases 555 findings
+#   Counter({'medium': 237, 'low': 184, 'high': 114, 'informational': 20})
+#   Counter({'code4rena': 19, 'sherlock': 10, 'cantina': 2})
+#   -> §3a's "severity is high|medium|low only" is FALSE: there is a fourth value,
+#      informational (20 rows). The label file below covers the 114 high rows only.
+
+# exactly one project carries two codebases (Starknet Perpetual: one pinned
+# codebase, one with an empty commit) -- a target is a PROJECT, but a checkout
+# is a CODEBASE, so the target record must name both
+python3 -c 'import json;d=json.load(open("'$DS'"));
+print([(p["project_id"],[c["codebase_id"] for c in p["codebases"]]) for p in d if len(p["codebases"])>1])'
+
+# the pin story: 10 of 32 codebases carry no usable pin
+python3 -c 'import json,re;d=json.load(open("'$DS'"));
+[print(c["commit"] or "(empty)", p["project_id"], c["codebase_id"], c["repo_url"])
+ for p in d for c in p["codebases"] if not re.fullmatch(r"[0-9a-f]{40}", c["commit"])]'
+```
+
+**The ten unpinned codebases — this is Task 5's real workload**, not a one-project edge case (§3a names one project; there are ten codebases across ten projects, in three distinct failure modes):
+
+| # | project_id | codebase_id | `commit` verbatim | `HintKind` | how to resolve |
+|---|---|---|---|---|---|
+| 1 | `code4rena_fenix-finance-invitational_2024_10` | `Fenix Finance Invitational_main` | `main` | mutable-ref | `git ls-remote <repo> main` |
+| 2 | `code4rena_lambowin_2025_02` | `Lambo.win_main` | `main` | mutable-ref | `git ls-remote <repo> main` |
+| 3 | `code4rena_loopfi_2025_02` | `LoopFi_main` | `main` | mutable-ref | `git ls-remote <repo> main` |
+| 4 | `code4rena_bakerfi-invitational_2025_02` | `BakerFi Invitational_main` | `main` | mutable-ref | `git ls-remote <repo> main` |
+| 5 | `code4rena_blackhole_2025_07` | `Blackhole_main` | `main` | mutable-ref | `git ls-remote <repo> main` |
+| 6 | `code4rena_initia-move_2025_04` | `Initia Move_b36d06` | `""` (empty) | unknown | no ref at all — the dataset states nothing; resolve the repo's default branch and record it as `unknown` |
+| 7 | `code4rena_starknet-perpetual_2025_06` | `Starknet Perpetual_main` | `""` (empty) | unknown | same; this project's *other* codebase is pinned (`9e48514c…`), so pick the codebase deliberately |
+| 8 | `sherlock_oku_2024_12` | `Oku_9e31b4` | `9e31b40` | short-sha | `git clone --depth 50 <repo>` then `git rev-parse 9e31b40^{commit}` → `9e31b40fa8593905b9c1037c424d89ec2c886203` |
+| 9 | `sherlock_idle-finance_2024_12` | `Idle Finance_b6e581` | `b6e5813` | short-sha | **not in a depth-50 clone** — needs `git fetch --unshallow`, then `b6e581375eab89871d47994abd34fb0d3ed7c86d` |
+| 10 | `sherlock_symmio_2025_03` | `SYMMIO_cfe192` | `cfe1920` | short-sha | `git clone --depth 50 <repo>` then `cfe192090c339cffb07d2a50f6ba646299fbcfe0` |
+
+Two further measured facts the tasks depend on:
+
+- **`tarball_url` is not an independent pin.** Across all 32 codebases, `tarball_url == repo_url + "/archive/" + commit + ".tar.gz"` and `tree_url == repo_url + "/tree/" + commit`, with **zero** exceptions — it re-encodes the same `commit` field, so it inherits every ambiguity (`/archive/main.tar.gz` for the five mutable refs) and is **absent exactly when `commit` is empty** (29 of 32 carry one; `Liquid Ron_main` also has none, though its commit is a full SHA). It cannot substitute for the git checkout either: the pin binds to `snapshot.source.git_commit`, which `snapshot.PinSourceSnapshot` reads from `git rev-parse HEAD` and leaves `null` for a non-repo, so `PinTarget`'s equality check would refuse a tarball-only tree. **Decision: resolve and pin with git; keep the tarball as a cheap secondary check, never as the mirror.** See Task 5 Step 5.
+- **`checkout_sources.py` is the tool §3a criticises, and it is worse than the spec says.** It clones `--depth 50`, then checks `current_commit.startswith(commit[:8])` (a prefix match, no verification), and it silently clones the default branch when `commit` is empty (`if commit:` guards the checkout). For the two empty-commit codebases it produces a mutable HEAD and reports success. Task 1's `AddTarget` therefore cannot require a non-empty hint (see Task 1 Step 4), and Task 5's mirror rule must cover `short-sha` and `unknown`, not just `mutable-ref`.
 
 ---
 
@@ -197,8 +281,8 @@ The Phase 0 exit criterion this task is the first half of, quoted verbatim from 
 > Suite runnable end-to-end on one ScaBench target via ScaBench's own baseline runner; control target runs under its own harness; every snapshot carries a resolved SHA; every fresh-target snapshot passes the contamination grep; every key carries a recorded double-transcription disagreement rate; fresh targets carry our own answer keys with the ledger hash committed before any diagnostic use
 
 **Offline vs operator, in this task.**
-- **Built and tested offline (the machinery, Steps 1–12):** the two record shapes, their writers and refusals, the snapshot↔SHA binding check, the coarse-score normalization, the presence-gated audit reader, the CLI verb, the end-to-end branch test. Every test runs with no network, no dataset and no model.
-- **Operator step (Step 13, needs network + the dataset):** the actual ScaBench snapshot download, the target checkout, `snap`, ScaBench's baseline runner, the scorer, and the recording. On an offline machine this step is recorded `NOT RUN — offline`; the machinery is still landed and green.
+- **Built and tested offline (the machinery, Steps 1–20):** the two record shapes, their writers and refusals, the snapshot↔SHA binding check, the coarse-score normalization, the presence-gated audit reader, the CLI verb, the end-to-end branch test. Every test runs with no network, no dataset and no model.
+- **Operator step (Step 21, needs network + the dataset):** the ScaBench checkout (already on disk — see prerequisites §2), the target checkout, `snap`, ScaBench's baseline runner, the scorer, and the recording. If the network or the LLM key is missing, this step is recorded `NOT RUN — offline`; the machinery is still landed and green.
 
 **Files:**
 - Create: `assets/schema/regression_target.schema.json`
@@ -221,7 +305,7 @@ The Phase 0 exit criterion this task is the first half of, quoted verbatim from 
 - Produces (later tasks and Phase 3–4 depend on these exact names):
   - `regression.Dir(c *state.Campaign) string`, `regression.TargetsDir`, `regression.RunsDir`
   - `regression.TargetKinds []string`, `regression.TargetShapes []string`
-  - `regression.TargetSpec{Kind, Program, RecordID, Repo, Shape, CommitHint string}`
+  - `regression.TargetSpec{Kind, Program, RecordID, CodebaseID, Repo, Shape, CommitHint string}`
   - `regression.AddTarget(c *state.Campaign, spec TargetSpec) (validation.Value, error)`
   - `regression.PinSpec{TargetID, ResolvedSHA, SnapshotID, ResolvedBy string}`
   - `regression.PinTarget(c *state.Campaign, spec PinSpec) (validation.Value, error)`
@@ -259,7 +343,12 @@ Create `assets/schema/regression_target.schema.json`. `resolved_sha` is optional
     "record_id": {
       "type": "string",
       "minLength": 1,
-      "description": "the target's id WITHIN its source dataset or report (ScaBench's project/finding id, the contest slug), verbatim — the only bridge back to the raw record"
+      "description": "the target's id WITHIN its source dataset or report — for a ScaBench target this is the project's `project_id` (e.g. code4rena_coded-estate-invitational_2024_12), verbatim, because selection, hold-out and the shapes map are all per PROJECT; the only bridge back to the raw record"
+    },
+    "codebase_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "the dataset's own `codebases[].codebase_id` for the tree this target pins — REQUIRED when a project carries more than one codebase (Starknet Perpetual carries two, one of them unpinned), because the commit lives on the CODEBASE, not the project; optional otherwise, where it is recorded for the same reason the raw project_id is"
     },
     "repo": { "type": "string", "minLength": 1 },
     "shape": {
@@ -267,12 +356,11 @@ Create `assets/schema/regression_target.schema.json`. `resolved_sha` is optional
         "vault-erc4626", "lending-liquidation", "bridge-messaging",
         "non-rollup-l2-or-oracle", "diagnosed-campaign", "already-exploited"
       ],
-      "description": "§3a's composition constraint, as one closed vocabulary: the four ScaBench target shapes, the diagnosed campaign (relabeled training), and the already-exploited control target"
+      "description": "§3a's composition constraint, as one closed vocabulary: the four ScaBench target shapes (which are assigned to PROJECTS), the diagnosed campaign (relabeled training), and the already-exploited control target"
     },
     "commit_hint": {
       "type": "string",
-      "minLength": 1,
-      "description": "the commit field as the dataset states it — a mutable ref like 'main' is a legal hint and an illegal pin"
+      "description": "the commit field as the dataset states it — a mutable ref like 'main' is a legal hint and an illegal pin, and the empty string is also a legal hint (two codebases record no ref at all), so minLength must not be 1 here"
     },
     "resolved_sha": {
       "type": "string",
@@ -490,7 +578,9 @@ func TestPinTargetRefusesAHintInsteadOfASHA(t *testing.T) {
 		t.Fatal(err)
 	}
 	// §3a: "at least one project (Fenix Finance) records "commit": "main" —
-	// a mutable ref. ScaBench's commit field is a hint, not a pin."
+	// a mutable ref. ScaBench's commit field is a hint, not a pin." Measured,
+	// it is five codebases, not one (see *The dataset, as it actually is*), but
+	// the fixture only needs the one value §3a named.
 	_, err = PinTarget(c, PinSpec{
 		TargetID: validation.ObjStr(target, "target_id"),
 		ResolvedSHA: "main", SnapshotID: "src-abc123def456", ResolvedBy: "op",
@@ -672,19 +762,27 @@ var TargetShapes = []string{
 // sha40Re is the only pin shape §3a accepts: a concrete commit, never a ref.
 var sha40Re = regexp.MustCompile(`^[0-9a-f]{40}$`)
 
-// TargetSpec is one target's identity at registration time.
+// TargetSpec is one target's identity at registration time. RecordID is the
+// dataset's PROJECT id (selection and hold-out are per project); CodebaseID is
+// the dataset's codebase id for the tree actually pinned, because the commit
+// lives on the codebase — one project (Starknet Perpetual) carries two.
 type TargetSpec struct {
 	Kind       string
 	Program    string
 	RecordID   string
+	CodebaseID string
 	Repo       string
 	Shape      string
 	CommitHint string
 }
 
-// AddTarget records one target. It refuses an unknown kind or shape, an empty
-// program, and (for a ScaBench target) a missing commit hint — a target whose
-// dataset row was not read is not a target.
+// AddTarget records one target. It refuses an unknown kind or shape and an
+// empty program, and (for a ScaBench target) an empty commit hint that is not
+// backed by a named record and repo — a target whose dataset row was not read
+// is not a target. An empty hint IS a legal value: the dataset emits it for two
+// codebases (Initia Move_b36d06, Starknet Perpetual_main), so refusing it
+// outright would make two of the 32 codebases unrepresentable (see *The
+// dataset, as it actually is*).
 func AddTarget(c *state.Campaign, spec TargetSpec) (validation.Value, error) {
 	if !contains(TargetKinds, spec.Kind) {
 		return validation.VNull(), fmt.Errorf(
@@ -697,10 +795,17 @@ func AddTarget(c *state.Campaign, spec TargetSpec) (validation.Value, error) {
 	if spec.Program == "" {
 		return validation.VNull(), fmt.Errorf("a target must name its program")
 	}
-	if spec.Kind == "scabench" && spec.CommitHint == "" {
+	// The dataset's commit field is a HINT, and for two codebases the hint is
+	// the empty string — a real value the producer emitted, not a missing row.
+	// The row's provenance is still required, and Task 5's pin rule demands a
+	// mirror for an `unknown` hint exactly as it does for `main`.
+	if spec.Kind == "scabench" && spec.CommitHint == "" &&
+		(spec.RecordID == "" || spec.Repo == "") {
 		return validation.VNull(), fmt.Errorf(
-			"a scabench target must carry the dataset's commit field " +
-				"(it is a hint, not a pin, but its absence means the row was not read)")
+			"a scabench target with an empty dataset commit field must still name "+
+				"its --record-id and --repo: the dataset's commit field is empty "+
+				"for Initia Move_b36d06 and Starknet Perpetual_main, and an empty "+
+				"hint is a value to record, not a licence to skip the row")
 	}
 	tid := state.NewID("T", 12)
 	doc := validation.VObj(
@@ -714,6 +819,9 @@ func AddTarget(c *state.Campaign, spec TargetSpec) (validation.Value, error) {
 	)
 	if spec.RecordID != "" {
 		doc.O = validation.SetOrAppend(doc.O, "record_id", validation.VStr(spec.RecordID))
+	}
+	if spec.CodebaseID != "" {
+		doc.O = validation.SetOrAppend(doc.O, "codebase_id", validation.VStr(spec.CodebaseID))
 	}
 	if spec.Repo != "" {
 		doc.O = validation.SetOrAppend(doc.O, "repo", validation.VStr(spec.Repo))
@@ -1527,6 +1635,7 @@ func regressCmd(root string, args []string, r *Runner) error {
 	asJSON := false
 	valueFlags := map[string]bool{
 		"--kind": true, "--program": true, "--record-id": true, "--repo": true,
+		"--codebase-id": true,
 		"--shape": true, "--commit-hint": true, "--resolved-sha": true,
 		"--snapshot": true, "--actor": true, "--target": true, "--scorer": true,
 		"--score-file": true, "--found": true, "--missed": true,
@@ -1611,7 +1720,8 @@ func regressTargetAdd(c *state.Campaign, vals map[string]string, r *Runner) erro
 	}
 	doc, err := regression.AddTarget(c, regression.TargetSpec{
 		Kind: vals["--kind"], Program: vals["--program"],
-		RecordID: vals["--record-id"], Repo: vals["--repo"],
+		RecordID: vals["--record-id"], CodebaseID: vals["--codebase-id"],
+		Repo: vals["--repo"],
 		Shape: vals["--shape"], CommitHint: vals["--commit-hint"],
 	})
 	if err != nil {
@@ -2015,42 +2125,101 @@ Expected: the suite is green and the three files show **no diff**. A diff here m
 Everything below is operator work; it is **not** testable here and must be recorded as `NOT RUN — offline` when the network is down.
 
 ```bash
-# 0. prerequisites (§ Operator prerequisites): network up, ScaBench snapshot
-#    downloaded, git available.
+# 0. prerequisites (§ Operator prerequisites): network up, the ScaBench checkout
+#    present, git available.
 export WEBV2_P0_DIR="$PWD/.scratch/p0"
+export SCABENCH=/home/xand/webv2-p0/scabench          # already cloned; see prerequisites §2
+export DS="$SCABENCH/datasets/curated-2025-08-18/curated-2025-08-18.json"
 mkdir -p "$WEBV2_P0_DIR"
-# 1. clone the dataset once (read-only reference; never a target)
-git clone --depth 1 https://github.com/scyfi-labs/ScaBench "$WEBV2_P0_DIR/scabench"
-# 2. pick ONE project + its commit from the curated-2025-08-18 rows, and clone
-#    the TARGET into the mirror area — never inside this repo
-git clone --mirror https://github.com/<org>/<repo> "$WEBV2_P0_DIR/mirror/<repo>.git"
-git --git-dir "$WEBV2_P0_DIR/mirror/<repo>.git" rev-parse '<commit-hint>^{commit}'
-#    record the printed 40-hex SHA: that is the resolved SHA.
-git --git-dir "$WEBV2_P0_DIR/mirror/<repo>.git" worktree add \
-    "$WEBV2_P0_DIR/target/<repo>" '<resolved-sha>'
+# 1. (only if the checkout is missing) clone the dataset once (read-only
+#    reference; never a target). The upstream is scabench-org/scabench — the
+#    scyfi-labs/ScaBench path this plan used to cite 404s.
+[ -d "$SCABENCH" ] || git clone --depth 1 https://github.com/scabench-org/scabench "$SCABENCH"
+# 2. pick ONE project AND one of its codebases from the dataset. The file is a
+#    list of projects; the commit is on codebases[]. Do not read it as a flat
+#    list of findings.
+python3 - "$DS" <<'PY'
+import json, sys
+for p in json.load(open(sys.argv[1])):
+    for c in p["codebases"]:
+        print(p["project_id"], "|", c["codebase_id"], "|", repr(c["commit"]), "|", c["repo_url"])
+PY
+#    ... pick one line whose commit is a full 40-hex SHA (22 of 32 are; see the
+#    unpinned table for the other ten) and clone the TARGET into the mirror
+#    area — never inside this repo. A shallow fetch by SHA is enough and is
+#    measured at ~250 KB; --mirror is not needed for the pin.
+mkdir -p "$WEBV2_P0_DIR/mirror"
+git init -q "$WEBV2_P0_DIR/mirror/<codebase>"
+git -C "$WEBV2_P0_DIR/mirror/<codebase>" remote add origin "https://github.com/<org>/<repo>"
+git -C "$WEBV2_P0_DIR/mirror/<codebase>" fetch --depth 1 origin '<commit-hint>'
+git -C "$WEBV2_P0_DIR/mirror/<codebase>" checkout -q FETCH_HEAD
+git -C "$WEBV2_P0_DIR/mirror/<codebase>" rev-parse HEAD
+#    ^ record the printed 40-hex SHA: that is the resolved SHA.
+#    The checkout is NOT optional: `snap` reads the commit from `git rev-parse
+#    HEAD`, so a repo left on an unborn HEAD snapshots with git_commit null and
+#    `target pin` then refuses (its equality check).
+git -C "$WEBV2_P0_DIR/mirror/<codebase>" worktree add \
+    "$WEBV2_P0_DIR/target/<codebase>" '<resolved-sha>'
+#    For a `main` hint, skip the clone: `git ls-remote https://github.com/<org>/<repo> main`
+#    prints the SHA directly. For a short SHA, clone --depth 50 and rev-parse it
+#    (Idle Finance's b6e5813 needs --unshallow first). See Task 5 Step 5.
 # 3. the campaign for this target
 webv2 --root "$WEBV2_P0_DIR/root" init --program '<program>'
-webv2 --root "$WEBV2_P0_DIR/root" snap <cid> "$WEBV2_P0_DIR/target/<repo>"
+webv2 --root "$WEBV2_P0_DIR/root" snap <cid> "$WEBV2_P0_DIR/target/<codebase>"
 webv2 --root "$WEBV2_P0_DIR/root" regress <cid> target add \
-    --kind scabench --program '<program>' --record-id '<dataset project id>' \
+    --kind scabench --program '<program>' --record-id '<project_id>' \
+    --codebase-id '<codebase_id>' \
     --repo '<org>/<repo>' --shape '<one of the four shapes>' \
     --commit-hint '<the dataset's own commit field, verbatim>'
+#    ^ --codebase-id is required when the project carries two codebases
+#      (Starknet Perpetual), optional otherwise. An empty --commit-hint is legal
+#      and is exactly what Initia Move and Starknet Perpetual record.
 webv2 --root "$WEBV2_P0_DIR/root" regress <cid> target pin <T-id> \
     --resolved-sha '<40-hex>' --snapshot '<src-id>' --actor "$(whoami)"
 # 4. run the campaign against the pinned target (the ordinary stages), then
-#    run ScaBench's own baseline runner against the same tree
-python3 "$WEBV2_P0_DIR/scabench/baseline/run.py" --project <name> \
-    --out "$WEBV2_P0_DIR/out"        # exact path/flags: read the dataset README
-# 5. record the coarse score. eval-gold reads OUR campaign; the judge path is a
-#    transcription of the dataset scorer's report, cited by URL.
-python3 scripts/eval-gold.py --gold '<key.json>' \
+#    run ScaBench's own baseline runner against the same tree. The runner is
+#    baseline-runner/baseline_runner.py (there is no baseline/run.py), it
+#    REQUIRES --source, and it calls an LLM: pip install -r requirements.txt and
+#    export OPENAI_API_KEY first, or record this half NOT RUN.
+python3 "$SCABENCH/baseline-runner/baseline_runner.py" \
+    --project '<project_id>' --source "$WEBV2_P0_DIR/target/<codebase>" \
+    --output "$WEBV2_P0_DIR/out" --model gpt-5-mini
+#    output file: "$WEBV2_P0_DIR/out/baseline_<project_id>.json"
+# 5. record the coarse score. eval-gold reads OUR campaign, but its --gold is
+#    NOT our answer-key file: it requires an OBJECT
+#    {gold_findings:[{gold_id, title, match_criteria, primary_functions?}],
+#     scoring:{pass, bonus, false_positive_budget:"... at most N FPs ..."}}
+#    (the budget is parsed by the regex `(\d+)\s*\+?\s*FPs?\b`, so the string
+#    must literally say "N FPs" — "at most 3" fails the parse), and it
+#    hard-codes PASS_GOLD_ID "G-01" / BONUS_GOLD_ID "G-02", which no
+#    ScaBench finding_id can be. Build the gold file from the project's high
+#    rows with gold_id = the dataset's finding_id, and read `found`/`missed` as
+#    the measurement: `verdict` is FAIL by construction for a ScaBench target,
+#    because the G-01/G-02 pass concept does not transfer. The exit criterion's
+#    real scorer is ScaBench's own (scorer arm `scabench-judge`, below).
+python3 - "$DS" '<project_id>' > "$WEBV2_P0_DIR/gold-<project_id>.json" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1])); pid = sys.argv[2]
+p = next(x for x in d if x["project_id"] == pid)
+hi = [v for v in p["vulnerabilities"] if v["severity"] == "high"]
+json.dump({"gold_findings": [
+    {"gold_id": v["finding_id"], "title": v["title"],
+     "match_criteria": (v["title"] + " " + v["description"])[:400]}
+    for v in hi],
+    "scoring": {"pass": "(ScaBench target: no G-01/G-02 pass concept)",
+                "bonus": "(none)", "false_positive_budget": "at most 3 FPs"}},
+    sys.stdout)
+PY
+python3 scripts/eval-gold.py --gold "$WEBV2_P0_DIR/gold-<project_id>.json" \
     --campaign "$WEBV2_P0_DIR/root/campaigns/<cid>" > "$WEBV2_P0_DIR/score.json"
 webv2 --root "$WEBV2_P0_DIR/root" regress <cid> run \
     --target <T-id> --scorer eval-gold --score-file "$WEBV2_P0_DIR/score.json"
 webv2 --root "$WEBV2_P0_DIR/root" audit <cid> --json
 ```
 
-**Record:** the `regression_suite` section of that `audit --json` (paste it), the resolved SHA, the snapshot id, the dataset commit field verbatim, and the scorer output path — into `docs/gates/v16-P0.md` under *"Suite runnable end-to-end on one ScaBench target"*. If step 4's runner cannot run on this machine, record the target as `PINNED, RUNNER NOT RUN — <reason>`: a pinned target with no run is honest; a claimed run with no output is not.
+**The judge path is not a URL transcription.** The official ScaBench scorer is the external Nethermind AuditAgent algorithm (`pip install "git+https://github.com/NethermindEth/auditagent-scoring-algo"`), driven by `python -m scoring_algo.cli evaluate` with `OPENAI_API_KEY`, `MODEL`, `REPOS_TO_RUN` and `DATA_ROOT`; the in-repo `scoring/scorer_v2.py` is **deprecated** by ScaBench's own README. It needs per-project truth files at `$DATA_ROOT/source_of_truth/<project_id>.json` (write each dataset project verbatim — the README has the snippet) and your findings renamed to `$DATA_ROOT/<SCAN_SOURCE>/<project_id>_results.json`. ScaBench also ships **pre-computed GPT-5 baselines for all 31 projects** at `datasets/curated-2025-08-18/baseline-results/baseline_<project_id>.json` — a network-free cross-check for the coarse score, and the reason the runner half can be skipped without losing the comparison.
+
+**Record:** the `regression_suite` section of that `audit --json` (paste it), the resolved SHA, the snapshot id, the dataset commit field verbatim, and the scorer output path — into `docs/gates/v16-P0.md` under *"Suite runnable end-to-end on one ScaBench target"*. If step 4's runner cannot run on this machine (no `OPENAI_API_KEY` is the likely reason), record the target as `PINNED, RUNNER NOT RUN — <reason>`: a pinned target with no run is honest; a claimed run with no output is not.
 
 - [ ] **Step 22: Commit**
 
@@ -2757,6 +2926,16 @@ git commit -m "feat(v16-p0): already-exploited control target and the P1 spike h
 
 > The label-bucketing is our own classification, not ScaBench's — a named source of error (Part 10).
 
+**Measured against the real snapshot, three claims in that quote are wrong** (commands in *Operator prerequisites §7 — The dataset, as it actually is*; re-run them, do not trust this paragraph):
+
+| §3a says | the snapshot says | what it changes here |
+|---|---|---|
+| "severity is `high\|medium\|low` only" | there is a fourth value, **`informational`** (20 rows); the 555 rows are 114 high / 237 medium / 184 low / 20 informational | the label file is the **114 `high` rows only**, and `DeriveLabels` refuses anything else rather than silently counting a medium as gold |
+| "exactly four fields per vulnerability" | true **of the vulnerability record**, but the record is **nested**: the file is a list of 31 projects, each with `codebases[]` and `vulnerabilities[]`, and the commit lives on the **codebase** | the extractor walks projects → vulnerabilities and joins in **`project_id`** (selection is per project) and **`codebase_id`** (a checkout is per codebase); a flat read of the file does not work |
+| "114 high findings across 31 projects is under four per project" | the mean is 3.68, but it is **not a bound**: median 2, **max 12** (MANTRA DEX), and **11 of 31 projects carry 4 or more** | the fixture and the "unweighted pick" arithmetic below are corrected; the weighting argument survives, the number does not |
+
+The fourth claim — "bucketing the 114 `high` findings" — **verifies exactly: 114**. And §3a's "an unweighted pick of six yields maybe 15–25 gold findings" is true only of a *random* six (E[gold] = 6 × 3.68 ≈ 22); the six projects with the most high findings carry **54 of 114** (MANTRA DEX 12, Cork Protocol 11, Coded Estate 9, Oku 8, BakerFi 7, Perennial V2 7). So "weighted beats unweighted" is **not** a claim that weighting finds more findings than picking the biggest — it is a claim that weighting buys *class coverage per checkout*, and Task 4's fixture must be built to show that, not to show a count.
+
 The repo already agrees with the first sentence, in its own words — `internal/taxonomy/testdata/config/taxonomy_scabench.yaml`:
 
 > The ScaBench curated snapshot carries NO category labels (each finding is exactly {finding_id, severity, title, description}), so this map is deliberately a no-op: every finding ingests as bug_class 'unmapped'.
@@ -2765,7 +2944,7 @@ The repo already agrees with the first sentence, in its own words — `internal/
 
 **Offline vs operator, in this task.**
 - **Built and tested offline (Steps 1–6):** the rule table, the classifier, the vocabulary pin against `taxonomy.CanonicalClasses()`, the coverage arithmetic, the label-file schema and the sidecar writer, the repo-level CLI action.
-- **Operator step (Step 7, needs the dataset):** extract the 114 `high` rows from the snapshot, run the classifier, **review the `unmapped` bucket by hand** (that review is the named source of error, so it is recorded, not implied), commit the label file.
+- **Operator step (Step 7, needs the dataset):** extract the 114 `high` rows from the snapshot (**project → vulnerabilities, `severity == "high"`, `project` = `project_id`**), run the classifier, **review the `unmapped` bucket by hand** (that review is the named source of error, so it is recorded, not implied), commit the extracted rows and the label file.
 
 **Files:**
 - Create: `assets/schema/regression_labels.schema.json`
@@ -2808,9 +2987,12 @@ Create `assets/schema/regression_labels.schema.json`. The rows carry `rule` — 
           "project": {
             "type": "string",
             "minLength": 1,
-            "description": "the snapshot's own grouping for this row — the file the vulnerability record lives in, joined to the row by the extractor. §3a's four fields are the VULNERABILITY record; selection is by PROJECT (\"picking six targets\", \"hold out by project\"), so the project is carried here or the picker cannot pick"
+            "description": "the dataset's `project_id` for this row, joined in by the extractor — the vulnerability record carries no project of its own. Selection is by PROJECT (\"picking six targets\", \"hold out by project\"), so this is the picker's key and it must be the id, not the display name (one project's `name` is '2024.09.13 - Final - Perennial V2 Update 3 Audit Report'; the ids are stable slugs)"
           },
-          "severity": { "enum": ["high", "medium", "low"] },
+          "severity": {
+            "enum": ["high", "medium", "low", "informational"],
+            "description": "the dataset's real severity vocabulary, all four values (measured: 114 high, 237 medium, 184 low, 20 informational). The enum lists all four because they are the literals the producer emits; THIS FILE carries only the 114 `high` rows, which is what makes `gold_findings` in the selection mean gold. `DeriveLabels` enforces the high-only scope; the enum exists so the schema never contradicts the producer"
+          },
           "class": { "type": "string", "pattern": "^[a-z0-9-]{3,64}$" },
           "rule": {
             "type": "string",
@@ -3198,10 +3380,19 @@ func DeriveLabels(rows []validation.Value, dataset, snapshotDate string) (valida
 			}
 		}
 		sev := validation.ObjStr(row, "severity")
-		if sev != "high" && sev != "medium" && sev != "low" {
+		// The label file is the snapshot's HIGH findings and nothing else:
+		// §3a's set-cover is over the 114 gold findings, so a medium row in
+		// here would inflate `gold_findings` and the coverage arithmetic. The
+		// snapshot's real severity vocabulary is high|medium|low|informational
+		// (114/237/184/20) — informational is NOT a typo and is the reason this
+		// guard cannot say "high|medium|low only".
+		if sev != "high" {
 			return validation.VNull(), fmt.Errorf(
-				"row %d has severity %q; §3a: severity is high|medium|low only",
-				i, sev)
+				"row %d (%s) has severity %q; this label file covers the snapshot's "+
+					"high findings only — the 114 gold findings §3a's set-cover is "+
+					"over. The snapshot's other rows (237 medium, 184 low, 20 "+
+					"informational) are not labelled here; filter the extraction to "+
+					"severity == \"high\"", i, validation.ObjStr(row, "finding_id"), sev)
 		}
 		class, rule := Classify(validation.ObjStr(row, "title"),
 			validation.ObjStr(row, "description"))
@@ -3340,27 +3531,39 @@ Expected: PASS (the validation package needs `"regression_labels"` appended to `
 - [ ] **Step 7: Operator step — label the real snapshot (needs the dataset)**
 
 ```bash
-# 1. extract the curated-2025-08-18 rows, verbatim, as a JSON array of the
-#    four fields. Read the dataset's own layout; do not reshape the rows.
-#    (The dataset is already cloned at $WEBV2_P0_DIR/scabench from Task 1.)
-python3 - <<'PY' > "$WEBV2_P0_DIR/rows.json"
-import json, pathlib
-# Read the curated snapshot's findings file(s); keep exactly the four fields,
-# and join in the PROJECT (the file's own name/grouping) — selection picks and
-# holds out by project, so the join belongs here, not in the picker.
+# 0. the checkout (§ Operator prerequisites §2). The dataset is ONE file, not a
+#    directory of per-project files: datasets/curated-2025-08-18/curated-2025-08-18.json
+export SCABENCH=/home/xand/webv2-p0/scabench
+export DS="$SCABENCH/datasets/curated-2025-08-18/curated-2025-08-18.json"
+mkdir -p "$WEBV2_P0_DIR" eval/scabench
+# 1. extract the 114 high rows, keeping the vulnerability record's four fields
+#    verbatim and joining in the dataset's own identifiers. The file is a LIST
+#    OF 31 PROJECTS with nested codebases[] and vulnerabilities[] — there is no
+#    flat findings list and no per-project file to glob. The join is
+#    `project_id` (selection and hold-out are per PROJECT) and the severity
+#    filter is load-bearing: without it the 555 rows land here and every
+#    downstream `gold_findings` count is 555, not 114.
+python3 - "$DS" <<'PY' > eval/scabench/curated-2025-08-18.json
+import json, sys
+projects = json.load(open(sys.argv[1]))
 rows = []
-for p in sorted(pathlib.Path("<dataset findings dir>").glob("*.json")):
-    project = p.stem
-    for r in json.loads(p.read_text()):
+for p in projects:
+    for v in p["vulnerabilities"]:
+        if v["severity"] != "high":
+            continue
         rows.append({
-            "finding_id": r["finding_id"], "project": project,
-            "severity": r["severity"], "title": r["title"],
-            "description": r["description"],
+            "finding_id": v["finding_id"],
+            "project": p["project_id"],
+            "severity": v["severity"],
+            "title": v["title"],
+            "description": v["description"],
         })
-print(json.dumps(rows))
+assert len(rows) == 114, f"expected 114 high rows, got {len(rows)}"
+json.dump(rows, sys.stdout)
 PY
-# 2. derive the labels
-webv2 regress labels --rows "$WEBV2_P0_DIR/rows.json" \
+# 2. derive the labels (DeriveLabels refuses a non-high row, so a mis-extraction
+#    fails here rather than inflating the coverage)
+webv2 regress labels --rows eval/scabench/curated-2025-08-18.json \
     --out eval/scabench/labels-2025-08-18.json
 # 3. READ THE UNMAPPED ROWS. This is the review the schema records.
 python3 - <<'PY'
@@ -3386,10 +3589,11 @@ pathlib.Path(str(p) + ".sha256").write_text(
     hashlib.sha256(p.read_bytes()).hexdigest() + "\n")
 PY
 # 5. verify the file still validates and the counts are what you expect
-python3 -c 'import json; d=json.load(open("eval/scabench/labels-2025-08-18.json")); print(d["counts"])'
+python3 -c 'import json; d=json.load(open("eval/scabench/labels-2025-08-18.json")); print(len(d["rows"]), d["counts"])'
+#    expect 114 rows, and the class counts summing to 114.
 ```
 
-**Record** in `docs/gates/v16-P0.md`: the row count, the `counts` object verbatim, how many rows stayed `unmapped` and why, and the spec-vs-live class-count discrepancy (Step 2's test prints the live size; §3a says 23). **Also record** the number of `high` rows found — §3a says 114, and if the snapshot yields a different number, that is a measurement that changes what the spec says (D9), not a detail to smooth over.
+**Record** in `docs/gates/v16-P0.md`: the row count, the `counts` object verbatim, how many rows stayed `unmapped` and why, and the spec-vs-live class-count discrepancy (Step 2's test prints the live size; §3a says 23 — the live set is **25**, verified by reading `internal/findings/levels.go`'s `CLASS_CONFIRM_FLOOR` ∪ `internal/taxonomy/taxonomy.go`'s `defaultCompatClasses`). **Also record** the number of `high` rows found — measured **114**, exactly what §3a says, so this one is now a closed item rather than an open question (Task 11 §5).
 
 - [ ] **Step 8: Commit**
 
@@ -3397,7 +3601,8 @@ python3 -c 'import json; d=json.load(open("eval/scabench/labels-2025-08-18.json"
 git add assets/schema/regression_labels.schema.json assets/testdata/asset_manifest.json \
         internal/regression/repofile.go internal/regression/labels.go \
         internal/regression/labels_test.go internal/cli/cmd_regress.go \
-        internal/validation/schema.go eval/scabench/labels-2025-08-18.json \
+        internal/validation/schema.go eval/scabench/curated-2025-08-18.json \
+        eval/scabench/labels-2025-08-18.json \
         eval/scabench/labels-2025-08-18.json.sha256
 git commit -m "feat(v16-p0): derived class labels for the ScaBench snapshot"
 ```
@@ -3419,11 +3624,13 @@ git commit -m "feat(v16-p0): derived class labels for the ScaBench snapshot"
 
 > Anti-pattern to avoid: the diagnosed campaign was an L2/rollup — heavily liveness- and sequencing-shaped. An unstratified suite would skew toward exactly the angle just found under-weighted, at the expense of hy4's top expected-value classes.
 
+**Two numbers in that quote do not survive contact with the snapshot** (Task 3's measurement table; re-run `Operator prerequisites §7` rather than trusting this). "Under four per project" is a **mean**, not a bound: the high-finding counts run 1 … 12 (median 2, mean 3.68), and 11 of 31 projects carry four or more. And "an unweighted pick of six yields maybe 15–25 gold findings" describes a *random* six (6 × 3.68 ≈ 22); the six biggest projects by high count carry **54 of 114**. So the selector's justification is **class coverage per checkout**, not raw finding count — a greedy weighted by gold count still prefers the project that covers an uncovered class *and* carries weight, which is what the fixture below must demonstrate. Do not build a fixture that "proves" weighting beats picking the six biggest on count; on this data it does not.
+
 Phase 0's scope row adds the held-out rule: **"2 held out by project"**. So the selector's job is exactly: given the label file (Task 3), a project→shape map, and the two projects reserved as held-out, pick the six and say what they cover.
 
 **Offline vs operator, in this task.**
-- **Built and tested offline (Steps 1–5):** the greedy, its weight function, the shape constraint, the hold-out partition, the coverage arithmetic, the refusals, and a synthetic fixture shaped like the real data (31 projects, 114 findings, under four per project) that proves the weighted pick covers a class an unweighted pick misses.
-- **Operator step (Step 6, needs the dataset):** assign a shape to each project (a judgement read off the project's code), name the two held-out projects, run the selector, commit the selection.
+- **Built and tested offline (Steps 1–5):** the greedy, its weight function, the shape constraint, the hold-out partition, the coverage arithmetic, the refusals, and a synthetic fixture shaped like the real data (31 projects, 114 findings, a high-count distribution of median 2 / max 12, and a rare class living in one small project) that proves the weighted pick covers a class an unweighted pick misses.
+- **Operator step (Step 6, needs the dataset):** assign a shape to each project (a judgement read off the project's code), name the two held-out projects, run the selector, commit the selection. Shapes are assigned to **`project_id`s** from the label file, never to display names.
 
 **Files:**
 - Create: `assets/schema/regression_selection.schema.json`
@@ -3510,11 +3717,15 @@ import (
 	"websec/internal/validation"
 )
 
-// syntheticSnapshot mirrors §3a's measured shape: 31 projects, 114 high
-// findings, under four per project, and a class distribution where the biggest
-// projects cluster on two classes while a rare class lives in one small
-// project. An unweighted "pick the six biggest" therefore misses the rare
-// class entirely — which is the failure §3a's weighting exists to prevent.
+// syntheticSnapshot mirrors the MEASURED totals of curated-2025-08-18, not
+// §3a's prose about it: 31 projects and 114 high findings (measured; §3a's
+// "under four per project" is a mean of 3.68, not a bound — the real median is
+// 2 and the real max is 12). The CONCENTRATION here is a deliberate
+// exaggeration of that distribution, not a measurement: it exists so that
+// "pick the six biggest by count" is unmistakably a different pick from the
+// weighted one, which is the property this fixture is here to test. The class
+// distribution — the biggest projects clustered on two classes, a rare class
+// living in one small project — is what makes the weighting matter.
 func syntheticSnapshot(t *testing.T) validation.Value {
 	t.Helper()
 	rows := []validation.Value{}
@@ -3531,17 +3742,17 @@ func syntheticSnapshot(t *testing.T) validation.Value {
 			))
 		}
 	}
-	// 28 filler projects, one finding each, classes cycling.
+	// 27 filler projects, one finding each (27), classes cycling.
 	filler := []string{"precision-rounding", "access-control", "dos-griefing",
 		"logic-error", "unchecked-external-call", "upgrade-initializer",
 		"token-integration"}
-	for i := 0; i < 28; i++ {
+	for i := 0; i < 27; i++ {
 		add(fmt.Sprintf("filler-%02d", i), filler[i%len(filler)], 1)
 	}
-	// Three big projects, all clustered on the same two classes (114 total
-	// findings means the big ones carry the mass).
-	add("big-a", "reentrancy", 30)
-	add("big-b", "reentrancy", 30)
+	// Three big projects, all clustered on the same two classes. 27 + 32 + 32
+	// + 20 + 3 = 114 findings across 31 projects, the measured totals.
+	add("big-a", "reentrancy", 32)
+	add("big-b", "reentrancy", 32)
 	add("big-c", "precision-rounding", 20)
 	// One small project carrying the rare class.
 	add("rare-oracle", "oracle-manipulation", 3)
@@ -3568,7 +3779,7 @@ func titleFor(class string) string {
 
 func syntheticShapes() map[string]string {
 	m := map[string]string{}
-	for i := 0; i < 28; i++ {
+	for i := 0; i < 27; i++ {
 		shape := []string{"vault-erc4626", "lending-liquidation",
 			"bridge-messaging", "non-rollup-l2-or-oracle"}[i%4]
 		m[fmt.Sprintf("filler-%02d", i)] = shape
@@ -3895,6 +4106,12 @@ func Select(spec SelectSpec) (validation.Value, error) {
 
 // profile buckets the label rows by project and computes each class's total
 // gold-finding count (the weight) and the snapshot's total.
+//
+// Invariant it relies on: the label file carries the snapshot's HIGH findings
+// only (Task 3's DeriveLabels enforces it), so every row IS a gold finding and
+// no severity filter is needed here. If that invariant ever breaks, this
+// function silently counts a medium finding as gold and the coverage figure
+// stops meaning what §3a means by it.
 func profile(labels validation.Value, shapes map[string]string) (
 	[]candidate, map[string]int, int, error) {
 	byProject := map[string]*candidate{}
@@ -4073,15 +4290,25 @@ Expected: PASS. Add one CLI test that `regress select` with a one-project `--hel
 - [ ] **Step 6: Operator step — select the real suite (needs the dataset)**
 
 ```bash
-# 1. assign a shape to every project you are willing to check out. Read the
-#    code: §3a's shapes are vault/ERC-4626, lending/liquidation, bridge or
-#    cross-chain messaging, and a non-rollup L2 or oracle-driven protocol.
+# 1. assign a shape to every project you are willing to check out. The keys are
+#    the label file's `project` values, which are the dataset's `project_id`
+#    slugs — NOT the display names. Read the code: §3a's shapes are vault/ERC-4626,
+#    lending/liquidation, bridge or cross-chain messaging, and a non-rollup L2 or
+#    oracle-driven protocol.
+#    Two of the 31 projects are awkward for the checkout, not the picker:
+#      code4rena_starknet-perpetual_2025_06 carries TWO codebases (its `_main`
+#      one has no commit at all) and code4rena_initia-move_2025_04 records an
+#      empty commit — both are still pickable, but Task 5's mirror rule and the
+#      target's --codebase-id are what make them checkable (see the unpinned
+#      table in *The dataset, as it actually is*).
+python3 -c 'import json;print(sorted({r["project"] for r in json.load(open("eval/scabench/labels-2025-08-18.json"))["rows"]}))'
 cat > "$WEBV2_P0_DIR/shapes.json" <<'JSON'
 {"<project-a>": "vault-erc4626", "<project-b>": "lending-liquidation",
  "<project-c>": "bridge-messaging", "<project-d>": "non-rollup-l2-or-oracle"}
 JSON
-# 2. name the two held-out projects. Choose them so the suite's shapes stay
-#    covered; the selector refuses a hold-out the greedy cannot pick.
+# 2. name the two held-out projects (again by project_id). Choose them so the
+#    suite's shapes stay covered; the selector refuses a hold-out the greedy
+#    cannot pick.
 webv2 regress select \
     --labels eval/scabench/labels-2025-08-18.json \
     --shapes "$WEBV2_P0_DIR/shapes.json" \
@@ -4091,7 +4318,7 @@ webv2 regress select \
     --out eval/regression/selection-2025-08-18.json
 ```
 
-**Record** in `docs/gates/v16-P0.md`: the selection file's `coverage` object verbatim, the six picks with their shapes and partitions, and — importantly — the coverage an *unweighted* pick would have reached, so §3a's claim that weighting buys real coverage is a measurement rather than an assertion. (Cheap way to get it: temporarily drop the weight by passing `--picks 6` with a copy of the label file whose `counts` are all 1 — or compute it in a five-line python3 script over the label file. Either way, put the two numbers side by side.)
+**Record** in `docs/gates/v16-P0.md`: the selection file's `coverage` object verbatim, the six picks with their shapes and partitions, and — importantly — the coverage an *unweighted* pick would have reached, so §3a's claim that weighting buys real coverage is a measurement rather than an assertion. Compute it over the label file in a few lines of python3 (do NOT get it by editing the label file's `counts`: `Select` refuses a file whose sidecar no longer matches, and a hand-edited weight is not a measurement). Put the two numbers side by side, and state which reading of "unweighted" you used — *random six* or *six biggest by gold count* — because on this snapshot they are very different: a random six averages 22 of 114 gold findings, while the six biggest carry **54 of 114**. §3a's "15–25" is the random-six figure; the weighting argument is about classes, not counts.
 
 - [ ] **Step 7: Commit**
 
@@ -4111,6 +4338,8 @@ git commit -m "feat(v16-p0): weighted set-cover target selection and stratificat
 §3a, verbatim:
 
 > **Source pinning.** `checkout_sources.py` only verifies that `HEAD` prefix-matches the recorded commit, does no bytecode verification, and at least one project (Fenix Finance) records `"commit": "main"` — a mutable ref. Phase 0 resolves every commit to a concrete SHA at first checkout, mirrors the repos locally, and records the resolved SHA in the campaign snapshot. ScaBench's commit field is a hint, not a pin.
+
+**"At least one project" is a floor, and a low one.** Measured against the snapshot, **ten of 32 codebases** carry no usable pin, in three distinct modes — five record `main` (Fenix Finance, Lambo.win, LoopFi, BakerFi, Blackhole), two record the **empty string** (Initia Move, Starknet Perpetual's `_main` codebase — not a mutable ref but *no ref at all*, and `checkout_sources.py` silently clones the default branch for them), and three record **abbreviated SHAs** (Oku `9e31b40`, Idle Finance `b6e5813`, SYMMIO `cfe1920`). The table with the resolution recipe for each is in *Operator prerequisites §7 — The dataset, as it actually is*; it is Task 5's real workload. This task's hint classifier therefore has to be right about all four kinds, and its mirror rule has to cover `short-sha` and `unknown`, not just `mutable-ref`.
 
 Task 1 already refuses a non-40-hex pin and binds the snapshot's commit to it. This task adds the two facts Task 1 could not: **what kind of hint the dataset gave** (so a `main` is visible as a mutable ref rather than merely resolved), and **which local mirror the SHA was resolved against** (so the resolution is reproducible after the dataset or the network goes away).
 
@@ -4244,6 +4473,38 @@ func TestPinTargetRequiresAMirrorForAMutableRefHint(t *testing.T) {
 		SnapshotID: sid, ResolvedBy: "op",
 	}); err != nil {
 		t.Fatalf("a full-sha hint must pin without a mirror: %v", err)
+	}
+	// A SHORT sha is not a pin either — it is ambiguous by construction and it
+	// is what three real codebases record (Oku 9e31b40, Idle Finance b6e5813,
+	// SYMMIO cfe1920). It must be mirrored exactly like a mutable ref.
+	short, err := AddTarget(c, TargetSpec{
+		Kind: "scabench", Program: "Oku", Shape: "vault-erc4626",
+		CommitHint: "9e31b40",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := PinTarget(c, PinSpec{
+		TargetID: validation.ObjStr(short, "target_id"), ResolvedSHA: sha,
+		SnapshotID: sid, ResolvedBy: "op",
+	}); err == nil || !strings.Contains(err.Error(), "mirror") {
+		t.Fatalf("a short-sha hint pinned without a mirror: err = %v", err)
+	}
+	// And an EMPTY hint is not a missing row: two real codebases record it
+	// (Initia Move, Starknet Perpetual_main). It is `unknown`, so it needs a
+	// mirror too — but the target itself must be creatable.
+	empty, err := AddTarget(c, TargetSpec{
+		Kind: "scabench", Program: "Initia Move", Shape: "vault-erc4626",
+		RecordID: "code4rena_initia-move_2025_04", Repo: "code-423n4/2025-01-initia-move",
+	})
+	if err != nil {
+		t.Fatalf("an empty dataset commit field must be representable: %v", err)
+	}
+	if _, err := PinTarget(c, PinSpec{
+		TargetID: validation.ObjStr(empty, "target_id"), ResolvedSHA: sha,
+		SnapshotID: sid, ResolvedBy: "op",
+	}); err == nil || !strings.Contains(err.Error(), "mirror") {
+		t.Fatalf("an empty hint pinned without a mirror: err = %v", err)
 	}
 }
 
@@ -4393,13 +4654,18 @@ func RecordMirror(c *state.Campaign, spec MirrorSpec) (validation.Value, error) 
 Then in `target.go`'s `PinTarget`, immediately after the SHA shape check, add the hint rule and record the hint kind:
 
 ```go
+	// Only a full 40-hex hint is self-pinning. The other three kinds are all
+	// hints: a mutable ref moves, a short SHA is ambiguous, and an empty hint
+	// states nothing at all. Ten of the snapshot's 32 codebases land in these
+	// three buckets, so requiring a mirror only for `mutable-ref` would leave
+	// five of the ten resolutions unreproducible.
 	kind := HintKind(validation.ObjStr(target, "commit_hint"))
-	if kind == "mutable-ref" || kind == "unknown" {
+	if kind != "full-sha" {
 		if !hasKey(target, "mirror") {
 			return validation.VNull(), fmt.Errorf(
 				"the dataset's commit field is a %s (%q) and target %s has no mirror "+
-					"record — §3a: a mutable ref is a hint, not a pin, and the "+
-					"resolution is only reproducible against the mirrored tree; run "+
+					"record — §3a: a ref is a hint, not a pin, and the resolution is "+
+					"only reproducible against the mirrored tree; run "+
 					"`regress <campaign> target mirror` first", kind,
 				validation.ObjStr(target, "commit_hint"), spec.TargetID)
 		}
@@ -4418,17 +4684,17 @@ and in `copyTargetWith` add:
 In `regressionsuite.go`'s per-target loop, add:
 
 ```go
-		if kind == "mutable-ref" && !hasKeyS(t, "mirror") {
+		if kind != "" && kind != "full-sha" && !hasKeyS(t, "mirror") {
 			problems = append(problems, validation.VStr(fmt.Sprintf(
-				"target %s was pinned from a mutable ref (%q) with no mirror "+
-					"record — the resolution is not reproducible", tid,
+				"target %s was pinned from a %s (%q) with no mirror record — the "+
+					"resolution is not reproducible", tid, kind,
 				validation.ObjStr(t, "commit_hint"))))
 		}
 ```
 
-where `kind := validation.ObjStr(t, "hint_kind")` is read once at the top of the loop body (it may be empty on a record written before this task — an empty hint_kind is not a problem, only a `mutable-ref` without a mirror is).
+where `kind := validation.ObjStr(t, "hint_kind")` is read once at the top of the loop body (it may be empty on a record written before this task — an empty hint_kind is not a problem, only a hint kind that is not `full-sha` without a mirror is).
 
-In `cmd_regress.go`: add `--mirror-path`, `--mirror-kind`, `--mirror-sha256`, `--mirror-bytes` to `valueFlags`; add the `target mirror` subcommand dispatching to `regression.RecordMirror`; and extend `regressTargetPin`'s output line to print the hint kind (`hint=%s`), so the operator sees `mutable-ref` in the terminal at pin time.
+In `cmd_regress.go`: add `--mirror-path`, `--mirror-kind`, `--mirror-sha256`, `--mirror-bytes` to `valueFlags`; add the `target mirror` subcommand dispatching to `regression.RecordMirror`; and extend `regressTargetPin`'s output line to print the hint kind (`hint=%s`), so the operator sees `mutable-ref` / `short-sha` / `unknown` in the terminal at pin time.
 
 ```bash
 python3 scripts/sync-asset-manifest.py
@@ -4437,19 +4703,46 @@ GOCACHE=$PWD/.scratch/gocache go test ./internal/regression ./internal/audit/...
 
 Expected: PASS. Task 1's pin tests still pass — their hints are `main` (mutable-ref) with no mirror, so **they will now fail**: fix them by calling `RecordMirror` first, or by using a full-sha hint. Prefer the latter where the test is not about mirrors (`CommitHint: shaPre`), and keep one mutable-ref case with a mirror. This is the intended cost of the new rule; do not weaken the rule to keep a test green.
 
+**The `tarball` mirror kind stays in the enum but is a second-class citizen, and the plan says so on purpose.** A tarball can be a mirror *record* — it is a verifiable byte-for-byte copy of the tree — but it cannot be the artifact the SHA was *resolved against*, because `snapshot.PinSourceSnapshot` takes `source.git_commit` from `git rev-parse HEAD` and a tarball has no git HEAD; `PinTarget`'s equality check would refuse the resulting snapshot. The enum keeps it so a record can say "this tarball corroborates the tree" without pretending it is the resolution source. See Step 5 for the decision.
+
 - [ ] **Step 5: Operator step — mirror every selected repo (needs network)**
 
 ```bash
 mkdir -p "$WEBV2_P0_DIR/mirror"
+# Per SELECTED TARGET, not per project: a project may carry two codebases, so
+# iterate the six targets' codebases (32 codebases exist in the snapshot; only
+# the selected ones need a mirror).
+#
+# Resolve by hint kind — the recipe differs, and `git clone --mirror` is the
+# most expensive option for all three:
+#
+#   full-sha  (22 of 32 codebases): fetch that one commit. Measured 252 KB.
+#     git init -q "$d" && git -C "$d" remote add origin "https://github.com/$repo"
+#     git -C "$d" fetch --depth 1 origin "$hint"
+#     git -C "$d" checkout -q FETCH_HEAD        # <- makes git rev-parse HEAD work
+#
+#   mutable-ref (5): no clone needed to READ the pin:
+#     git ls-remote "https://github.com/$repo" "$hint"     # e.g. main -> SHA
+#     then fetch --depth 1 that SHA as above.
+#
+#   short-sha (3): the ref is not fetchable by name (measured: `git fetch
+#     --depth 1 origin 9e31b40` fails with "couldn't find remote ref"), so:
+#     git clone -q --depth 50 "https://github.com/$repo" "$d"
+#     git -C "$d" rev-parse "$hint^{commit}"
+#     # Idle Finance's b6e5813 is NOT in a depth-50 clone: `git fetch --unshallow`
+#     # first (measured: 11 MB for Idle-Labs/idle-tranches).
+#
+#   unknown / empty (2): the dataset states nothing. Resolve the repo's default
+#     branch HEAD and record it as `unknown` — and say in the gate record that
+#     the pin is OUR choice, not the dataset's.
 for repo in <org>/<repo-a> <org>/<repo-b> ...; do
   name="${repo//\//__}"
-  git clone --mirror "https://github.com/$repo" "$WEBV2_P0_DIR/mirror/$name.git"
-  git --git-dir "$WEBV2_P0_DIR/mirror/$name.git" rev-parse '<hint>^{commit}'
-  # ^ that printed SHA is the resolved SHA recorded by `target pin`
+  d="$WEBV2_P0_DIR/mirror/$name.git"
+  # ... the kind-appropriate recipe above, ending in:
+  git -C "$d" rev-parse HEAD        # <- the resolved SHA recorded by `target pin`
   # a bundle is the portable form; keep one if the mirror must move
-  git --git-dir "$WEBV2_P0_DIR/mirror/$name.git" bundle create \
-      "$WEBV2_P0_DIR/mirror/$name.bundle" --all
-  sha256sum "$WEBV2_P0_DIR/mirror/$name.bundle"   # or: du -sb the mirror dir
+  git -C "$d" bundle create "$WEBV2_P0_DIR/mirror/$name.bundle" --all
+  sha256sum "$WEBV2_P0_DIR/mirror/$name.bundle"
 done
 # then, per target:
 webv2 --root "$WEBV2_P0_DIR/root" regress <cid> target mirror <T-id> \
@@ -4457,7 +4750,9 @@ webv2 --root "$WEBV2_P0_DIR/root" regress <cid> target mirror <T-id> \
     --mirror-sha256 '<64-hex>' --mirror-bytes <bytes>
 ```
 
-Write the same rows into the committed index `eval/regression/mirrors.json` (`{target_id, repo, resolved_sha, mirror_kind, mirror_path, mirror_sha256}`), so the mirrors can be re-verified later without the campaign. **Record** in `docs/gates/v16-P0.md`: the per-target `hint_kind`, the resolved SHA, the mirror sha256, and the count of hints that were **not** full SHAs — §3a's Fenix Finance claim is a measurement, so report how many of the selected projects record a mutable ref.
+**Tarball or clone — the decision, and why.** Every codebase carries `tarball_url`, and it is genuinely cheaper for a one-shot tree: one `curl -L` with no history, and it is mechanically `<repo_url>/archive/<commit>.tar.gz` (verified: 0 exceptions across 32 codebases; 29 of 32 have one — the two empty-commit codebases and `Liquid Ron_main` do not). **This plan still mirrors with git**, for three measured reasons: (1) the pin binds to `snapshot.source.git_commit`, which comes from `git rev-parse HEAD` and is `null` for a tarball tree, so a tarball-only checkout cannot produce the snapshot `PinTarget` requires; (2) the tarball URL is not an independent pin — it re-encodes the same `commit` field, so `/archive/main.tar.gz` is exactly as mutable as `main`, and for the three short SHAs it is a short-SHA URL; (3) it is not actually cheaper *for the pinning job* once you skip `--mirror`: a depth-1 fetch by SHA measured 252 KB, and `git ls-remote` resolves a ref with no download at all. Keep the tarball as a **secondary corroboration** (fetch it, hash it, record it as `--mirror-kind tarball` if you want a second copy of the bytes) — never as the source of the resolved SHA.
+
+Write the same rows into the committed index `eval/regression/mirrors.json` (`{target_id, repo, resolved_sha, mirror_kind, mirror_path, mirror_sha256}`), so the mirrors can be re-verified later without the campaign. **Record** in `docs/gates/v16-P0.md`: the per-target `hint_kind`, the resolved SHA, the mirror sha256, and the count of hints that were **not** full SHAs — report it twice, because §3a's Fenix Finance claim is a measurement: **snapshot-wide, 10 of 32 codebases** (5 mutable-ref, 3 short-sha, 2 empty), and among the six selected targets, the actual count. Do not report only the second and let it read as "one project".
 
 - [ ] **Step 6: Commit**
 
@@ -6157,8 +6452,10 @@ import (
 
 // ScabenchSnapshotDate is the one ScaBench snapshot's cutoff (§3a: "There is
 // exactly ONE ScaBench snapshot — curated-2025-08-18; no releases, no tags").
-// A fresh target exists to cover the window that snapshot does not, so a
-// report inside the window is a ScaBench target wearing a different name.
+// Verified 2026-09-21 against the checkout: datasets/ holds one directory, and
+// the upstream repo has no releases and no tags. A fresh target exists to cover
+// the window that snapshot does not, so a report inside the window is a
+// ScaBench target wearing a different name.
 const ScabenchSnapshotDate = "2025-08-18"
 
 // FreshSpec is one fresh target's provenance.
@@ -7014,7 +7311,11 @@ Expected: PASS. This task's test is the plan's second end-to-end branch test —
 
 ```bash
 # 1. one campaign per target has already been created and audited (Tasks 1-9).
-#    Write the binding map.
+#    Write the binding map. The keys are the selection's `picks[].project`, i.e.
+#    the dataset's project_id. A project with TWO codebases (Starknet Perpetual)
+#    still gets ONE pick and ONE campaign — bind the campaign whose target
+#    carries the codebase you actually pinned, and record the codebase_id in the
+#    gate record so the choice is not implicit.
 cat > "$WEBV2_P0_DIR/bindings.json" <<'JSON'
 {"<project-a>": "C-...", "<project-b>": "C-...", "<project-c>": "C-...",
  "<project-d>": "C-...", "<diagnosed program>": "C-...",
@@ -7127,28 +7428,46 @@ Per criterion 2, 3, 5, 6, 7 and 8, the artefact and the command that produced it
 `NOT RUN — offline` with the exact command the operator would run. Include:
 
 - the selection's `coverage` object, and the same figure for an unweighted pick (§3a claims
-  weighting matters; this is the measurement);
-- the number of selected projects whose dataset commit field was NOT a full SHA (the
-  Fenix Finance claim, as a count);
+  weighting matters; this is the measurement) — and say which reading of "unweighted" you
+  used, because a random six and the six biggest differ by ~2.5× on this snapshot;
+- the number of codebases whose dataset commit field was NOT a full SHA — report it
+  snapshot-wide (**10 of 32**: 5 `mutable-ref`, 3 `short-sha`, 2 empty/`unknown`) as well as
+  among the selected targets (the Fenix Finance claim, as a count);
 - the row count and `counts` object from the label file, plus how many rows stayed
   `unmapped` and why;
 - each fresh target's `files_scanned` / `hits` / `fix_commit_absent` / disagreement rate /
   committed-and-revealed key hashes;
-- the composition, with the D8 label spelled out: these are **rediscovery** numbers.
+- the composition, with the D8 label spelled out: these are **rediscovery** numbers;
+- the tarball-vs-git decision as executed: the mirror kind actually recorded per target, and
+  the measured bytes, so Task 5's choice is a datum rather than a preference.
 
 ## 5. What this record could NOT verify
 
 Name every one. At minimum:
 
-- anything behind the network (the dataset download, the mirrors, the real checkouts, the
-  baseline runner, the contest reports) if it did not run;
+- anything behind the network (the mirrors, the real checkouts, the baseline runner, the
+  contest reports) if it did not run. The dataset download is no longer on this list: the
+  checkout is on disk and every count in *Operator prerequisites §7* was measured from it;
 - the class-count discrepancy: §3a says "ARGUS's 23-class taxonomy", the live
-  `taxonomy.CanonicalClasses()` holds <n> classes (Task 3 Step 2 prints the number). The
+  `taxonomy.CanonicalClasses()` holds **25** classes (verified 2026-09-21 by reading
+  `CLASS_CONFIRM_FLOOR` ∪ the dedup compat vocabulary — both the built-in default and the
+  `dedup` seam yield 25; Task 3 Step 2's `go run` is the executable confirmation). The
   plan pins the labels to the LIVE set; the spec's "23" is recorded here as stale rather
   than edited (D9: a spec change cites a measurement);
-- whether the 114 `high` findings in §3a is what the snapshot actually contains;
 - that the disagreement rate is a measurement of an instrument Part 10 calls *unvalidated* —
-  one rate is a datum, not a validation.
+  one rate is a datum, not a validation;
+- whether all 32 codebases actually clone: only 3 repositories were fetched by hand while
+  correcting this plan (`Liquid Ron`, `oku-custom-order-types`, `idle-tranches`) plus two
+  `ls-remote` lookups. The other 27 are unverified, and the six selected targets are the
+  ones that matter;
+- ScaBench's own README claims a "2024-08 to 2025-08" range; the `project_id` suffixes run
+  `2024_09` … `2025_08`. Which is right depends on whether the suffix is the contest date or
+  the curation date, and nothing in this plan depends on it.
+
+**Closed by this correction (do not re-open them as unknowns):** the snapshot contains
+exactly **114** `high` findings, 555 findings in total, 31 projects and 32 codebases, one
+snapshot directory, and no releases or tags. Each of those now carries the command that
+produced it in *Operator prerequisites §7*.
 
 ## 6. Post-record corrections and open questions
 
