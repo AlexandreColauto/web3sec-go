@@ -291,6 +291,65 @@ The general rule this is an instance of is recorded with P0's SHA bookkeeping:
 *a snapshot carries a resolved SHA, and a fork run carries a resolved block.* A
 pin that names only one of the two is half a pin.
 
+## 3.2 What the chain actually holds: a real before/after pair, and why the harness still misses it
+
+B2 was going to say this: *the deployed DebtManager was never patched in place —
+identical bytecode sha256 at pre-attack, attack block and today — so there is no
+on-chain before/after pair, and this control target can only certify source-level
+detection.*
+
+**The evidence is misleading and the conclusion is wrong.** Hashing
+`0x675d410d…` does return one identical digest at every height — because it is an
+**EIP-1967 proxy**, and a proxy's own bytecode never changes, not even when its
+implementation is swapped. That hash is the same in a world where nothing was
+patched and in a world where everything was. It cannot tell the two apart, so it
+cannot support either conclusion.
+
+Read the implementation slot instead (`0x360894a1…382bbc`) and the pair is right
+there, documented at both ends by the repository itself:
+
+| | pre-patch pin `46e84022` | fix `e73bfb21` |
+|---|---|---|
+| `deployments/optimism/DebtManager_Implementation.json` names | `0x16748Cb753A68329cA2117a7647aA590317EbF41` | `0x910E91D24a948c3E36b71B505Fb45fE80E95adB3` |
+| its recorded `receipt.blockNumber` | `107,135,784` | `108,401,937` |
+| its on-chain code, sha256 | `a6b12297…` | `b3926e4d…` |
+
+The proxy's slot, read at height:
+
+- **through block `108,445,161`** → `0x16748cb7…` (`a6b12297…`). The attack at
+  `108,375,558` sits inside this window, so the pin's own deployment record names
+  the implementation the exploit actually ran against.
+- **from block `108,445,162`** (2023-08-19 03:11 UTC) → `0x910e91d2…`
+  (`b3926e4d…`), the implementation the fix commit records.
+
+Timeline, all UTC: attack `09:11:33` on 2023-08-18 → fix commit `15:10:43` the
+same day → replacement implementation deployed (block `108,401,937`) → proxy
+repointed `03:11:41` the next morning. The vulnerable implementation was never
+edited and is **still** `a6b12297…` today: it was orphaned by a proxy upgrade, not
+patched in place. So the draft's instinct — *remediation happened as an upgrade,
+not an edit* — is right; what follows from it is the opposite of what the draft
+concluded.
+
+**Two consequences, one strengthening and one limiting.**
+
+*Strengthening.* §5 used to say the pin's correspondence to the deployed
+vulnerable code was "argued from the fix commit's parent and the incident date,
+not verified byte-for-byte". That is now too modest. The pre-patch pin's own
+deployment record names `0x16748cb7…`, the proxy's implementation slot named
+`0x16748cb7…` at the attack block, and that address's bytecode is byte-identical
+today. The correspondence is no longer an argument from dates.
+
+*Limiting.* The harness forks `99,811,375`, where the proxy has **no code at all**
+(§3.1), so it exercises **neither** side of the pair above. It cannot, in
+principle, demonstrate anything about the deployed fix, because it never runs
+against either deployment. What it demonstrates is exactly and only
+**source-level**: `checkMarket` absent at the pin, present at the fix, and the
+five tests failing at the pin because the refusal is missing. That is a real and
+useful result — it is what "PATCHED-KNOWN" is supposed to test — but it is not an
+on-chain before/after demonstration, and 10b must not be written as though the
+fork at `108,375,557` supplies one. It does not; the pair lives at
+`108,445,161` / `108,445,162`, and reaching it is a different run.
+
 ## 4. The P1 handoff (the point of this task) — **NOT RUN**
 
 No handoff is recorded. `handoff_finding_id` and `handoff_extractable_usd` are
@@ -344,12 +403,16 @@ run — say exactly that, and nothing more.
   reported loss as either of the other two is precisely the misrepresentation
   §2.4 forbids, so the separation is stated here rather than left to be inferred
   from the absence of a number.
-- The pin is a commit the deployed vulnerable code corresponds to. **The harness
-  does not fork the exploit's state**: it forks `99,811,375` (2023-05-19)
-  because the project hardcoded that constant, three months before the attack
-  and before the vulnerable implementation was deployed (§3.1). The deployed
-  bytecode was not decompiled and compared to the pre-patch commit's build — the
-  correspondence is argued from the fix commit's parent and the incident date,
-  not verified byte-for-byte. Both gaps are named because a downstream
-  `extractable_usd` computed at that height would describe a counterfactual.
+- The pin is a commit the deployed vulnerable code corresponds to, and that
+  correspondence is now **verified on-chain rather than argued from dates**
+  (§3.2): the pre-patch pin's deployment record names `0x16748cb7…`, the proxy's
+  implementation slot held `0x16748cb7…` at the attack block, and its bytecode is
+  byte-identical today. **The harness nonetheless does not fork the exploit's
+  state**: it forks `99,811,375` (2023-05-19) because the project hardcoded that
+  constant, three months before the attack, where the proxy has no code at all
+  (§3.1). What remains unverified is the last link — the deployed implementation
+  was not decompiled and compared to the pre-patch commit's own build, so "this
+  bytecode came from this source" is inference, not a match. A downstream
+  `extractable_usd` computed at the harness's height would describe a
+  counterfactual; §3.2 names the two heights where it would not.
 
