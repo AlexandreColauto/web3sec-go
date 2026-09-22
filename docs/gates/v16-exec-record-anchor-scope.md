@@ -28,7 +28,7 @@ operator commits to the expectation BEFORE the run:
 - the keys are stamped into the record at exec time, before the payload runs —
   `runWriteInitialRecord` calls `applyExecExpectation` and then
   `validation.WriteJson(f.path, f.record, "sandbox_execution")`
-  (`internal/sandbox/exec.go:164-174`, `internal/sandbox/expect.go:55-64`);
+  (`internal/sandbox/exec.go:164-174`, `internal/sandbox/expect.go:55-63`);
 - the CLI refuses to accept the pair in any other shape (`--expect-failure`
   requires `--expect fail`, and `--expect fail` requires a signature:
   `internal/cli/cmd_exec.go:228-244`).
@@ -182,7 +182,18 @@ copy to another root (step 9 copies the fixture: `verify-full.sh:355-357`).
 - `internal/audit/sections/floorpolicy.go` is the *"the projection must agree
   with the log"* idiom to imitate: it replays the log and reconciles it against
   the on-disk projection, reporting drift as a problem.
-- The section list is pinned in **five** places (all enumerated in §7.1, §7.2 and §8.3).
+- The section list is pinned in **eight** places: the **five registry pins**
+  enumerated in §8.3, plus **three report pins that count rendered sections**
+  and are easy to miss — `internal/cli/cli_test.go:161` (`len(secs) != 15`),
+  `internal/audit/eval_gate_test.go:76` (`len(got) != 15`), and
+  `internal/audit/audit_test.go:104-110` (an exact 15-name report list). **Those
+  three are load-bearing on the fact that their campaigns contain no exec
+  events**: `TestAuditClean`'s campaign is a bare `init` (`cli_test.go:39-53`),
+  `gateCampaign` only ingests hypotheses (`eval_gate_test.go:41-54`), and
+  `initCampaign` is a bare `state.Init` (`audit_test.go:51-59`). The new section
+  is presence-gated, so all three stay green as written — but **a future fixture
+  that execs will break one of them**, and whoever writes that fixture must move
+  the count in the same commit. §8.3 lists them with the registry pins.
 
 ---
 
@@ -251,9 +262,12 @@ has the same shape of ambiguity: canonical spaced form vs compact form, decoded
 value vs raw file bytes, all legitimate. Hence the second key, and hence a
 pinned literal rather than a free-form string (§3).
 
-The label does double duty in §4: **its presence is the data-based marker of a
-new-style event**, which is how the migration position is expressed without a
-timestamp cutoff.
+The label is not itself the migration marker. **The presence of EITHER anchor
+key is the data-based marker of a new-style event** (§4), which is how the
+migration position is expressed without a timestamp cutoff. The label's own job
+is the one above — it names the encoding — and a digest that carries no label is
+refused (§3.3, §5.1), because it is exactly the unlabelled-encoding defect class
+this section exists to close.
 
 ### 2.4 Both writers, or the hole just moves
 
@@ -350,9 +364,13 @@ That distinction is not pedantry — it is load-bearing in both directions:
 it is an unlabelled canonical encoding, i.e. not evidence
 (`docs/gates/v16-P0-control-target.md:336-338`; the `a6b12297` vs `c71f1646`
 collision). The audit section therefore treats these as problems (§5): a digest
-with no label, a label with no digest, and a label that is not the pinned
-literal. A reader that guesses the encoding is exactly the reader the B2 record
-warns about.
+with no label, a label with no digest, a label that is not the pinned literal,
+and a digest whose **value** is malformed — not 64 lowercase hex, or not a
+string at all. The malformed-value case is not decoration: such a digest can
+never equal a recomputed one, so it is a mismatch, and the reader must say so
+rather than treating it as an unverifiable curiosity. A reader that guesses the
+encoding — or that shrugs at a garbled digest — is exactly the reader the B2
+record warns about.
 
 ---
 
@@ -360,16 +378,22 @@ warns about.
 
 **Recommendation: fail-open on an absent anchor, fail-closed on a present one.**
 
-- No anchor keys at all on the event (`exec_record_sha256_alg` absent) ⇒ the
-  event is **UNANCHORED**: reported in the section's `unanchored` list,
-  **not** a problem, `ok` stays true, and the mint gate admits the record
-  exactly as today.
-- Any anchor key present ⇒ the event is **new-style**, and every rule is
+- **Neither** anchor key on the event (`exec_record_sha256` and
+  `exec_record_sha256_alg` both absent) ⇒ the event is **UNANCHORED**: reported
+  in the section's `unanchored` list, **not** a problem, `ok` stays true, and the
+  mint gate admits the record exactly as today.
+- **Either** anchor key present ⇒ the event is **new-style**, and every rule is
   enforced: a digest that does not match the on-disk record, a label without a
-  digest, a digest without a label, an unknown label, or a record that is not on
-  disk ⇒ **refused** at mint and reported as a problem by the audit.
+  digest, a digest without a label, a label that is not the pinned literal, a
+  digest that is not 64 lowercase hex, or a record that is not on disk ⇒
+  **refused** at mint and reported as a problem by the audit.
 
-The presence of the label is the migration marker. It is a property of the data,
+**The presence of EITHER anchor key is the migration marker.** The rule has one
+reading and it is the strict one: `{digest present, label absent}` is new-style
+and **refused**, never fail-open. An unlabelled digest is precisely the defect
+class §3.3 exists to close (the project's own `a6b12297…` / `c71f1646…` B2
+collision), so it cannot also be the escape hatch from the rule. §2.3, §4.1,
+§5.1, §8.1 and §8.2 all state this same predicate. It is a property of the data,
 not of a date, so it cannot drift with a clock and it cannot be forged without
 also forging the digest (which is checked).
 
@@ -388,7 +412,7 @@ invariant refuses a level rise (`invariants.AssertInvariantsVerified`), and a
 torn tail is refused rather than repaired (`SECURITY.md`). Here it is wrong, and
 the cost is measurable, not hypothetical:
 
-1. **Step 9 goes red.** `scripts/verify-full.sh:358-366` asserts both
+1. **Step 9 goes red.** `scripts/verify-full.sh:358-365` asserts both
    `audit PASS:` and `audit --json` → `ok is True` on the fixture. Every fixture
    event predates the anchor, so fail-closed makes the fixture's audit DIRTY by
    construction. That is a *measured* consequence of the fixture's contents
@@ -396,7 +420,7 @@ the cost is measurable, not hypothetical:
 2. **The fixture can never be re-anchored.** Its entire value is that it was
    built end to end by the Python reference and committed as a
    reader-compatibility fixture — *"everything the Go auditors and readers must
-   accept from Python-era state"* (`scripts/verify-full.sh:350-354`,
+   accept from Python-era state"* (`scripts/verify-full.sh:345-349`,
    `scripts/legacy/README.md`). Stamping a Go-computed anchor into it would
    rewrite `event_hash` on the edited events and destroy the provenance it
    exists to carry. So fail-closed-on-absent is **permanently unadoptable while
@@ -404,9 +428,9 @@ the cost is measurable, not hypothetical:
 3. **Mint would go red in two harnesses.** Both the golden recipe and the P2
    smoke seed an E4 record out-of-band and mint against it:
    `seed_p2_exec` (`scripts/verify-full.sh:204-246`, used by step 11 at
-   `:584-588`) and `seed_exec` (`scripts/golden-run.py:283-358`). Neither writes
-   a `sandbox.exec` event at all, so a mint gate that demanded an anchor would
-   refuse them and break step 7 (golden) and step 11.
+   `:589` and step 12 at `:710`) and `seed_exec` (`scripts/golden-run.py:283-358`).
+   Neither writes a `sandbox.exec` event at all, so a mint gate that demanded an
+   anchor would refuse them and break step 7 (golden), step 11 and step 12's mint.
 4. **It would retroactively invalidate every prior record.** The anchor can only
    ever prove *"this record was not edited after the event"*. It can prove
    nothing about a record whose event predates it, so treating absence as
@@ -416,29 +440,63 @@ the cost is measurable, not hypothetical:
 ### 4.3 What fail-open leaves, honestly
 
 The anchor closes **"edit the record after the event"**. It does not close
-**"remove the event"**. If the anchoring event is the last line of
-`events.jsonl`, truncating that line leaves a chain that still verifies — the
-chain has no external head pin, it is anchored only at 64 zeros
-(`internal/state/chain.go:7-8`, `SECURITY.md`), and its tamper checks are
-`prev_hash` linkage plus per-event recomputation
-(`internal/state/verifylog.go:263-275`). A truncated-at-a-line-boundary log is
-therefore invisible to `verify`, and the exec would read as merely *unanchored*.
+**"remove the event"** — but the removal is *not* as cheap as "truncate the last
+line", and the log's chain check is not what catches it. Both halves of that
+sentence are stated below; the first version of this section got each of them
+wrong in the opposite direction.
 
-This is a pre-existing boundary of the ledger, not something the anchor
-introduces, and it is strictly harder to exploit than editing a JSON file: it
-requires rewriting the log and is detectable by anyone holding an external copy
-of the head hash. Two honest mitigations are in scope:
+**Truncation IS caught today — by the mirror, not by the chain.** A
+truncated-at-a-line-boundary log passes the chain check: the chain has no
+external head pin, it is anchored only at 64 zeros (`internal/state/chain.go:7-8`,
+`SECURITY.md`), and its tamper checks are `prev_hash` linkage plus per-event
+recomputation (`internal/state/verifylog.go:262-275`). What catches it is
+`campaign_state.json`, which mirrors the event tail: `verify` reconciles the
+mirror against the log's suffix and reports *"state event tail is LONGER than the
+log (%d projected vs %d logged) — events are GONE from the tail; a truncated log
+still verifies its chain, and doctor rebuilds TO it, adopting the loss"*
+(`internal/state/verifylog.go:335-352`). The comparison is `arraysEq` over whole
+event values — `valueEq` is `CanonSpaced(a) == CanonSpaced(b)`
+(`internal/state/verifylog.go:546-562`) — so it compares the event's `data`,
+the anchor keys included, not just its length. Deleting the anchoring line from
+the log therefore leaves the mirror longer than the log and is reported as a
+problem. (The first version of this section claimed such a log "is therefore
+invisible to `verify`" and that the exec would merely read as *unanchored*; both
+were wrong, and the mirror check is why.)
 
-- the section **counts** unanchored events and lists their exec ids, so a mint
-  backed by an unanchored record is visible in `audit --json` rather than
-  silent;
-- the residual is recorded here so a later strictness knob (below) has a
-  starting point.
+**The attack that actually slips through must edit two files, and recompute
+hashes.** To remove an anchoring event undetected an attacker must (i) delete the
+line from `events.jsonl` — and if it is not the last line, recompute `prev_hash`
+and `event_hash` for every surviving event after it — and (ii) delete the
+mirrored copy from `campaign_state.json`, because otherwise the mirror check
+above fires. That is strictly harder than editing one JSON file, and it is
+detectable by anyone holding an external copy of the head hash.
+
+**What this design leaves open, stated exactly.** The section's reader is
+event-driven *by design* (§5): it iterates `c.Events()` and deliberately does
+**not** enumerate `execs/` (`state.AllExecs`), because the anchor is a claim an
+event makes about a record. The consequence is sharper than "the exec reads as
+unanchored": an exec whose carrier event has been deleted **produces no row at
+all** — not a problem, not anchored, not unanchored. It is simply absent from the
+section's verdict. Therefore:
+
+- the section's `unanchored` count bounds **key-stripping only** — an event that
+  is still present and still readable but carries no anchor keys (populations
+  (i)/(ii) of §4.1, and any attacker who strips the keys without deleting the
+  event);
+- **event-deletion-plus-projection-edit is an unclosed residual of this design**,
+  not a mitigation. No in-tree mechanism catches it: the section never sees the
+  record, `Execs` only reports a deleted *record*, and `verify` sees a log and a
+  mirror that agree. **Only an external copy of the head hash — or of the mirror
+  — would catch it**, because the in-tree ledger has no such pin.
+- the residual is recorded here, and §9 asks whether adding that external pin is
+  in scope. It is a pre-existing boundary of the ledger rather than something the
+  anchor introduces, but this section must not pretend to close it.
 
 A stronger rule — *"a campaign that contains any anchored event must have an
 anchored event for every cited exec"* — is rejected for the same measured reason
 as fail-closed: it breaks the two seeding harnesses, which have no event at all
-for the record they mint against.
+for the record they mint against. It would not close the residual either: it is
+still evaluated over the events that exist.
 
 ### 4.4 The deferred strictness decision
 
@@ -447,8 +505,9 @@ question, not a technical one, and it is listed in §9. My recommendation is
 **no, and permanently** for pre-anchor state, for the reason in 4.2(2) and
 4.2(4): the fixture is frozen and history cannot be anchored retroactively. If
 the operator later wants a stricter posture, the only implementable form is
-campaign-era based (the label marker), which is what this design already
-provides as a predicate.
+campaign-era based (**the presence of either anchor key**, §4 — never "the label
+alone", which would make an unlabelled digest fail-open), which is what this
+design already provides as a predicate.
 
 ---
 
@@ -484,22 +543,72 @@ A digest that nothing recomputes is a field with no consumer.
   does **not** enumerate `execs/` (`state.AllExecs`, `internal/state/execs.go:37`):
   the anchor is a claim an EVENT makes about a record, so the event is the
   driving collection. That also keeps the harness-seeded records (which have no
-  event at all) out of the section's verdict.
+  event at all) out of the section's verdict. **This choice has a stated cost,
+  and §4.3 records it as the design's unclosed residual:** an exec whose carrier
+  event was deleted produces no row at all — not a problem, not anchored, not
+  unanchored — because the section never looks at `execs/` on its own. That is
+  deliberate (an enumeration would drag the harness seeds into the verdict) and
+  it is why §4.3 says only an external head-hash copy would catch that attack.
 - **Payload:** `{checked, anchored, unanchored, problems, ok}` — the
   `floorpolicy.go` shape (`{checked, problems, ok}`, `floor_policy` idiom at
-  `internal/audit/sections/floorpolicy.go:18-42`), with `checked` counting the
+  `internal/audit/sections/floorpolicy.go:17-44`), with `checked` counting the
   anchor-carrying events examined and `unanchored` a separate informational
-  list.
+  list. **Counting rule, stated so no judgement call remains: `anchored` counts
+  only digest-VERIFIED matches.** A problem row (mismatch, malformed anchor,
+  missing record, unparseable record, disagreeing carriers) increments
+  `checked` only — **never** `anchored`. `unanchored` is disjoint from
+  `problems` by construction, and it is *not* a subset of `checked`: `checked`
+  counts anchor-carrying events, and an unanchored event carries no anchor. §8.2
+  pins these counts as concrete literals.
+- **Two reachable states, decided here rather than left to the implementer:**
 
-### 5.1 The four states
+  **(a) A record that exists but fails to parse is a PROBLEM ROW, not an
+  abort.** `validation.ReadJson` (`internal/validation/atomicio.go:15-21`)
+  returns an error both when the file is missing and when its bytes do not
+  parse, so the reader must separate the two: `os.Stat` first (missing ⇒ the
+  "not on disk" row below), then `ReadJson` (error ⇒ *"EXEC-x: the
+  sandbox.exec event anchors a record that cannot be parsed — the anchor cannot
+  be verified"*). That is the same order the ingest gate already uses
+  (`internal/findings/ingest_evidence_gate.go:97-104`: `os.Stat`, then
+  `ReadJson`). Returning the error instead is rejected: `AuditCampaign`
+  treats any non-`ErrSkip` error as fatal and aborts the entire report
+  (`internal/audit/audit.go:88-91`), so one unreadable record would suppress
+  every other section's verdict — an availability liability in the exact place
+  the design wants a verdict. It is also the same shape `Execs` already uses for
+  a deleted record (`internal/audit/sections/execs.go:18-22`), and it is the
+  fail-closed answer the design asks for: the anchor is present but
+  unverifiable, so the section reports it and `ok` goes false. This is
+  **decided**, not deferred to §9.
+
+  **(b) No carrier event at all, and disagreeing carriers.** `VerifyExecRecordAnchor`
+  returns **nil** when the campaign holds no carrier event for the execID — the
+  two seeding harnesses mint records with no event of their own, and fail-open
+  is §4's decision — and nil when the carriers it holds carry no anchor key.
+  When a ref *does* have anchored carriers, **no digest wins by precedence**: the
+  section requires unanimity among the anchored carriers for one ref, so any
+  disagreement between two anchored carriers is itself a problem row
+  (*"EXEC-x: the sandbox.exec and sandbox.exec.registered events for this exec
+  carry different digests (<sha-a> vs <sha-b>) — the carriers disagree about the
+  record"*), and any disagreement with the record on disk is the mismatch row.
+  On the mint side the predicate walks the ref's carrier events in log order and
+  refuses at the first anchored carrier whose digest does not match the record,
+  so the refusal is deterministic and never depends on map iteration.
+
+### 5.1 The states
 
 | state | `problems` | `ok` |
 |---|---|---|
-| **digest matches** — the record on disk recomputes to the event's digest | nothing; counted in `anchored` | true |
-| **digest mismatches** — the record was edited after the event | *"EXEC-x: exec_record.json does not recompute to the digest the sandbox.exec event anchored (event <sha>, record <sha>) — the record was edited after the run, so its declared exit/expectation cannot be trusted"* | **false** |
+| **digest matches** — the record on disk recomputes to the event's digest | nothing; counted in `anchored` (and in `checked`) | true |
+| **digest mismatches** — the stored value is not the record's digest. Two causes, one row: (i) the record was edited after the event, or (ii) the stored digest is malformed — not 64 lowercase hex, or not a string — and so can never match | *"EXEC-x: exec_record.json does not recompute to the digest the sandbox.exec event anchored (event <sha>, record <sha>) — the record was edited after the run, or the stored digest is not 64 lowercase hex; either way its declared exit/expectation cannot be trusted"* | **false** |
 | **digest absent on a new-style event** — label present, digest missing; or digest present, label absent; or label not the pinned literal | *"EXEC-x: the sandbox.exec event names the anchor encoding but carries no digest"* / *"…carries a digest with no encoding label — an unlabelled canonical encoding is not evidence"* / *"…names anchor encoding <x>, not sha256-canon-spaced"* | **false** |
 | **record file missing** while the event carries an anchor | *"EXEC-x: the sandbox.exec event anchors a record that is not on disk — the anchor cannot be verified"* | **false** |
+| **record present but unparseable** while the event carries an anchor | *"EXEC-x: the sandbox.exec event anchors a record that cannot be parsed — the anchor cannot be verified"* (the whole audit is **not** aborted; see §5, state (a)) | **false** |
+| **carriers disagree** — two anchored carrier events for one exec ref carry different digests | *"EXEC-x: the sandbox.exec and sandbox.exec.registered events for this exec carry different digests (<sha-a> vs <sha-b>) — the carriers disagree about the record"* (see §5, state (b)) | **false** |
 | *(migration)* **no anchor keys at all** | nothing; listed in `unanchored` with the reason | true |
+
+Every problem row (rows 2-6) leaves the event in `checked` but **not** in
+`anchored` — `anchored` is digest-verified matches only (§5). The migration row
+is in neither `checked` nor `anchored`: it is listed in `unanchored`.
 
 The mismatch wording deliberately echoes the chain's own verdict style —
 *"event_hash does not recompute (content edited?)"*
@@ -566,17 +675,20 @@ status; the anchor cannot retroactively constrain it (§4.2(4)).
 | step | effect | why |
 |---|---|---|
 | **5** determinism (`go test -count=1` twice, byte-identical, `verify-full.sh:105-119`) | must stay green | the new tests must be deterministic: `t.TempDir()`, frozen record values, no real clock, no map-order iteration in a rendered payload (§5.2) |
-| **7** golden (`scripts/golden.sh`, `check-golden.py`) | **edit required** | the P2 recipe runs real `exec` calls (`golden-run.py:1102-1128`), so the golden campaigns DO carry anchored events and the section renders. `check-golden.py` must add `exec_record_anchor` to `EXPECTED_SECTIONS` (appended last, `:42-58`) and to `OPTIONAL_SECTIONS` (`:61-62`, because campaigns that never exec skip it) |
-| **9** legacy cross-audit (`:350-374`) | renders, `ok: true`, **edit required** | the fixture has 2 unanchored `sandbox.exec` events → `unanchored: 2`, no problems, so `ok is True` (`:365-366`) and `audit PASS:` (`:360`) both hold. `p2_sections_ok`'s projection must accept the rendered name (see below). No fixture byte changes |
+| **7** golden (`scripts/golden.sh`, `check-golden.py`) | **edit required** | the P2 recipe runs real `exec` calls (`golden-run.py:1102-1128`), so the golden campaigns DO carry anchored events and the section renders. `check-golden.py` must add `exec_record_anchor` to `EXPECTED_SECTIONS` (appended last, `:42-59`) and to `OPTIONAL_SECTIONS` (`:65`, because campaigns that never exec skip it) |
+| **9** legacy cross-audit (`:350-462`; the assertions this row cites live at `:358-374`) | renders, `ok: true`, **edit required** | the fixture has 2 unanchored `sandbox.exec` events → `unanchored: 2`, no problems, so `ok is True` (`:364-365`) and `audit PASS:` (`:360`) both hold. `p2_sections_ok "Go audit of legacy campaign"` (`:371`) must accept the rendered name (see below). No fixture byte changes |
 | **11** P2 CLI smoke (`:540-666`) | renders, **edit required** | two real execs (`exec pass`, `exec fail`, `:580-581`) carry anchors that match; the seeded `SEEDEX` record has no event at all, so it is invisible to the section and `mint` still succeeds under fail-open. `p2_sections_ok "P2 smoke audit"` (`:633`) must accept the rendered name |
-| **12** P3 CLI smoke (`:668-882`) | unchanged (16 sections) | no exec events → `ErrSkip` → report is 15 + `price_table` as today |
+| **12** P3 CLI smoke (`:668-882`) | **renders**, **edit required** | step 12 DOES run a real exec — `p3_ok "exec pass" 0 exec "$CID3" --command "echo p3-smoke" --finding "$F1"` (`:708`) — so its campaign carries a `sandbox.exec` event and the section renders. The report becomes **17** sections (14 ported + `v16_coverage` + `price_table` + `exec_record_anchor`), **not 16**. The seeded `SEEDEX` record (`seed_p2_exec …`, `:710`) still has no event of its own and stays invisible to the section. `p2_sections_ok "P3 smoke audit"` (`:880`) must accept the rendered name, and the step's comment block (`:665-667`, "16 sections (15 unconditional + the presence-gated price_table…)") is now false |
 | **13** runbook walkthrough (`:885-901`) | unchanged | no new verb, no new flag, no usage-text change (§7.3) |
 | **14** entropy ratchet (`:902-985`) | unchanged | `.entropy-baseline.json` ratchets only `python/ruff` (195) and `python/ruff-format` (8). This change adds Go files and one `.md` — no ratcheted metric moves. (The pre-commit hook runs the same machinery; the same reasoning applies to the doc commit.) |
 
 `p2_sections_ok` (`verify-full.sh:268-298`) needs a real edit, not just a comment:
 its `gated = ["eval", "price_table"]` + `always = ["v16_coverage"]` projection
-(`:281-286`) does not include a section registered after `v16_coverage`, and its
-`extra` assertion (`:287`) hard-fails an unexpected name. The minimal change is a
+(`:280-287`) does not include a section registered after `v16_coverage`, and its
+`extra` assertion (`:287`) hard-fails an unexpected name. The helper has **three
+call sites, and all three render the new section**: step 9's legacy fixture
+(`:371`, 2 `sandbox.exec` events), step 11 (`:633`), and step 12 (`:880`) — the
+earlier text named only the first two. The minimal change is a
 third tail list — `gated_tail = ["exec_record_anchor"]` — with
 `proj = [n for n in want + gated + always + gated_tail if n in secs]` and
 `extra` excluding it. That preserves the existing property (base rows and
@@ -585,8 +697,9 @@ keeping `regression_suite`'s absence-from-the-list behaviour untouched.
 
 Comments that carry now-false counts: `verify-full.sh:21` and `:51` ("all 15
 rendered sections (17 registered)"), `:54` ("steps 9-11 … render exactly 15"),
-`:249-267`, `:537` ("all 15 unconditional sections (17 registered)"); and
-`p2-docker-e2e.sh:321`.
+`:249-267`, `:537` ("all 15 unconditional sections (17 registered)"),
+`:665-667` (step 12's own block: "16 sections (15 unconditional + the
+presence-gated price_table, priced above)"); and `p2-docker-e2e.sh:321`.
 
 ### 7.2 Other gate scripts
 
@@ -671,12 +784,17 @@ therefore stays green with no manifest regeneration.
      (so a half-written anchor is detectable, not silently unanchored)
    - `var AnchorCarrierEventTypes = []string{"sandbox.exec", "sandbox.exec.registered"}`
    - `func VerifyExecRecordAnchor(c *state.Campaign, execID string,
-     rec validation.Value) error` — the mint-side predicate; `nil` for an
-     unanchored event, an error naming both digests otherwise. `internal/sandbox`
-     already imports `internal/state` (`register_exec.go:8`) and already owns
+     rec validation.Value) error` — the mint-side predicate; **`nil` when the
+     campaign holds no carrier event for `execID`, and `nil` when the carriers it
+     holds carry no anchor key** (fail-open, §4), an error naming both digests
+     otherwise. With several anchored carriers for one ref it walks them in log
+     order and refuses at the first mismatch — no digest wins by precedence, and
+     a disagreement between carriers is itself a problem in the audit (§5).
+     `internal/sandbox`
+     already imports `internal/state` (`register_exec.go:9`) and already owns
      `LoadExec(c, ref)`, so the writer and the verifier live together — one
      implementation of one law, which is the house rule the ported sections state
-     explicitly (`internal/audit/sections/events.go:15`).
+     explicitly (`internal/audit/sections/events.go:18-20`).
 2. **`internal/sandbox/exec.go:252-256`** — append `ExecRecordAnchorKVs(f.record)`
    to `data`. The record has just been written at `:248`; nothing else moves.
 3. **`internal/sandbox/register_exec.go:160-165`** — the same append for
@@ -691,12 +809,24 @@ therefore stays green with no manifest regeneration.
    (`exec_evidence.go:164`) and has no campaign to read the ledger from.
 5. **`internal/audit/sections/exec_record_anchor.go`** + `register("exec_record_anchor", …)`
    appended last in `register.go:52`.
-6. **Update the five registry pins** (§8.3) and the gate scripts (§7.1, §7.2).
+6. **Update the five registry pins** (§8.3) **and the three report pins** (§8.3),
+   plus the gate scripts (§7.1, §7.2).
 7. **Run the offline checks**: `gofmt -l internal cmd`, `go vet ./internal/...`,
    and the three targeted packages — `go test ./internal/sandbox ./internal/findings ./internal/audit/...`
-   — then `scripts/verify-full.sh`. Explicitly **not** `go test ./...` (it OOMs
-   this machine) and **not** the docker tiers (`p2-docker-e2e.sh` needs a daemon;
-   its count assertion is updated but not run here).
+   — then verify-full's **steps 6-14**. Explicitly **not** `go test ./...` (it
+   OOMs this machine) and **not** the docker tiers (`p2-docker-e2e.sh` needs a
+   daemon; its count assertion is updated but not run here).
+   - **Steps 3-5 of `verify-full.sh` are excluded here for exactly the same
+     reason, and the script cannot be run as a whole on this machine.**
+     `verify-full.sh` runs `go test ./...` at `:96` (step 3), `go test -race
+     ./...` at `:101` (step 4) and `go test -count=1 ./...` twice at `:112-113`
+     (step 5), so invoking it end-to-end contradicts the "not `go test ./...`"
+     rule one line above. The instruction is therefore one of two things, stated
+     so no implementer guesses: run the **whole** script on a machine where
+     `./...` fits, **or** run steps 6-14 by hand here and record in the commit
+     message that steps 3-5 were skipped for the OOM reason. The targeted
+     package list above covers the new code either way; steps 6-14 are the ones
+     this change actually moves.
 8. **Commit** under the entropy hook (no ratcheted metric moves, §7.1 step 14).
 
 ### 8.2 Test plan (plain Go, same package, `t.TempDir()`, no Docker / network / model)
@@ -727,16 +857,21 @@ therefore stays green with no manifest regeneration.
 |---|---|
 | **`TestMintRefusesAnExecRecordEditedAfterTheEvent`** | **the bite test.** Write an honest exit-0 record, log the `sandbox.exec` event carrying its digest, then rewrite the record with `exit_status: 7` + `expected_outcome: "fail"` + `expected_failure` and a stdout.log carrying a `[FAIL]` line with that signature. Assert: (i) `ValidateExecRecord` alone *accepts* the edited record — i.e. the pre-anchor gate genuinely cannot tell, which is the whole point; (ii) the anchor check refuses, and the error names both digests; (iii) the admission path (`verifyExecReference` / `IngestExecRefEvidence`) refuses. **Mutation check:** the test must go green→red if the anchor call is removed from step 4 — verified by removing it once and watching (ii)/(iii) fail, so the test cannot pass for the wrong reason |
 | `TestAnUnanchoredLegacyRecordStillMints` | the fail-open decision is pinned, not accidental: an unanchored event admits exactly as today |
-| `TestAMalformedAnchorRefuses` | digest-without-label, label-without-digest, unknown label — all refused |
+| `TestAMalformedAnchorRefuses` | digest-without-label, label-without-digest, unknown label, and a **malformed digest value** (not 64 lowercase hex — e.g. uppercase, short, and a non-string) — all refused (§3.3) |
+| `TestSeveralCarrierEventsMustAgree` | §5 state (b): one exec ref carrying a `sandbox.exec` and a `sandbox.exec.registered` event with **different** digests is refused at mint (at the first mismatch, in log order), and `nil` is returned when the ref has no carrier event at all |
+| `TestAnUnparseableRecordRefuses` | §5 state (a): an anchored event whose record exists but is not parseable is refused at mint, and the audit reports it as a problem row rather than aborting the whole report |
 
 `internal/audit/sections/exec_record_anchor_test.go` (package `sections`):
 
 | test | proves |
 |---|---|
 | `TestExecRecordAnchorReportsAMatch` | the happy path, `ok: true`, `anchored: 1` |
-| `TestExecRecordAnchorReportsDrift` | hand-edit the record after the event → `ok: false`, the drift problem, `checked`/`anchored` counts |
-| `TestExecRecordAnchorReportsANewStyleEventWithoutADigest` | §5.1 row 3 |
-| `TestExecRecordAnchorReportsAMissingRecord` | §5.1 row 4, and that `Execs` reports the deletion too (§5.1 overlap) |
+| `TestExecRecordAnchorReportsDrift` | hand-edit the record after the event → `ok: false`, the drift problem, and the **concrete counts**: `checked: 1`, `anchored: 0`, `unanchored: []`, `problems: 1` — i.e. a problem row counts in `checked` only, never in `anchored` (§5) |
+| `TestExecRecordAnchorReportsANewStyleEventWithoutADigest` | §5.1 row 3, `checked: 1`, `anchored: 0`, `problems: 1` |
+| `TestExecRecordAnchorReportsAMissingRecord` | §5.1 row 4, and that `Execs` reports the deletion too (§5.1 overlap); `checked: 1`, `anchored: 0` |
+| `TestExecRecordAnchorReportsAnUnparseableRecord` | §5 state (a): the report is still produced (no abort), `checked: 1`, `anchored: 0`, `problems: 1` |
+| `TestExecRecordAnchorReportsDisagreeingCarriers` | §5 state (b): two anchored carriers for one ref with different digests → `problems: 1`, `anchored: 0` |
+| `TestExecRecordAnchorCountsOnlyVerifiedMatches` | the counting rule of §5 directly: a campaign with one verified match and one drifted record reports `checked: 2`, `anchored: 1`, `problems: 1` |
 | `TestExecRecordAnchorTreatsAnUnanchoredEventAsACoverageFact` | `ok: true`, `unanchored: 1` — the step-9 property, unit-tested |
 | `TestExecRecordAnchorSkipsACampaignWithNoExecEvents` | the `ErrSkip` gate |
 | `TestExecRecordAnchorIsDeterministic` | audit twice, byte-identical payload (§5.2, step 5) |
@@ -748,10 +883,31 @@ therefore stays green with no manifest regeneration.
    `n[18]` assertion.
 3. `internal/audit/audit_test.go:472-481` — append `"exec_record_anchor"` to the
    pinned `want` list.
-4. `internal/audit/sections/eval_test.go:262-273` — the tail-order assertion:
-   `regression_suite` is no longer last; `exec_record_anchor` is.
+4. `internal/audit/sections/eval_test.go:262-275` — the tail-order assertion
+   (the `if` is at `:270-274`): `regression_suite` is no longer last;
+   `exec_record_anchor` is.
 5. `internal/audit/p1_sections_test.go:269-281` — append
-   `"exec_record_anchor"` after `"regression_suite"` in `withAppended`.
+   `"exec_record_anchor"` after `"regression_suite"` in `withAppended`
+   (`:279-280`).
+
+**The three report pins (§1.6) — not registry pins, and the easiest to miss.**
+They count *rendered* sections, not registered ones, and they stay green only
+because their campaigns contain no exec events:
+
+6. `internal/cli/cli_test.go:161` — `len(secs) != 15` in `TestAuditClean`. Its
+   campaign is a bare `init` (`:39-53`), so no `sandbox.exec` event exists and
+   the section skips. **No edit needed today**; the comment above it (`:159-160`)
+   is what must not silently rot.
+7. `internal/audit/eval_gate_test.go:76` — `len(got) != 15` in
+   `TestEvalAbsentWithoutMatch`. `gateCampaign` (`:41-54`) only ingests
+   hypotheses. **No edit needed today.**
+8. `internal/audit/audit_test.go:104-110` — the exact 15-name report list in
+   `TestAuditCleanCampaignPasses`, over a bare `initCampaign`
+   (`:51-59`). **No edit needed today.**
+
+All three are **load-bearing on the no-exec-events fact**, so they are listed
+here rather than left implicit: a fixture that starts executing will fail one of
+them, and the fix is to move the count, never to relax the assertion.
 
 Plus the gate scripts in §7.1/§7.2. Note that `check-golden.py`'s
 `EXPECTED_SECTIONS` is explicitly *not* a copy of the registry
@@ -762,16 +918,51 @@ campaigns render it.
 
 ## 9. QUESTIONS THE SCOPE CANNOT SETTLE WITHOUT THE HUMAN
 
+Three questions remain. Everything else this document previously left ambiguous
+is now resolved in the text, and the resolutions are listed after the questions
+so they are visible rather than buried.
+
 1. **Strictness policy for unanchored events.** This scope recommends
    fail-open, permanently, for pre-anchor state (§4.2, §4.4) — the alternative is
-   technically implementable only as a campaign-era rule keyed on the label, and
-   it would still have to exempt the frozen fixture and the two seeding harnesses.
-   Confirm that "unanchored never gates" is the intended posture, or name the
-   condition under which it should flip.
-2. **Text-audit visibility of coverage.** `webv2 audit` prints only `problems`
+   technically implementable only as a campaign-era rule keyed on **the presence
+   of either anchor key** (§4; the marker predicate has one reading, and an
+   unlabelled digest is *refused*, not fail-open), and it would still have to
+   exempt the frozen fixture and the two seeding harnesses. Confirm that
+   "unanchored never gates" is the intended posture, or name the condition under
+   which it should flip.
+2. **Whether to close the event-deletion residual, and how.** §4.3 now states
+   the residual exactly: truncating the anchoring line is **caught** today by the
+   `campaign_state.json` mirror check (`internal/state/verifylog.go:335-352`), so
+   the attack that slips through must edit **both** `events.jsonl` (recomputing
+   the surviving events' hashes) **and** the mirror — and because this section's
+   reader is event-driven by design (§5), an exec whose carrier event is deleted
+   produces **no row at all**. The `unanchored` count bounds **key-stripping
+   only**. **Only an external copy of the head hash (or of the mirror) catches
+   the residual**, because the in-tree ledger has no such pin
+   (`internal/state/chain.go:7-8`). The question for the human is whether adding
+   that external pin — a committed head-hash file, or a mirror copy outside the
+   campaign dir — is in scope for v1.6 or a later task. This scope does not
+   assume either answer, and does not pretend the anchor closes it.
+3. **Text-audit visibility of coverage.** `webv2 audit` prints only `problems`
    (`internal/cli/cmd_audit.go:62-67`) and a per-section problem count
    (`internal/audit/audit.go:115-132`), so the `unanchored` count is visible only
    in `audit --json`. Option (a) leave it JSON-only (recommended: no byte-pinned
    text surface moves); option (b) surface it in the text audit as a WARN, which
    would make the legacy fixture's text audit carry a WARN line while still
    exiting PASS. This is a reader-experience call, not an integrity one.
+
+**Resolved here, not open — recorded so a reader does not re-litigate them:**
+
+- **The migration marker.** The marker is the presence of **either** anchor
+  key, and `{digest present, label absent}` is **refused**. §2.3, §4, §4.1,
+  §4.4, §5.1, §8.1 and §8.2 all state that one predicate. There is no
+  fail-open reading of an unlabelled digest; the earlier text's two-reading
+  contradiction is gone.
+- **An unparseable record.** A **problem row**, not an abort — §5 state
+  (a) gives the reason (`AuditCampaign` aborts the whole report on any
+  non-`ErrSkip` error, `internal/audit/audit.go:88-91`).
+- **No carrier event / disagreeing carriers.** `VerifyExecRecordAnchor`
+  returns **nil** with no carrier event; several anchored carriers must agree, and
+  disagreement is a problem row — §5 state (b).
+- **`anchored` counts only digest-verified matches.** A problem row counts
+  in `checked` only — §5, and §8.2 pins the counts as literals.
