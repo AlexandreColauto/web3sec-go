@@ -1,0 +1,36 @@
+# import-linter -- Python layering contracts.
+# Disabled by default: fill in your real packages first, then enable.
+#
+#   entropy-gate: import-linter is not a built-in check, so add it as an
+#   extra check once the contracts below are real:
+#     [languages.python]
+#     extra = [
+#       { name = "import-linter", scope = "repo", count = "lines",
+#         command = ["lint-imports"], error_regex = "^ERROR" },
+#     ]
+#   enable the check by adding it, or run `lint-imports` in CI.
+#
+# Docs: https://import-linter.readthedocs.io/
+
+[importlinter]
+root_package = mypkg
+include_external_packages = True
+
+[importlinter:contract:layers]
+name = Layers: high-level must not import low-level
+type = layers
+layers =
+    mypkg.api
+    mypkg.service
+    mypkg.repository
+    mypkg.model
+
+[importlinter:contract:no-circular]
+name = No circular imports
+type = independence
+modules =
+    mypkg.api
+    mypkg.service
+    mypkg.repository
+    mypkg.model
+

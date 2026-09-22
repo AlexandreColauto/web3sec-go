@@ -1,0 +1,40 @@
+#!/usr/bin/env sh
+#
+# entropy-gate -- language-aware pre-commit gate.
+# Installed via `git config core.hooksPath <dir>/.githooks` so it is version
+# controlled and applies to agent commits too, not only yours.
+#
+# Bypass (discouraged): ENTROPY_GATE_SKIP=1 git commit ...
+#
+set -eu
+
+ROOT="$(git rev-parse --show-toplevel)"
+PY="${ENTROPY_GATE_PYTHON:-python3}"
+
+SCRIPT="${ENTROPY_GATE_SCRIPT:-}"
+if [ -z "$SCRIPT" ] || [ ! -f "$SCRIPT" ]; then
+  # Next to the hook itself: core.hooksPath may point at a gate checkout that
+  # lives outside this repo, in which case nothing under $ROOT has the engine.
+  HOOK_DIR="$(cd "$(dirname "$0")" && pwd)"
+  CAND="$(dirname "$HOOK_DIR")/entropy_gate.py"
+  if [ -f "$CAND" ]; then
+    SCRIPT="$CAND"
+  fi
+fi
+if [ -z "$SCRIPT" ] || [ ! -f "$SCRIPT" ]; then
+  SCRIPT="$ROOT/entropy-gate/entropy_gate.py"
+fi
+if [ ! -f "$SCRIPT" ]; then
+  # Fall back to locating the engine anywhere in the tree.
+  SCRIPT="$(find "$ROOT" -name entropy_gate.py \
+    -not -path '*/node_modules/*' -not -path '*/.git/*' 2>/dev/null | head -n 1 || true)"
+fi
+
+if [ -z "$SCRIPT" ] || [ ! -f "$SCRIPT" ]; then
+  echo "entropy-gate: cannot locate entropy_gate.py" >&2
+  echo "  set ENTROPY_GATE_SCRIPT=/path/to/entropy_gate.py" >&2
+  exit 2
+fi
+
+exec "$PY" "$SCRIPT" hook "$@"
+

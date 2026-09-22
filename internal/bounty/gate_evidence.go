@@ -100,24 +100,76 @@ func (g *gate) check6Economic(req validation.Value) error {
 	return nil
 }
 
+// evidenceTypeClass is check6ExploitContract's classification of one member of
+// the finding schema's evidence_item type enum. The discriminator is the
+// clause's own spec (docs/superpowers/plans/2026-09-21-v16-p1-p2-record-and-
+// evidence.md): a RUNNABLE exploit contract is one a TRIAGER CAN EXECUTE —
+// "not a trace, a reasoning note or a static-analysis hit".
+// framework-plan-v1.6.md:315,417 uses the same word of the PoC a report
+// carries ("runnable pinned-block fork PoC").
+//
+// Runnable therefore means the type names an artifact the triager runs
+// themselves (a test, a harness, a contract). It does NOT mean the item was
+// produced by a run: every item may cite an exec, and a trace cites one by
+// construction — a recorded command is a recording, not the contract.
+//
+// symbolic-witness and differential are the two judgement calls. The repo's
+// rule is "is there a documented re-run command?". symbolic-witness has one
+// (RUNBOOK: a mapped counterexample writes the runnable bridged PoC that
+// `webv2 sequence run` consumes, and `minicertora <C.sol> <INV.mspec>` replays
+// the rule); differential has none (its only mention is the group table —
+// framework-plan-v1.6.md:209 defines it as a comparison, "diff vs prior audited
+// version"), so it is a comparison result, not a contract.
+type evidenceTypeClass struct {
+	runnable bool
+	why      string
+}
+
+// evidenceTypeClasses classifies EVERY member of
+// assets/schema/finding.schema.json ->
+// definitions.evidence_item.properties.type.enum.
+// TestExploitContractTableCoversTheWholeEnum reads that enum and fails unless
+// this table's key set is EXACTLY the enum's member set, so a fifteenth member
+// cannot be added without someone classifying it here.
+var evidenceTypeClasses = map[string]evidenceTypeClass{
+	"reasoning":         {false, "a reasoning note — the spec names it as not runnable"},
+	"static-analysis":   {false, "an analysis hit — the spec names it as not runnable"},
+	"reachability":      {false, "an E2 static verdict on whether a path is reachable, with no artifact to run"},
+	"unit-test":         {true, "a test file the triager executes"},
+	"foundry-test":      {true, "a forge test the triager executes"},
+	"fuzz":              {true, "a fuzz harness the triager executes"},
+	"invariant-test":    {true, "an invariant harness the triager executes"},
+	"symbolic-witness":  {true, "a counterexample with a documented replay: minicertora <C.sol> <INV.mspec>, or the bridged poc via `webv2 sequence run`"},
+	"fork-test":         {true, "a forge test the triager executes against the pinned fork"},
+	"trace":             {false, "a trace — the spec names it as not runnable"},
+	"balance-delta":     {false, "a measured delta: a result about a run, minted with no command"},
+	"differential":      {false, "a comparison verdict between two runs — a result, with no documented re-run command"},
+	"historical-analog": {false, "an analogy to a past incident — a note, not an artifact"},
+	"manual":            {false, "a human attestation — not a machine artifact"},
+}
+
 // check6ExploitContract is the require_exploit_contract clause of check 6: the
 // program asks for a RUNNABLE exploit contract a triager can execute, not a
 // trace, a reasoning note or a static-analysis hit. Absent/false is a no-op,
-// so no existing campaign's check set changes.
+// so no existing campaign's check set changes. An unclassified type (one this
+// build has never seen) is not runnable: the table is pinned to the schema
+// enum, and the clause fails closed on the unknown.
 func (g *gate) check6ExploitContract(req validation.Value) error {
 	if !pyTruthyBigNonEmpty(validation.ObjAt(req, "require_exploit_contract")) {
 		return nil
 	}
 	for _, e := range validation.ObjAt(g.f, "evidence").A {
-		switch validation.ObjStr(e, "type") {
-		case "foundry-test", "fork-test":
+		if evidenceTypeClasses[validation.ObjStr(e, "type")].runnable {
 			g.add("exploit-contract", "pass",
 				"runnable contract "+validation.ObjStr(e, "evidence_id"), "")
 			return nil
 		}
 	}
 	g.add("exploit-contract", "fail", "no runnable exploit contract", "")
+	// The refusal names NO set: a parenthetical list of accepted types goes
+	// stale the moment the vocabulary moves, and a stale list in a record is
+	// exactly the false statement this clause exists to avoid.
 	g.blockers = append(g.blockers,
-		"program requires a runnable exploit contract (foundry-test/fork-test evidence)")
+		"program requires a runnable exploit contract: evidence a triager can execute")
 	return nil
 }

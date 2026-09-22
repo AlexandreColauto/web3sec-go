@@ -3,7 +3,7 @@
 # verify-full.sh — the single entry point that proves the repo is clean.
 #
 # One command (a human or CI) runs to know whether every gate is green:
-# thirteen ordered steps, fail-fast with the failing step's name.
+# fourteen ordered steps, fail-fast with the failing step's name.
 #
 #   1.  go vet ./... clean
 #   2.  go build ./cmd/webv2 -> /tmp/webv2
@@ -31,6 +31,13 @@
 #       against a scratch Go campaign (structural surface, probes, memory/
 #       publish, briefing/report, baselines/forkdiff, costs, run), then
 #       the full audit + verify of the finished smoke campaign
+#  13.  runbook walkthrough: every verbatim command in assets/runbook/RUNBOOK.md
+#       exits with its documented code and prints its documented marker
+#  14.  entropy ratchet: the repo-scoped metrics in .entropy-baseline.json are
+#       at or below the committed ceiling, measured by the gate's own engine
+#       (pre-commit-gate/entropy_gate.py, the same run_structural() the
+#       installed hook calls). A metric that could not be measured — no ruff —
+#       fails instead of passing: an unmeasured ceiling is not a ceiling.
 #
 # History: steps 6-8 of the pre-retirement form of this script byte-diffed
 # schemas against the Python twin, ran the reference pytest suite, and
@@ -67,7 +74,7 @@ fail() {
   exit 1
 }
 
-TOTAL_STEPS=13
+TOTAL_STEPS=14
 
 step() {
   echo
@@ -890,12 +897,99 @@ else
   fail 13 "runbook-walkthrough RED — the runbook and the binary disagree"
 fi
 echo "ok: runbook commands all match"
+
+# ─────────────────────────────────────────────────────────────────────────
+step 14 "entropy ratchet: repo-scoped metrics vs .entropy-baseline.json"
+# .entropy-baseline.json is committed, so a fresh clone ships the ceiling — but
+# until this step nothing in the tree read it: the number could only be edited
+# upward and no gate objected. This step is its consumer. It runs the gate's
+# own machinery (run_structural(), the same comparison the installed hook
+# makes) over the languages the baseline ratchets, and fails when any metric is
+# above the committed ceiling, naming the metric and the delta.
+#
+# An unmeasured metric is NOT a pass. The engine reports a missing linter
+# (ruff, radon) as a note and skips the check; this step turns that into a
+# named failure, because a ceiling nobody measured is the same
+# field-with-no-consumer this step exists to close.
+python3 - "$ROOT" <<'PY' || fail 14 "entropy ratchet: a metric is above the committed baseline, or could not be measured"
+import subprocess, sys
+from pathlib import Path
+
+
+def show(msg, lines=3):
+    parts = [p for p in msg.splitlines() if p.strip()]
+    for p in parts[:lines]:
+        print("      " + p)
+    if len(parts) > lines:
+        print(f"      ... and {len(parts) - lines} more line(s)")
+
+
+def main():
+    root = Path(sys.argv[1]).resolve()
+    sys.path.insert(0, str(root / "pre-commit-gate"))
+    import entropy_gate as eg
+
+    cfg = eg.find_config(root)
+    baseline = eg.load_baseline(cfg).get("metrics", {})
+    if not baseline:
+        print("  ✖ .entropy-baseline.json carries no metrics — nothing to enforce")
+        return 2
+
+    # Exactly the languages the committed ceiling ratchets. Their repo-scoped
+    # checks read the whole tree, so handing the engine any tracked file of
+    # that language schedules them; the real index is never touched.
+    exts = {e.lower() for key in baseline
+            for e in cfg.languages.get(key.split("/", 1)[0], {}).get("extensions", [])}
+    out = subprocess.run(["git", "ls-files", "-z"], cwd=str(root), check=True,
+                         capture_output=True, text=True).stdout
+    files = [f for f in out.split("\0") if f and Path(f).suffix.lower() in exts]
+    langs, unknown, _, missing, _ = eg.collect_languages(files, cfg)
+    if unknown or missing:
+        print(f"  ✖ cannot measure: unclassified {unknown[:3]}, absent {missing[:3]}")
+        return 2
+
+    findings, notes, metrics, tooling = eg.run_structural(langs, cfg,
+                                                          {"metrics": baseline})
+    for n in notes:
+        print("  note: " + n)
+    bad = 0
+    for key in sorted(baseline):
+        if key not in metrics:
+            print(f"  ✖ {key}: not measured — its linter is missing or silent. "
+                  f"An unmeasured ceiling is not a pass.")
+            bad += 1
+    for t in tooling:
+        print("  ✖ " + t.replace("\n", "\n      "))
+        bad += 1
+    for f in findings:
+        if f.blocking:
+            print(f"  ✖ [{f.check}]")
+            show(f.message)
+            bad += 1
+    if bad:
+        print(f"  {bad} entropy problem(s) against the committed ceiling "
+              f".entropy-baseline.json")
+        return 1
+    print("  " + ", ".join(f"{k}: {metrics[k]} <= {baseline[k]}"
+                           for k in sorted(baseline)))
+    print(f"  ok {len(metrics)} repo-scoped metric(s) at or below the committed baseline")
+    return 0
+
+
+try:
+    sys.exit(main())
+except Exception as exc:
+    print(f"  ✖ entropy ratchet could not run: {type(exc).__name__}: {exc}")
+    sys.exit(2)
+PY
+echo "ok: entropy metrics at or below the committed baseline"
+
 # Wiring note (Wave J Task 5): this gate is daemon-free by design and must
 # stay that way, so the docker e2e tiers are NOT invoked here. Say so in the
-# gate output itself, not only in the README — a reader who sees 13/13 green
+# gate output itself, not only in the README — a reader who sees 14/14 green
 # must know what it does not cover.
 echo "note: docker e2e tiers live in scripts/p2-docker-e2e.sh and are NOT part"
 echo "      of this gate — run them separately where the daemon is up"
 
 echo
-echo "VERIFY-FULL GREEN: all 13 steps pass"
+echo "VERIFY-FULL GREEN: all 14 steps pass"

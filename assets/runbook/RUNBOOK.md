@@ -1730,6 +1730,17 @@ item carries; a gate clause is "at least one item of a type in S at level ≥ L"
 | independent-repro | `differential`, `historical-analog`, `manual` |
 | economic | `balance-delta`, `manual` |
 
+**`require_exploit_contract` is not a group clause.** A program that sets it is
+asking for a runnable exploit contract — evidence a triager can EXECUTE, not a
+trace, a reasoning/static-analysis note, or a comparison/measurement result that
+only reports on someone else's run. The group table above answers "what kind of
+knowledge does this item carry"; it does not answer "can this be run", and the
+two answers differ inside several groups. So do not infer the accepted set from
+a group name: the gate holds the authoritative classification of every evidence
+type (`evidenceTypeClasses` in `internal/bounty/gate_evidence.go`), pinned
+member-by-member to this schema's enum by
+`TestExploitContractTableCoversTheWholeEnum`.
+
 **Status floors** (the minimum evidence level to REACH a status):
 HYPOTHESIS E0 · NEEDS_RESEARCH E0 · PROVISIONALLY_VALID E1 · POSSIBLE E2 ·
 CONFIRMED **E5** · CHAIN E4.

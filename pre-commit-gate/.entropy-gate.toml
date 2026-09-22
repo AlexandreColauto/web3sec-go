@@ -1,0 +1,48 @@
+# entropy-gate configuration
+# Docs: see README.md in this directory
+
+[settings]
+fail_on_unknown_language = true      # unconfigured language => block the commit
+max_staged_lines = 1200              # 0 disables; guards against giant AI diffs
+parallel = true
+# ignore_paths = ["node_modules/", "dist/"]
+# ignore_extensions = [".md", ".json"]
+
+[aislop]
+enabled = "require"                  # require | optional | off
+fail_below = 0                       # block when aislop score drops below this
+# The gate excludes its own directory automatically, whatever it is named.
+# extra_args = ["--exclude", "some/other/dir"]
+
+[thresholds]
+cyclomatic = 10                      # per function
+cognitive = 15
+function_lines = 30
+file_lines = 300
+nesting = 3
+params = 4
+duplication_percent = 3.0
+
+# --- the three configured languages -------------------------------------- #
+
+[languages.python]
+enabled = true
+# disable = ["vulture"]             # opt out of a single check
+
+[languages.go]
+enabled = true
+
+[languages.javascript]
+enabled = true
+# disable = ["knip"]
+
+# --- adding a language later ---------------------------------------------- #
+# Uncomment and fill in; until then, committing these files is blocked.
+#
+# [languages.rust]
+# enabled = true
+# extensions = [".rs"]
+# checks = [
+#   { name = "clippy", scope = "repo", command = ["cargo", "clippy", "--", "-W", "pedantic"] },
+# ]
+
