@@ -1698,6 +1698,53 @@ last record that fully existed.
    events, and the only thing that can answer "what did the writer believe it
    had written?".
 
+## 11. The regression suite (v1.6 Phase 0)
+
+One campaign per target. The records live in the campaign
+(`campaigns/<C>/regression/{targets,runs}/`), so they inherit the ledger, the
+determinism pins and the single-writer lock; the suite's *composition* is a
+separate repo-level file (Phase 0 Tasks 4/10).
+
+```
+webv2 regress <C> target add --kind KIND --program P --shape SHAPE \
+    [--record-id ID] [--codebase-id ID] [--repo ORG/REPO] [--commit-hint HINT]
+webv2 regress <C> target pin <T-xxx> --resolved-sha <40-hex> --snapshot <src-xxx> [--actor A]
+webv2 regress <C> target list [--json]
+webv2 regress <C> run --target <T-xxx> --scorer eval-gold --score-file F
+webv2 regress <C> run --target <T-xxx> --scorer scabench-judge \
+    --found N --missed N --false-positives N --verdict V --report-url URL
+webv2 regress <C> status [--json]
+```
+
+- `--kind` is one of `scabench`, `fresh`, `control`, `diagnosed`; `--shape` is
+  one of `vault-erc4626`, `lending-liquidation`, `bridge-messaging`,
+  `non-rollup-l2-or-oracle`, `diagnosed-campaign`, `already-exploited`. Both
+  vocabularies are closed: an unknown value is refused.
+- **The dataset's commit field is a HINT, not a pin.** A mutable ref (`main`)
+  and the empty string are both legal *hints* — the empty string is what two
+  ScaBench codebases actually record — but `target pin` accepts only a
+  concrete 40-hex SHA, and only when the named snapshot's own
+  `source.git_commit` equals it. Resolve the ref against the local mirror
+  first; `snap` reads the commit from `git rev-parse HEAD`, so a repo left on
+  an unborn HEAD pins nothing.
+- A `scabench` target with an empty `--commit-hint` must still name
+  `--record-id` and `--repo`: the row's provenance is the only bridge back to
+  the raw dataset record.
+- A transcribed `scabench-judge` score must cite `--report-url`; an uncited
+  number is refused. The suite never parses the judge — it records what the
+  operator read and where they read it.
+- **`found`/`missed` are not a detection rate.** Every target is a disclosed,
+  already-judged contest, so every run carries `measurement: rediscovery` and
+  `is_detection_rate: false`, and the label is printed with the number.
+- Exit codes: `0` recorded, `2` usage error, `1` refusal (unknown target, an
+  unpinnable SHA, a scorer this suite does not read).
+- `audit` renders a `regression_suite` section for any campaign that has a
+  target record, and **omits it entirely** for one that does not — so the
+  section lists the gate scripts pin are unchanged for every other campaign.
+  A target with no `resolved_sha`, a non-40-hex SHA, a missing snapshot
+  binding, a run naming no target record, or a run without the D8 label is a
+  `problems` entry, and a problem entry is a failure, not a note.
+
 ## Evidence levels, floors, and the gate
 
 **The E0–E7 ladder** (the TRUST axis — monotonic, no skipping):
@@ -1798,6 +1845,7 @@ webv2 verify <C> --scaffold halmos|forge-fuzz|minicertora --invariant INV-xxx   
 webv2 verify <C> --harness-result INV-xxx --exec EXEC-xxx [--kind halmos|forge-fuzz|minicertora]   # map a harness run to its rung: counterexample / PROVEN-BOUNDED / inconclusive (bounded — never an unbounded proof)
 webv2 verify <C> --post-patch F-xxx --exec EXEC-xxx [--snapshot SNAP-xxx]   # regress a finding against a post-patch run: still_reproducible / fixed / indeterminate (fail-open; status never moves; --finding/--verifier/--description are ignored)
 webv2 audit <C> [--json]                                           full integrity audit
+webv2 regress <C> {target add --kind K --program P --shape S [--record-id ID] [--repo R] [--commit-hint H], target pin <T> --resolved-sha SHA --snapshot SRC, target list, run --target <T> --scorer eval-gold --score-file F, status}   the Phase 0 regression suite's records (§11; every run carries measurement: rediscovery, never a detection rate)
 webv2 brief <C> [--json] [--deep] [--live-only]                    operator cockpit (where it is + decisions waiting; pure view; every next-action line is a copyable `webv2` command — run `webv2 prove <C> --stage <stage>` for the per-item detail a line's `# n missing` counts; --live-only hides DUPLICATE/SUPERSEDED/INFORMATIONAL rows)
 webv2 scorecard <C> [--json] [--no-surface]                        one read-only view: surface, findings, process, eval
 webv2 review-session {start|end} [campaign] [--actor A] [--artifact A]... [--loc N]   # measured operator review session (v1.6 Part 1): `start` opens (one open at a time), `end` closes the open one and records --loc; the campaign positional is optional when exactly one campaign sits under --root and required when several do (the session is stored in that campaign's review_sessions). WEBV2_NOW is a TEST pin — an operator run must use the real wall clock, or the session is a fixture, not telemetry

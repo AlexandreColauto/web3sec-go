@@ -273,10 +273,11 @@ func TestAuditRegistryOrderMatchesPython(t *testing.T) {
 	want := pythonSectionOrder(t, sc.FullReport)
 	got := SectionNames()
 	// eval and price_table are presence-gated; v16_coverage is the
-	// unconditional v1.6 addition. All three are appended past the 14 ported
-	// sections, in registration order.
+	// unconditional v1.6 addition, and v1.6 Phase 0 appends the
+	// presence-gated regression_suite. All four are appended past the 14
+	// ported sections, in registration order.
 	withAppended := append(append(append([]string{}, want...), "eval"),
-		"price_table", "v16_coverage")
+		"price_table", "v16_coverage", "regression_suite")
 	if !reflect.DeepEqual(got, withAppended) {
 		t.Fatalf("SectionNames() = %v\nwant %v + presence-gated eval, "+
 			"price_table, and the v1.6 coverage section", got, want)

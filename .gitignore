@@ -15,3 +15,8 @@ Deconstructing Claims, Validating AI, and Weighting Risks_*.md
 # runtime baseline store when a binary is invoked from the repo root
 baselines/
 .worktrees/
+
+# entropy-gate JS tooling installed at the repo root by
+# `entropy_gate.py init` (the tracked copies live in pre-commit-gate/templates/).
+# node_modules is ~213 MB here and was one `git add -A` from being committed.
+node_modules/

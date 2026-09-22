@@ -45,4 +45,9 @@ func RegisterAll(register func(name string, fn SectionFunc)) {
 	// audit.py sections keep their relative order (the P1 gate goldens pin
 	// it) and so this new section is appended, never interleaved.
 	register("v16_coverage", V16Coverage)
+	// v1.6 Phase 0: the regression suite's records. PRESENCE-GATED (ErrSkip
+	// when the campaign has no regression target), so the section lists the
+	// two gate scripts pin are unchanged for every campaign that is not a
+	// regression target. Registered LAST, after v16_coverage.
+	register("regression_suite", RegressionSuite)
 }

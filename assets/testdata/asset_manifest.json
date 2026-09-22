@@ -394,8 +394,8 @@
     "size": 27582
    },
    "RUNBOOK.md": {
-    "sha256": "48b0d73ad4a06d581d5d42529008b91c2ea83eecc10f700d20ebc7ac4cfd2450",
-    "size": 129213
+    "sha256": "6879f1eb5ddf8ddf818035f864ae77e5cc2c543142b26ed64cf4a883c8ef0bcd",
+    "size": 132325
    }
   },
   "schema": {
@@ -478,6 +478,14 @@
    "protocol_model.schema.json": {
     "sha256": "375c7a5f37038851fe9c96743e0f64c8f277015e997d10e78a474c532cca2c98",
     "size": 20089
+   },
+   "regression_run.schema.json": {
+    "sha256": "3be2b8f64bb4f783e428a1e9fa7b5bc2b87aeec915712f4a8c48c143cf0e5a69",
+    "size": 2512
+   },
+   "regression_target.schema.json": {
+    "sha256": "f49cf4f844bfa5009bb8f2b8c50f7bff01d13e58cd9c9d2ee714d6467f7b168b",
+    "size": 3743
    },
    "relation.schema.json": {
     "sha256": "8f0d93d05c73be0ee3abc35a5732869bdffb3bc3db84eea0d0e1a129ce3af5fa",

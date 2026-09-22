@@ -1,0 +1,46 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://web3sec.local/schema/regression_run.schema.json",
+  "title": "WebSec Regression Run",
+  "description": "One coarse-tracking run of the regression suite against one target (§3a Discipline: 'Use ScaBench's own scorer for coarse tracking only'). score is the suite's own normalized object, never a scorer's raw output: the adapters in internal/regression/run.go translate each scorer's vocabulary into these four counts and one verdict, so a scorer change is one adapter, not a schema change. measurement is pinned to 'rediscovery' and is_detection_rate to false because every target — ScaBench or contest-report — is a disclosed, already-judged contest; the number this record carries measures closure discipline and rediscovery, and must never be quoted as a detection rate.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "run_id", "campaign_id", "target_id", "scorer", "score",
+    "measurement", "is_detection_rate", "created_at", "schema_version"
+  ],
+  "properties": {
+    "run_id": { "type": "string", "pattern": "^RUN-[a-f0-9]{12}$" },
+    "campaign_id": { "type": "string", "minLength": 3 },
+    "target_id": { "type": "string", "pattern": "^T-[a-f0-9]{12}$" },
+    "scorer": { "enum": ["eval-gold", "scabench-judge"] },
+    "score_file_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "sha256 of the scorer output this run ingested; present for eval-gold, absent when the judge's report was transcribed by hand"
+    },
+    "report_url": {
+      "type": "string",
+      "minLength": 1,
+      "description": "where the scorer's own report lives — the provenance for a transcribed score"
+    },
+    "artifact_id": { "type": "string", "minLength": 1 },
+    "score": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["found", "missed", "false_positives", "verdict"],
+      "properties": {
+        "found": { "type": "integer", "minimum": 0 },
+        "missed": { "type": "integer", "minimum": 0 },
+        "false_positives": { "type": "integer", "minimum": 0 },
+        "verdict": { "type": "string", "minLength": 1 },
+        "verdict_note": { "type": "string" }
+      }
+    },
+    "measurement": { "const": "rediscovery" },
+    "is_detection_rate": { "const": false },
+    "notes": { "type": "string", "maxLength": 2000 },
+    "created_at": { "type": "string", "minLength": 20 },
+    "schema_version": { "const": 1 }
+  }
+}

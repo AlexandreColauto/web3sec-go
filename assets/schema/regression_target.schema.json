@@ -1,0 +1,56 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://web3sec.local/schema/regression_target.schema.json",
+  "title": "WebSec Regression Target",
+  "description": "One target in the v1.6 Part 3a regression suite (framework-plan-v1.6.md §3a). The record lives in the campaign that audits the target, so it inherits the ledger, the determinism pins and the single-writer lock. kind names the provenance: 'scabench' (the curated-2025-08-18 snapshot), 'fresh' (our own target built from a post-2025-08 contest report), 'control' (the already-exploited control target, separately sourced) and 'diagnosed' (the campaign this hardening was derived from, retained but relabeled as training data, never eval). commit_hint is the dataset's own commit field — ScaBench's is a hint, not a pin; resolved_sha is the concrete SHA the checkout actually landed on, and snapshot_id binds it to the immutable snapshot that recorded that checkout.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "target_id", "campaign_id", "kind", "program", "shape",
+    "created_at", "schema_version"
+  ],
+  "properties": {
+    "target_id": { "type": "string", "pattern": "^T-[a-f0-9]{12}$" },
+    "campaign_id": { "type": "string", "minLength": 3 },
+    "kind": {
+      "enum": ["scabench", "fresh", "control", "diagnosed"],
+      "description": "which of §3a's target provenances this row is"
+    },
+    "program": { "type": "string", "minLength": 1 },
+    "record_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "the target's id WITHIN its source dataset or report — for a ScaBench target this is the project's `project_id` (e.g. code4rena_coded-estate-invitational_2024_12), verbatim, because selection, hold-out and the shapes map are all per PROJECT; the only bridge back to the raw record"
+    },
+    "codebase_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "the dataset's own `codebases[].codebase_id` for the tree this target pins — REQUIRED when a project carries more than one codebase (Starknet Perpetual carries two, one of them unpinned), because the commit lives on the CODEBASE, not the project; optional otherwise, where it is recorded for the same reason the raw project_id is"
+    },
+    "repo": { "type": "string", "minLength": 1 },
+    "shape": {
+      "enum": [
+        "vault-erc4626", "lending-liquidation", "bridge-messaging",
+        "non-rollup-l2-or-oracle", "diagnosed-campaign", "already-exploited"
+      ],
+      "description": "§3a's composition constraint, as one closed vocabulary: the four ScaBench target shapes (which are assigned to PROJECTS), the diagnosed campaign (relabeled training), and the already-exploited control target"
+    },
+    "commit_hint": {
+      "type": "string",
+      "description": "the commit field as the dataset states it — a mutable ref like 'main' is a legal hint and an illegal pin, and the empty string is also a legal hint (two codebases record no ref at all), so minLength must not be 1 here"
+    },
+    "resolved_sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$",
+      "description": "the concrete SHA the checkout landed on (§3a: 'Phase 0 resolves every commit to a concrete SHA at first checkout, mirrors the repos locally, and records the resolved SHA in the campaign snapshot')"
+    },
+    "snapshot_id": {
+      "type": "string",
+      "minLength": 8,
+      "description": "the campaign snapshot that recorded this checkout; the pin is only valid when that snapshot's source.git_commit equals resolved_sha"
+    },
+    "resolved_by": { "type": "string", "minLength": 1 },
+    "created_at": { "type": "string", "minLength": 20 },
+    "schema_version": { "const": 1 }
+  }
+}
