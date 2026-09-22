@@ -278,6 +278,34 @@ func recordControlForHandoff(t *testing.T, c *state.Campaign, tid string) {
 	}
 }
 
+// TestCheckControlSpecRefusesEachRuleDirectly calls checkControlSpec in
+// isolation — no campaign, no schema, no ledger — to pin the Go layer's own
+// messages. RecordControl's tests run the pair, and the schema that
+// writeThenLog validates enforces some of the same invariants: the mutation
+// run showed that deleting only the Go check leaves those tests green, because
+// the record is still refused, by the schema. Defence in depth is the right
+// architecture; untested code is not, so this test is what stops the Go checks
+// rotting behind the schema.
+func TestCheckControlSpecRefusesEachRuleDirectly(t *testing.T) {
+	base := ControlSpec{
+		IncidentURL: "https://example.test/incident", IncidentDate: "2025-09-01",
+		LossUSD: 12500000, LossSource: "post-mortem §2",
+		PrePatchSHA: shaPre, PatchSHA: shaPost,
+		HarnessRunner: "foundry", HarnessCommand: "forge test",
+	}
+	if err := checkControlSpec(base); err != nil {
+		t.Fatalf("a complete spec was refused: %v", err)
+	}
+	for _, tc := range controlRefusalCases() {
+		spec := base
+		tc.mut(&spec)
+		err := checkControlSpec(spec)
+		if err == nil || !strings.Contains(err.Error(), tc.want) {
+			t.Errorf("%s: err = %v, want a refusal naming %q", tc.name, err, tc.want)
+		}
+	}
+}
+
 // confirmedFinding ingests one finding and stamps it CONFIRMED through the
 // store's own writer, returning its id.
 func confirmedFinding(t *testing.T, c *state.Campaign) string {

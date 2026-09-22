@@ -3043,6 +3043,34 @@ git commit -m "feat(audit): v1.6 record-coverage section (v1.6 P1/P2)"
 
 ### Task 10: The Phase 2 maximization spike (operator-run)
 
+> **RE-SCOPED 2026-09-22 — this task's premise does not exist yet, and it is two tasks.**
+> As written it says "operator, on one already-CONFIRMED finding". P0's Task 2 deliberately
+> did not ingest a finding on its control target (it pins the vulnerability and runs the
+> project's own harness, then stops), so no campaign has a CONFIRMED finding on a real target.
+> The gap between here and the spike is snap → discovery → repro → mint → impact on a real
+> target — that is a **pipeline run**, not a spike. Driving it as one task would either skip
+> TDD where TDD is possible or, worse, hand-author a finding that skips the very paths the
+> spike exists to exercise. So:
+>
+> - **Task 10a — get a finding on the control target to CONFIRMED.** Hypothesis in via
+>   `run --feed` (a hand-authored discovery drop is the sanctioned path, and is exactly why
+>   P1's Task 3 exists — no model needed), then reproduce and mint. This is where P1's records
+>   meet a real bundle for the first time.
+> - **Task 10b — the original spike.** `exec --profile fork-runner` →
+>   `mint --poc-tier existence` → maximized → `impact --replayable` → `audit`.
+>
+> **10b has a blocker this plan did not know about: a commit is not a fork pin.** The control
+> target's harness forks at the height its own test file hardcodes — block 99,811,375, which
+> is **three months before the 2023-08-18 exploit** and predates the vulnerable
+> implementation's deployment (107,135,785, 2023-07-20). The CLI's `--fork-block-number` is
+> inert against a `vm.createSelectFork(url, height)` inside the test. So 10b must fork at the
+> attack's own height — **108,375,557** for pre-attack state — and record the block beside the
+> SHA (roadmap §4: *a fork run carries a resolved block*). The measurement is in
+> `docs/gates/v16-P0-control-target.md` §3.1. An `extractable_usd` computed at the wrong
+> height describes a counterfactual, not the incident.
+>
+> Everything below is 10b's original text; read it with 10a as its precondition.
+
 Spec §2.7: *"A minimal spike (Phase 2) proves the loop produces a defensible number on one already-confirmed finding — no rubric/policy integration, no two-tier split — and, where that finding is replayable, demonstrates the two-round termination with arithmetic rounds-to-exhaustion and `cumulative_attack_cost_usd`."*
 
 This is the only task in the plan that needs Docker and a real finding; everything it drives already exists after Tasks 1–9. It produces the Phase 2 exit evidence, not new product code.

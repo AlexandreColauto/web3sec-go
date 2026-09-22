@@ -1,6 +1,10 @@
 # Task 2 review — the already-exploited control target, and the P1 spike handoff
 
-**Verdict: APPROVE.** No must-fix findings. One observation worth carrying forward.
+**Verdict: APPROVE, superseded in part by the §7 re-check below.** The implementation is sound
+and keeps its must-fix-free standing — the pin's parentage and the 5/5-vs-0/5 contrast both
+verified independently. But the second pass found **one false factual claim in the gate record**
+(the fork height's provenance) and the record has been corrected in place. That is a must-fix on
+the *record*, and it is done; see §7.
 
 **Provenance deviation, stated plainly.** This review was performed by the controller, not by a
 separate reviewer subagent. The reviewer dispatch was interrupted twice by the machine running out
@@ -110,3 +114,66 @@ call its dollar figure an extraction is the behaviour to want.
   the incident date, not verified byte-for-byte. The report says so itself.
 - The other nine mutations — read, not reproduced. The one reproduced is the one whose invariant the
   task's central claim depends on.
+
+## 7. Second pass — the two claims that carry the record, checked on purpose
+
+Task 2's record is the input the spike rests on, and two claims carry all of it: the parentage of
+the pin, and the 5/5-vs-0/5 result. This pass went after exactly those two, with the fork height
+the third thing checked — because "a commit is not a fork pin" turned out to be where the record
+was wrong.
+
+**Claim 1, the pin's parentage — HOLDS.** Re-derived from the object store, not from the report:
+
+```
+$ git rev-list --parents -n 1 e73bfb21284074adc3d82b322fe8eccdbde6922d
+e73bfb21… 46e840222e11caf30a3a710b66d9333be76531b6     # one parent, and it is the pin
+$ git log -1 --format='%H %ci %s' 46e840222e…
+46e840222e… 2023-08-17 18:42:51 -0300 🔧 finance: extend rewards program
+$ git grep -c checkMarket <fix>          → contracts/periphery/DebtManager.sol:14
+$ git show 46e84022…:contracts/periphery/DebtManager.sol | rg -c checkMarket   → 0
+```
+
+The guard is absent at the pin, present at the fix, and the pin is the fix's only parent. The
+five matching tests exist (`testFakeMarket{CrossDeleverage,CrossLeverage,Leverage,Deleverage}`,
+`testFakeMarketRollFixed`), so "5/5" counts a real five.
+
+**Claim 2, the 0/5 at pre-patch — HOLDS, reproduced live.** Re-ran the arm in the scratch
+checkout:
+
+```
+$ OPTIMISM_NODE=https://mainnet.optimism.io forge test --match-path test/DebtManager.t.sol \
+    --match-test testFakeMarket -vv --fork-url optimism --fork-block-number 99811375
+Suite result: FAILED. 0 passed; 5 failed; 0 skipped
+# 3x "call reverted as expected, but without data"; 1x "AS != MarketNotListed()";
+# 1x "Contract 0x0000…0000 does not exist … != MarketNotListed()"
+```
+
+Every failure is the expected refusal not happening. Two reviewer notes: my *first* attempt
+reported 1 failed / 0 run, because I omitted `export OPTIMISM_NODE=…` — a missing env var reads
+as a suite failure if you do not look at which line failed. And the gate record does document
+the export, so the record is reproducible as written.
+
+**Claim 3, "the fork height is the state the exploit ran against" — FALSE, and this is the
+finding.** The harness forks 99,811,375 because *the project hardcoded it*:
+
+```
+$ rg -n 'createSelectFork' test/*.sol
+test/DebtManager.t.sol:51:    vm.createSelectFork(vm.envString("OPTIMISM_NODE"), 99_811_375);
+```
+
+Against the chain: 99,811,375 → 1684525449 → **2023-05-19**. The attack tx `0x3d6367de…` ran at
+**108,375,558** → 1692349893 → **2023-08-18** — three months later. And the exploited
+implementation `0x675d410d…` has **no code at all** at 99,811,375 (`eth_getCode` returns `0x`);
+it deployed at 107,135,785 on 2023-07-20. `--fork-block-number` cannot fix this: re-running with
+108375557 still reports `(block: 99811375)` on every line, because the test's own
+`createSelectFork` wins.
+
+**Consequence, and what changed.** The source-level contrast survives, and §5 of the record
+already framed the failures as "the expected refusal is absent" rather than "funds drained". What
+does not survive is any downstream number computed at that height: an `extractable_usd` measured
+on a fork predating the vulnerable deployment measures a counterfactual. The gate record's §3 and
+§5 are corrected in place, §3.1 records the full SHA↔block↔address mapping, roadmap §4 gains the
+law (*a fork run carries a resolved block*), and P1's Task 10 is re-scoped into **10a** (get a
+finding to CONFIRMED — a pipeline run, not a spike) and **10b** (the spike, forking
+108,375,557). The incident's `$7.6M` is now labelled in §2.4's own vocabulary as neither
+demonstrated nor computed — a third quantity, someone else's reported figure.

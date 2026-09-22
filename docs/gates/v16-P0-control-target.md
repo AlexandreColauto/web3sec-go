@@ -153,8 +153,9 @@ Runner `foundry`; the project's own repository is the harness — `foundry.toml`
 each assert the fake market is refused with `MarketNotListed`:
 `testFakeMarketLeverage`, `testFakeMarketDeleverage`,
 `testFakeMarketCrossLeverage`, `testFakeMarketCrossDeleverage`,
-`testFakeMarketRollFixed`. The harness is fork-based: it selects Optimism
-mainnet at block `99,811,375`, the state the exploit ran against.
+`testFakeMarketRollFixed`. The harness is fork-based. **Its fork height is the
+project's, not ours, and it is not the exploit's state — §3.1 corrects what this
+record first claimed here.**
 
 **At the patch commit — the project's own tests pass (5/5):**
 
@@ -224,8 +225,71 @@ returned code at Optimism block `99,811,375` (`eth_getCode` on the WETH
 predeploy). `mainnet.optimism.io` served the whole harness run; `drpc.org`
 rate-limited it (`HTTP 429 ... You reached Public endpoint rate limit`).
 `https://ethereum-rpc.publicnode.com` refuses archive requests without a token
-and `https://rpc.flashbots.net` prunes state at that height. This is recorded
-because it is a measurement; P1 Task 10 Step 3's status is P1's to change.
+and `https://rpc.flashbots.net` prunes state at that height. P1 Task 10 Step 3's
+status is P1's to change.
+
+**A working RPC is a configuration fact here, not a capability.** Every free
+public endpoint will eventually throttle (drpc already did, mid-run) or prune —
+and §3.1 just showed a height that is *wrong* can still serve perfectly, so the
+silent-failure mode is an endpoint answering at all. What makes a fork run
+repeatable is not the endpoint's goodwill but a **height recorded with the run**.
+The durable fix is P5's runner-level fork pin — the harness, not the operator's
+shell, supplies and records the block — and this whole observation is the
+evidence that justifies that work. Until then the pin lives in the target
+record (§3.1) and the caveat lives here.
+
+## 3.1 The SHA ↔ block mapping, and a correction to §3
+
+A commit is not a fork pin. `46e84022…` is a git SHA; a fork run needs a **block**,
+and the run is only meaningful if that block is the state the exploit actually
+ran against. §3 first said the harness "selects Optimism mainnet at block
+`99,811,375`, the state the exploit ran against". **That sentence was false**,
+and this subsection is the mapping that shows it. Every number below was
+re-derived on 2026-09-22 from the object store and the chain, not from §3.
+
+| quantity | value | how it was verified |
+|---|---|---|
+| pre-patch commit (git) | `46e840222e11caf30a3a710b66d9333be76531b6` | `git rev-list --parents -n 1 e73bfb21…` → its **only** parent is the pin |
+| fix commit | `e73bfb21284074adc3d82b322fe8eccdbde6922d` | `git cat-file -p` → `parent 46e84022…`; subject `🚑 debt-manager: validate markets` |
+| attack transaction | `0x3d6367de5c191204b44b8a5cf975f257472087a9aadc59b5d744ffdef33a520e` | cited in §2 from the post-mortem |
+| **attack block** | **`108,375,558`** | `cast tx … --field blockNumber` |
+| attack block time | `1692349893` → **2023-08-18** | `cast block … --field timestamp` |
+| contract the attack called | `0x6dD61c69415c8ECAb3FEFD80d079435ead1a5B4d` | the attack tx's `to`; `eth_getCode` returns code at that block |
+| DebtManager implementation | `0x675d410dcf6f343219AAe8d1DDE0BFAB46f52106` | `deployments/optimism/DebtManager.json` at the fix commit |
+| its deployment block | `107,135,785` → **2023-07-20** | that record's `receipt.blockNumber` |
+| **the harness's fork height** | **`99,811,375`** → **2023-05-19** | hardcoded at `test/DebtManager.t.sol:51` |
+
+Three things follow, and each one contradicts what §3 said:
+
+1. **The fork height is the project's constant, not the exploit's block.**
+   `test/DebtManager.t.sol:51` reads
+   `vm.createSelectFork(vm.envString("OPTIMISM_NODE"), 99_811_375)`. That block is
+   **2023-05-19 — three months before the 2023-08-18 exploit.** It is the state
+   the project's test suite was written against, which is why the same constant
+   appears in `test/DebtPreviewer.t.sol:47`.
+2. **The `--fork-block-number` flag is inert.** Re-running the pre-patch arm with
+   `--fork-block-number 108375557` still reports `(block: 99811375)` on every
+   line: the test's own `createSelectFork` wins. The §3 commands therefore
+   reproduce, but not at the height they appear to name.
+3. **The exploited contract did not exist at the harness's height.**
+   `eth_getCode 0x675d410d…` at block `99,811,375` returns `0x` — the
+   implementation was deployed at `107,135,785` (2023-07-20), after the fork
+   height and a month before the attack.
+
+**What this does and does not invalidate.** The 5/5-vs-0/5 contrast survives: it
+is a *source-level* difference — `checkMarket` is absent from the pre-patch
+revision and present at the fix — and the failures are the expected-refusal-is-
+absent kind, which does not depend on the deployed bytecode. What does **not**
+survive is any claim that the run reproduces the exploit's own state, and
+therefore any downstream figure computed at that height. An `extractable_usd`
+measured on a fork where the vulnerable implementation is not even deployed
+would be a number about a counterfactual, not about the incident. **The spike
+(10b) must fork at the attack's own height — `108,375,557` for pre-attack
+state — and say which it used.**
+
+The general rule this is an instance of is recorded with P0's SHA bookkeeping:
+*a snapshot carries a resolved SHA, and a fork run carries a resolved block.* A
+pin that names only one of the two is half a pin.
 
 ## 4. The P1 handoff (the point of this task) — **NOT RUN**
 
@@ -271,11 +335,21 @@ run — say exactly that, and nothing more.
   pinned revision. It is not a fund-draining reproduction and no value was
   extracted, simulated or measured.
 - `$7.6M` is the incident's reported loss, cited to the project's post-mortem.
-  It is not an `extractable_usd`, and no `extractable_usd` exists for this
-  target.
-- The pin is a commit the deployed vulnerable code corresponds to; the harness
-  forks the state the exploit ran against (`99,811,375`). The deployed bytecode
-  was not decompiled and compared to the pre-patch commit's build — the
+  In the spec's §2.4 vocabulary it is **neither demonstrated nor computed**: it
+  is a third quantity, a figure *reported by someone else* about what an attack
+  took, and it is a ceiling at best. Demonstrated is what a verification run
+  actually extracted (two-plus rounds, precisely characterized); computed is the
+  arithmetic extrapolation to rounds-to-exhaustion. This record carries a
+  reported figure and nothing else, and it is labelled as such. Presenting a
+  reported loss as either of the other two is precisely the misrepresentation
+  §2.4 forbids, so the separation is stated here rather than left to be inferred
+  from the absence of a number.
+- The pin is a commit the deployed vulnerable code corresponds to. **The harness
+  does not fork the exploit's state**: it forks `99,811,375` (2023-05-19)
+  because the project hardcoded that constant, three months before the attack
+  and before the vulnerable implementation was deployed (§3.1). The deployed
+  bytecode was not decompiled and compared to the pre-patch commit's build — the
   correspondence is argued from the fix commit's parent and the incident date,
-  not verified byte-for-byte.
+  not verified byte-for-byte. Both gaps are named because a downstream
+  `extractable_usd` computed at that height would describe a counterfactual.
 
