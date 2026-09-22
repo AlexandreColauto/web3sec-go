@@ -334,11 +334,21 @@ func TestCriticBundleExcludesAllProposerReasoning(t *testing.T) {
 	assertNoForbiddenKeys(t, bundle, "critic")
 
 	// 2) the distinctive VALUES must also be absent — a renamed leak would
-	//    pass the key check but not this
+	//    pass the key check but not this.
+	//    The bounty_score fragment is ": 7.5" rather than the bare "7.5":
+	//    the bundle carries a real-clock timestamp, and an ISO instant whose
+	//    seconds/fraction contain "7.5" (e.g. ...T00:00:07.500000+00:00)
+	//    made the bare fragment match the CLOCK and report a leak that was
+	//    not there — a flake that tripped whenever the wall clock happened
+	//    to read that way. The canonical-spaced rendering of the value is
+	//    `"bounty_score": 7.5`, so the separator makes the fragment identify
+	//    the VALUE while still catching a renamed leak (`"score": 7.5`), and
+	//    it cannot match a quoted timestamp, where no ": " precedes the
+	//    digits. The check is not weakened; the fragment is made specific.
 	for _, fragment := range []string{"flash-borrow USDC",
 		"analog campaigns paid out", "believes the path is reachable",
 		"prior critic: reachable, profit unverified", "qwen3-14b",
-		"audit-1", "7.5"} {
+		"audit-1", ": 7.5"} {
 		if strings.Contains(b, fragment) {
 			t.Errorf("critic bundle leaks value %q", fragment)
 		}
