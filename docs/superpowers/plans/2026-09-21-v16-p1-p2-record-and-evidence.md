@@ -3041,7 +3041,97 @@ git commit -m "feat(audit): v1.6 record-coverage section (v1.6 P1/P2)"
 
 ---
 
-### Task 10: The Phase 2 maximization spike (operator-run)
+### Task 10a: The control target's finding — offline, source-level, end to end
+
+**Why this is a task of its own, and why it goes first.** Tasks 1–9 built the P1 record set —
+the feed transport, PoC tiers, replay, fork dependence, the boundary artifact sets — and every
+one of them has only ever seen **fixtures**. Not one has carried a real bundle through the
+whole path. 10a is that run: the control target's vulnerability from hypothesis to
+`CONFIRMED`, using P1's own verbs, on a real pinned checkout. It is also the only one of the
+three pieces of work here that is **guaranteed to finish**: it is source-level and offline, so
+it needs nothing but the pinned checkout and `forge`. No Docker, no fork RPC, no model, no
+operator.
+
+**What it deliberately is not.** It is not the spike, and it produces **no dollar figure**.
+Its PoC tier is `existence` — the guard is absent at the pin and the project's own tests say so
+— and `existence` is exactly what the tier exists to name. A reader should come away knowing
+the finding is real and confirmed, and knowing nothing about how much money is reachable. That
+second question is 10b's, and 10b may legitimately refuse it.
+
+**Files:**
+- Create: `docs/sdd/v16-p1/task-10a-feed.json` (the authored discovery drop)
+- Create: `docs/gates/v16-P1-10a.md` (the recorded run)
+- No product code. **If a step here needs a code change, that is a finding about Tasks 1–9,
+  and it is recorded as one rather than patched quietly mid-run.**
+
+**Interfaces:**
+- Consumes: `webv2 run --feed`, `webv2 exec --profile host-readonly`, `webv2 mint --type
+  unit-test --poc-tier existence`, `webv2 move … CONFIRMED`, `webv2 audit`.
+- Produces: one CONFIRMED finding on the control target, which is 10b's precondition.
+
+- [ ] **Step 1: Author the discovery drop**
+
+Hand-author the hypothesis as a feed JSON — this is the sanctioned path, and the reason P1's
+Task 3 built `run --feed`: a discovery stage that needs no model is what makes this run
+offline. The drop names the control target's own revision and the absent guard, and cites the
+fix commit's parentage (`46e84022` is `e73bfb21`'s only parent — verified in the control
+target's gate record §3.1).
+
+- [ ] **Step 2: Drive it through the pipeline**
+
+```bash
+webv2 run C-xxxxxxxxxx --feed docs/sdd/v16-p1/task-10a-feed.json
+webv2 exec C-xxxxxxxxxx --profile host-readonly --finding F-xxxxxxxxxx \
+  --workdir /home/xand/webv2-p0/target/exactly-prepatch \
+  --command "forge test --match-path test/DebtManager.t.sol --match-test testFakeMarket -vv"
+```
+
+The command is the project's own five tests at the pin, and the expected result is the
+recorded **0/5** — every failure of the "the expected refusal never happened" kind. `exec`
+must capture that output; the finding's evidence cites the EXEC id, not a pasted transcript.
+
+- [ ] **Step 3: Mint, at `existence`**
+
+```bash
+webv2 mint C-xxxxxxxxxx F-xxxxxxxxxx --exec EXEC-xxxxxxxxxx --type unit-test \
+  --poc-tier existence --description "checkMarket absent at the pin; the project's own five tests fail for want of the refusal"
+```
+
+`--type unit-test` is the honest member: the evidence is a test run, not a fork test and not a
+balance delta. `--poc-tier existence` is the honest tier: it says the defect is demonstrably
+present and stops there.
+
+- [ ] **Step 4: Move it to CONFIRMED**
+
+```bash
+webv2 move C-xxxxxxxxxx F-xxxxxxxxxx CONFIRMED --reason "…" --actor "$USER"
+```
+
+The CONFIRMED transition enforces its own gate bundle. **If it refuses, the refusal is the
+result of this step** — record it verbatim and fix whatever is actually missing (evidence,
+exec binding, tier) rather than working around it. A refusal here is the most valuable thing
+10a can produce, because it is the first time that gate has been asked a question with a real
+bundle behind it.
+
+- [ ] **Step 5: Audit, record, commit**
+
+`webv2 audit C-xxxxxxxxxx` must come back clean and the finding must read `CONFIRMED`. Then
+write `docs/gates/v16-P1-10a.md`: the campaign and finding ids, the EXEC id, the observed 0/5,
+the tier and type chosen and why those are the honest members, the audit verdict, and a
+paragraph on **what the P1 record set did not anticipate** — that paragraph is the actual
+deliverable, because it is the first evidence about these records that does not come from a
+fixture. If every record worked unchanged, say that too; it is a result.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add docs/sdd/v16-p1/task-10a-feed.json docs/gates/v16-P1-10a.md
+git commit -m "docs(v16): the control target's finding, confirmed end to end (P1 task 10a)"
+```
+
+---
+
+### Task 10b: The Phase 2 maximization spike (operator-run)
 
 > **RE-SCOPED 2026-09-22 — this task's premise does not exist yet, and it is two tasks.**
 > As written it says "operator, on one already-CONFIRMED finding". P0's Task 2 deliberately
@@ -3061,13 +3151,44 @@ git commit -m "feat(audit): v1.6 record-coverage section (v1.6 P1/P2)"
 >
 > **10b has a blocker this plan did not know about: a commit is not a fork pin.** The control
 > target's harness forks at the height its own test file hardcodes — block 99,811,375, which
-> is **three months before the 2023-08-18 exploit** and predates the vulnerable
-> implementation's deployment (107,135,785, 2023-07-20). The CLI's `--fork-block-number` is
-> inert against a `vm.createSelectFork(url, height)` inside the test. So 10b must fork at the
-> attack's own height — **108,375,557** for pre-attack state — and record the block beside the
-> SHA (roadmap §4: *a fork run carries a resolved block*). The measurement is in
-> `docs/gates/v16-P0-control-target.md` §3.1. An `extractable_usd` computed at the wrong
-> height describes a counterfactual, not the incident.
+> is **three months before the 2023-08-18 exploit**. The CLI's `--fork-block-number` is inert
+> against a `vm.createSelectFork(url, height)` inside the test: re-running with `108375557`
+> still reports `(block: 99811375)` on every line. The measurement is in
+> `docs/gates/v16-P0-control-target.md` §3.1. An `extractable_usd` computed at the wrong height
+> describes a counterfactual, not the incident.
+>
+> **And the chain offers a real before/after pair that this harness does not reach.** The
+> deployed DebtManager is an EIP-1967 proxy whose own bytecode never changes — hashing it
+> proves nothing. Its implementation slot held `0x16748cb7…` through block **108,445,161** and
+> was repointed to `0x910e91d2…` at **108,445,162** (2023-08-19), the fix commit recording the
+> latter. At the harness's height the proxy has no code at all, so the harness exercises
+> **neither** side (§3.2). Two consequences for 10b: the pair to fork around, if a before/after
+> comparison is wanted, is `108,445,161`/`108,445,162`; and no fork run here can demonstrate
+> anything about the deployed fix, because it never runs against either deployment. What the
+> control target certifies is **source-level** detection.
+>
+> **Prerequisites, all three.**
+>
+> 1. **A CONFIRMED finding** — Task 10a's output. Without it there is nothing to spike.
+> 2. **An RPC that can hold a fork for the run's duration.** `mainnet.optimism.io` served the
+>    P0 harness; `optimism.drpc.org` rate-limited mid-run; publicnode wants a token; flashbots
+>    prunes. This is a *configuration fact, not a capability* (§3's observation), which is why
+>    prerequisite 3 exists.
+> 3. **The fork-pin decision, made explicitly — do not silently take the passed flag.**
+>    `internal/regression/forkpin.go` landed as a tested primitive and is **not wired into the
+>    run record or the CLI**. Either wire it (so a run derives the height the harness actually
+>    reported, refusing output that names none or two), or derive the height by hand and **say
+>    so in the gate document**, naming where it was read from. Taking `--fork-block-number` as
+>    the height is the one option that is not available: it is inert against `createSelectFork`,
+>    so the flag is not evidence of the height that ran. Roadmap §4: *a fork run carries a
+>    resolved block.*
+>
+> **10b's acceptance criterion is "measured, or refused with a recorded reason" — there is no
+> number pressure.** If the public endpoint cannot hold a fork long enough to read a balance
+> delta, the **refusal is the deliverable**: it is the real evidence justifying P5's
+> runner-level fork pin, and a recorded refusal is worth more than a figure produced by
+> retrying until something returned. Do not manufacture an `extractable_usd` to satisfy the
+> task. A refusal must name what was attempted, what failed, and what would have to change.
 >
 > Everything below is 10b's original text; read it with 10a as its precondition.
 
@@ -3176,13 +3297,13 @@ git commit -m "chore(v16): Phase 2 maximization spike driver and its recorded re
 
 ### Task 11: The Phase 1 gate record
 
-Self-review 1b and the roadmap both require `docs/gates/v16-P1.md`, and nothing else in this plan writes it — Tasks 1–3 produce test evidence that otherwise exists only in a terminal scrollback. It is deliberately its own task and deliberately last: it cites Task 10's spike result, and it must **not** be gated on Docker, an RPC or an operator, because three quarters of what it records is already green in CI.
+Self-review 1b and the roadmap both require `docs/gates/v16-P1.md`, and nothing else in this plan writes it — Tasks 1–3 produce test evidence that otherwise exists only in a terminal scrollback. It is deliberately its own task and deliberately last: it cites Task 10b's spike result, and it must **not** be gated on Docker, an RPC or an operator, because three quarters of what it records is already green in CI.
 
 **Files:**
 - Create: `docs/gates/v16-P1.md`
 
 **Interfaces:**
-- Consumes: the test evidence of Tasks 1–9 and Task 10's `docs/gates/v16-P2-spike.md`.
+- Consumes: the test evidence of Tasks 1–9, Task 10a's `docs/gates/v16-P1-10a.md`, and Task 10b's `docs/gates/v16-P2-spike.md`.
 
 - [ ] **Step 1: Re-run the gates and capture the exact output**
 
@@ -3204,7 +3325,7 @@ Record the invocations verbatim and their results — not a summary of them.
 | Out-of-set input is refused **and recorded** | `TestBuildRequestDerivesTheCitedSet`, `TestDeclaredInputSetIsRequired`, `TestInputSetRefusalIsRecorded` (`internal/boundary`); `TestRunFeedRefusesAnOutOfSetDrop`, `TestFeedRefusesAnUndeclaredRequest` (the production path) |
 | The file-drop is the only sanctioned transport | `TestFeedStagesPartitionThePipeline`, `TestRunFeedRefusesADropOutsideTheInbox`, `TestRunFeedRefusesUnwiredStage` |
 
-Plus: the `v16_coverage` numbers for one real campaign, the grandfathering decision (requests logged before Task 2 keep validating; new ones are refused without a declaration), and the two halves of the Phase 2 exit criterion recorded separately, as Task 10 Step 4 requires — arithmetic **test-proven**, extraction **spike-proven**.
+Plus: the `v16_coverage` numbers for one real campaign, the grandfathering decision (requests logged before Task 2 keep validating; new ones are refused without a declaration), and the two halves of the Phase 2 exit criterion recorded separately, as Task 10b Step 4 requires — arithmetic **test-proven**, extraction **spike-proven**.
 
 - [ ] **Step 3: Commit**
 
@@ -3238,7 +3359,7 @@ Run this before declaring the plan executed; it is the same checklist the plan w
 
 **Deliberately not in this plan** (they belong to later phases, per the roadmap): the maximization loop and its `status` field, tranche funding and vouchers, the `delta` evidence field, the severity engine, class metrics, the closure tier, the dual-arm critic, target scoring, acceptance telemetry. Do not smuggle them in — Phase 5's design depends on how Tasks 6–8 behave in the field.
 
-**1b. Gate records.** Each phase gets one gate document, not just the spike: `docs/gates/v16-P1.md` (Task 11 — Task 1's consistency test, Task 2's refusal + its migration, Task 3's feed contract, with the exact `go test` invocations and their results) alongside `docs/gates/v16-P2-spike.md` (Task 10). Tasks 1–9 produce test evidence; without a document it exists only in a terminal scrollback, which is the opposite of the D9 discipline the roadmap asks for. Task 11 is separate from Task 10 on purpose: the Phase 1 record must not wait on Docker or an operator.
+**1b. Gate records.** Each phase gets one gate document, not just the spike: `docs/gates/v16-P1.md` (Task 11 — Task 1's consistency test, Task 2's refusal + its migration, Task 3's feed contract, with the exact `go test` invocations and their results) alongside `docs/gates/v16-P2-spike.md` (Task 10b) and `docs/gates/v16-P1-10a.md` (Task 10a). Tasks 1–9 produce test evidence; without a document it exists only in a terminal scrollback, which is the opposite of the D9 discipline the roadmap asks for. Task 11 is separate from Task 10 on purpose: the Phase 1 record must not wait on Docker or an operator.
 
 **2. Placeholder scan.** Every code step carries runnable code; every run step carries an exact command and its expected result. Two steps deliberately defer to an existing helper rather than invent one (Task 6 Step 6's exec seeder, Task 4 Step 7's campaign resolution) — in both cases the instruction is to copy the neighbouring verb's mechanism, and the test in the same task fails if the choice is wrong.
 
@@ -3250,7 +3371,7 @@ Run this before declaring the plan executed; it is the same checklist the plan w
 
 **4. Exit criteria this plan does *not* satisfy.** Phase 1's "no `+dirty` release stamp" and Phase 2's "Docker e2e green" are pre-existing gates (`scripts/release.sh`, `scripts/p2-docker-e2e.sh`); run them, do not re-implement them. The Phase 2b shadow submission is operator work with no code deliverable.
 
-**4b. Phase 2's exit criterion is half test-proven already.** The arithmetic half (two-round termination, rounds-to-exhaustion, `cumulative_attack_cost_usd`) is covered by Task 7's tests and needs no Docker, no fork and no operator; only "a defensible `extractable_usd` on one confirmed finding" needs Task 10's spike. Do not report Phase 2 as blocked on operator availability while three quarters of it is green in CI — report both halves separately, as Task 10 Step 4 requires.
+**4b. Phase 2's exit criterion is half test-proven already.** The arithmetic half (two-round termination, rounds-to-exhaustion, `cumulative_attack_cost_usd`) is covered by Task 7's tests and needs no Docker, no fork and no operator; only "a defensible `extractable_usd` on one confirmed finding" needs Task 10's spike. Do not report Phase 2 as blocked on operator availability while three quarters of it is green in CI — report both halves separately, as Task 10b Step 4 requires.
 
 ## Execution handoff
 
