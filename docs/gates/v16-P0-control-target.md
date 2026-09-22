@@ -134,7 +134,7 @@ a zero that reads as a measurement.
 | loss | `$7,600,000` (`--loss-usd 7600000`) |
 | loss_source | Exactly Protocol Incident Post-Mortem (2023-08-30): "financial losses approximating $7.6 million" |
 | postmortem url | same as the incident url (the project's own post-mortem is both) |
-| attack tx | `https://optimistic.etherscan.io/tx/0x3d6367de5c191204b44b8a5cf975f257472087a9aadc59b5d744ffdef33a520e` |
+| attack txs (3) | `0x3d6367de5c191204b44b8a5cf975f257472087a9aadc59b5d744ffdef33a520e`, `0x1526acfb7062090bd5fed1b3821d1691c87f6c4fb294f56b5b921f0edf0cfad6`, `0xe8999fb57684856d637504f1f0082b69a3f7b34dd4e7597bea376c9466813585` (etherscan: `https://optimistic.etherscan.io/tx/<hash>`) |
 
 The figure is the project's own, quoted verbatim from the post-mortem's
 abstract: *"Exactly Protocol suffered a security breach on August 18, 2023, that
@@ -143,7 +143,14 @@ names the root cause — *"a lack of input validation in several functions
 exposed by the DebtManager contract"*, bypassed by passing a malicious `market`
 argument — which is exactly the call the fix commit guards with `checkMarket`
 and exactly what the harness below exercises. No loss figure in this record is
-uncited, and none was derived by us.
+uncited, and none was derived by us. "Reported" is nonetheless **not a
+well-defined quantity**: at least three figures are in circulation for this
+incident — `$7.3M` (Olympex), `$7.6M` (the project's own, quoted above), and
+about `$12.04M` (Safful) — a 65 percent spread. A cited figure must name both its
+source and the spread. The attack is likewise **three** transactions, not one
+(the table above names all three); any `extractable_usd` derived from a single
+transaction is one of three — the caveat travels with the number or the number
+misleads.
 
 ## 3. The harness
 
@@ -219,14 +226,19 @@ at the pinned revision with the project's own test, and nothing more.
    pin is real. What the run demonstrates is the absent guard (§3 above).
 
 **Observation for P1, not a change to its status.** `FORK_RPC_URL` is still
-unset on this machine, but a fork does not require it: the free public archive
-endpoints `https://mainnet.optimism.io` and `https://optimism.drpc.org` both
-returned code at Optimism block `99,811,375` (`eth_getCode` on the WETH
-predeploy). `mainnet.optimism.io` served the whole harness run; `drpc.org`
-rate-limited it (`HTTP 429 ... You reached Public endpoint rate limit`).
+unset on this machine, but a fork does not require it. Four public endpoints were
+tried; **three failed and one serves full archive state unauthenticated** —
+`https://mainnet.optimism.io`, verified again this session, where
+`eth_getStorageAt` and `eth_getCode` at historical heights returned real values.
+It 503s under load (three calls needed retries), and it served the whole harness
+run. `https://optimism.drpc.org` returned code at Optimism block `99,811,375`
+(`eth_getCode` on the WETH predeploy) but rate-limited the run
+(`HTTP 429 ... You reached Public endpoint rate limit`);
 `https://ethereum-rpc.publicnode.com` refuses archive requests without a token
-and `https://rpc.flashbots.net` prunes state at that height. P1 Task 10 Step 3's
-status is P1's to change.
+and `https://rpc.flashbots.net` prunes state at that height. **All public
+endpoints are rate-limited, and pruning fails silently** — which is the real
+hazard, and why P5's runner-level fork pin survives this observation unchanged.
+P1 Task 10 Step 3's status is P1's to change.
 
 **A working RPC is a configuration fact here, not a capability.** Every free
 public endpoint will eventually throttle (drpc already did, mid-run) or prune —
@@ -251,11 +263,11 @@ re-derived on 2026-09-22 from the object store and the chain, not from §3.
 |---|---|---|
 | pre-patch commit (git) | `46e840222e11caf30a3a710b66d9333be76531b6` | `git rev-list --parents -n 1 e73bfb21…` → its **only** parent is the pin |
 | fix commit | `e73bfb21284074adc3d82b322fe8eccdbde6922d` | `git cat-file -p` → `parent 46e84022…`; subject `🚑 debt-manager: validate markets` |
-| attack transaction | `0x3d6367de5c191204b44b8a5cf975f257472087a9aadc59b5d744ffdef33a520e` | cited in §2 from the post-mortem |
+| attack transactions | `0x3d6367de5c191204b44b8a5cf975f257472087a9aadc59b5d744ffdef33a520e` (one of three — §2) | cited in §2 from the post-mortem; this is the tx whose block number is read below |
 | **attack block** | **`108,375,558`** | `cast tx … --field blockNumber` |
 | attack block time | `1692349893` → **2023-08-18** | `cast block … --field timestamp` |
-| contract the attack called | `0x6dD61c69415c8ECAb3FEFD80d079435ead1a5B4d` | the attack tx's `to`; `eth_getCode` returns code at that block |
-| DebtManager implementation | `0x675d410dcf6f343219AAe8d1DDE0BFAB46f52106` | `deployments/optimism/DebtManager.json` at the fix commit |
+| contract the attack called | `0x6dD61c69415c8ECAb3FEFD80d079435ead1a5B4d` | the attack tx's `to` — the **attacker's own contract**, **not** the DebtManager proxy `0x675d410d…`; `eth_getCode` returns code at that block |
+| DebtManager proxy (EIP-1967) | `0x675d410dcf6f343219AAe8d1DDE0BFAB46f52106` | `deployments/optimism/DebtManager.json` at the fix commit |
 | its deployment block | `107,135,785` → **2023-07-20** | that record's `receipt.blockNumber` |
 | **the harness's fork height** | **`99,811,375`** → **2023-05-19** | hardcoded at `test/DebtManager.t.sol:51` |
 
@@ -273,7 +285,7 @@ Three things follow, and each one contradicts what §3 said:
    reproduce, but not at the height they appear to name.
 3. **The exploited contract did not exist at the harness's height.**
    `eth_getCode 0x675d410d…` at block `99,811,375` returns `0x` — the
-   implementation was deployed at `107,135,785` (2023-07-20), after the fork
+   DebtManager proxy was deployed at `107,135,785` (2023-07-20), after the fork
    height and a month before the attack.
 
 **What this does and does not invalidate.** The 5/5-vs-0/5 contrast survives: it
@@ -303,32 +315,75 @@ detection.*
 **EIP-1967 proxy**, and a proxy's own bytecode never changes, not even when its
 implementation is swapped. That hash is the same in a world where nothing was
 patched and in a world where everything was. It cannot tell the two apart, so it
-cannot support either conclusion.
+cannot support either conclusion. It also makes the draft's *nothing more* too
+weak: because the pair exists at **implementation** level, the target certifies
+bytecode/diff detection as well — for detectors that resolve the proxy (below).
 
 Read the implementation slot instead (`0x360894a1…382bbc`) and the pair is right
 there, documented at both ends by the repository itself:
 
-| | pre-patch pin `46e84022` | fix `e73bfb21` |
+| | pre-patch pin `46e84022` (impl A) | fix `e73bfb21` (impl B) |
 |---|---|---|
 | `deployments/optimism/DebtManager_Implementation.json` names | `0x16748Cb753A68329cA2117a7647aA590317EbF41` | `0x910E91D24a948c3E36b71B505Fb45fE80E95adB3` |
 | its recorded `receipt.blockNumber` | `107,135,784` | `108,401,937` |
-| its on-chain code, sha256 | `a6b12297…` | `b3926e4d…` |
+| code size | 24087 bytes | 24356 bytes |
+| sha256, `0x`-prefixed hex-string encoding | `a6b122975ddd09ab…` | `b3926e4df7f2e7d9…` |
+| sha256, bytecode-bytes encoding | `c71f16467ad6f37f…` | `8d10f651af0a43d4…` |
+
+Implementation B is **269 bytes larger** than implementation A (24356 vs 24087),
+consistent with an added market-validation guard.
+
+**Every sha256 in this record carries its encoding, because an unlabelled
+canonical encoding is not evidence.** The `a6b12297…` / `b3926e4d…` pair quoted
+here is computed over the `0x`-prefixed hex string, **not** over the bytecode
+bytes; both encodings are valid fingerprints and they differ, so anyone
+reproducing by hashing bytes gets different values and will think the record is
+wrong. This is the third encoding ambiguity in the project, and it is a defect
+class worth remembering. The proxy's own invariant code is the same story:
+`0x675d410dcf6f343219aae8d1dde0bfab46f52106`, 1648 bytes, sha256
+`f6a8bbe02df8db8b…` over the `0x`-prefixed hex string and `7d8a887950049e1c…`
+over the bytecode bytes.
 
 The proxy's slot, read at height:
 
-- **through block `108,445,161`** → `0x16748cb7…` (`a6b12297…`). The attack at
-  `108,375,558` sits inside this window, so the pin's own deployment record names
-  the implementation the exploit actually ran against.
-- **from block `108,445,162`** (2023-08-19 03:11 UTC) → `0x910e91d2…`
-  (`b3926e4d…`), the implementation the fix commit records.
+- **through block `108,445,161`** → `0x16748cb7…` (impl A, sha256 `a6b12297…`
+  over the `0x`-prefixed hex string and `c71f1646…` over the bytecode bytes). The
+  attack at `108,375,558` sits inside this window, so the pin's own deployment
+  record names the implementation the exploit actually ran against.
+- **from block `108,445,162`** (2023-08-19 23:51:41 UTC) → `0x910e91d2…`
+  (impl B, sha256 `b3926e4d…` over the `0x`-prefixed hex string and `8d10f651…`
+  over the bytecode bytes), the implementation the fix commit records.
 
 Timeline, all UTC: attack `09:11:33` on 2023-08-18 → fix commit `15:10:43` the
-same day → replacement implementation deployed (block `108,401,937`) → proxy
-repointed `03:11:41` the next morning. The vulnerable implementation was never
-edited and is **still** `a6b12297…` today: it was orphaned by a proxy upgrade, not
-patched in place. So the draft's instinct — *remediation happened as an upgrade,
-not an edit* — is right; what follows from it is the opposite of what the draft
-concluded.
+same day (+5h59m) → implementation B created `23:50:51` the same day (+8h40m
+after the commit, block `108,401,937`) → proxy repointed `23:51:41` on
+2023-08-19 (+24h 0m 50s after implementation B, block `108,445,162`). The
+vulnerable implementation was never edited and is **still** `a6b12297…` (hex-string
+encoding) today: it was orphaned by a proxy upgrade, not patched in place. So the
+draft's instinct — *remediation happened as an upgrade, not an edit* — is right;
+what follows from it is the opposite of what the draft concluded. The ~24h gap
+between implementation B's creation and the repoint is **consistent with a
+one-day timelock**, not with a same-night hotfix; the timeline is not proof that a
+timelock was used, but nothing in it reads as an emergency response after the fix
+commit landed.
+
+**The transactions, for the record.** Implementation B was created by tx
+`0x21ba352d001bed7e67267ea86f3791f2e7e31bf25af1eae374c418369b345fd6` from
+`0xe61bdef3fff4c3cf7a07996dcb8802b5c85b665a` at block `108,401,937`. The proxy
+was repointed by tx
+`0x2474d2a50b4439434cefa63c42278f3530c2d494510b6e56d51f8fcc23321ad2` at block
+`108,445,162`. That repoint transaction's `to` is
+`0xc0d6bc5d052d1e74523ad79dd5a954276c9286d3`, **not** the proxy; its selector is
+`0x6a761202` (Gnosis Safe `execTransaction`), submitted by
+`0x35e6fd7c7e3d1c72a29fcdb5fcabc654f81c4f6c`; the proxy emitted `Upgraded(address)`
+(event topic `0xbc7cd75a…`) naming `0x910e91d2`.
+
+**The general rule: `tx.to` is not "the contract that changed."** No transaction
+at block `108,445,162` has `to` equal to the proxy. Anything that derives "the
+contract that changed" from `tx.to` is wrong for the **fix** exactly as it was
+wrong for the **attack**, where `tx.to` was the attacker's own contract
+`0x6dd61c69415c8ecab3fefd80d079435ead1a5b4d`, not the DebtManager. Two
+independent instances of the same trap.
 
 **Two consequences, one strengthening and one limiting.**
 
@@ -342,13 +397,24 @@ today. The correspondence is no longer an argument from dates.
 *Limiting.* The harness forks `99,811,375`, where the proxy has **no code at all**
 (§3.1), so it exercises **neither** side of the pair above. It cannot, in
 principle, demonstrate anything about the deployed fix, because it never runs
-against either deployment. What it demonstrates is exactly and only
-**source-level**: `checkMarket` absent at the pin, present at the fix, and the
-five tests failing at the pin because the refusal is missing. That is a real and
-useful result — it is what "PATCHED-KNOWN" is supposed to test — but it is not an
+against either deployment.
+
+**What the control target certifies, exactly.** The pair exists at
+**implementation** level — the proxy's own code never changes, only the slot it
+resolves does — so the target certifies source-level detection, **and**
+bytecode/diff detection **only for detectors that resolve EIP-1967 proxies**. A
+detector keyed on the attacked address's own code is provably **blind** on this
+target: it sees the invariant 1648-byte proxy at every height and reports
+"unchanged" — a false negative by construction, at every height. The pair lives
+at blocks `108,445,161` / `108,445,162`. That makes this control target a
+**proxy-resolution** test case, which is a capability detectors commonly fail.
+
+The source-level result is real and useful — `checkMarket` is absent at the pin,
+present at the fix, and the five tests fail at the pin because the refusal is
+missing, which is what "PATCHED-KNOWN" is supposed to test — but it is not an
 on-chain before/after demonstration, and 10b must not be written as though the
-fork at `108,375,557` supplies one. It does not; the pair lives at
-`108,445,161` / `108,445,162`, and reaching it is a different run.
+fork at `108,375,557` supplies one. It does not; reaching the pair above is a
+different run.
 
 ## 4. The P1 handoff (the point of this task) — **NOT RUN**
 
@@ -394,7 +460,12 @@ run — say exactly that, and nothing more.
   pinned revision. It is not a fund-draining reproduction and no value was
   extracted, simulated or measured.
 - `$7.6M` is the incident's reported loss, cited to the project's post-mortem.
-  In the spec's §2.4 vocabulary it is **neither demonstrated nor computed**: it
+  "Reported" is not merely distinct from "demonstrated" — it is **not a
+  well-defined quantity at all**: at least three figures are in circulation for
+  this incident (`$7.3M` Olympex, `$7.6M` this record's figure, about `$12.04M`
+  Safful — a 65 percent spread), so a cited figure must name both its source and
+  the spread. In the spec's §2.4 vocabulary a reported figure is **neither
+  demonstrated nor computed**: it
   is a third quantity, a figure *reported by someone else* about what an attack
   took, and it is a ceiling at best. Demonstrated is what a verification run
   actually extracted (two-plus rounds, precisely characterized); computed is the
