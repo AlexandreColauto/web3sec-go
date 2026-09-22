@@ -1,0 +1,54 @@
+{
+  "request": {
+    "role": "proposer",
+    "model_id": "hand-authored:no-model",
+    "prompt_version": "45a89561ca869a25",
+    "response_schema": "hypothesis",
+    "context_hash": "50bafd1bf3d4b7e3e3217b6c16ad1cd0f4ff98644c8de8498f4bd6541f46362c",
+    "input_artifacts": [
+      {
+        "kind": "artifact",
+        "id": "HAR-b735d8e6"
+      },
+      {
+        "kind": "artifact",
+        "id": "HAR-0f9f1a25"
+      }
+    ]
+  },
+  "context": {
+    "role": "proposer",
+    "target": "exactly-protocol/DebtManager",
+    "revision": "46e840222e11caf30a3a710b66d9333be76531b6",
+    "context": [
+      {
+        "artifact_id": "HAR-b735d8e6",
+        "role": "source"
+      },
+      {
+        "artifact_id": "HAR-0f9f1a25",
+        "role": "source"
+      }
+    ]
+  },
+  "output": {
+    "title": "DebtManager takes an arbitrary caller-supplied market with no listing check",
+    "root_cause": {
+      "class": "input-validation",
+      "description": "DebtManager's entry points accept a market address from the caller and act on it without ever asking the MarketRegistry whether that market is listed. The fix commit introduces checkMarket, which is absent from the pinned revision: at 46e84022 contracts/periphery/DebtManager.sol has no occurrence of it, and at e73bfb21 it has fourteen. Because the boundary is missing, a caller can point the contract at an attacker-controlled market and have it treat that market's answers as authoritative."
+    },
+    "affected": [
+      {
+        "path": "contracts/periphery/DebtManager.sol",
+        "function": "checkMarket (absent)"
+      }
+    ],
+    "attacker": {
+      "profile": "arbitrary EOA",
+      "capabilities": [
+        "deploy a market-shaped contract",
+        "call the DebtManager entry points with it"
+      ]
+    }
+  }
+}

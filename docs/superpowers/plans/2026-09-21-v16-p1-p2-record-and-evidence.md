@@ -3058,9 +3058,17 @@ Its PoC tier is `existence` — the guard is absent at the pin and the project's
 the finding is real and confirmed, and knowing nothing about how much money is reachable. That
 second question is 10b's, and 10b may legitimately refuse it.
 
+**STATUS 2026-09-22: RUN, AND IT REFUSED — see `docs/gates/v16-P1-10a.md`.** The pipeline
+ran end to end on a real bundle (feed → exec → mint → move) and the finding did not reach
+CONFIRMED, nor can it on this target at any profile. Three of the steps below are wrong as
+written and are corrected inline. The refusals are the deliverable, and 10b is blocked by
+them — read that gate record before starting 10b.
+
 **Files:**
-- Create: `docs/sdd/v16-p1/task-10a-feed.json` (the authored discovery drop)
-- Create: `docs/gates/v16-P1-10a.md` (the recorded run)
+- Create: `docs/sdd/v16-p1/10a/discovery.json` (the authored drop). **The file stem IS the
+  stage declaration**, so it must be named `discovery.json`; `run --feed` refuses any other
+  stem, and it must be copied into `campaigns/<C>/inbox/` before it will be accepted.
+- Create: `docs/gates/v16-P1-10a.md` (the recorded run — written)
 - No product code. **If a step here needs a code change, that is a finding about Tasks 1–9,
   and it is recorded as one rather than patched quietly mid-run.**
 
@@ -3081,8 +3089,9 @@ target's gate record §3.1).
 
 ```bash
 webv2 run C-xxxxxxxxxx --feed docs/sdd/v16-p1/task-10a-feed.json
-webv2 exec C-xxxxxxxxxx --profile host-readonly --finding F-xxxxxxxxxx \
-  --workdir /home/xand/webv2-p0/target/exactly-prepatch \
+webv2 exec C-xxxxxxxxxx --profile fork-runner --finding F-xxxxxxxxxx \
+  --workdir /home/xand/webv2-p0/target/exactly \
+  --env OPTIMISM_NODE=https://mainnet.optimism.io \
   --command "forge test --match-path test/DebtManager.t.sol --match-test testFakeMarket -vv"
 ```
 
@@ -3100,6 +3109,12 @@ webv2 mint C-xxxxxxxxxx F-xxxxxxxxxx --exec EXEC-xxxxxxxxxx --type unit-test \
 `--type unit-test` is the honest member: the evidence is a test run, not a fork test and not a
 balance delta. `--poc-tier existence` is the honest tier: it says the defect is demonstrably
 present and stops there.
+
+**This step is where it actually fails, and the failure is structural.** The run exits 1 and its
+forge suite shows `[FAIL]` — because the defect *is* an absent refusal — and the E4+ gate
+refuses both independently: `exit_status` must be 0, and `exec_output_problem` rejects any
+suite that failed. So `--profile` cannot rescue it: **absence-of-refusal evidence is unmintable
+at every profile.** Fixing that is a decision about the evidence model, not a re-run.
 
 - [ ] **Step 4: Move it to CONFIRMED**
 
