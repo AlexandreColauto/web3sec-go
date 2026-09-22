@@ -360,10 +360,13 @@ func TestSandboxPreflightSolcCache(t *testing.T) {
 	}
 
 	// fork-runner only WARNs about a missing binary (the bridge may reach
-	// the registry).
+	// the registry). Pin FORK_RPC_URL empty: fork-runner now probes it in
+	// preflight, and an operator-exported value must not make this test
+	// dial the network.
 	if err := os.RemoveAll(binDir); err != nil {
 		t.Fatal(err)
 	}
+	t.Setenv("FORK_RPC_URL", "")
 	fork := "fork-runner"
 	pre3, err := SandboxPreflight(c, nil, &fork)
 	if err != nil {

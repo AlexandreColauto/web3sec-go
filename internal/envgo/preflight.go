@@ -100,6 +100,18 @@ func (pf *preflightState) preflightContainer() {
 	}
 }
 
+// preflightCheckForkRPC runs the fork-runner fork_rpc probe row through
+// sandbox.ForkRPCPreflight — the SAME helper the seam default uses (the
+// r45b lesson: one implementation, both transcriptions, a differential
+// pinning them together). nil row = no row outside fork-runner.
+func (pf *preflightState) preflightCheckForkRPC() {
+	row := sandbox.ForkRPCPreflight(pf.profile)
+	if row == nil {
+		return
+	}
+	pf.preflightCheck("fork_rpc", row.Status, row.Detail, row.Fix)
+}
+
 // preflightSolc checks the svm/solc cache against the compiler foundry.toml
 // pinned. The solc cache only exists for a CONTAINER run: host-readonly
 // executes the binary the host has, so a missing svm cache is not its
@@ -221,6 +233,7 @@ func SandboxPreflight(c *state.Campaign, workdir, profile *string) (
 		checks: validation.VObj()}
 	pf.container = profile == nil || !sandbox.HostProfile(*profile)
 	pf.preflightContainer()
+	pf.preflightCheckForkRPC()
 	pf.preflightSolc()
 	pf.preflightWorkdir()
 	return pf.preflightResult(), nil

@@ -1112,8 +1112,9 @@ webv2 classify <C-xxx> EXEC-xxx        # classify a FAILED exec: environment / s
   docker; nothing executed, no record written). `--env K=V` passes container
   env vars (validated up front; keys, not values, land in the ledger). A
   sandbox **preflight** runs before the exec (daemon / image / solc-cache /
-  workdir) and a FAIL blocks with the exact fix named — a missing workdir
-  never burns a run.
+  workdir, plus a fork-RPC probe on `fork-runner` that WARNs — never
+  blocks — when `FORK_RPC_URL` is unset or unreachable) and a FAIL blocks
+  with the exact fix named — a missing workdir never burns a run.
 - `mint` is **idempotent per exec** (an exec backs one evidence item per
   finding — re-minting is a no-op); `--type` is validated against the schema
   enum. A REFUSED mint (e.g. the invariant guardrail) **rolls the recorded

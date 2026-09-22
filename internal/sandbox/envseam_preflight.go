@@ -18,6 +18,7 @@ func defaultSandboxPreflight(c *state.Campaign, workdir, profile *string) (
 	p := &preflightRun{c: c, workdir: workdir, profile: profile}
 	p.container = profile != nil && !HostProfile(*profile)
 	p.preflightCheckContainer()
+	p.preflightCheckForkRPC()
 	p.preflightCheckCompiler()
 	p.preflightCheckWorkdir()
 	return p.preflightResult(), nil
@@ -103,6 +104,18 @@ func (p *preflightRun) preflightCheckContainer() {
 			p.check("image", "na", "daemon down — image check skipped", nil)
 		}
 	}
+}
+
+// preflightCheckForkRPC runs the fork-runner fork_rpc probe row (nil row
+// = no row: only fork-runner injects FORK_RPC_URL, so only fork-runner is
+// probed here — envgo/preflight.go's wired copy calls the same
+// ForkRPCPreflight, so the two transcriptions cannot drift).
+func (p *preflightRun) preflightCheckForkRPC() {
+	row := ForkRPCPreflight(p.profile)
+	if row == nil {
+		return
+	}
+	p.check("fork_rpc", row.Status, row.Detail, row.Fix)
 }
 
 // preflightCheckCompiler runs the solc checks against the active
