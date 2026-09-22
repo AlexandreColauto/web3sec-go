@@ -50,6 +50,52 @@
       "description": "the campaign snapshot that recorded this checkout; the pin is only valid when that snapshot's source.git_commit equals resolved_sha"
     },
     "resolved_by": { "type": "string", "minLength": 1 },
+    "incident": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["url", "date", "loss_usd", "loss_source"],
+      "description": "the public record of the exploit this control target exists to exercise: where it is written down, when it happened, how much was lost, and WHERE THAT FIGURE CAME FROM. loss_source is mandatory because an uncited loss number is the kind of fact this suite refuses everywhere else",
+      "properties": {
+        "url": { "type": "string", "minLength": 1 },
+        "date": { "type": "string", "minLength": 10 },
+        "loss_usd": { "type": "number", "exclusiveMinimum": 0 },
+        "loss_source": { "type": "string", "minLength": 1 },
+        "postmortem_url": { "type": "string", "minLength": 1 }
+      }
+    },
+    "control": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pre_patch_sha", "patch_sha", "harness"],
+      "description": "§3a: the control target needs a pinned PRE-PATCH commit and its own harness — it will not run under ScaBench's baseline runner. patch_sha is recorded so the pre-patch pin is unambiguous: a target whose two SHAs are equal is a target nobody pinned",
+      "properties": {
+        "pre_patch_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "patch_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "harness": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["runner"],
+          "properties": {
+            "runner": { "type": "string", "minLength": 1 },
+            "command": { "type": "string", "minLength": 1 },
+            "notes": { "type": "string", "maxLength": 2000 }
+          }
+        }
+      }
+    },
+    "handoff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["finding_id", "extractable_usd", "source", "recorded_at"],
+      "description": "the P1 handoff: the confirmed finding on this control target and the extractable figure the Phase 2 spike (P1 plan Task 10) consumes. It lives on the control target's own record so the two plans' dependency is one file, not a paragraph",
+      "properties": {
+        "finding_id": { "type": "string", "pattern": "^F-[0-9a-f]{6,16}$" },
+        "extractable_usd": { "type": "number", "exclusiveMinimum": 0 },
+        "source": { "type": "string", "minLength": 1 },
+        "recorded_at": { "type": "string", "minLength": 20 },
+        "recorded_by": { "type": "string", "minLength": 1 }
+      }
+    },
     "created_at": { "type": "string", "minLength": 20 },
     "schema_version": { "const": 1 }
   }

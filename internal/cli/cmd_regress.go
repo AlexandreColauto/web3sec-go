@@ -30,11 +30,15 @@ options:
   -h, --help       show this help message and exit
 
 subcommands:
-  target add       record one regression target
-  target pin       bind a target to a resolved 40-hex SHA and its snapshot
-  target list      list the campaign's targets
-  run              record one coarse score for a target
-  status           the human view of the suite records
+  target add         record one regression target
+  target add-control record the already-exploited control target (incident +
+                     pre-patch pin + its own harness)
+  target handoff     record the P1 handoff: a CONFIRMED finding on the control
+                     target and its extractable_usd
+  target pin         bind a target to a resolved 40-hex SHA and its snapshot
+  target list        list the campaign's targets
+  run                record one coarse score for a target
+  status             the human view of the suite records
 `
 )
 
@@ -49,6 +53,11 @@ var regressValueFlags = map[string]bool{
 	"--score-file": true, "--found": true, "--missed": true,
 	"--false-positives": true, "--verdict": true, "--verdict-note": true,
 	"--report-url": true, "--artifact": true, "--notes": true,
+	// the control target and the P1 handoff (Task 2)
+	"--incident-url": true, "--incident-date": true, "--loss-usd": true,
+	"--loss-source": true, "--postmortem-url": true, "--pre-patch-sha": true,
+	"--patch-sha": true, "--harness-runner": true, "--harness-command": true,
+	"--finding": true, "--extractable-usd": true, "--source": true,
 }
 
 // regressParse is the verb's parsed command line: positionals, flag values,
@@ -165,6 +174,14 @@ func dispatchRegressTarget(c *state.Campaign, st *regressParse, r *Runner) error
 	switch st.pos[2] {
 	case "add":
 		return regressTargetAdd(c, st.vals, r)
+	case "add-control":
+		return regressTargetAddControl(c, st.vals, r)
+	case "handoff":
+		if len(st.pos) < 4 {
+			return t14ArgparseErr(regressUsage, "regress",
+				"the following arguments are required: target_id")
+		}
+		return regressTargetHandoff(c, st.pos[3], st.vals, r)
 	case "pin":
 		if len(st.pos) < 4 {
 			return t14ArgparseErr(regressUsage, "regress",
@@ -176,7 +193,7 @@ func dispatchRegressTarget(c *state.Campaign, st *regressParse, r *Runner) error
 	}
 	return t14ArgparseErr(regressUsage, "regress",
 		"argument target_cmd: invalid choice: %q "+
-			"(choose from 'add', 'pin', 'list')", st.pos[2])
+			"(choose from 'add', 'add-control', 'pin', 'handoff', 'list')", st.pos[2])
 }
 
 // requireRegressFlags is argparse's "the following arguments are required"
@@ -216,6 +233,73 @@ func regressTargetAdd(c *state.Campaign, vals map[string]string, r *Runner) erro
 	}
 	_, _ = fmt.Fprintf(r.Out, "regression target %s added (%s, %s)\n",
 		validation.ObjStr(doc, "target_id"), vals["--kind"], vals["--shape"])
+	return nil
+}
+
+// regressFloat parses one float-valued flag, with argparse's wording for a
+// value it cannot read.
+func regressFloat(vals map[string]string, flag string) (float64, error) {
+	f, err := strconv.ParseFloat(vals[flag], 64)
+	if err != nil {
+		return 0, t14ArgparseErr(regressUsage, "regress",
+			"argument %s: invalid float value: %q", flag, vals[flag])
+	}
+	return f, nil
+}
+
+// regressTargetAddControl records the already-exploited control target (§3a)
+// as TWO records: the target row first (kind=control, shape=already-exploited)
+// and the incident/control block second. The order is deliberate — a target is
+// a target even before its incident is sourced, and the audit section must be
+// able to say "this control target carries no control block yet" rather than
+// pretending the row does not exist.
+func regressTargetAddControl(c *state.Campaign, vals map[string]string, r *Runner) error {
+	loss, err := regressFloat(vals, "--loss-usd")
+	if err != nil {
+		return err
+	}
+	target, err := regression.AddTarget(c, regression.TargetSpec{
+		Kind: "control", Program: vals["--program"],
+		RecordID: vals["--record-id"], Repo: vals["--repo"],
+		Shape: "already-exploited", CommitHint: vals["--pre-patch-sha"],
+	})
+	if err != nil {
+		return err
+	}
+	doc, err := regression.RecordControl(c, regression.ControlSpec{
+		TargetID:    validation.ObjStr(target, "target_id"),
+		IncidentURL: vals["--incident-url"], IncidentDate: vals["--incident-date"],
+		LossUSD: loss, LossSource: vals["--loss-source"],
+		PostmortemURL: vals["--postmortem-url"],
+		PrePatchSHA:   vals["--pre-patch-sha"], PatchSHA: vals["--patch-sha"],
+		HarnessRunner: vals["--harness-runner"], HarnessCommand: vals["--harness-command"],
+	})
+	if err != nil {
+		return err
+	}
+	_, _ = fmt.Fprintf(r.Out, "control target %s recorded (pre-patch %s)\n",
+		validation.ObjStr(doc, "target_id"), vals["--pre-patch-sha"])
+	return nil
+}
+
+// regressTargetHandoff records the P1 handoff: the CONFIRMED finding on the
+// control target and the extractable figure P1's Task 10 spike consumes.
+func regressTargetHandoff(c *state.Campaign, tid string, vals map[string]string, r *Runner) error {
+	usd, err := regressFloat(vals, "--extractable-usd")
+	if err != nil {
+		return err
+	}
+	doc, err := regression.RecordHandoff(c, regression.HandoffSpec{
+		TargetID: tid, FindingID: vals["--finding"], ExtractableUSD: usd,
+		Source: vals["--source"], RecordedBy: vals["--actor"],
+	})
+	if err != nil {
+		return err
+	}
+	ho := validation.ObjAt(doc, "handoff")
+	_, _ = fmt.Fprintf(r.Out, "handoff recorded: target %s -> finding %s, "+
+		"extractable_usd=%v (P1 Task 10 consumes this)\n", tid,
+		validation.ObjStr(ho, "finding_id"), validation.ObjAt(ho, "extractable_usd").F)
 	return nil
 }
 
@@ -328,6 +412,28 @@ func printRegressTargetLines(r *Runner, targets []validation.Value) {
 	}
 }
 
+// printRegressControlLines is the control target's own view: the pre-patch pin
+// and, when it exists, the P1 handoff. A control target with neither is the
+// half-finished state the audit section keeps red, so it prints too — with a
+// dash, never a zero.
+func printRegressControlLines(r *Runner, targets []validation.Value) {
+	for _, t := range targets {
+		if validation.ObjStr(t, "kind") != "control" {
+			continue
+		}
+		ho := validation.ObjAt(t, "handoff")
+		usd := "-"
+		if validation.HasKey(ho, "extractable_usd") {
+			usd = fmt.Sprintf("%v", validation.ObjAt(ho, "extractable_usd").F)
+		}
+		_, _ = fmt.Fprintf(r.Out,
+			"%s  control pre-patch=%s handoff=%s extractable_usd=%s\n",
+			validation.ObjStr(t, "target_id"),
+			orDash(validation.ObjStr(validation.ObjAt(t, "control"), "pre_patch_sha")),
+			orDash(validation.ObjStr(ho, "finding_id")), usd)
+	}
+}
+
 func printRegressRunLines(r *Runner, runs []validation.Value) {
 	for _, run := range runs {
 		_, _ = fmt.Fprintf(r.Out, "%s  target=%s scorer=%s verdict=%s measurement: %s\n",
@@ -356,6 +462,7 @@ func regressStatus(c *state.Campaign, asJSON bool, r *Runner) error {
 	}
 	_, _ = fmt.Fprintf(r.Out, "%d target(s), %d run(s)\n", len(targets), len(runs))
 	printRegressTargetLines(r, targets)
+	printRegressControlLines(r, targets)
 	printRegressRunLines(r, runs)
 	return nil
 }

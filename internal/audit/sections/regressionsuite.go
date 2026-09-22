@@ -28,6 +28,7 @@ package sections
 import (
 	"fmt"
 	"regexp"
+	"strconv"
 
 	"websec/internal/regression"
 	"websec/internal/state"
@@ -37,6 +38,11 @@ import (
 // sha40 is the only pin shape the suite accepts (internal/regression's own
 // rule; small helpers are duplicated, not exported — the house rule).
 var sha40 = regexp.MustCompile(`^[0-9a-f]{40}$`)
+
+// controlKind is §3a's target kind for the already-exploited control target and
+// the record key its block lives under (internal/regression's own constant, not
+// imported: it is unexported there, and this is the reader's copy of the word).
+const controlKind = "control"
 
 // RegressionSuite is the section: {checked, targets, runs, measurement,
 // problems, ok} or ErrSkip when the campaign has no regression target.
@@ -98,10 +104,55 @@ func suiteTargets(targets, runs []validation.Value) ([]validation.Value, []valid
 			KV("resolved_sha", validation.VStr(sha)),
 			KV("snapshot_id", validation.VStr(sid)),
 			KV("runs", validation.VInt(int64(runsFor(runs, tid)))),
+			// The control target's own facts. The extractable figure is TEXT
+			// and empty when absent: a section may not print a zero that reads
+			// as a measurement.
+			KV("control_pre_patch_sha", validation.VStr(validation.ObjStr(
+				validation.ObjAt(t, "control"), "pre_patch_sha"))),
+			KV("handoff_finding_id", validation.VStr(validation.ObjStr(
+				validation.ObjAt(t, "handoff"), "finding_id"))),
+			KV("handoff_extractable_usd", validation.VStr(handoffUSDText(t))),
 		))
 		problems = append(problems, targetProblems(t, sha, sid)...)
+		problems = append(problems, controlProblems(t)...)
 	}
 	return rows, problems
+}
+
+// handoffUSDText renders the handoff's extractable figure as text, empty when
+// there is no handoff — the same "absence is not a zero" rule the rest of this
+// section follows.
+func handoffUSDText(t validation.Value) string {
+	usd := validation.ObjAt(validation.ObjAt(t, "handoff"), "extractable_usd")
+	if usd.Kind != validation.Flt && usd.Kind != validation.Int {
+		return ""
+	}
+	return strconv.FormatFloat(usd.F, 'f', -1, 64)
+}
+
+// controlProblems is the two half-finished states of §3a's control target: no
+// control block (no sourced incident, no pre-patch pin, no harness) and no P1
+// handoff (the Phase 2 spike's extraction half stays blocked). A control
+// target that carries both is the only state this section calls healthy.
+func controlProblems(t validation.Value) []validation.Value {
+	if validation.ObjStr(t, "kind") != controlKind {
+		return nil
+	}
+	tid := validation.ObjStr(t, "target_id")
+	problems := []validation.Value{}
+	if !validation.HasKey(t, controlKind) {
+		problems = append(problems, validation.VStr(fmt.Sprintf(
+			"control target %s carries no control block (incident + pre-patch "+
+				"pin + harness) — §3a's control target is sourced separately, "+
+				"pinned pre-patch and run under its own harness", tid)))
+	}
+	if !validation.HasKey(t, "handoff") {
+		problems = append(problems, validation.VStr(fmt.Sprintf(
+			"control target %s carries no P1 handoff — the Phase 2 spike's "+
+				"extraction half stays blocked until a CONFIRMED finding and "+
+				"its extractable_usd are recorded here", tid)))
+	}
+	return problems
 }
 
 // targetProblems is the three unpinned/ill-pinned states of one target.
