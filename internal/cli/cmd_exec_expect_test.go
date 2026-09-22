@@ -8,13 +8,19 @@ package cli
 // new add_argument calls (this Python reproduces the PRE-change blocks
 // byte-for-byte, which is what makes the capture trustworthy).
 //
-// The third law pinned here: a CLI flag name must appear QUOTED in
-// internal/cli/*.go, so a renamed flag breaks the source scan rather than
-// silently becoming a no-op token.
+// The third law pinned here is BEHAVIOURAL: both flags must reach
+// Sandbox.run as RunOpts.Expect / ExpectFailure. It replaced a source-string
+// scan that passed under most partial breakages (a flag parsed but never
+// threaded, or threaded under the wrong name, still left the literal in the
+// source) — this version fails if either flag stops parsing or stops being
+// wired.
 
 import (
 	"strings"
 	"testing"
+
+	"websec/internal/sandbox"
+	"websec/internal/state"
 )
 
 // execHelpPinned is argparse's `webv2 exec --help` with the two new
@@ -92,18 +98,56 @@ func TestExecHelpUsagePinnedVerbatim(t *testing.T) {
 	}
 }
 
-// TestExecExpectFlagsQuotedInSource is the standing source-level law: both
-// flag names must appear quoted in the CLI's own sources (the same scan
-// spike_driver_test applies to driver flags), so a rename is a compile-time
-// loud failure instead of an unrecognized-argument surprise.
-func TestExecExpectFlagsQuotedInSource(t *testing.T) {
-	src := readCLISources(t)
-	for _, flag := range []string{"--expect", "--expect-failure"} {
-		if !strings.Contains(src, `"`+flag+`"`) {
-			t.Errorf("flag %s never appears quoted in internal/cli/*.go",
-				flag)
-		}
+// TestExecExpectFlagsReachSandbox is the standing flag-wiring law, made
+// behavioural: the two flags must reach Sandbox.run as RunOpts.Expect /
+// ExpectFailure, and the absent case must stay keyless. A rename or a broken
+// thread is a loud failure here — either argparse rejects the flag (exit 2)
+// or the stub sees the wrong value.
+func TestExecExpectFlagsReachSandbox(t *testing.T) {
+	f := t20Setup(t)
+	cases := []struct {
+		name       string
+		args       []string
+		wantExpect string
+		wantSig    string
+	}{
+		{"declared fail pair", []string{"--expect", "fail",
+			"--expect-failure", "MarketNotListed"}, "fail", "MarketNotListed"},
+		{"absent declaration", nil, "", ""},
+		{"explicit pass", []string{"--expect", "pass"}, "pass", ""},
 	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			opts := runExecWithStub(t, f, c.args)
+			if opts.Expect != c.wantExpect ||
+				opts.ExpectFailure != c.wantSig {
+				t.Fatalf("flags reached Sandbox.run as Expect=%q "+
+					"ExpectFailure=%q, want %q/%q", opts.Expect,
+					opts.ExpectFailure, c.wantExpect, c.wantSig)
+			}
+		})
+	}
+}
+
+// runExecWithStub runs `exec` with the sandbox seam stubbed and returns what
+// the CLI handed Sandbox.run (extracted for the funlen cap).
+func runExecWithStub(t *testing.T, f *t20Fixture,
+	args []string) sandbox.RunOpts {
+	t.Helper()
+	stub := &stubExecSandbox{}
+	prev := newExecSandbox
+	newExecSandbox = func(c *state.Campaign,
+		profile string) (execSandbox, error) {
+		return stub, nil
+	}
+	t.Cleanup(func() { newExecSandbox = prev })
+	full := append([]string{"--root", f.root, "exec", f.c.CampaignID,
+		"--profile", "host-readonly", "--command", "forge test"}, args...)
+	code, out, errS := run(t, full...)
+	if code != 0 {
+		t.Fatalf("exit %d: %s%s", code, out, errS)
+	}
+	return stub.opts
 }
 
 // execExpectRefusalCases is TestExecExpectFlagRefusals' table: each row's

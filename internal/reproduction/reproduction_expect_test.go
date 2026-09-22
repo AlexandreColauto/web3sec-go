@@ -122,8 +122,7 @@ func TestMintExpectedFailureSignatureMissingEndToEnd(t *testing.T) {
 	_, err := MintReproEvidence(c, fid, validation.ObjStr(rec, "exec_id"),
 		"wrong signature", nil, nil, "")
 	if err == nil || !strings.Contains(err.Error(),
-		"does not appear on any captured line containing the substring "+
-			"FAIL") {
+		"does not appear on any captured per-test failure line") {
 		t.Fatalf("the signature-less mint must be refused; got: %v", err)
 	}
 }

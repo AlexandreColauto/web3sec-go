@@ -79,7 +79,14 @@ var execSchemaCases = []struct {
 	{"empty expected_failure under fail fails",
 		"fail", "", validation.KV{K: "expected_failure",
 			V: validation.VStr("")},
-		"should be non-empty"},
+		"is too short"},
+	// D1: the specificity floor is a SCHEMA law too (minLength 8), so a
+	// degenerate signature cannot even be written — the Go gate's floor is
+	// defense in depth for hand-edited ledger rows.
+	{"8-character signature validates (floor is inclusive)",
+		"fail", "abcdefgh", validation.KV{}, ""},
+	{"4-character signature fails (minLength 8)",
+		"fail", "FAIL", validation.KV{}, "is too short"},
 }
 
 func TestExecSchemaExpectationKeys(t *testing.T) {

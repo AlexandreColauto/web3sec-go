@@ -6,14 +6,17 @@ package findings
 // "pass" — every legacy record keeps its exact bytes and behaviour) and
 // expected_failure (REQUIRED under "fail", FORBIDDEN otherwise). Under
 // "fail" a record is admitted only when ALL THREE hold: non-zero exit,
-// expected_failure present on a line that also contains the case-sensitive
-// substring FAIL, and sandbox.ClassifyFailure reporting class "logic" —
-// the already-existing authority, reused rather than duplicated.
+// expected_failure present on a captured PER-TEST failure line — the token
+// [FAIL for a forge-like command, the plain substring FAIL for an arbitrary
+// harness — after clearing the specificity floor (>= 8 characters, not the
+// literal "FAIL"), and sandbox.ClassifyFailure reporting class "logic" — the
+// already-existing authority, reused rather than duplicated.
 //
 // The load-bearing test is BACKWARD COMPAT: a record with no
 // expected_outcome must behave exactly as before, byte for byte.
 
 import (
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -52,6 +55,19 @@ const (
 	// greenOut is today's passing suite.
 	greenOut = "Ran 1 test in 3ms (test suite successful)\n" +
 		"Suite result: ok. 1 passed; 0 failed; 0 skipped; 0 pending\n"
+	// summaryOnlyOut is D1's measured-defect fixture: forge's SUITE SUMMARY
+	// block naming NO per-test failure, yet carrying FAIL substrings (the
+	// summary's FAILED, and a bare FAIL: counter line). The pre-fix gate
+	// admitted "FAIL", "a", "test" and "Suite result" against it — the
+	// whole point of the specificity floor and the per-test marker.
+	summaryOnlyOut = "MarketNotListed was not raised — expected revert " +
+		"(block: 99811375)\n" +
+		"Suite result: FAILED. 0 passed; 5 failed; 0 skipped; 0 pending\n" +
+		"Ran 5 tests for test/DebtManager.t.sol:DebtManagerTest\n" +
+		"FAIL: 5 tests failed\n"
+	// plainFailOut is an ARBITRARY (non-forge) harness: no [FAIL token
+	// exists there, so the plain FAIL substring stays the marker.
+	plainFailOut = "FAIL SomeHarnessFailure: expected revert did not occur\n"
 	// the declared signature the fixtures carry.
 	declaredSig = "MarketNotListed"
 )
@@ -104,6 +120,7 @@ type execExpectCase struct {
 	stampSig bool // stamp expected_failure even when "" (illegal shape)
 	exit     int64
 	stdout   string
+	command  string // "" = testExec's forge command
 	wantErr  string // "" = ADMITTED; byte-exact when exact
 	exact    bool
 }
@@ -136,15 +153,13 @@ var execExpectCases = []execExpectCase{
 	{name: "3 fail + signature absent -> refused",
 		outcome: sandbox.EXPECT_FAIL, sig: "TotallyDifferentGuard",
 		exit: 1, stdout: logicOut,
-		wantErr: "does not appear on any captured line containing the " +
-			"substring FAIL"},
+		wantErr: "does not appear on any captured per-test failure line"},
 	// 4. fail + signature present but NOT on a line containing FAIL
 	// => refused (a comment cannot satisfy the check).
 	{name: "4 fail + signature on a non-FAIL line -> refused",
 		outcome: sandbox.EXPECT_FAIL, sig: declaredSig,
 		exit: 1, stdout: wrongLineOut,
-		wantErr: "does not appear on any captured line containing the " +
-			"substring FAIL"},
+		wantErr: "does not appear on any captured per-test failure line"},
 	// 5. fail + infrastructure class => refused even when the
 	// signature matches.
 	{name: "5 fail + class environment -> refused",
@@ -175,6 +190,41 @@ var execExpectCases = []execExpectCase{
 	{name: "9b junk outcome -> refused",
 		outcome: "banana", exit: 0, stdout: greenOut,
 		wantErr: "is not one of 'pass' | 'fail'"},
+	// D1 (adversarial review): the degenerate signatures the review
+	// MEASURED as admitted against summaryOnlyOut — a suite that names no
+	// per-test failure. All must now be refused. Row 2 above is the
+	// companion row proving a genuine per-test signature is still
+	// admitted.
+	{name: "D1a signature \"FAIL\" -> refused (tautology)",
+		outcome: sandbox.EXPECT_FAIL, sig: "FAIL",
+		exit: 1, stdout: summaryOnlyOut,
+		wantErr: "may not be the literal \"FAIL\""},
+	{name: "D1b signature \"a\" -> refused (below the floor)",
+		outcome: sandbox.EXPECT_FAIL, sig: "a",
+		exit: 1, stdout: summaryOnlyOut,
+		wantErr: "must be at least 8 characters"},
+	{name: "D1c signature \"test\" -> refused (below the floor)",
+		outcome: sandbox.EXPECT_FAIL, sig: "test",
+		exit: 1, stdout: summaryOnlyOut,
+		wantErr: "must be at least 8 characters"},
+	{name: "D1d signature \"Suite result\" -> refused (summary line)",
+		outcome: sandbox.EXPECT_FAIL, sig: "Suite result",
+		exit: 1, stdout: summaryOnlyOut,
+		wantErr: "does not appear on any captured per-test failure line"},
+	{name: "D1e signature \"fail\" -> refused (EqualFold)",
+		outcome: sandbox.EXPECT_FAIL, sig: "fail",
+		exit: 1, stdout: summaryOnlyOut,
+		wantErr: "may not be the literal \"FAIL\""},
+	{name: "D1f whitespace-padded \"  FAIL  \" -> refused (trimmed)",
+		outcome: sandbox.EXPECT_FAIL, sig: "  FAIL  ",
+		exit: 1, stdout: summaryOnlyOut,
+		wantErr: "may not be the literal \"FAIL\""},
+	// D1 (non-forge): an arbitrary harness has no [FAIL token, so the
+	// plain FAIL substring stays its marker — a signature on such a line
+	// is still admitted.
+	{name: "D1g non-forge command + sig on a plain FAIL line -> admitted",
+		outcome: sandbox.EXPECT_FAIL, sig: "SomeHarnessFailure",
+		command: "python harness.py", exit: 1, stdout: plainFailOut},
 }
 
 func TestValidateExecRecordExpectation(t *testing.T) {
@@ -183,6 +233,10 @@ func TestValidateExecRecordExpectation(t *testing.T) {
 			camp := ingestCamp(t)
 			rec := testExec(t, camp, "docker-networkless", "", c.exit,
 				c.stdout)
+			if c.command != "" {
+				rec.O = validation.SetOrAppend(rec.O, "command",
+					validation.VStr(c.command))
+			}
 			if c.outcome != "" || c.sig != "" || c.stampSig {
 				rec = stampExpect(t, camp, rec,
 					validation.KV{K: "expected_outcome",
@@ -271,5 +325,57 @@ func TestVerifyExecReferenceUnsignedRefused(t *testing.T) {
 		"expected_failure is missing") {
 		t.Fatalf("unsigned fail record must be refused with the missing "+
 			"signature refusal; got: %v", err)
+	}
+}
+
+// The two D1 refusal texts, verbatim (error text is a pinned surface; the
+// single %s is the declared signature's Python repr).
+const (
+	wantWeakSignatureRefusal = "expected_failure %s is too weak — the " +
+		"declared signature must be at least 8 characters and may not be " +
+		"the literal \"FAIL\"; it must name the failure on a per-test " +
+		"failure line (for a forge-like command, a line carrying the token " +
+		"[FAIL), because a signature every failing line satisfies names no " +
+		"failure at all (declared before the run, checked now)"
+	wantNoPerTestRefusal = "expected_failure %s does not appear on any " +
+		"captured per-test failure line — the declared signature must be " +
+		"seen on a line carrying the failure marker the run's harness " +
+		"prints (for a forge-like command that is the token [FAIL, never " +
+		"the suite summary) and must be at least 8 characters long " +
+		"(declared before the run, checked now)"
+)
+
+// TestExpectedFailureRefusalsPinnedVerbatim pins the two new D1 refusals
+// byte-for-byte, so a reworded message is a loud failure rather than a
+// silent contract drift.
+func TestExpectedFailureRefusalsPinnedVerbatim(t *testing.T) {
+	cases := []struct {
+		name, sig, want string
+	}{
+		{"specificity floor", "FAIL", wantWeakSignatureRefusal},
+		{"no per-test failure line", "Suite result", wantNoPerTestRefusal},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			camp := ingestCamp(t)
+			rec := testExec(t, camp, "docker-networkless", "", 1,
+				summaryOnlyOut)
+			rec = stampExpect(t, camp, rec,
+				validation.KV{K: "expected_outcome",
+					V: validation.VStr(sandbox.EXPECT_FAIL)},
+				validation.KV{K: "expected_failure",
+					V: validation.VStr(c.sig)})
+			id := validation.ObjStr(rec, "exec_id")
+			err := ValidateExecRecord(id, rec)
+			if err == nil {
+				t.Fatal("a degenerate signature must be refused")
+			}
+			want := "exec " + id + ": " +
+				fmt.Sprintf(c.want, validation.PyReprStr(c.sig))
+			if err.Error() != want {
+				t.Fatalf("refusal drifted byte-for-byte:\n got %q\nwant %q",
+					err.Error(), want)
+			}
+		})
 	}
 }

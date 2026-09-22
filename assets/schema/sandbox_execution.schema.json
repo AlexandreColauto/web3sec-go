@@ -99,8 +99,8 @@
     },
     "expected_failure": {
       "type": "string",
-      "minLength": 1,
-      "description": "with expected_outcome 'fail': the failure signature, committed to before the run, that admission must find on a captured line containing the case-sensitive substring FAIL. REQUIRED under 'fail', FORBIDDEN otherwise — a signature under 'pass' is a contradiction, and there is deliberately no 'no signature available' bypass"
+      "minLength": 8,
+      "description": "with expected_outcome 'fail': the failure signature, committed to before the run, that admission must find on a PER-TEST failure line — for a forge-like command a line carrying the token [FAIL, never the suite summary — and that must be at least 8 characters and not the literal 'FAIL'. REQUIRED under 'fail', FORBIDDEN otherwise — a signature under 'pass' is a contradiction, and there is deliberately no 'no signature available' bypass"
     }
   },
   "allOf": [

@@ -10,13 +10,17 @@
 //
 // Absent means "pass": every pre-existing record keeps its exact bytes and
 // its exact behaviour. "fail" alone cannot mint — it needs expected_failure,
-// a signature that must appear on a captured line also containing the
-// case-sensitive substring FAIL, and a run the failure classifier calls
-// class 'logic'. No signature nameable, no mint: there is deliberately no
-// "no signature available" escape hatch.
+// a signature that must appear on a captured PER-TEST failure line (see
+// FailureSignatureOnFailLine) and a run the failure classifier calls class
+// 'logic'. No signature nameable, no mint: there is deliberately no "no
+// signature available" escape hatch.
 package sandbox
 
-import "websec/internal/validation"
+import (
+	"strings"
+
+	"websec/internal/validation"
+)
 
 // The two values expected_outcome may carry (the schema's enum). Absent —
 // or anything a hand-edited record invents — reads as EXPECT_PASS, so a
@@ -56,4 +60,39 @@ func applyExecExpectation(rec validation.Value, opts RunOpts) validation.Value {
 		rec = setKey(rec, "expected_failure", validation.VStr(opts.ExpectFailure))
 	}
 	return rec
+}
+
+// forgeFailToken is the PER-TEST failure marker a forge-like command prints:
+// a bracket, then FAIL. Only the token is pinned — forge renders
+// `[FAIL: ...]` and `[FAIL. Reason: ...]` across versions, and pinning the
+// separator that follows is exactly the brittleness this rule avoids.
+const forgeFailToken = "[FAIL"
+
+// FailureSignatureOnFailLine is the expected-failure admission predicate's
+// line half: some single captured line carries BOTH the declared signature
+// and a failure marker that a REAL per-test failure produces.
+//
+// D1 (adversarial review): the marker is NOT "any line containing FAIL".
+// Forge's SUITE SUMMARY line — `Suite result: FAILED. 0 passed; 5 failed;
+// ...` — contains FAIL, so a signature like "Suite result" satisfied the old
+// check on a suite that named no failing test, and the operator's
+// pre-committed signature stopped being falsifiable. For a FORGE-LIKE
+// command the line must carry forge's per-test token ([FAIL), which the
+// summary line never does. A NON-forge-like command keeps the plain FAIL
+// substring: no better marker exists for an arbitrary harness.
+//
+// The classifier decision (class 'logic') is NOT made here — it lives in
+// ClassifyFailure, the single authority on whether a run was a real test
+// failure, and the caller applies it after this check.
+func FailureSignatureOnFailLine(rec validation.Value, sig string) bool {
+	marker := "FAIL"
+	if commandIsForgeLike(rec) {
+		marker = forgeFailToken
+	}
+	for _, line := range strings.Split(ExecOutput(rec), "\n") {
+		if strings.Contains(line, marker) && strings.Contains(line, sig) {
+			return true
+		}
+	}
+	return false
 }

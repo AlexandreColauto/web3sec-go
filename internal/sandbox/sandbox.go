@@ -143,12 +143,29 @@ func ExecOutputProblem(rec validation.Value) *string {
 			"not a passing reproduction",
 			pyReprOptInt(s.Ran), pyReprOptInt(s.Failed), pyReprBool(s.HasFailMarker))
 	}
-	if s.Ran == nil && s.Failed == nil && !s.HasPassMarker {
+	if noRunEvidence(s) && !failMarkerProvesRun(rec, s) {
 		return problem("forge output has no test counters and no PASS marker — " +
 			"cannot verify a test actually ran and passed; capture the " +
 			"full forge output and re-run")
 	}
 	return nil
+}
+
+// noRunEvidence is the summary shape that proves nothing either way: no
+// counters and no PASS marker.
+func noRunEvidence(s ForgeSummary) bool {
+	return s.Ran == nil && s.Failed == nil && !s.HasPassMarker
+}
+
+// failMarkerProvesRun is D3 (adversarial review): under expected_outcome
+// "fail" a [FAIL] marker IS the proof a run happened — the run was expected
+// to fail, so demanding a PASS marker asked it for the one thing it must
+// never produce. Under EXPECT_PASS (or an absent expectation) this is false,
+// so the branch above keeps its exact bytes and its unconditional force
+// there. It is deliberately NOT part of the NoTests branch: a run that
+// matched nothing proves nothing under either expectation.
+func failMarkerProvesRun(rec validation.Value, s ForgeSummary) bool {
+	return ExecExpectedOutcome(rec) == EXPECT_FAIL && s.HasFailMarker
 }
 
 // hasFailingSuite is the suite-failure verdict of the summary: a [FAIL]

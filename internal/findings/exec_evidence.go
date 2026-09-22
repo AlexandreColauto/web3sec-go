@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"websec/internal/sandbox"
 	"websec/internal/state"
@@ -148,12 +149,15 @@ func ExecTruncatedCapture(rec validation.Value) *TruncatedCapture {
 // capture the record marks truncated is refused outright.
 //
 // Under expected_outcome "fail" (v16 §5.3 route 2) the run is admitted only
-// when ALL THREE hold: exit_status is NON-ZERO; expected_failure is present
-// and appears on a captured line that also contains the case-sensitive
-// substring FAIL; and sandbox.ClassifyFailure reports class "logic" — the
-// already-existing authority on whether the run was a real test failure,
-// reused here rather than duplicated. Infrastructure causes (environment,
-// setup, unknown, none) are refused even when the signature matches.
+// when ALL THREE hold: exit_status is NON-ZERO; expected_failure is present,
+// clears the specificity floor (>= 8 characters, not the literal "FAIL") and
+// appears on a captured PER-TEST failure line — the token [FAIL for a
+// forge-like command, the plain substring FAIL for an arbitrary harness
+// (sandbox.FailureSignatureOnFailLine); and sandbox.ClassifyFailure reports
+// class "logic" — the already-existing authority on whether the run was a
+// real test failure, reused here rather than duplicated. Infrastructure
+// causes (environment, setup, unknown, none) are refused even when the
+// signature matches.
 //
 // The messages are mint's, byte for byte — mint wraps the returned error in
 // its MintError class, ingest names it as a refusal.
@@ -292,12 +296,19 @@ func checkExecCaptureComplete(execID string, rec validation.Value) error {
 		"re-run with output under the cap", execID, tc.Accounting())
 }
 
+// minFailureSignatureLen is the specificity floor on expected_failure,
+// mirrored by the schema's minLength (8) so the Go gate never depends on the
+// schema being the only line. It counts Unicode code points — the same unit
+// JSON Schema's minLength uses — so the two checks agree on a non-ASCII
+// signature too.
+const minFailureSignatureLen = 8
+
 // checkExpectedFailure is admission predicate 2's record half under
 // expected_outcome "fail" (the exit half is checkExecExit): the declared
-// signature must be present and must occur on a captured line that ALSO
-// contains the case-sensitive substring FAIL — not a forge-format-specific
-// "[FAIL:" prefix (forge's punctuation drifts between versions) and not the
-// whole output blob (where a comment or a printed string could satisfy it) —
+// signature must clear the specificity floor, must occur on a captured
+// PER-TEST failure line (sandbox.FailureSignatureOnFailLine — for a
+// forge-like command the token [FAIL, never the suite summary, and not the
+// whole output blob where a comment or a printed string could satisfy it),
 // and the run must classify as class "logic". No signature nameable, no
 // mint: there is deliberately no bypass.
 func checkExpectedFailure(execID string, rec validation.Value) error {
@@ -308,25 +319,40 @@ func checkExpectedFailure(execID string, rec validation.Value) error {
 			"declared at exec time, before the run; a record that says "+
 			"'fail' without naming the failure proves nothing", execID)
 	}
-	if !failureSignatureOnFailLine(sandbox.ExecOutput(rec), sig) {
+	if err := checkFailureSignatureSpecificity(execID, sig); err != nil {
+		return err
+	}
+	if !sandbox.FailureSignatureOnFailLine(rec, sig) {
 		return fmt.Errorf("exec %s: expected_failure %s does not appear on "+
-			"any captured line containing the substring FAIL — the declared "+
-			"failure signature must be seen on a failing line of the "+
-			"captured output (declared before the run, checked now)",
-			execID, validation.PyReprStr(sig))
+			"any captured per-test failure line — the declared signature "+
+			"must be seen on a line carrying the failure marker the run's "+
+			"harness prints (for a forge-like command that is the token "+
+			"[FAIL, never the suite summary) and must be at least %d "+
+			"characters long (declared before the run, checked now)",
+			execID, validation.PyReprStr(sig), minFailureSignatureLen)
 	}
 	return checkFailureClassIsLogic(execID, rec)
 }
 
-// failureSignatureOnFailLine is the signature check: some single line holds
-// both the signature and the substring FAIL (case-sensitive).
-func failureSignatureOnFailLine(out, sig string) bool {
-	for _, line := range strings.Split(out, "\n") {
-		if strings.Contains(line, "FAIL") && strings.Contains(line, sig) {
-			return true
-		}
+// checkFailureSignatureSpecificity refuses the degenerate signatures the
+// review measured through ValidateExecRecord: a signature shorter than the
+// floor (schema minLength 8), and the literal "FAIL" — a tautology every
+// failing line satisfies, which is what made the operator's pre-committed
+// signature unfalsifiable. The check is on the TRIMMED signature: whitespace
+// padding buys no specificity.
+func checkFailureSignatureSpecificity(execID, sig string) error {
+	trimmed := strings.TrimSpace(sig)
+	if utf8.RuneCountInString(trimmed) >= minFailureSignatureLen &&
+		!strings.EqualFold(trimmed, "FAIL") {
+		return nil
 	}
-	return false
+	return fmt.Errorf("exec %s: expected_failure %s is too weak — the "+
+		"declared signature must be at least %d characters and may not be "+
+		"the literal \"FAIL\"; it must name the failure on a per-test "+
+		"failure line (for a forge-like command, a line carrying the token "+
+		"[FAIL), because a signature every failing line satisfies names no "+
+		"failure at all (declared before the run, checked now)",
+		execID, validation.PyReprStr(sig), minFailureSignatureLen)
 }
 
 // checkFailureClassIsLogic reuses sandbox.ClassifyFailure — the
