@@ -321,3 +321,90 @@ func confirmedFinding(t *testing.T, c *state.Campaign) string {
 	}
 	return validation.ObjStr(finding, "finding_id")
 }
+
+// controlSpecMessageCases is the Go check's own message table, kept out of the
+// test function so the test reads as the loop it is.
+func controlSpecMessageCases() []struct {
+	name string
+	mut  func(*ControlSpec)
+	want string
+} {
+	return []struct {
+		name string
+		mut  func(*ControlSpec)
+		want string
+	}{
+		{"uncited loss", func(s *ControlSpec) { s.LossSource = "" },
+			"the incident needs a cited loss figure (loss_source / --loss-source)"},
+		{"zero loss", func(s *ControlSpec) { s.LossUSD = 0 },
+			"incident loss_usd must be positive"},
+		{"ref instead of a pin", func(s *ControlSpec) { s.PrePatchSHA = "main" },
+			"is not a 40-hex commit — §3a requires a pinned PRE-PATCH commit"},
+		{"same commit twice", func(s *ControlSpec) { s.PatchSHA = shaPre },
+			"nobody pinned the vulnerable revision"},
+		{"no harness", func(s *ControlSpec) { s.HarnessRunner = "" },
+			"the control target needs its own harness"},
+	}
+}
+
+// TestCheckControlSpecPinsItsRefusalMessages calls the Go check DIRECTLY, with no
+// campaign and no schema in the way. Two of this record's refusals are enforced
+// twice — here and by the draft-07 schema that writeThenLog validates on every
+// write — and the mutation harness showed that removing only the Go check leaves
+// the end-to-end test green, because the schema still refuses with a message
+// that still names the field. That is defence in depth working as intended, but
+// it also means the Go half can rot silently: nothing else would notice if its
+// message degraded, since the record would still be refused by the other layer.
+// This test is what notices.
+func TestCheckControlSpecPinsItsRefusalMessages(t *testing.T) {
+	valid := ControlSpec{
+		TargetID: "T-1", IncidentURL: "https://example.test/incident",
+		IncidentDate: "2025-09-01", LossUSD: 12500000,
+		LossSource: "post-mortem §2", PrePatchSHA: shaPre, PatchSHA: shaPost,
+		HarnessRunner: "foundry", HarnessCommand: "forge test",
+	}
+	if err := checkControlSpec(valid); err != nil {
+		t.Fatalf("the check refuses a valid spec: %v", err)
+	}
+	for _, tc := range controlSpecMessageCases() {
+		spec := valid
+		tc.mut(&spec)
+		err := checkControlSpec(spec)
+		if err == nil || !strings.Contains(err.Error(), tc.want) {
+			t.Errorf("%s: err = %v, want the Go check's own message containing %q",
+				tc.name, err, tc.want)
+		}
+	}
+}
+
+// TestCheckHandoffPinsItsRefusalMessages is the same idea for the handoff half.
+// The positive-figure rule is the second of the two double-enforced refusals, so
+// it is pinned here in the Go check's own words.
+func TestCheckHandoffPinsItsRefusalMessages(t *testing.T) {
+	c := regressionCampaign(t, "C-reghandoffchk")
+	tid := controlTarget(t, c)
+	recordControlForHandoff(t, c, tid)
+	finding := ingestControlFinding(t, c)
+	fid := validation.ObjStr(finding, "finding_id")
+
+	if err := checkHandoff(c, HandoffSpec{
+		TargetID: tid, FindingID: fid, ExtractableUSD: 900000, Source: "s",
+	}); err == nil || !strings.Contains(err.Error(), "not CONFIRMED") {
+		t.Fatalf("unconfirmed: err = %v, want the Go check's own not-CONFIRMED message", err)
+	}
+	confirmFinding(t, c, finding)
+	for _, usd := range []float64{0, -1} {
+		err := checkHandoff(c, HandoffSpec{
+			TargetID: tid, FindingID: fid, ExtractableUSD: usd, Source: "s",
+		})
+		if err == nil || !strings.Contains(err.Error(), "extractable_usd must be positive") {
+			t.Errorf("usd=%v: err = %v, want the Go check's own positive-figure message",
+				usd, err)
+		}
+	}
+	if err := checkHandoff(c, HandoffSpec{
+		TargetID: tid, FindingID: fid, ExtractableUSD: 900000, Source: "",
+	}); err == nil || !strings.Contains(err.Error(), "needs --source") {
+		t.Fatalf("no source: err = %v, want the Go check's own --source message", err)
+	}
+}

@@ -365,7 +365,7 @@ Create `assets/schema/regression_target.schema.json`. `resolved_sha` is optional
     "resolved_sha": {
       "type": "string",
       "pattern": "^[0-9a-f]{40}$",
-      "description": "the concrete SHA the checkout landed on (§3a: 'Phase 0 resolves every commit to a concrete SHA at first checkout, mirrors the repos locally, and records the resolved SHA in the campaign snapshot')"
+      "description": "the concrete SHA the checkout landed on (§3a: 'Phase 0 resolves every commit to a concrete SHA at first checkout, mirrors the repos locally, and records the resolved SHA in the campaign snapshot'). NOTE, added 2026-09-22 from the control target's own run: a SHA is half a pin. A fork run needs a BLOCK, and the two are independent facts about the same revision — docs/gates/v16-P0-control-target.md §3.1 records a harness that forked three months before the exploit because the project hardcoded a block constant, and the same failure mode applies here: every target that is ever forked carries `fork_block` (the height the run used) and `fork_provider` (which node answered) alongside this SHA. `--fork-block-number` is not evidence of the height actually used when the harness sets its own; read it back from the run's output."
     },
     "snapshot_id": {
       "type": "string",
