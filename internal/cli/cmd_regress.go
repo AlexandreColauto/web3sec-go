@@ -47,7 +47,9 @@ subcommands:
   target add-control record the already-exploited control target (incident +
                      pre-patch pin + its own harness)
   target handoff     record the P1 handoff: a CONFIRMED finding on the control
-                     target and its extractable_usd
+                     target and its extractable_usd — or, when no figure is
+                     defensible, the unpriceable decision
+                     (--unpriceable --ceiling C --reason R --actor A)
   target pin         bind a target to a resolved 40-hex SHA and its snapshot
   target list        list the campaign's targets
   run                record one coarse score for a target
@@ -77,17 +79,20 @@ var regressValueFlags = map[string]bool{
 	"--loss-source": true, "--postmortem-url": true, "--pre-patch-sha": true,
 	"--patch-sha": true, "--harness-runner": true, "--harness-command": true,
 	"--finding": true, "--extractable-usd": true, "--source": true,
+	// the handoff's unpriceable decision (the named-decision escape)
+	"--ceiling": true, "--reason": true,
 	// the repo-level `labels` action (Task 3)
 	"--rows": true, "--out": true, "--dataset": true, "--snapshot-date": true,
 }
 
 // regressParse is the verb's parsed command line: positionals, flag values,
-// and the two boolean switches.
+// and the boolean switches.
 type regressParse struct {
-	pos    []string
-	vals   map[string]string
-	asJSON bool
-	help   bool
+	pos         []string
+	vals        map[string]string
+	asJSON      bool
+	unpriceable bool
+	help        bool
 }
 
 // assignInline applies one `--flag=value` argument.
@@ -117,6 +122,12 @@ func regressFlag(st *regressParse, args []string, i int) (int, error) {
 	switch {
 	case a == "--json":
 		st.asJSON = true
+		return 0, nil
+	case a == "--unpriceable":
+		// A SWITCH, like --json: the handoff's named decision is a mode, not
+		// a value, and `--unpriceable=true` is refused by the --flag=value
+		// arm exactly as argparse's store_true refuses it.
+		st.unpriceable = true
 		return 0, nil
 	case strings.HasPrefix(a, "--") && strings.Contains(a, "="):
 		return 0, st.assignInline(a)
@@ -313,7 +324,7 @@ func dispatchRegressTarget(c *state.Campaign, st *regressParse, r *Runner) error
 			return t14ArgparseErr(regressUsage, "regress",
 				"the following arguments are required: target_id")
 		}
-		return regressTargetHandoff(c, st.pos[3], st.vals, r)
+		return regressTargetHandoff(c, st.pos[3], st, r)
 	case "pin":
 		if len(st.pos) < 4 {
 			return t14ArgparseErr(regressUsage, "regress",
@@ -415,24 +426,62 @@ func regressTargetAddControl(c *state.Campaign, vals map[string]string, r *Runne
 }
 
 // regressTargetHandoff records the P1 handoff: the CONFIRMED finding on the
-// control target and the extractable figure P1's Task 10 spike consumes.
-func regressTargetHandoff(c *state.Campaign, tid string, vals map[string]string, r *Runner) error {
-	usd, err := regressFloat(vals, "--extractable-usd")
-	if err != nil {
-		return err
+// control target and the extractable figure P1's Task 10 spike consumes — or,
+// with --unpriceable, the NAMED DECISION that no figure is defensible
+// (ceiling + reason + actor, and no figure). The decision branch is the same
+// escape `impact --unpriceable` records on a finding
+// (risk.RecordUnpriceable), applied to the handoff the control target needs:
+// without it the only way to close the audit's "carries no P1 handoff" was to
+// invent a number.
+func regressTargetHandoff(c *state.Campaign, tid string, st *regressParse, r *Runner) error {
+	vals := st.vals
+	// The guard is the flag's PRESENCE, not its value: `--extractable-usd 0`
+	// and `--extractable-usd ""` are both the operator asking for a figure on
+	// a decision that refuses one, and a dropped flag is exactly the silent
+	// laundering the escape must not become (the same reason a trailing
+	// positional is refused rather than ignored). The wording is the write
+	// path's, because it is the operator's answer either way.
+	if _, given := vals["--extractable-usd"]; st.unpriceable && given {
+		return fmt.Errorf("an unpriceable handoff must not carry "+
+			"extractable_usd (got %q): the escape records why no figure "+
+			"exists, not a figure", vals["--extractable-usd"])
 	}
-	doc, err := regression.RecordHandoff(c, regression.HandoffSpec{
-		TargetID: tid, FindingID: vals["--finding"], ExtractableUSD: usd,
+	spec := regression.HandoffSpec{
+		TargetID: tid, FindingID: vals["--finding"],
 		Source: vals["--source"], RecordedBy: vals["--actor"],
-	})
+		Unpriceable: st.unpriceable, Ceiling: vals["--ceiling"],
+		Reason: vals["--reason"],
+	}
+	if !st.unpriceable {
+		usd, err := regressFloat(vals, "--extractable-usd")
+		if err != nil {
+			return err
+		}
+		spec.ExtractableUSD = usd
+	}
+	doc, err := regression.RecordHandoff(c, spec)
 	if err != nil {
 		return err
 	}
-	ho := validation.ObjAt(doc, "handoff")
+	printRegressHandoff(r, tid, validation.ObjAt(doc, "handoff"))
+	return nil
+}
+
+// printRegressHandoff is the operator-facing half of the record: which finding
+// the handoff names and which of the two honest states it carries. An
+// unpriceable decision prints the ceiling where the figure used to print —
+// never a zero, which would read as a measurement.
+func printRegressHandoff(r *Runner, tid string, ho validation.Value) {
+	if p := validation.ObjAt(ho, "priceable"); p.Kind == validation.Bool && !p.B {
+		_, _ = fmt.Fprintf(r.Out, "handoff recorded: target %s -> finding %s, "+
+			"extractable_usd=UNPRICEABLE (ceiling: %s) (P1 Task 10 consumes this)\n",
+			tid, validation.ObjStr(ho, "finding_id"),
+			validation.ObjStr(ho, "ceiling"))
+		return
+	}
 	_, _ = fmt.Fprintf(r.Out, "handoff recorded: target %s -> finding %s, "+
 		"extractable_usd=%v (P1 Task 10 consumes this)\n", tid,
 		validation.ObjStr(ho, "finding_id"), validation.ObjAt(ho, "extractable_usd").F)
-	return nil
 }
 
 func regressTargetPin(c *state.Campaign, tid string, vals map[string]string, r *Runner) error {
@@ -547,23 +596,45 @@ func printRegressTargetLines(r *Runner, targets []validation.Value) {
 // printRegressControlLines is the control target's own view: the pre-patch pin
 // and, when it exists, the P1 handoff. A control target with neither is the
 // half-finished state the audit section keeps red, so it prints too — with a
-// dash, never a zero.
+// dash, never a zero. An unpriceable handoff prints its decision and the
+// ceiling basis where the figure used to print (the report's own convention
+// for a finding's unpriceable impact), so an absent figure can never read as a
+// measured one.
 func printRegressControlLines(r *Runner, targets []validation.Value) {
 	for _, t := range targets {
 		if validation.ObjStr(t, "kind") != "control" {
 			continue
 		}
 		ho := validation.ObjAt(t, "handoff")
-		usd := "-"
-		if validation.HasKey(ho, "extractable_usd") {
-			usd = fmt.Sprintf("%v", validation.ObjAt(ho, "extractable_usd").F)
-		}
 		_, _ = fmt.Fprintf(r.Out,
 			"%s  control pre-patch=%s handoff=%s extractable_usd=%s\n",
 			validation.ObjStr(t, "target_id"),
 			orDash(validation.ObjStr(validation.ObjAt(t, "control"), "pre_patch_sha")),
-			orDash(validation.ObjStr(ho, "finding_id")), usd)
+			orDash(validation.ObjStr(ho, "finding_id")), handoffUSDCell(ho))
 	}
+}
+
+// handoffUSDCell renders the status line's figure column: the number when the
+// handoff is priceable, "unpriceable (ceiling: ...)" when the named decision
+// stands in for it, and a dash when there is no handoff at all.
+//
+// The number is read Int/Flt-aware: a hand-edited (or reference-written)
+// integer 900000 parses as an Int, and reading .F alone printed a 0 the record
+// never held — a fabricated measurement in the one column that must never
+// carry one. A Flt prints exactly as it always has (%v), so the priceable
+// path's bytes do not move.
+func handoffUSDCell(ho validation.Value) string {
+	if p := validation.ObjAt(ho, "priceable"); p.Kind == validation.Bool && !p.B {
+		return fmt.Sprintf("unpriceable (ceiling: %s)",
+			validation.ObjStr(ho, "ceiling"))
+	}
+	switch usd := validation.ObjAt(ho, "extractable_usd"); usd.Kind {
+	case validation.Int:
+		return validation.IntText(usd)
+	case validation.Flt:
+		return fmt.Sprintf("%v", usd.F)
+	}
+	return "-"
 }
 
 func printRegressRunLines(r *Runner, runs []validation.Value) {

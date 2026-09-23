@@ -1710,6 +1710,8 @@ separate repo-level file (Phase 0 Tasks 4/10).
 webv2 regress <C> target add --kind KIND --program P --shape SHAPE \
     [--record-id ID] [--codebase-id ID] [--repo ORG/REPO] [--commit-hint HINT]
 webv2 regress <C> target pin <T-xxx> --resolved-sha <40-hex> --snapshot <src-xxx> [--actor A]
+webv2 regress <C> target handoff <T-xxx> --finding F-xxx \
+    (--extractable-usd USD --source S | --unpriceable --ceiling C --reason R) --actor A
 webv2 regress <C> target list [--json]
 webv2 regress <C> run --target <T-xxx> --scorer eval-gold --score-file F
 webv2 regress <C> run --target <T-xxx> --scorer scabench-judge \
@@ -1737,14 +1739,26 @@ webv2 regress <C> status [--json]
 - **`found`/`missed` are not a detection rate.** Every target is a disclosed,
   already-judged contest, so every run carries `measurement: rediscovery` and
   `is_detection_rate: false`, and the label is printed with the number.
+- **A control target's P1 handoff is a figure OR a named decision, never
+  neither.** `--extractable-usd` (with `--source`) records the measured figure
+  the Phase 2 spike reads. `--unpriceable` records the decision that no figure
+  is defensible: it needs the capacity basis it was made against (`--ceiling`,
+  non-blank), a written `--reason` (>=10 chars) and `--actor`, and it refuses a
+  figure alongside. That escape is earned, not convenient — the 10b fork spike
+  REFUSED the control target's figure because no attack was run, so no loss was
+  measured (docs/gates/v16-P1-10b-fork-spike.md) — and an unpriceable handoff
+  satisfies the `regression_suite` section's "carries no P1 handoff" check: the
+  handoff exists and records why there is no number.
 - Exit codes: `0` recorded, `2` usage error, `1` refusal (unknown target, an
   unpinnable SHA, a scorer this suite does not read).
 - `audit` renders a `regression_suite` section for any campaign that has a
   target record, and **omits it entirely** for one that does not — so the
   section lists the gate scripts pin are unchanged for every other campaign.
-  A target with no `resolved_sha`, a non-40-hex SHA, a missing snapshot
-  binding, a run naming no target record, or a run without the D8 label is a
-  `problems` entry, and a problem entry is a failure, not a note.
+  A target record the shipped validator refuses, a handoff decision the log
+  contradicts or no longer holds, a target with no `resolved_sha`, a non-40-hex
+  SHA, a missing snapshot binding, a run naming no target record, or a run
+  without the D8 label is a `problems` entry, and a problem entry is a failure,
+  not a note.
 
 ## Evidence levels, floors, and the gate
 

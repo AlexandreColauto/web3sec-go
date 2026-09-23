@@ -345,3 +345,205 @@ func gitRevParse(t *testing.T, dir string) string {
 	}
 	return strings.TrimSpace(string(out))
 }
+
+// unpriceableHandoffArgs is one `target handoff` command line recording the
+// NAMED DECISION in place of a figure — the escape the control target
+// T-7e2781f96e25 needs, whose finding F-cfff3ebc0250 is CONFIRMED while its
+// extractable_usd was REFUSED (c5ba1048).
+func unpriceableHandoffArgs(root, cid, tid, fid string) []string {
+	return []string{"--root", root, "regress", cid, "target", "handoff", tid,
+		"--finding", fid, "--unpriceable",
+		"--ceiling", "capacity basis: no attack was run",
+		"--reason", "the 10b spike refused the figure: no attack was run",
+		"--source", "10b fork spike (refusal)", "--actor", "operator"}
+}
+
+// TestRegressHandoffUnpriceableThroughTheVerb: the escape is reachable from
+// the verb. `--unpriceable` is a SWITCH, so the parser must not try to read a
+// missing --extractable-usd as a float (that would be exit 2, not a record),
+// and the decision's own flags must be the verb's value flags.
+func TestRegressHandoffUnpriceableThroughTheVerb(t *testing.T) {
+	for _, flag := range []string{"--ceiling", "--reason"} {
+		if !regressValueFlags[flag] {
+			t.Errorf("%s is not in regressValueFlags — the parser would refuse "+
+				"it as an unrecognized argument", flag)
+		}
+	}
+	c, root := t15Campaign(t, "Acme")
+	cid := campaignIDOf(t, root)
+	tid := addControlThroughTheVerb(t, root, cid)
+	finding := t15Finding(t, c, "an inflation hypothesis", "logic-error")
+	fid := validation.ObjStr(finding, "finding_id")
+	confirmThroughTheStore(t, c, finding)
+	code, out, errS := run(t, unpriceableHandoffArgs(root, cid, tid, fid)...)
+	if code != 0 {
+		t.Fatalf("unpriceable handoff exit %d: out=%q err=%q", code, out, errS)
+	}
+	if !strings.Contains(out, "UNPRICEABLE (ceiling: capacity basis") {
+		t.Fatalf("handoff output = %q, want the decision and its ceiling", out)
+	}
+	if strings.Contains(out, "extractable_usd=0") {
+		t.Fatalf("handoff output = %q, want no fabricated figure", out)
+	}
+}
+
+// TestRegressHandoffRefusesAPricedUnpriceable: the escape is not a way to keep
+// the figure as well — both at once is refused, by name, with exit 1.
+func TestRegressHandoffRefusesAPricedUnpriceable(t *testing.T) {
+	c, root := t15Campaign(t, "Acme")
+	cid := campaignIDOf(t, root)
+	tid := addControlThroughTheVerb(t, root, cid)
+	finding := t15Finding(t, c, "an inflation hypothesis", "logic-error")
+	fid := validation.ObjStr(finding, "finding_id")
+	confirmThroughTheStore(t, c, finding)
+	args := append(unpriceableHandoffArgs(root, cid, tid, fid),
+		"--extractable-usd", "900000")
+	assertRegressRefuses(t, args, "must not carry extractable_usd")
+}
+
+// TestRegressStatusShowsTheUnpriceableDecision: the human view prints the
+// decision and the ceiling it was made against where the figure used to print
+// — never a 0, which would read as a measurement.
+func TestRegressStatusShowsTheUnpriceableDecision(t *testing.T) {
+	c, root := t15Campaign(t, "Acme")
+	cid := campaignIDOf(t, root)
+	tid := addControlThroughTheVerb(t, root, cid)
+	finding := t15Finding(t, c, "an inflation hypothesis", "logic-error")
+	fid := validation.ObjStr(finding, "finding_id")
+	confirmThroughTheStore(t, c, finding)
+	if code, _, errS := run(t, unpriceableHandoffArgs(root, cid, tid, fid)...); code != 0 {
+		t.Fatalf("handoff exit %d: err=%q", code, errS)
+	}
+	code, out, errS := run(t, "--root", root, "regress", cid, "status")
+	if code != 0 {
+		t.Fatalf("status exit %d: err=%q", code, errS)
+	}
+	if !strings.Contains(out, "extractable_usd=unpriceable (ceiling: "+
+		"capacity basis: no attack was run)") {
+		t.Fatalf("status = %q, want the decision and its ceiling", out)
+	}
+}
+
+// TestRegressHandoffRefusesAnUnpricedDecisionWithoutItsBasis drives the two
+// missing-basis refusals through the verb: the escape needs the ceiling it was
+// made against and a written reason, and each refusal names what is missing.
+func TestRegressHandoffRefusesAnUnpricedDecisionWithoutItsBasis(t *testing.T) {
+	c, root := t15Campaign(t, "Acme")
+	cid := campaignIDOf(t, root)
+	tid := addControlThroughTheVerb(t, root, cid)
+	finding := t15Finding(t, c, "an inflation hypothesis", "logic-error")
+	fid := validation.ObjStr(finding, "finding_id")
+	confirmThroughTheStore(t, c, finding)
+	base := unpriceableHandoffArgs(root, cid, tid, fid)
+	assertRegressRefuses(t, dropFlag(base, "--ceiling"), "capacity basis")
+	assertRegressRefuses(t, dropFlag(base, "--reason"), "written reason")
+	assertRegressRefuses(t, dropFlag(base, "--actor"), "name its actor")
+	// The decision needs its own provenance too: --source is what the
+	// refusal was read from, and the schema requires it either way.
+	assertRegressRefuses(t, dropFlag(base, "--source"), "needs --source")
+}
+
+// regressHelpLiteral freezes regressHelp's bytes, for the same reason
+// regressUsageLiteral freezes regressUsage's: the help block is a byte-pinned
+// operator surface, and building the expectation from the constant the code
+// prints is self-referential — a typo in regressHelp would fail nothing. The
+// change that added the handoff's unpriceable escape rewrote four lines of the
+// `target handoff` entry and no test referenced them, so the block could have
+// drifted unobserved.
+const regressHelpLiteral = `usage: webv2 regress [-h] [--rows ROWS] [--out OUT]
+                     [--dataset DATASET] [--snapshot-date SNAPSHOT_DATE]
+                     {labels,campaign} ...
+
+positional arguments:
+  {labels,campaign}
+    labels             derive the class labels for one ScaBench snapshot's rows
+    campaign           a campaign id (C-...): the target/run/status verbs
+
+options:
+  -h, --help       show this help message and exit
+  --rows ROWS      labels: a JSON array of the snapshot's rows, as extracted
+  --out OUT        labels: the label file to write (plus its .sha256 sidecar)
+  --dataset DATASET
+                   labels: the dataset name (default: scabench)
+  --snapshot-date SNAPSHOT_DATE
+                   labels: the snapshot date (default: 2025-08-18)
+
+subcommands:
+  target add         record one regression target
+  target add-control record the already-exploited control target (incident +
+                     pre-patch pin + its own harness)
+  target handoff     record the P1 handoff: a CONFIRMED finding on the control
+                     target and its extractable_usd — or, when no figure is
+                     defensible, the unpriceable decision
+                     (--unpriceable --ceiling C --reason R --actor A)
+  target pin         bind a target to a resolved 40-hex SHA and its snapshot
+  target list        list the campaign's targets
+  run                record one coarse score for a target
+  status             the human view of the suite records
+`
+
+// TestRegressHelpIsPinnedToItsLiteral holds regressHelp to its literal, both as
+// a constant and as the bytes the verb actually prints: a help block nobody
+// reads back is a help block that drifts.
+func TestRegressHelpIsPinnedToItsLiteral(t *testing.T) {
+	if regressHelp != regressHelpLiteral {
+		t.Fatalf("regressHelp drifted from its pinned bytes:\n got %q\nwant %q",
+			regressHelp, regressHelpLiteral)
+	}
+	code, out, errS := run(t, "--root", t.TempDir(), "regress", "-h")
+	if code != 0 || out != regressHelpLiteral {
+		t.Fatalf("regress -h: code=%d out=%q err=%q, want the pinned block",
+			code, out, errS)
+	}
+}
+
+// TestRegressHandoffRefusesTheFlagNotJustItsValue is D7: the guard's comment
+// claims it refuses the flag's mere PRESENCE. `--extractable-usd ""` and
+// `--extractable-usd=` set the value to the empty string, which a non-empty
+// test lets through — the flag is then silently dropped, which is exactly the
+// laundering the guard exists to stop. The zero figure is refused too, and the
+// priceable path still records a real one.
+func TestRegressHandoffRefusesTheFlagNotJustItsValue(t *testing.T) {
+	c, root := t15Campaign(t, "Acme")
+	cid := campaignIDOf(t, root)
+	tid := addControlThroughTheVerb(t, root, cid)
+	finding := t15Finding(t, c, "an inflation hypothesis", "logic-error")
+	fid := validation.ObjStr(finding, "finding_id")
+	confirmThroughTheStore(t, c, finding)
+	for _, extra := range [][]string{
+		{"--extractable-usd", ""},
+		{"--extractable-usd="},
+		{"--extractable-usd", "0"},
+	} {
+		args := append(unpriceableHandoffArgs(root, cid, tid, fid), extra...)
+		assertRegressRefuses(t, args, "must not carry extractable_usd")
+	}
+	code, out, errS := run(t, "--root", root, "regress", cid, "target", "handoff",
+		tid, "--finding", fid, "--extractable-usd", "900000",
+		"--source", "reproduction on the pre-patch commit", "--actor", "operator")
+	if code != 0 || !strings.Contains(out, "extractable_usd=900000") {
+		t.Fatalf("priced handoff exit %d: out=%q err=%q", code, out, errS)
+	}
+}
+
+// TestRegressStatusCellReadsAnIntegerFigure is D4 at the CLI: a hand-edited
+// integer figure must print as the figure, not as the 0 that reading .F
+// invented. A Flt still prints exactly as it always did, the decision prints
+// its ceiling, and no handoff prints a dash.
+func TestRegressStatusCellReadsAnIntegerFigure(t *testing.T) {
+	for _, tc := range []struct{ body, want string }{
+		{`{"extractable_usd":900000}`, "900000"},
+		{`{"extractable_usd":900000.0}`, "900000"},
+		{`{"priceable":false,"ceiling":"no attack was run"}`,
+			"unpriceable (ceiling: no attack was run)"},
+		{`{}`, "-"},
+	} {
+		ho, err := validation.ParseOrdered([]byte(tc.body))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := handoffUSDCell(ho); got != tc.want {
+			t.Fatalf("cell for %s = %q, want %q", tc.body, got, tc.want)
+		}
+	}
+}

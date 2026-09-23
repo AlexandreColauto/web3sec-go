@@ -244,6 +244,16 @@ func renderLeaf(data Value, l leaf) string {
 		return fmt.Sprintf("%s is not a multiple of %s", repr, ratToString(k.Want))
 	case *kind.OneOf, *kind.AnyOf:
 		return repr + " is not valid under any of the given schemas"
+	case *kind.FalseSchema:
+		// jsonschema's iter_errors template for a `false` subschema
+		// (validators.py: f"False schema does not allow {instance!r}"). The
+		// path differs from the Python twin on purpose: jsonschema's
+		// descend() short-circuits a False subschema BEFORE it appends the
+		// property path, so it reports the error at the PARENT; this port
+		// keeps v6's (correct) location, the property itself. No embedded
+		// schema used a boolean subschema before the regression_target
+		// handoff's unpriceable escape, so no golden row moves.
+		return fmt.Sprintf("False schema does not allow %s", repr)
 	}
 	return repr + " (unrendered " + keywordOf(l.kind) + ")"
 }

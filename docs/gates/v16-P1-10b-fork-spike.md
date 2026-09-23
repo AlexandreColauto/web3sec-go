@@ -100,11 +100,16 @@ control target T-7e2781f96e25 carries no P1 handoff — the Phase 2 spike's extr
 stays blocked until a CONFIRMED finding and its extractable_usd are recorded here
 ```
 
-The check is `!validation.HasKey(target, "handoff")`, so closing it means writing a `handoff`
-object on the control target. **It cannot be closed honestly.** The `handoff` object's schema
-(`assets/schema/regression_target.schema.json`) requires `finding_id`, `extractable_usd`,
-`source` and `recorded_at`, and `extractable_usd` is a number with `exclusiveMinimum: 0` — a
-strictly positive figure. There is no way to record the handoff without one.
+The check was `!validation.HasKey(target, "handoff")`, so closing it meant writing a `handoff`
+object on the control target. **As the schema stood then, it could not be closed honestly.** The
+`handoff` object's schema (`assets/schema/regression_target.schema.json`) required `finding_id`,
+`extractable_usd`, `source` and `recorded_at`, and `extractable_usd` was a number with
+`exclusiveMinimum: 0` — a strictly positive figure, with no way to record the handoff without one.
+That measurement still stands: the figure is not obtainable here, and the audit's refusal was
+correct. What c5ba1048 superseded is the CONCLUSION — the handoff now has a second honest form,
+the unpriceable decision (`priceable: false` with the `ceiling` basis it was made against, a
+written `reason` and the `recorded_by` actor, and no figure), which `regression_suite` accepts as
+a complete handoff and reconciles against the `regression.control.handoff` ledger event.
 
 Half the condition is met: `F-cfff3ebc0250` **is** CONFIRMED. The other half is the figure this
 spike **refused**, because no attack was run and no loss was measured. Writing a number to clear

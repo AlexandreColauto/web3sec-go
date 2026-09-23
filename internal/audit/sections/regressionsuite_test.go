@@ -314,6 +314,10 @@ func TestRegressionSuiteKeepsAHalfFinishedControlTargetRed(t *testing.T) {
 	}
 	for _, want := range []string{
 		"carries no control block", "carries no P1 handoff",
+		// The message names BOTH honest forms: a handoff that must carry a
+		// figure would be the fabrication the schema's unpriceable escape
+		// exists to remove (c5ba1048).
+		"unpriceable decision",
 	} {
 		if !strings.Contains(joined.String(), want) {
 			t.Fatalf("problems = %q, want one naming %q", joined.String(), want)
@@ -335,15 +339,7 @@ func TestRegressionSuiteGoesGreenForAFinishedControlTarget(t *testing.T) {
 	c := regressSectionCampaign(t, "C-regsectctl002")
 	target := controlSectionTarget(t, c)
 	tid := validation.ObjStr(target, "target_id")
-	if _, err := regression.RecordControl(c, regression.ControlSpec{
-		TargetID: tid, IncidentURL: "https://example.test/incident",
-		IncidentDate: "2025-09-01", LossUSD: 12500000,
-		LossSource:  "post-mortem §2 (recovered funds excluded)",
-		PrePatchSHA: controlPreSHA, PatchSHA: controlPostSHA,
-		HarnessRunner: "foundry", HarnessCommand: "forge test",
-	}); err != nil {
-		t.Fatal(err)
-	}
+	recordSectionControl(t, c, tid)
 	fid := confirmedSectionFinding(t, c)
 	if _, err := regression.RecordHandoff(c, regression.HandoffSpec{
 		TargetID: tid, FindingID: fid, ExtractableUSD: 900000,
@@ -375,5 +371,95 @@ func assertFinishedControlRow(t *testing.T, sec validation.Value, fid string) {
 	}
 	if got := validation.ObjStr(row, "handoff_extractable_usd"); got != "900000" {
 		t.Fatalf("handoff_extractable_usd = %q, want 900000", got)
+	}
+}
+
+// recordSectionControl writes the control block the finished-control tests
+// share, through the real writer.
+func recordSectionControl(t *testing.T, c *state.Campaign, tid string) {
+	t.Helper()
+	if _, err := regression.RecordControl(c, regression.ControlSpec{
+		TargetID: tid, IncidentURL: "https://example.test/incident",
+		IncidentDate: "2025-09-01", LossUSD: 12500000,
+		LossSource:  "post-mortem §2 (recovered funds excluded)",
+		PrePatchSHA: controlPreSHA, PatchSHA: controlPostSHA,
+		HarnessRunner: "foundry", HarnessCommand: "forge test",
+	}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestRegressionSuiteAcceptsAnUnpriceableHandoff: a control target whose
+// CONFIRMED finding has no honest figure is FINISHED, not half-finished. The
+// handoff exists, it names the confirmed finding, and it records WHY there is
+// no number — the 10b fork spike REFUSED the figure (c5ba1048,
+// docs/gates/v16-P1-10b-fork-spike.md) — so it is a complete, honest handoff
+// and the section goes green. The absent figure still renders as EMPTY, never
+// as a 0 that would read as a measurement.
+func TestRegressionSuiteAcceptsAnUnpriceableHandoff(t *testing.T) {
+	c := regressSectionCampaign(t, "C-regsectctl003")
+	target := controlSectionTarget(t, c)
+	tid := validation.ObjStr(target, "target_id")
+	recordSectionControl(t, c, tid)
+	fid := confirmedSectionFinding(t, c)
+	if _, err := regression.RecordHandoff(c, regression.HandoffSpec{
+		TargetID: tid, FindingID: fid, Source: "10b fork spike (refusal)",
+		Unpriceable: true, Ceiling: "capacity basis: no attack was run",
+		Reason:     "the 10b spike refused the figure: no attack was run",
+		RecordedBy: "operator",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	sec, err := RegressionSuite(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := validation.ObjAt(sec, "problems"); len(got.A) != 0 {
+		t.Fatalf("problems = %v, want none: an unpriceable handoff is a handoff", got.A)
+	}
+	assertSectionBool(t, sec, true)
+	row := validation.ObjAt(sec, "targets").A[0]
+	if got := validation.ObjStr(row, "handoff_finding_id"); got != fid {
+		t.Fatalf("handoff_finding_id = %q, want %q", got, fid)
+	}
+	if got := validation.ObjStr(row, "handoff_extractable_usd"); got != "" {
+		t.Fatalf("unpriceable handoff renders figure %q, want the empty string", got)
+	}
+}
+
+// TestRegressionSuiteRejectsAHandoffWithNeitherForm: the handoff check reads
+// the two honest forms, not the key. A hand-edited record carrying neither a
+// figure nor the unpriceable decision is not a handoff — the write path and
+// the schema refuse that shape, so this is the section catching what can only
+// have arrived by hand (the same discipline the unpriceable section applies to
+// a hand-edited priceable: false). It is caught TWICE, deliberately: the
+// schema refuses the bytes, and the handoff check refuses to call the record a
+// handoff — neither check may depend on the other having run.
+func TestRegressionSuiteRejectsAHandoffWithNeitherForm(t *testing.T) {
+	c := regressSectionCampaign(t, "C-regsectctl004")
+	target := controlSectionTarget(t, c)
+	tid := validation.ObjStr(target, "target_id")
+	recordSectionControl(t, c, tid)
+	doc, ok, err := regression.Target(c, tid)
+	if err != nil || !ok {
+		t.Fatalf("reload target: ok=%v err=%v", ok, err)
+	}
+	doc.O = validation.SetOrAppend(doc.O, "handoff", validation.VObj(
+		KV("finding_id", validation.VStr("F-cfff3ebc0250")),
+		KV("source", validation.VStr("hand-edited")),
+		KV("recorded_at", validation.VStr("2026-01-01T00:00:00Z"))))
+	path := filepath.Join(regression.TargetsDir(c), tid+".json")
+	if err := validation.WriteJson(path, doc, ""); err != nil {
+		t.Fatal(err)
+	}
+	sec, err := RegressionSuite(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	problems := validation.ObjAt(sec, "problems").A
+	if !problemMentions(problems, "validation failed") ||
+		!problemMentions(problems, "carries no P1 handoff") {
+		t.Fatalf("problems = %v, want the schema refusal AND the "+
+			"no-P1-handoff problem", problems)
 	}
 }

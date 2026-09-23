@@ -86,15 +86,52 @@
     "handoff": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["finding_id", "extractable_usd", "source", "recorded_at"],
-      "description": "the P1 handoff: the confirmed finding on this control target and the extractable figure the Phase 2 spike (P1 plan Task 10) consumes. It lives on the control target's own record so the two plans' dependency is one file, not a paragraph",
+      "required": ["finding_id", "source", "recorded_at"],
+      "description": "the P1 handoff: the confirmed finding on this control target and the extractable figure the Phase 2 spike (P1 plan Task 10) consumes — OR, when no figure is defensible, the NAMED DECISION that records why. It lives on the control target's own record so the two plans' dependency is one file, not a paragraph. The escape is earned, not convenient: c5ba1048 (docs/gates/v16-P1-10b-fork-spike.md) measured that the control target's figure is not obtainable — no attack was run, so no loss was measured — and a handoff that could only be closed by inventing a number is the fabrication the standing law forbids",
       "properties": {
         "finding_id": { "type": "string", "pattern": "^F-[0-9a-f]{6,16}$" },
-        "extractable_usd": { "type": "number", "exclusiveMinimum": 0 },
+        "extractable_usd": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "required whenever the handoff is priceable (priceable ABSENT or true): the figure the Phase 2 spike reads"
+        },
         "source": { "type": "string", "minLength": 1 },
         "recorded_at": { "type": "string", "minLength": 20 },
-        "recorded_by": { "type": "string", "minLength": 1 }
-      }
+        "recorded_by": {
+          "type": "string",
+          "minLength": 1,
+          "description": "who recorded this handoff. Required — not merely permitted — whenever priceable is false: an unattributed decision is nobody's, and the audit cross-checks this against the actor the regression.control.handoff event logged"
+        },
+        "priceable": {
+          "type": "boolean",
+          "description": "false records the NAMED DECISION that this handoff cannot honestly carry a figure (regression.RecordHandoff's --unpriceable; risk.RecordUnpriceable is the same shape on the finding's economic_impact). ABSENT means priceable — every pre-existing handoff keeps its exact bytes and behaviour — so only an explicit false opens the escape, and only with the ceiling basis it was made against: a bare flag is not a decision"
+        },
+        "ceiling": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "description": "the capacity basis the unpriceable decision was made against (why no USD figure is defensible). Required — and non-blank — whenever priceable is false, where the figure used to print"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 10,
+          "pattern": "\\S",
+          "description": "the written reason no figure is defensible. Required — and non-blank — whenever priceable is false, with the SAME >=10-character floor the write path applies (regression.checkUnpriceableHandoff, mirroring risk.RecordUnpriceable): the point is the audit trail, not the bypass, and a floor the schema does not carry is a floor a hand edit walks around"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": ["priceable"],
+            "properties": { "priceable": { "const": false } }
+          },
+          "then": {
+            "required": ["ceiling", "reason", "recorded_by"],
+            "properties": { "extractable_usd": false }
+          },
+          "else": { "required": ["extractable_usd"] }
+        }
+      ]
     },
     "created_at": { "type": "string", "minLength": 20 },
     "schema_version": { "const": 1 }
