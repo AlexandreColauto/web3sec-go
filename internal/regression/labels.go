@@ -167,6 +167,11 @@ func isLetter(b byte) bool {
 	return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z')
 }
 
+// codebaseKey is the label row's checkout key, spelled ONCE: it is
+// wire-visible (the schema, the rows files), so a rename here without the
+// schema edit is a real break.
+const codebaseKey = "codebase_id"
+
 // labelRowFields is the dataset's four fields verbatim (§3a: "exactly four
 // fields per vulnerability") plus the project the extractor joins in, which
 // selection needs. A row missing any of them is refused rather than classified.
@@ -207,18 +212,64 @@ func requireHighSeverity(row validation.Value, i int) error {
 			"severity == \"high\"", i, validation.ObjStr(row, "finding_id"), sev)
 }
 
+// checkCodebaseID is the checkout key's TYPE guard, and it follows
+// checkLabelRow's refuse-don't-drop law rather than withOptional's silent-drop
+// one. The key is OPTIONAL, so an absent key is legal; but a PRESENT key that
+// is not a string (42, null, {}, []) is a malformed row, and dropping it would
+// launder a producer bug into "this project has no checkout key" — a different
+// claim. A string that is empty or all whitespace is NOT a refusal: it carries
+// no id, so labelRow drops it to absent. The schema's minLength/pattern are the
+// hand-edit backstop for the same two cases.
+func checkCodebaseID(row validation.Value, i int) error {
+	if !validation.HasKey(row, codebaseKey) {
+		return nil
+	}
+	if validation.ObjAt(row, codebaseKey).Kind != validation.Str {
+		return fmt.Errorf("row %d has a non-string %s — a present checkout key "+
+			"must be a string, and an absent one is expressed by omitting the "+
+			"key, not by a null or a number; refusing rather than dropping so a "+
+			"malformed row cannot read as \"this project has no checkout key\"",
+			i, codebaseKey)
+	}
+	return nil
+}
+
 // labelRow classifies one already-checked row into the label file's row shape:
 // the dataset's fields plus the class and the rule that fired.
+//
+// `codebase_id` rides through as an OPTIONAL key, in the same shape as the
+// target record's (regression_target.schema.json): `project` is the picker's
+// key, `codebase_id` is the checkout's, and a project that carries more than
+// one codebase (Starknet Perpetual carries two) needs the second id to say
+// WHICH tree the finding was reported against. It is not part of
+// labelRowFields — a row without it is a legal row.
+//
+// Two laws are load-bearing here:
+//
+//   - The value is TRIMMED, and a value that trims to "" is dropped to absent
+//     (withOptional's rule): a present-but-blank id is a third state, not the
+//     same claim as "no checkout key", and it is the only string value the
+//     schema's minLength/pattern refuse.
+//   - When present it is a DENORMALISED COPY of the pinned target's
+//     codebase_id (target.go's targetDoc writes the same key), and the TARGET
+//     is authoritative. The invariant — a row's codebase_id, when present,
+//     equals the codebase_id of the pinned target for the same project — is
+//     checked NOWHERE yet. Task 4's picker join (select.go), which reads both
+//     records, is where the reconciler belongs; it cannot live here, because
+//     this function sees a rows file and no campaign.
 func labelRow(row validation.Value) validation.Value {
 	class, rule := Classify(validation.ObjStr(row, "title"),
 		validation.ObjStr(row, "description"))
-	return validation.VObj(
+	out := validation.VObj(
 		kv("finding_id", validation.VStr(validation.ObjStr(row, "finding_id"))),
 		kv("project", validation.VStr(validation.ObjStr(row, "project"))),
 		kv("severity", validation.VStr(validation.ObjStr(row, "severity"))),
 		kv("class", validation.VStr(class)),
 		kv("rule", validation.VStr(rule)),
 	)
+	out.O = withOptional(out.O, optionalStr{codebaseKey,
+		strings.TrimSpace(validation.ObjStr(row, codebaseKey))})
+	return out
 }
 
 // classCounts is the ordered per-class tally: a class's FIRST appearance fixes
@@ -251,7 +302,8 @@ func (c *classCounts) obj() validation.Value {
 // does not carry the dataset's four fields verbatim (§3a: "exactly four fields
 // per vulnerability") plus the project the extractor joined in, and it refuses
 // any severity but "high" — the label file is the 114 gold findings, nothing
-// else.
+// else. A present-but-non-string `codebase_id` is refused too
+// (checkCodebaseID), so the optional key's type is checked, not dropped.
 func DeriveLabels(rows []validation.Value, dataset, snapshotDate string) (validation.Value, error) {
 	if dataset == "" || snapshotDate == "" {
 		return validation.VNull(), fmt.Errorf(
@@ -262,6 +314,9 @@ func DeriveLabels(rows []validation.Value, dataset, snapshotDate string) (valida
 	counts := &classCounts{n: map[string]int{}}
 	for i, row := range rows {
 		if err := checkLabelRow(row, i); err != nil {
+			return validation.VNull(), err
+		}
+		if err := checkCodebaseID(row, i); err != nil {
 			return validation.VNull(), err
 		}
 		if err := requireHighSeverity(row, i); err != nil {

@@ -2934,6 +2934,8 @@ git commit -m "feat(v16-p0): already-exploited control target and the P1 spike h
 | "exactly four fields per vulnerability" | true **of the vulnerability record**, but the record is **nested**: the file is a list of 31 projects, each with `codebases[]` and `vulnerabilities[]`, and the commit lives on the **codebase** | the extractor walks projects → vulnerabilities and joins in **`project_id`** (selection is per project) and **`codebase_id`** (a checkout is per codebase); a flat read of the file does not work |
 | "114 high findings across 31 projects is under four per project" | the mean is 3.68, but it is **not a bound**: median 2, **max 12** (MANTRA DEX), and **11 of 31 projects carry 4 or more** | the fixture and the "unweighted pick" arithmetic below are corrected; the weighting argument survives, the number does not |
 
+> **Resolution note — which id the extractor joins (added 2026-09-21, annotating both halves; neither is rewritten).** The table row above joins `project_id` **and** `codebase_id`; the Step 7 extractor below joins `project` = `project_id` only. Rather than argue the tie, it was measured: counting identifier mentions of each id in `internal/`, `cmd/` and `assets/schema/` (excluding docs; measured on the PRE-change tree, before this edit added further `codebase_id` mentions, and 5 of the 6 sit in the schema files — mostly `description` prose, only one of them Go code) gives **3 `project_id`, 3 `codebase_id`** — a genuine 50/50, and the project's own rule for a tie is to pick `codebase_id`, because a correction table keys on code identity. The resolution is not a rename: **`project` stays the picker's key** (selection and hold-out are per PROJECT) and **`codebase_id` is added as the optional checkout key** on the label row — the commit lives on the CODEBASE, not the project, and one project (Starknet Perpetual) carries two. D9 is satisfied: this is a spec change citing a measurement. **Executable halves, corrected (same date).** Step 1's JSON block now carries the `codebase_id` property exactly as shipped (with `pattern: "\\S"`), and Step 7's extractor now joins it from the operator's `CHECKOUT` mapping — the dataset cannot attribute a finding to a codebase (`vulnerabilities[]` and `codebases[]` are siblings under the project), so the operator supplies the multi-codebase pick. The two sentences above that describe the Step 7 extractor as `project_id`-only describe the PRE-correction text and are kept as the record of the contradiction.
+
 The fourth claim — "bucketing the 114 `high` findings" — **verifies exactly: 114**. And §3a's "an unweighted pick of six yields maybe 15–25 gold findings" is true only of a *random* six (E[gold] = 6 × 3.68 ≈ 22); the six projects with the most high findings carry **54 of 114** (MANTRA DEX 12, Cork Protocol 11, Coded Estate 9, Oku 8, BakerFi 7, Perennial V2 7). So "weighted beats unweighted" is **not** a claim that weighting finds more findings than picking the biggest — it is a claim that weighting buys *class coverage per checkout*, and Task 4's fixture must be built to show that, not to show a count.
 
 The repo already agrees with the first sentence, in its own words — `internal/taxonomy/testdata/config/taxonomy_scabench.yaml`:
@@ -2988,6 +2990,12 @@ Create `assets/schema/regression_labels.schema.json`. The rows carry `rule` — 
             "type": "string",
             "minLength": 1,
             "description": "the dataset's `project_id` for this row, joined in by the extractor — the vulnerability record carries no project of its own. Selection is by PROJECT (\"picking six targets\", \"hold out by project\"), so this is the picker's key and it must be the id, not the display name (one project's `name` is '2024.09.13 - Final - Perennial V2 Update 3 Audit Report'; the ids are stable slugs)"
+          },
+          "codebase_id": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S",
+            "description": "the dataset's own `codebases[].codebase_id` for the tree this row's project resolves to. The shipped code does NOT derive it: `labelRow` only carries through a value the input row already has, and the dataset cannot supply one — `vulnerabilities[]` and `codebases[]` are siblings under the project, so a finding names no tree. It is therefore supplied by the operator (Task 3 Step 7's extractor joins it from the operator's project->codebase mapping; a hand-crafted rows file carries it directly). REQUIRED by the operator when a project carries more than one codebase (Starknet Perpetual carries two, one of them unpinned), because the commit lives on the CODEBASE, not the project; optional otherwise, where it is recorded for the same reason the raw project_id is. It is optional HERE because the schema cannot see a project's codebase count: `project` above stays the picker's key, and this is the checkout key the label row was missing. When present it MUST equal the `codebase_id` of the pinned target for the same project (regression_target.schema.json) — this row is a DENORMALISED COPY and the TARGET is authoritative; nothing reconciles the pair yet, and Task 4's picker join is where that belongs"
           },
           "severity": {
             "enum": ["high", "medium", "low", "informational"],
@@ -3539,25 +3547,49 @@ mkdir -p "$WEBV2_P0_DIR" eval/scabench
 # 1. extract the 114 high rows, keeping the vulnerability record's four fields
 #    verbatim and joining in the dataset's own identifiers. The file is a LIST
 #    OF 31 PROJECTS with nested codebases[] and vulnerabilities[] — there is no
-#    flat findings list and no per-project file to glob. The join is
-#    `project_id` (selection and hold-out are per PROJECT) and the severity
-#    filter is load-bearing: without it the 555 rows land here and every
-#    downstream `gold_findings` count is 555, not 114.
+#    flat findings list and no per-project file to glob. `project_id` is the
+#    join for selection and hold-out (both are per PROJECT). `codebase_id` is
+#    the OPTIONAL checkout key, and the dataset CANNOT supply it:
+#    vulnerabilities[] and codebases[] are SIBLINGS under the project, so a
+#    finding names no tree. The operator therefore supplies the pick in CHECKOUT
+#    — one entry per project that carries more than one codebase (Starknet
+#    Perpetual carries two; see *Operator prerequisites §7*), using the SAME id
+#    passed to `regress target add --codebase-id`, so the label row and the
+#    pinned target name one tree. A project absent from CHECKOUT gets no key,
+#    which is legal because the key is optional; a multi-codebase project absent
+#    from it is a hard error, so this step cannot silently emit a label file
+#    with no checkout key for the project that needs one. The severity filter is
+#    load-bearing: without it the 555 rows land here and every downstream
+#    `gold_findings` count is 555, not 114.
 python3 - "$DS" <<'PY' > eval/scabench/curated-2025-08-18.json
 import json, sys
 projects = json.load(open(sys.argv[1]))
+# project_id -> the codebase_id the operator pinned for that project (the same
+# id passed to `regress target add --codebase-id`). Fill one entry for every
+# project that carries more than one codebase; the assert below refuses to run
+# until you do. See *Operator prerequisites §7*.
+CHECKOUT = {
+    # "code4rena_starknet-perpetual_2025_06": "Starknet Perpetual_main",
+}
+missing = [p["project_id"] for p in projects
+           if len(p["codebases"]) > 1 and p["project_id"] not in CHECKOUT]
+assert not missing, f"fill CHECKOUT for the multi-codebase projects: {missing}"
 rows = []
 for p in projects:
     for v in p["vulnerabilities"]:
         if v["severity"] != "high":
             continue
-        rows.append({
+        row = {
             "finding_id": v["finding_id"],
             "project": p["project_id"],
             "severity": v["severity"],
             "title": v["title"],
             "description": v["description"],
-        })
+        }
+        cb = CHECKOUT.get(p["project_id"])
+        if cb:
+            row["codebase_id"] = cb
+        rows.append(row)
 assert len(rows) == 114, f"expected 114 high rows, got {len(rows)}"
 json.dump(rows, sys.stdout)
 PY

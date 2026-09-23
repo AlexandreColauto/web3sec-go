@@ -480,8 +480,8 @@
     "size": 20089
    },
    "regression_labels.schema.json": {
-    "sha256": "2f4b1e00e2e6250976990a1792663471d46fd50f95cf7d18d4316d7864b9d917",
-    "size": 3218
+    "sha256": "212c784792593a9aa0748232d09d4d7ac3d9137310a0e47d89372dbf2102b3b2",
+    "size": 4587
    },
    "regression_run.schema.json": {
     "sha256": "3be2b8f64bb4f783e428a1e9fa7b5bc2b87aeec915712f4a8c48c143cf0e5a69",

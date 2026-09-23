@@ -3,6 +3,7 @@ package regression
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"sort"
 	"strings"
@@ -480,4 +481,290 @@ func TestWriteRepoRecordValidatesTheWritePath(t *testing.T) {
 func withExtraKey(doc validation.Value, k string, v validation.Value) validation.Value {
 	out := append([]validation.KV{}, doc.O...)
 	return validation.VObj(append(out, kv(k, v))...)
+}
+
+// withRows replaces a label document's rows, so a test can hand the schema a
+// row shape DeriveLabels itself would never write.
+func withRows(doc validation.Value, rows ...validation.Value) validation.Value {
+	out := append([]validation.KV{}, doc.O...)
+	return validation.VObj(validation.SetOrAppend(out, "rows", validation.VArr(rows...))...)
+}
+
+// codebaseKey is defined in labels.go and reused here, so the production
+// writer, its guard and these tests can never disagree about the wire name.
+
+// testCodebase is the codebase id the tests join in, in the dataset's own
+// shape — the key exists because one project (Starknet Perpetual) carries two
+// codebases and the commit lives on the codebase, not the project.
+const testCodebase = "starknet-perpetual_main"
+
+// labelTestRowCodebase is labelTestRow with the checkout key the extractor
+// joins in when the project carries more than one codebase. It is appended
+// rather than re-spelled so the fixture stays one shape.
+func labelTestRowCodebase(codebase, title, description string) validation.Value {
+	return withExtraKey(labelTestRow("S-1", title, description), codebaseKey,
+		validation.VStr(codebase))
+}
+
+// TestLabelRowCarriesCodebaseIDWhenPresent is the round trip: a row that
+// carries the checkout key must survive DeriveLabels, the schema write and the
+// reload with the SAME value. Dropping it at labelRow would silently lose the
+// only bridge back to the tree a label's finding was reported against.
+func TestLabelRowCarriesCodebaseIDWhenPresent(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "labels.json")
+	labels, err := DeriveLabels([]validation.Value{
+		labelTestRowCodebase(testCodebase, "Oracle price is stale",
+			"the stale oracle price is read")}, "scabench", "2025-08-18")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteRepoRecord(path, labels, "regression_labels"); err != nil {
+		t.Fatalf("a label file whose row carries codebase_id was refused: %v", err)
+	}
+	back, err := LoadLabels(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	row := validation.ObjAt(back, "rows").A[0]
+	if !validation.HasKey(row, codebaseKey) {
+		t.Fatal("the written row dropped codebase_id — the checkout key the " +
+			"extractor joined in never reaches the label file")
+	}
+	if got := validation.ObjStr(row, codebaseKey); got != testCodebase {
+		t.Fatalf("codebase_id = %q, want %q", got, testCodebase)
+	}
+}
+
+// TestLabelRowOmitsCodebaseIDWhenAbsent is the load-bearing half of the
+// optionality: a row WITHOUT the key must be written with the key ABSENT, not
+// with an empty string. A present-but-blank id is a different claim (it says
+// the extractor looked and found a blank codebase) and would defeat the
+// "optional otherwise" rule; it would also be the only value the schema's
+// minLength:1 could never accept.
+func TestLabelRowOmitsCodebaseIDWhenAbsent(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "labels.json")
+	labels, err := DeriveLabels([]validation.Value{
+		labelTestRow("S-1", "Oracle price is stale", "the stale oracle price is read")},
+		"scabench", "2025-08-18")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteRepoRecord(path, labels, "regression_labels"); err != nil {
+		t.Fatalf("a row without a codebase_id was refused: %v", err)
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), codebaseKey) {
+		t.Fatal("a row that carried no codebase_id was written WITH the key — " +
+			"an absent key and a present-but-empty id are different claims")
+	}
+	back, err := LoadLabels(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if row := validation.ObjAt(back, "rows").A[0]; validation.HasKey(row, codebaseKey) {
+		t.Fatal("the reloaded row carries codebase_id, want the key absent")
+	}
+}
+
+// TestLabelSchemaStillRejectsAnUnknownRowKey keeps the row's
+// additionalProperties:false honest while the new key is added: the point of
+// adding codebase_id is that an unagreed claim on a row is still refused, so
+// this is the guard against widening the row to whatever the extractor emits.
+func TestLabelSchemaStillRejectsAnUnknownRowKey(t *testing.T) {
+	labels, err := DeriveLabels([]validation.Value{
+		labelTestRow("S-1", "Oracle price is stale", "the stale oracle price is read")},
+		"scabench", "2025-08-18")
+	if err != nil {
+		t.Fatal(err)
+	}
+	row := validation.ObjAt(labels, "rows").A[0]
+	bad := withRows(labels, withExtraKey(row, "surprise", validation.VStr("x")))
+	if err := WriteRepoRecord(filepath.Join(t.TempDir(), "bad.json"), bad,
+		"regression_labels"); err == nil {
+		t.Fatal("the row schema accepted an unknown key — additionalProperties:false " +
+			"is the reason a label row cannot carry an unagreed claim")
+	}
+}
+
+// TestCodebaseIDChangesNothingButTheCheckoutKey: the checkout key is
+// provenance, not input to the classifier. The same row with and without it
+// must classify identically and tally identically, or the key would be a
+// second, invisible axis of the label file.
+func TestCodebaseIDChangesNothingButTheCheckoutKey(t *testing.T) {
+	const title = "Oracle price is stale"
+	const desc = "the stale oracle price is read"
+	with, err := DeriveLabels([]validation.Value{
+		labelTestRowCodebase(testCodebase, title, desc)}, "scabench", "2025-08-18")
+	if err != nil {
+		t.Fatal(err)
+	}
+	without, err := DeriveLabels([]validation.Value{
+		labelTestRow("S-1", title, desc)}, "scabench", "2025-08-18")
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := validation.ObjAt(with, "rows").A[0]
+	b := validation.ObjAt(without, "rows").A[0]
+	for _, k := range []string{"finding_id", "project", "severity", "class", "rule"} {
+		if validation.ObjStr(a, k) != validation.ObjStr(b, k) {
+			t.Errorf("%s = %q with a codebase_id and %q without — the checkout "+
+				"key must not move the classification", k, validation.ObjStr(a, k),
+				validation.ObjStr(b, k))
+		}
+	}
+	if !reflect.DeepEqual(validation.ObjAt(with, "counts"), validation.ObjAt(without, "counts")) {
+		t.Fatalf("counts = %v with a codebase_id and %v without",
+			validation.ObjAt(with, "counts"), validation.ObjAt(without, "counts"))
+	}
+}
+
+// writtenRow derives a one-row label file from row, writes it through the real
+// schema and returns the row as it reloads from disk — the round trip every
+// checkout-key test below asserts on.
+func writtenRow(t *testing.T, row validation.Value) validation.Value {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "labels.json")
+	labels, err := DeriveLabels([]validation.Value{row}, "scabench", "2025-08-18")
+	if err != nil {
+		t.Fatalf("DeriveLabels refused the row: %v", err)
+	}
+	if err := WriteRepoRecord(path, labels, "regression_labels"); err != nil {
+		t.Fatalf("WriteRepoRecord refused the row: %v", err)
+	}
+	back, err := LoadLabels(path)
+	if err != nil {
+		t.Fatalf("LoadLabels: %v", err)
+	}
+	return validation.ObjAt(back, "rows").A[0]
+}
+
+// TestLabelRowDropsWhitespaceOnlyCodebaseID is D1: a whitespace-only
+// codebase_id carries no id, so it is written ABSENT — never as a present key
+// holding "   ". "Present but blank" is a third state (it says the extractor
+// looked and found a blank codebase) and it is the only string value the
+// schema's minLength/pattern refuse, so the writer must not produce it.
+func TestLabelRowDropsWhitespaceOnlyCodebaseID(t *testing.T) {
+	row := writtenRow(t, labelTestRowCodebase("   ",
+		"Whitespace checkout key", "the blank id must be dropped"))
+	if validation.HasKey(row, codebaseKey) {
+		t.Fatalf("a whitespace-only codebase_id round-tripped as a present key "+
+			"holding %q — blank must drop to absent",
+			validation.ObjStr(row, codebaseKey))
+	}
+}
+
+// TestLabelRowDropsEmptyCodebaseID is D1's empty-string case: "" is absent, not
+// a present key holding nothing. minLength:1 would refuse the latter, so the
+// writer must not be able to produce it.
+func TestLabelRowDropsEmptyCodebaseID(t *testing.T) {
+	row := writtenRow(t, labelTestRowCodebase("",
+		"Empty checkout key", "the empty id must be dropped"))
+	if validation.HasKey(row, codebaseKey) {
+		t.Fatal("an empty codebase_id round-tripped as a present key, want absent")
+	}
+}
+
+// TestLabelRowTrimsPaddedCodebaseID is D1's other half: a padded REAL id is
+// trimmed, so "  <id>  " round-trips as the id the target record carries
+// instead of as a value that silently fails the picker's join.
+func TestLabelRowTrimsPaddedCodebaseID(t *testing.T) {
+	row := writtenRow(t, labelTestRowCodebase("  "+testCodebase+"  ",
+		"Padded checkout key", "the padded id must be trimmed"))
+	if got := validation.ObjStr(row, codebaseKey); got != testCodebase {
+		t.Fatalf("codebase_id = %q, want the trimmed %q", got, testCodebase)
+	}
+}
+
+// TestLabelRowRefusesNonStringCodebaseID is D5's type rule: a present but
+// non-string key (42, null, {}, []) is REFUSED, matching checkLabelRow's
+// refuse-don't-drop law for the required fields. Dropping it would read as
+// "this project has no checkout key" — a claim the producer never made.
+func TestLabelRowRefusesNonStringCodebaseID(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		val  validation.Value
+	}{
+		{"number", validation.VInt(42)},
+		{"null", validation.VNull()},
+		{"object", validation.VObj()},
+		{"array", validation.VArr()},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := DeriveLabels([]validation.Value{withExtraKey(
+				labelTestRow("S-1", "Typed checkout key", "the type must be checked"),
+				codebaseKey, tc.val)}, "scabench", "2025-08-18")
+			if err == nil {
+				t.Fatalf("a %s codebase_id was silently dropped, want a refusal",
+					tc.name)
+			}
+		})
+	}
+}
+
+// TestLabelSchemaRefusesAMalformedCodebaseID is the schema half of D1 and D5:
+// a hand-crafted rows file — the only route that reaches the schema without
+// DeriveLabels' trim/type guard — must be refused for a whitespace-only value
+// (without "pattern": "\\S", three spaces satisfy minLength:1 and validate) and
+// for a non-string one (type:string is the hand-edit half of the guard).
+func TestLabelSchemaRefusesAMalformedCodebaseID(t *testing.T) {
+	labels, err := DeriveLabels([]validation.Value{labelTestRow("S-1",
+		"Schema checkout key", "the schema must refuse a malformed id")},
+		"scabench", "2025-08-18")
+	if err != nil {
+		t.Fatal(err)
+	}
+	base := validation.ObjAt(labels, "rows").A[0]
+	for _, tc := range []struct {
+		name string
+		val  validation.Value
+	}{
+		{"blank", validation.VStr("   ")},
+		{"number", validation.VInt(42)},
+		{"null", validation.VNull()},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			row := withExtraKey(base, codebaseKey, tc.val)
+			if err := WriteRepoRecord(filepath.Join(t.TempDir(), "bad.json"),
+				withRows(labels, row), "regression_labels"); err == nil {
+				t.Fatalf("the row schema accepted a %s codebase_id", tc.name)
+			}
+		})
+	}
+}
+
+// TestCodebaseIDGuardsAreDeclared pins the checkout key's schema guards BY
+// NAME. The behavioral tests above cover type:string (a numeric id is refused)
+// and pattern:\S (a blank id is refused); minLength:1 is NOT behaviorally
+// observable once pattern:\S is present, because \S already rejects the empty
+// string, so removing minLength changes no verdict anywhere in this package.
+// This pin is therefore the only test that can kill that mutation, and it is a
+// contract assertion rather than a mirror of the file: the key's guards are
+// part of the schema's public shape, and D5 exists because nothing read them.
+func TestCodebaseIDGuardsAreDeclared(t *testing.T) {
+	raw, err := validation.ReadSchemaFile("regression_labels")
+	if err != nil {
+		t.Fatalf("ReadSchemaFile(regression_labels): %v", err)
+	}
+	doc, err := validation.ParseOrdered(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	items := validation.ObjAt(validation.ObjAt(validation.ObjAt(doc, "properties"),
+		"rows"), "items")
+	prop := validation.ObjAt(validation.ObjAt(items, "properties"), codebaseKey)
+	if prop.Kind != validation.Obj {
+		t.Fatalf("the schema declares no rows[].%s property", codebaseKey)
+	}
+	if got := validation.ObjStr(prop, "type"); got != "string" {
+		t.Errorf("%s.type = %q, want \"string\"", codebaseKey, got)
+	}
+	if got := validation.ObjAt(prop, "minLength").I; got != 1 {
+		t.Errorf("%s.minLength = %d, want 1", codebaseKey, got)
+	}
+	if got := validation.ObjStr(prop, "pattern"); got != `\S` {
+		t.Errorf(`%s.pattern = %q, want "\\S"`, codebaseKey, got)
+	}
 }

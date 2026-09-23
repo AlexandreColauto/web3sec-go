@@ -23,6 +23,12 @@
             "minLength": 1,
             "description": "the dataset's `project_id` for this row, joined in by the extractor — the vulnerability record carries no project of its own. Selection is by PROJECT (\"picking six targets\", \"hold out by project\"), so this is the picker's key and it must be the id, not the display name (one project's `name` is '2024.09.13 - Final - Perennial V2 Update 3 Audit Report'; the ids are stable slugs)"
           },
+          "codebase_id": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S",
+            "description": "the dataset's own `codebases[].codebase_id` for the tree this row's project resolves to. The shipped code does NOT derive it: `labelRow` only carries through a value the input row already has, and the dataset cannot supply one — `vulnerabilities[]` and `codebases[]` are siblings under the project, so a finding names no tree. It is therefore supplied by the operator (Task 3 Step 7's extractor joins it from the operator's project->codebase mapping; a hand-crafted rows file carries it directly). REQUIRED by the operator when a project carries more than one codebase (Starknet Perpetual carries two, one of them unpinned), because the commit lives on the CODEBASE, not the project; optional otherwise, where it is recorded for the same reason the raw project_id is. It is optional HERE because the schema cannot see a project's codebase count: `project` above stays the picker's key, and this is the checkout key the label row was missing. When present it MUST equal the `codebase_id` of the pinned target for the same project (regression_target.schema.json) — this row is a DENORMALISED COPY and the TARGET is authoritative; nothing reconciles the pair yet, and Task 4's picker join is where that belongs"
+          },
           "severity": {
             "enum": ["high", "medium", "low", "informational"],
             "description": "the dataset's real severity vocabulary, all four values (measured: 114 high, 237 medium, 184 low, 20 informational). The enum lists all four because they are the literals the producer emits; THIS FILE carries only the 114 `high` rows, which is what makes `gold_findings` in the selection mean gold. `DeriveLabels` enforces the high-only scope; the enum exists so the schema never contradicts the producer"
