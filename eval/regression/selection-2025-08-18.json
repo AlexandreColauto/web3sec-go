@@ -1,0 +1,89 @@
+{
+  "dataset": "scabench",
+  "snapshot_date": "2025-08-18",
+  "method": "greedy-set-cover-weighted-by-gold-finding-count",
+  "picks": [
+    {
+      "project": "code4rena_bakerfi-invitational_2025_02",
+      "shape": "vault-erc4626",
+      "partition": "held-out",
+      "gold_findings": 7,
+      "classes": [
+        "access-control",
+        "flash-loan",
+        "upgrade-initializer"
+      ]
+    },
+    {
+      "project": "code4rena_loopfi_2025_02",
+      "shape": "lending-liquidation",
+      "partition": "dev",
+      "gold_findings": 2,
+      "classes": [
+        "liquidation-logic",
+        "precision-rounding"
+      ]
+    },
+    {
+      "project": "code4rena_next-generation_2025_05",
+      "shape": "bridge-messaging",
+      "partition": "dev",
+      "gold_findings": 1,
+      "classes": [
+        "upgrade-initializer"
+      ]
+    },
+    {
+      "project": "code4rena_starknet-perpetual_2025_06",
+      "shape": "non-rollup-l2-or-oracle",
+      "partition": "held-out",
+      "gold_findings": 2,
+      "classes": [
+        "liveness"
+      ]
+    },
+    {
+      "project": "code4rena_initia-move_2025_04",
+      "shape": "non-rollup-l2-or-oracle",
+      "partition": "dev",
+      "gold_findings": 4,
+      "classes": [
+        "oracle-manipulation",
+        "upgrade-initializer"
+      ]
+    },
+    {
+      "project": "sherlock_idle-finance_2024_12",
+      "shape": "vault-erc4626",
+      "partition": "dev",
+      "gold_findings": 2,
+      "classes": [
+        "share-price-inflation",
+        "upgrade-initializer"
+      ]
+    }
+  ],
+  "coverage": {
+    "covered_findings": 40,
+    "total_findings": 114,
+    "covered_classes": 8,
+    "total_classes": 14,
+    "uncovered_classes": [
+      "bridge-message",
+      "cross-chain-replay",
+      "dos-griefing",
+      "logic-error",
+      "reentrancy",
+      "unchecked-external-call"
+    ]
+  },
+  "held_out": [
+    "code4rena_bakerfi-invitational_2025_02",
+    "code4rena_starknet-perpetual_2025_06"
+  ],
+  "input_class_fitness": "the label file's classes are Task 3's derived matcher output, and the hand review in docs/gates/v16-P0.md found the classification materially unfit (29 of 52 classified rows wrong; no upgrade-initializer row and no flash-loan row is defensible, and those two artifact classes carry 21 of the covered findings). Coverage here is a lower bound on which classes the suite exercises, never evidence that a class is real.",
+  "created_at": "2026-09-23T13:33:33.210847+00:00",
+  "schema_version": 1,
+  "diagnosed_program": "diagnosed campaign (P0 Task 1)",
+  "control_program": "F-cfff3ebc0250 control target"
+}

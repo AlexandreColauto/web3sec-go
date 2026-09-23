@@ -487,6 +487,10 @@
     "sha256": "3be2b8f64bb4f783e428a1e9fa7b5bc2b87aeec915712f4a8c48c143cf0e5a69",
     "size": 2512
    },
+   "regression_selection.schema.json": {
+    "sha256": "b18b33c9df4cf145a39d8da9a25f7db59518d783edcfbce89944b54df3b29384",
+    "size": 3859
+   },
    "regression_target.schema.json": {
     "sha256": "78eca78cc6ae9a18f3934acafda0f271016d0bbd7d45e982dda6e939145a5762",
     "size": 8773

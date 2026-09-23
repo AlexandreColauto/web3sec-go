@@ -48,7 +48,10 @@ const regressLabelsRows = `[
 // block is worth.
 const regressUsageLiteral = `usage: webv2 regress [-h] [--rows ROWS] [--out OUT]
                      [--dataset DATASET] [--snapshot-date SNAPSHOT_DATE]
-                     {labels,campaign} ...
+                     [--labels LABELS] [--shapes SHAPES]
+                     [--held-out HELD_OUT] [--picks PICKS]
+                     [--diagnosed DIAGNOSED] [--control CONTROL]
+                     {labels,select,campaign} ...
 `
 
 func TestRegressLabelsUsageAndFlags(t *testing.T) {

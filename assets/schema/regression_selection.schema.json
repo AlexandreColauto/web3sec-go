@@ -1,0 +1,56 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://web3sec.local/schema/regression_selection.schema.json",
+  "title": "WebSec Regression Suite Selection",
+  "description": "The Phase 0 target selection (§3a): six targets chosen by greedy set-cover over the derived classes, weighted by gold-finding count, constrained to the four target shapes plus the diagnosed campaign (training data) and the already-exploited control target, with two of the six held out by project. This file is the reviewed, committed answer to 'which targets', with the coverage it achieves, so a later change to the suite is a diff against a measurement rather than a re-pick. dataset + snapshot_date name the INPUT this was computed from (the Task 3 label file), and input_class_fitness is REQUIRED, not optional: it carries the caveat that input must be read with — its classes are the matcher's output and the hand review found them materially unfit (29 of 52 classified rows wrong; no upgrade-initializer and no flash-loan row defensible, 21 of the covered findings in that artifact), so the coverage here is a lower bound on which classes the suite exercises — never evidence that a class is real. A selection that omits it would read as coverage of real classes.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "dataset", "snapshot_date", "method", "picks", "coverage",
+    "input_class_fitness", "created_at", "schema_version"
+  ],
+  "properties": {
+    "dataset": { "type": "string", "minLength": 1 },
+    "snapshot_date": { "type": "string", "minLength": 10 },
+    "method": { "const": "greedy-set-cover-weighted-by-gold-finding-count" },
+    "picks": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 6,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["project", "shape", "partition", "gold_findings", "classes"],
+        "properties": {
+          "project": { "type": "string", "minLength": 1 },
+          "shape": { "type": "string", "minLength": 1 },
+          "partition": { "enum": ["dev", "held-out"] },
+          "gold_findings": { "type": "integer", "minimum": 1 },
+          "classes": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["covered_findings", "total_findings", "covered_classes", "total_classes"],
+      "properties": {
+        "covered_findings": { "type": "integer", "minimum": 0 },
+        "total_findings": { "type": "integer", "minimum": 0 },
+        "covered_classes": { "type": "integer", "minimum": 0 },
+        "total_classes": { "type": "integer", "minimum": 0 },
+        "uncovered_classes": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "diagnosed_program": { "type": "string" },
+    "control_program": { "type": "string" },
+    "held_out": { "type": "array", "items": { "type": "string" } },
+    "input_class_fitness": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The standing caveat on the input, written by the selector itself, and REQUIRED: the label file's classes are Task 3's derived matcher output, and the hand review recorded in docs/gates/v16-P0.md found the classification materially unfit — 29 of the 52 classified rows carry a class the mechanism contradicts, no upgrade-initializer row (20) and no flash-loan row (1) is defensible, and 11 classes are defensible where 14 were produced. Both undefendable classes are covered by the pick, so 21 of the covered findings are that artifact. Coverage in this file is therefore a lower bound on which classes the suite exercises; it is NOT evidence that any class is real."
+    },
+    "created_at": { "type": "string", "minLength": 20 },
+    "schema_version": { "const": 1 }
+  }
+}

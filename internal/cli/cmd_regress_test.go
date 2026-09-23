@@ -452,21 +452,38 @@ func TestRegressHandoffRefusesAnUnpricedDecisionWithoutItsBasis(t *testing.T) {
 // drifted unobserved.
 const regressHelpLiteral = `usage: webv2 regress [-h] [--rows ROWS] [--out OUT]
                      [--dataset DATASET] [--snapshot-date SNAPSHOT_DATE]
-                     {labels,campaign} ...
+                     [--labels LABELS] [--shapes SHAPES]
+                     [--held-out HELD_OUT] [--picks PICKS]
+                     [--diagnosed DIAGNOSED] [--control CONTROL]
+                     {labels,select,campaign} ...
 
 positional arguments:
-  {labels,campaign}
+  {labels,select,campaign}
     labels             derive the class labels for one ScaBench snapshot's rows
+    select             pick the six targets by greedy set-cover, weighted by
+                       gold-finding count, and say what they cover
     campaign           a campaign id (C-...): the target/run/status verbs
 
 options:
   -h, --help       show this help message and exit
   --rows ROWS      labels: a JSON array of the snapshot's rows, as extracted
-  --out OUT        labels: the label file to write (plus its .sha256 sidecar)
+  --out OUT        labels: the label file to write (plus its .sha256 sidecar);
+                   select: the selection file to write
   --dataset DATASET
                    labels: the dataset name (default: scabench)
   --snapshot-date SNAPSHOT_DATE
                    labels: the snapshot date (default: 2025-08-18)
+  --labels LABELS  select: the Task 3 label file to pick from
+  --shapes SHAPES  select: a JSON object {project: shape} over the four ScaBench
+                   shapes
+  --held-out HELD_OUT
+                   select: the two projects held out, comma-separated
+  --picks PICKS    select: how many targets to pick (4-6, default: 6)
+  --diagnosed DIAGNOSED
+                   select: the diagnosed campaign's program, kept as training
+                   data
+  --control CONTROL
+                   select: the already-exploited control target's program
 
 subcommands:
   target add         record one regression target

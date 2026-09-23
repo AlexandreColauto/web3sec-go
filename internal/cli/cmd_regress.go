@@ -21,26 +21,46 @@ import (
 const (
 	regressUsage = `usage: webv2 regress [-h] [--rows ROWS] [--out OUT]
                      [--dataset DATASET] [--snapshot-date SNAPSHOT_DATE]
-                     {labels,campaign} ...
+                     [--labels LABELS] [--shapes SHAPES]
+                     [--held-out HELD_OUT] [--picks PICKS]
+                     [--diagnosed DIAGNOSED] [--control CONTROL]
+                     {labels,select,campaign} ...
 `
 
 	regressHelp = `usage: webv2 regress [-h] [--rows ROWS] [--out OUT]
                      [--dataset DATASET] [--snapshot-date SNAPSHOT_DATE]
-                     {labels,campaign} ...
+                     [--labels LABELS] [--shapes SHAPES]
+                     [--held-out HELD_OUT] [--picks PICKS]
+                     [--diagnosed DIAGNOSED] [--control CONTROL]
+                     {labels,select,campaign} ...
 
 positional arguments:
-  {labels,campaign}
+  {labels,select,campaign}
     labels             derive the class labels for one ScaBench snapshot's rows
+    select             pick the six targets by greedy set-cover, weighted by
+                       gold-finding count, and say what they cover
     campaign           a campaign id (C-...): the target/run/status verbs
 
 options:
   -h, --help       show this help message and exit
   --rows ROWS      labels: a JSON array of the snapshot's rows, as extracted
-  --out OUT        labels: the label file to write (plus its .sha256 sidecar)
+  --out OUT        labels: the label file to write (plus its .sha256 sidecar);
+                   select: the selection file to write
   --dataset DATASET
                    labels: the dataset name (default: scabench)
   --snapshot-date SNAPSHOT_DATE
                    labels: the snapshot date (default: 2025-08-18)
+  --labels LABELS  select: the Task 3 label file to pick from
+  --shapes SHAPES  select: a JSON object {project: shape} over the four ScaBench
+                   shapes
+  --held-out HELD_OUT
+                   select: the two projects held out, comma-separated
+  --picks PICKS    select: how many targets to pick (4-6, default: 6)
+  --diagnosed DIAGNOSED
+                   select: the diagnosed campaign's program, kept as training
+                   data
+  --control CONTROL
+                   select: the already-exploited control target's program
 
 subcommands:
   target add         record one regression target
@@ -83,6 +103,9 @@ var regressValueFlags = map[string]bool{
 	"--ceiling": true, "--reason": true,
 	// the repo-level `labels` action (Task 3)
 	"--rows": true, "--out": true, "--dataset": true, "--snapshot-date": true,
+	// the repo-level `select` action (Task 4)
+	"--labels": true, "--shapes": true, "--held-out": true, "--picks": true,
+	"--diagnosed": true, "--control": true,
 }
 
 // regressParse is the verb's parsed command line: positionals, flag values,
@@ -193,8 +216,8 @@ func regressCmd(root string, args []string, r *Runner) error {
 
 // dispatchRegressRepo runs a repo-level action — one that operates on the eval
 // store rather than on a campaign — and reports whether the first positional
-// named one. `labels` is the only action today; `select` (Task 4) and `suite`
-// (Task 10) join the switch.
+// named one. `labels` (Task 3) and `select` (Task 4) are the actions today;
+// `suite` (Task 10) joins the switch.
 //
 // The dispatch is by NAME, and that is the point: choosing the branch by the
 // absence of a `C-` prefix is what made the routing incidental, and it silently
@@ -204,7 +227,7 @@ func regressCmd(root string, args []string, r *Runner) error {
 // campaign path can decide a malformed id: an unrecognised first positional
 // falls through to it and keeps the old refusal.
 func dispatchRegressRepo(st *regressParse, root string, r *Runner) (bool, error) {
-	if st.pos[0] != "labels" {
+	if st.pos[0] != "labels" && st.pos[0] != "select" {
 		return false, nil
 	}
 	if len(st.pos) > 1 {
@@ -217,6 +240,9 @@ func dispatchRegressRepo(st *regressParse, root string, r *Runner) (bool, error)
 	// consumed before this verb ran, so hand it down under the parser's own key
 	// convention (leading dashes).
 	st.vals["--root"] = root
+	if st.pos[0] == "select" {
+		return true, regressSelect(st.vals, r)
+	}
 	return true, regressLabels(st.vals, r)
 }
 
@@ -293,6 +319,119 @@ func printRegressLabels(r *Runner, rows, unmapped int, out string) {
 	_, _ = fmt.Fprintf(r.Out, "unmapped rows are the named source of error (§3a): read "+
 		"them, extend LabelRules where a rule is missing, and re-run before "+
 		"committing — set unmapped_reviewed only after that.\n")
+}
+
+// regressSelect picks the suite's targets (Task 4):
+//
+//	webv2 regress select --labels eval/scabench/labels-2025-08-18.json \
+//	    --shapes shapes.json --held-out project-a,project-b \
+//	    [--picks 6] [--diagnosed <program>] [--control <program>] \
+//	    --out eval/regression/selection-2025-08-18.json
+//
+// --shapes is a JSON object {project: shape} over §3a's four ScaBench shapes,
+// keyed by the label file's `project` values (the dataset's project_id slugs,
+// never the display names). The refusals come from regression.Select, so the
+// verb cannot be a looser door than the package.
+func regressSelect(vals map[string]string, r *Runner) error {
+	if err := requireRegressFlags(vals, "--labels", "--shapes", "--held-out", "--out"); err != nil {
+		return err
+	}
+	labels, err := regression.LoadLabels(vals["--labels"])
+	if err != nil {
+		return err
+	}
+	shapes, err := regressSelectShapes(vals["--shapes"])
+	if err != nil {
+		return err
+	}
+	picks, err := regressSelectPicks(vals["--picks"])
+	if err != nil {
+		return err
+	}
+	sel, err := regression.Select(regression.SelectSpec{
+		Labels: labels, Shapes: shapes, HeldOut: splitCSV(vals["--held-out"]),
+		Picks: picks, DiagnosedProgram: vals["--diagnosed"],
+		ControlProgram: vals["--control"],
+	})
+	if err != nil {
+		return err
+	}
+	if err := regression.WriteRepoRecord(vals["--out"], sel, "regression_selection"); err != nil {
+		return err
+	}
+	printRegressSelect(r, sel, vals["--out"])
+	return nil
+}
+
+// regressSelectShapes reads --shapes: a JSON object of {project: shape}. An
+// array or a scalar is refused by name, because ParseOrdered would accept it
+// and the shape map would silently come out empty — a selection over zero
+// shaped projects, reported as a "fewer than the picks" refusal that names
+// nothing about the file the operator actually got wrong.
+func regressSelectShapes(path string) (map[string]string, error) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	doc, err := validation.ParseOrdered(raw)
+	if err != nil {
+		return nil, err
+	}
+	if doc.Kind != validation.Obj {
+		return nil, fmt.Errorf("--shapes must be a JSON object of {project: shape}")
+	}
+	shapes := map[string]string{}
+	for _, kvp := range doc.O {
+		if kvp.V.Kind != validation.Str {
+			return nil, fmt.Errorf("--shapes value for %q must be a string", kvp.K)
+		}
+		shapes[kvp.K] = kvp.V.S
+	}
+	return shapes, nil
+}
+
+// regressSelectPicks reads --picks, defaulting to the six §3a names. The
+// 4–6 range is Select's refusal, not this parser's: the flag is a well-formed
+// int either way, and argparse-shaped "invalid int value" is only for a value
+// that is not an int at all.
+func regressSelectPicks(v string) (int, error) {
+	if v == "" {
+		return 6, nil
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil {
+		return 0, t14ArgparseErr(regressUsage, "regress",
+			"argument --picks: invalid int value: %q", v)
+	}
+	return n, nil
+}
+
+// printRegressSelect is the operator-facing half: how many targets were picked
+// and the coverage they reach. The coverage line is printed even when it is
+// thin — the number IS the argument for the pick, and a blank would read as
+// "no claim".
+func printRegressSelect(r *Runner, sel validation.Value, out string) {
+	cov := validation.ObjAt(sel, "coverage")
+	_, _ = fmt.Fprintf(r.Out, "%d target(s) selected -> %s\n",
+		len(validation.ObjAt(sel, "picks").A), out)
+	_, _ = fmt.Fprintf(r.Out, "coverage: %s of %s gold finding(s), %s of %s class(es)\n",
+		validation.IntText(validation.ObjAt(cov, "covered_findings")),
+		validation.IntText(validation.ObjAt(cov, "total_findings")),
+		validation.IntText(validation.ObjAt(cov, "covered_classes")),
+		validation.IntText(validation.ObjAt(cov, "total_classes")))
+}
+
+// splitCSV splits a comma-separated flag value, dropping empty parts, so
+// `--held-out a,b` and `--held-out a, b` are the same two projects and a
+// trailing comma is not a third, nameless one.
+func splitCSV(s string) []string {
+	out := []string{}
+	for _, p := range strings.Split(s, ",") {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 func dispatchRegress(c *state.Campaign, st *regressParse, r *Runner) error {

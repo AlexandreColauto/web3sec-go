@@ -22,6 +22,7 @@ var knownSchemas = []string{
 	"sft_example", "probe_surface", "class_weights", "taxonomy_aliases",
 	"operator_facts", "disclosure",
 	"regression_target", "regression_run", "regression_labels",
+	"regression_selection",
 }
 
 // KnownSchemas returns a copy of the schema-name list in its contractual
