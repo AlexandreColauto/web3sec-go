@@ -96,6 +96,8 @@ serve archive state; the real hazard is **silent pruning**. Reported loss is not
 | **handoff unpriceable escape** | `911be0a9`         | `priceable:false` + ceiling + reason + actor; audit now schema-validates **and** reconciles with the ledger |
 | codebase_id gap resolved    | `b7b063fd`             | tie measured 3–3; `project` stays the picker's key, `codebase_id` added as the optional checkout key |
 | Task 3 re-measured          | `9ea30f55`             | **no result changes** — the broken matcher was never committed; left edge now pinned |
+| Task 3 Step 7 (real run)    | `8bead12c`             | 114 rows labelled; **rule table unfit** — 29 of 52 classified rows contradict their mechanism |
+| Task 4 selection            | `a76005d7`             | six picks, 40/114 findings, 8/14 classes; **weighting measured inert**; two spec defects |
 
 ### 3.1 The gate mechanics that took the most work to establish
 
@@ -177,12 +179,24 @@ HIGH — both tests passing for the wrong reason.**
 self-contradictory spec, so its outputs are suspect until re-measured; (3) confirm all 9 defects
 are dispositioned. Do not leave the 2 HIGH open silently.
 
-### 5.4 P0 Task 3 Step 7, then P0 Task 4 (weighted set-cover)
+### 5.4 ~~Task 3 Step 7, then Task 4~~ — DONE, `8bead12c` + `a76005d7`
+
+See §3. Step 7 ran (the dataset turned out to be present) and found the rule table unfit;
+Task 4 built the selector and measured the weighting inert. The queue continues at §5.5.
+
+<!-- old heading kept for reference:
 
 Once §5.2 is resolved. **P0 stays on the critical path** — the control target supplies the true
 side only; the false side needs P0's fresh targets.
 
-### 5.5 Build P5 — runner-level fork pin
+### 5.5 Build P5 — runner-level fork pin — **WIP, STASHED**
+
+**Not done.** An implementation run was started and then interrupted mid-flight, with four
+tests failing. It is preserved in `git stash` ("WIP P5 runner-level fork pin (INTERRUPTED)")
+rather than left broken in the tree, which is now clean. `git stash pop` restores it.
+The scope at `docs/gates/v16-P5-runner-fork-pin-scope.md` remains the specification.
+
+<!-- original heading:
 
 Scope exists at `9ba6bb12`. **Justification is silent pruning** (a pruned node returns `0x` for a
 contract that exists, indistinguishable from "not deployed yet") — **not** "no archive endpoint
