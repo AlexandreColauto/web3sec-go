@@ -8,8 +8,11 @@
 // The records live in the campaign (campaigns/<cid>/regression/) rather than
 // in a repo-level store so they inherit the ledger, the determinism pins, the
 // single-writer lock and the audit — the same reason execs/ and chains/ do.
-// The one repo-level artefact is the suite COMPOSITION (internal/regression/
-// suite.go, Task 10), because a suite spans campaigns.
+// The repo-level artefacts are the DERIVED LABELS (labels.go + repofile.go,
+// Task 3) and the suite COMPOSITION (internal/regression/suite.go, Task 10),
+// because both span campaigns; they are written with their sha256 sidecar in
+// the eval store's discipline (evalstore's cases.json + cases.sha256) instead
+// of the campaign ledger, which they have no campaign to belong to.
 package regression
 
 import (

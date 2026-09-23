@@ -1,0 +1,50 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://web3sec.local/schema/regression_labels.schema.json",
+  "title": "WebSec Regression Derived Labels",
+  "description": "The derived class labels for one ScaBench snapshot (§3a: the snapshot carries no class label, so the labels are OUR classification and a named source of error). This file is the reviewable artefact between the dataset and the set-cover picker: it is deterministic from the rule table in internal/regression/labels.go, it records WHICH rule fired per row, and it records whether a human reviewed the rows no rule matched. 'unmapped' is a legitimate value — it means the rule table did not classify this row, which is information, not a failure.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["dataset", "snapshot_date", "created_at", "rows", "counts", "schema_version"],
+  "properties": {
+    "dataset": { "type": "string", "minLength": 1 },
+    "snapshot_date": { "type": "string", "minLength": 10 },
+    "created_at": { "type": "string", "minLength": 20 },
+    "rows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["finding_id", "project", "severity", "class", "rule"],
+        "properties": {
+          "finding_id": { "type": "string", "minLength": 1 },
+          "project": {
+            "type": "string",
+            "minLength": 1,
+            "description": "the dataset's `project_id` for this row, joined in by the extractor — the vulnerability record carries no project of its own. Selection is by PROJECT (\"picking six targets\", \"hold out by project\"), so this is the picker's key and it must be the id, not the display name (one project's `name` is '2024.09.13 - Final - Perennial V2 Update 3 Audit Report'; the ids are stable slugs)"
+          },
+          "severity": {
+            "enum": ["high", "medium", "low", "informational"],
+            "description": "the dataset's real severity vocabulary, all four values (measured: 114 high, 237 medium, 184 low, 20 informational). The enum lists all four because they are the literals the producer emits; THIS FILE carries only the 114 `high` rows, which is what makes `gold_findings` in the selection mean gold. `DeriveLabels` enforces the high-only scope; the enum exists so the schema never contradicts the producer"
+          },
+          "class": { "type": "string", "pattern": "^[a-z0-9-]{3,64}$" },
+          "rule": {
+            "type": "string",
+            "description": "the phrase that fired, or 'unmapped' when nothing matched"
+          }
+        }
+      }
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": { "type": "integer", "minimum": 0 },
+      "description": "class -> row count, including the 'unmapped' bucket"
+    },
+    "unmapped_reviewed": {
+      "type": "boolean",
+      "description": "true only after a human read every 'unmapped' row and decided to leave it unmapped (or extended the rule table and re-ran). Absent or false means the labels are machine output nobody has looked at"
+    },
+    "reviewed_by": { "type": "string", "minLength": 1 },
+    "schema_version": { "const": 1 }
+  }
+}

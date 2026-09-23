@@ -21,7 +21,7 @@ func TestUnknownSchema(t *testing.T) {
 		"'trajectory', 'playbook', 'evaluation_case', 'archetype', " +
 		"'sequence_poc', 'sequence_result', 'sft_example', 'probe_surface', " +
 		"'class_weights', 'taxonomy_aliases', 'operator_facts', 'disclosure', " +
-		"'regression_target', 'regression_run')"
+		"'regression_target', 'regression_run', 'regression_labels')"
 	if err.Error() != want {
 		t.Errorf("unknown-schema text:\n got %q\nwant %q", err.Error(), want)
 	}

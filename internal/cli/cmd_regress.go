@@ -9,6 +9,7 @@ package cli
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 
@@ -18,16 +19,28 @@ import (
 )
 
 const (
-	regressUsage = `usage: webv2 regress [-h] campaign {target,run,status} ...
+	regressUsage = `usage: webv2 regress [-h] [--rows ROWS] [--out OUT]
+                     [--dataset DATASET] [--snapshot-date SNAPSHOT_DATE]
+                     {labels,campaign} ...
 `
 
-	regressHelp = `usage: webv2 regress [-h] campaign {target,run,status} ...
+	regressHelp = `usage: webv2 regress [-h] [--rows ROWS] [--out OUT]
+                     [--dataset DATASET] [--snapshot-date SNAPSHOT_DATE]
+                     {labels,campaign} ...
 
 positional arguments:
-  campaign
+  {labels,campaign}
+    labels             derive the class labels for one ScaBench snapshot's rows
+    campaign           a campaign id (C-...): the target/run/status verbs
 
 options:
   -h, --help       show this help message and exit
+  --rows ROWS      labels: a JSON array of the snapshot's rows, as extracted
+  --out OUT        labels: the label file to write (plus its .sha256 sidecar)
+  --dataset DATASET
+                   labels: the dataset name (default: scabench)
+  --snapshot-date SNAPSHOT_DATE
+                   labels: the snapshot date (default: 2025-08-18)
 
 subcommands:
   target add         record one regression target
@@ -41,6 +54,12 @@ subcommands:
   status             the human view of the suite records
 `
 )
+
+// regressDefaultDataset is the dataset the regression suite reads: the
+// ScaBench curated snapshot (§3a). It is the default of `regress labels
+// --dataset` and the kind string `target add` uses for a dataset-sourced
+// target, so the two cannot drift apart.
+const regressDefaultDataset = "scabench"
 
 // regressValueFlags is every flag that takes a value. Every later task that
 // adds a flag adds its name — WITH the leading "--", because that is the key
@@ -58,6 +77,8 @@ var regressValueFlags = map[string]bool{
 	"--loss-source": true, "--postmortem-url": true, "--pre-patch-sha": true,
 	"--patch-sha": true, "--harness-runner": true, "--harness-command": true,
 	"--finding": true, "--extractable-usd": true, "--source": true,
+	// the repo-level `labels` action (Task 3)
+	"--rows": true, "--out": true, "--dataset": true, "--snapshot-date": true,
 }
 
 // regressParse is the verb's parsed command line: positionals, flag values,
@@ -141,6 +162,13 @@ func regressCmd(root string, args []string, r *Runner) error {
 		_, _ = fmt.Fprint(r.Out, regressHelp)
 		return nil
 	}
+	if len(st.pos) < 1 {
+		return t14ArgparseErr(regressUsage, "regress",
+			"the following arguments are required: campaign, action")
+	}
+	if handled, err := dispatchRegressRepo(st, root, r); handled {
+		return err
+	}
 	if len(st.pos) < 2 {
 		return t14ArgparseErr(regressUsage, "regress",
 			"the following arguments are required: campaign, action")
@@ -150,6 +178,110 @@ func regressCmd(root string, args []string, r *Runner) error {
 		return err
 	}
 	return dispatchRegress(c, st, r)
+}
+
+// dispatchRegressRepo runs a repo-level action — one that operates on the eval
+// store rather than on a campaign — and reports whether the first positional
+// named one. `labels` is the only action today; `select` (Task 4) and `suite`
+// (Task 10) join the switch.
+//
+// The dispatch is by NAME, and that is the point: choosing the branch by the
+// absence of a `C-` prefix is what made the routing incidental, and it silently
+// changed a pre-existing refusal — `webv2 regress mycamp status` exited 1 with
+// "malformed campaign id" and became an argparse "invalid choice" (exit 2). The
+// prefix is not the id grammar anyway (^C-[0-9a-z]{8,16}$), so only the
+// campaign path can decide a malformed id: an unrecognised first positional
+// falls through to it and keeps the old refusal.
+func dispatchRegressRepo(st *regressParse, root string, r *Runner) (bool, error) {
+	if st.pos[0] != "labels" {
+		return false, nil
+	}
+	if len(st.pos) > 1 {
+		// A trailing positional is refused rather than ignored: `regress labels
+		// extra` dropping "extra" silently is how an operator typo becomes a run
+		// that looks successful. The root parser reports it, as argparse does.
+		return true, t14Unrecognized(strings.Join(st.pos[1:], " "))
+	}
+	// The repo-level actions need the CLI's root, and the global --root was
+	// consumed before this verb ran, so hand it down under the parser's own key
+	// convention (leading dashes).
+	st.vals["--root"] = root
+	return true, regressLabels(st.vals, r)
+}
+
+// regressLabels derives the label file from a snapshot's rows:
+//
+//	webv2 regress labels --rows <rows.json> --out <labels.json> \
+//	    [--dataset scabench] [--snapshot-date 2025-08-18]
+//
+// --rows is a JSON array of the snapshot's rows as extracted, verbatim.
+func regressLabels(vals map[string]string, r *Runner) error {
+	if vals["--rows"] == "" || vals["--out"] == "" {
+		return t14ArgparseErr(regressUsage, "regress",
+			"the following arguments are required: --rows, --out")
+	}
+	rows, err := regressLabelRows(vals["--rows"])
+	if err != nil {
+		return err
+	}
+	labels, err := regressLabelsFromRows(rows, vals)
+	if err != nil {
+		return err
+	}
+	if err := regression.WriteRepoRecord(vals["--out"], labels, "regression_labels"); err != nil {
+		return err
+	}
+	printRegressLabels(r, len(rows), regression.UnmappedCount(labels), vals["--out"])
+	return nil
+}
+
+// regressLabelsFromRows classifies the extracted rows under the label file's
+// provenance (the dataset's defaults unless the operator overrode them).
+func regressLabelsFromRows(rows []validation.Value, vals map[string]string) (validation.Value, error) {
+	dataset, snapDate := regressLabelProvenance(vals)
+	return regression.DeriveLabels(rows, dataset, snapDate)
+}
+
+// regressLabelRows reads the extracted snapshot rows: the file must be a JSON
+// array, because DeriveLabels classifies a list of vulnerability records and a
+// silently-flattened object would classify as zero rows.
+func regressLabelRows(path string) ([]validation.Value, error) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	doc, err := validation.ParseOrdered(raw)
+	if err != nil {
+		return nil, err
+	}
+	if doc.Kind != validation.Arr {
+		return nil, fmt.Errorf("--rows must be a JSON array of rows, got %v", doc.Kind)
+	}
+	return doc.A, nil
+}
+
+// regressLabelProvenance is the label file's provenance with the curated
+// snapshot's own defaults (§3a: scabench, 2025-08-18).
+func regressLabelProvenance(vals map[string]string) (string, string) {
+	dataset, snapDate := vals["--dataset"], vals["--snapshot-date"]
+	if dataset == "" {
+		dataset = regressDefaultDataset
+	}
+	if snapDate == "" {
+		snapDate = "2025-08-18"
+	}
+	return dataset, snapDate
+}
+
+// printRegressLabels is the operator-facing half: what was written, and the
+// review the named source of error still owes. The unmapped count is printed
+// even when it is zero — a blank would read as "no review needed".
+func printRegressLabels(r *Runner, rows, unmapped int, out string) {
+	_, _ = fmt.Fprintf(r.Out, "%d row(s) labelled, %d unmapped -> %s\n",
+		rows, unmapped, out)
+	_, _ = fmt.Fprintf(r.Out, "unmapped rows are the named source of error (§3a): read "+
+		"them, extend LabelRules where a rule is missing, and re-run before "+
+		"committing — set unmapped_reviewed only after that.\n")
 }
 
 func dispatchRegress(c *state.Campaign, st *regressParse, r *Runner) error {
@@ -217,7 +349,7 @@ func regressTargetAdd(c *state.Campaign, vals map[string]string, r *Runner) erro
 	// Starknet Perpetual_main). argparse-shaped, because it is a missing
 	// argument, not a refusal: AddTarget keeps the same rule as a package
 	// invariant.
-	if vals["--kind"] == "scabench" && vals["--commit-hint"] == "" &&
+	if vals["--kind"] == regressDefaultDataset && vals["--commit-hint"] == "" &&
 		(vals["--record-id"] == "" || vals["--repo"] == "") {
 		return t14ArgparseErr(regressUsage, "regress",
 			"the following arguments are required: --record-id, --repo")
