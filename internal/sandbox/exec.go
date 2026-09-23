@@ -251,11 +251,15 @@ func (f *runFlow) runExecuteAndLog() error {
 	ref := f.execID
 	// v1.6: the record has just been written above, so the event can anchor
 	// it — one digest over the whole final record, no ordering problem and
-	// no second write (exec_record_anchor.go).
+	// no second write (exec_record_anchor.go). The same event archives the
+	// classifier's verdict (failure_class, exec_failure_class.go): the
+	// decision is recorded beside the run it describes instead of being
+	// recomputed later from editable logs.
 	data := validation.VObj(append([]validation.KV{
 		{K: "profile", V: validation.VStr(f.s.Profile)},
 		{K: "exit", V: validation.VInt(int64(exitStatus))},
 		{K: "finding", V: optStrValue(f.opts.FindingID)},
+		FailureClassKV(f.record),
 	}, ExecRecordAnchorKVs(f.record)...)...)
 	if _, err := f.s.Campaign.Log("sandbox.exec", &ref, &data); err != nil {
 		// r39 F2: the payload has ALREADY RUN (execute() is above), so the

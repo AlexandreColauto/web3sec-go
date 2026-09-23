@@ -160,11 +160,16 @@ func (f *registerExecFlow) regExecLog() error {
 	// v1.6: the same anchor as Run's sandbox.exec — the record is already on
 	// disk (regExecWriteRecord), and anchoring only the Run path would leave
 	// the same hand-edit open through this writer (exec_record_anchor.go).
+	// The same event archives the classifier's verdict too
+	// (failure_class, exec_failure_class.go): the externally-reported path
+	// is a distinct writer of the same record shape, so it must not be the
+	// one carrier that loses the decision.
 	data := validation.VObj(append([]validation.KV{
 		{K: "profile", V: validation.VStr(f.opts.Profile)},
 		{K: "exit", V: validation.VInt(int64(f.opts.ExitStatus))},
 		{K: "reported_by", V: validation.VStr(f.opts.ReportedBy)},
 		{K: "finding", V: optStrValue(f.opts.FindingID)},
+		FailureClassKV(f.record),
 	}, ExecRecordAnchorKVs(f.record)...)...)
 	if _, err := f.c.Log("sandbox.exec.registered", &ref, &data); err != nil {
 		// r39 F2: same unwinding as Run. The execution happened OUTSIDE this

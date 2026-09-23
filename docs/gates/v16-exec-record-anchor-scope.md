@@ -9,6 +9,14 @@ Written at HEAD `1684e640` (tree clean). Predecessors: `a8fc132f` (an
 absent-guard reproduction can be minted) and `1684e640` (the signature must name
 a real per-test failure).
 
+**Postscript (added at HEAD `7e0eac87`, after the anchor and the archived
+verdict landed):** every table and code block below describes the PRE-anchor
+shape as it stood when this scope was written — `sandbox.exec` now carries SIX
+data keys (`profile`, `exit`, `finding`, `failure_class`,
+`exec_record_sha256`, `exec_record_sha256_alg`) and `sandbox.exec.registered`
+SEVEN (the same six plus `reported_by`), so the "only three data keys" and the
+per-writer key lists in §1.1 are historical, not current.
+
 **Ordering decision, recorded and not revisited:** the anchor lands BEFORE the
 finding `F-cfff3ebc0250` is driven to CONFIRMED. Nothing in this document drives
 any finding anywhere; the ordering is stated only so the plan below is executed
