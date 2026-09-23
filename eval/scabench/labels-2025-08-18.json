@@ -1,0 +1,825 @@
+{
+ "dataset": "scabench",
+ "snapshot_date": "2025-08-18",
+ "created_at": "2026-09-23T12:07:12.429929+00:00",
+ "rows": [
+  {
+   "finding_id": "2024-10-coded-estate_H-01",
+   "project": "code4rena_coded-estate-invitational_2024_12",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2024-10-coded-estate_H-02",
+   "project": "code4rena_coded-estate-invitational_2024_12",
+   "severity": "high",
+   "class": "liveness",
+   "rule": "halt"
+  },
+  {
+   "finding_id": "2024-10-coded-estate_H-03",
+   "project": "code4rena_coded-estate-invitational_2024_12",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2024-10-coded-estate_H-04",
+   "project": "code4rena_coded-estate-invitational_2024_12",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2024-10-coded-estate_H-05",
+   "project": "code4rena_coded-estate-invitational_2024_12",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2024-10-coded-estate_H-06",
+   "project": "code4rena_coded-estate-invitational_2024_12",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2024-10-coded-estate_H-07",
+   "project": "code4rena_coded-estate-invitational_2024_12",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2024-10-coded-estate_H-08",
+   "project": "code4rena_coded-estate-invitational_2024_12",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2024-10-coded-estate_H-09",
+   "project": "code4rena_coded-estate-invitational_2024_12",
+   "severity": "high",
+   "class": "liveness",
+   "rule": "stuck"
+  },
+  {
+   "finding_id": "2024-09-fenix-finance_H-01",
+   "project": "code4rena_fenix-finance-invitational_2024_10",
+   "severity": "high",
+   "class": "upgrade-initializer",
+   "rule": "upgrade"
+  },
+  {
+   "finding_id": "2024-10-superposition_H-01",
+   "project": "code4rena_superposition_2025_01",
+   "severity": "high",
+   "class": "upgrade-initializer",
+   "rule": "initializ"
+  },
+  {
+   "finding_id": "2024-10-superposition_H-02",
+   "project": "code4rena_superposition_2025_01",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2024-10-superposition_H-03",
+   "project": "code4rena_superposition_2025_01",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2024-12-lambowin_H-01",
+   "project": "code4rena_lambowin_2025_02",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2024-12-lambowin_H-02",
+   "project": "code4rena_lambowin_2025_02",
+   "severity": "high",
+   "class": "upgrade-initializer",
+   "rule": "initializ"
+  },
+  {
+   "finding_id": "2024-12-lambowin_H-03",
+   "project": "code4rena_lambowin_2025_02",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2024-12-lambowin_H-04",
+   "project": "code4rena_lambowin_2025_02",
+   "severity": "high",
+   "class": "access-control",
+   "rule": "anyone can call"
+  },
+  {
+   "finding_id": "2024-10-loopfi_H-01",
+   "project": "code4rena_loopfi_2025_02",
+   "severity": "high",
+   "class": "precision-rounding",
+   "rule": "rounding"
+  },
+  {
+   "finding_id": "2024-10-loopfi_H-02",
+   "project": "code4rena_loopfi_2025_02",
+   "severity": "high",
+   "class": "liquidation-logic",
+   "rule": "bad debt"
+  },
+  {
+   "finding_id": "2024-12-secondswap_H-01",
+   "project": "code4rena_secondswap_2025_02",
+   "severity": "high",
+   "class": "upgrade-initializer",
+   "rule": "initializ"
+  },
+  {
+   "finding_id": "2024-12-secondswap_H-02",
+   "project": "code4rena_secondswap_2025_02",
+   "severity": "high",
+   "class": "upgrade-initializer",
+   "rule": "initializ"
+  },
+  {
+   "finding_id": "2024-12-secondswap_H-03",
+   "project": "code4rena_secondswap_2025_02",
+   "severity": "high",
+   "class": "upgrade-initializer",
+   "rule": "initializ"
+  },
+  {
+   "finding_id": "2024-12-bakerfi-invitational_H-01",
+   "project": "code4rena_bakerfi-invitational_2025_02",
+   "severity": "high",
+   "class": "upgrade-initializer",
+   "rule": "uninitialized"
+  },
+  {
+   "finding_id": "2024-12-bakerfi-invitational_H-02",
+   "project": "code4rena_bakerfi-invitational_2025_02",
+   "severity": "high",
+   "class": "access-control",
+   "rule": "anyone can call"
+  },
+  {
+   "finding_id": "2024-12-bakerfi-invitational_H-03",
+   "project": "code4rena_bakerfi-invitational_2025_02",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2024-12-bakerfi-invitational_H-04",
+   "project": "code4rena_bakerfi-invitational_2025_02",
+   "severity": "high",
+   "class": "flash-loan",
+   "rule": "flash loan"
+  },
+  {
+   "finding_id": "2024-12-bakerfi-invitational_H-05",
+   "project": "code4rena_bakerfi-invitational_2025_02",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2024-12-bakerfi-invitational_H-06",
+   "project": "code4rena_bakerfi-invitational_2025_02",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2024-12-bakerfi-invitational_H-07",
+   "project": "code4rena_bakerfi-invitational_2025_02",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2025-01-pump-science_H-01",
+   "project": "code4rena_pump-science_2025_02",
+   "severity": "high",
+   "class": "dos-griefing",
+   "rule": "denial of service"
+  },
+  {
+   "finding_id": "2025-01-pump-science_H-02",
+   "project": "code4rena_pump-science_2025_02",
+   "severity": "high",
+   "class": "upgrade-initializer",
+   "rule": "uninitialized"
+  },
+  {
+   "finding_id": "2025-01-liquid-ron_H-01",
+   "project": "code4rena_liquid-ron_2025_03",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2025-01-iq-ai_H-01",
+   "project": "code4rena_iq-ai_2025_03",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2024-11-mantra-dex_H-01",
+   "project": "code4rena_mantra-dex_2025_03",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2024-11-mantra-dex_H-02",
+   "project": "code4rena_mantra-dex_2025_03",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2024-11-mantra-dex_H-03",
+   "project": "code4rena_mantra-dex_2025_03",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2024-11-mantra-dex_H-04",
+   "project": "code4rena_mantra-dex_2025_03",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2024-11-mantra-dex_H-05",
+   "project": "code4rena_mantra-dex_2025_03",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2024-11-mantra-dex_H-06",
+   "project": "code4rena_mantra-dex_2025_03",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2024-11-mantra-dex_H-07",
+   "project": "code4rena_mantra-dex_2025_03",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2024-11-mantra-dex_H-08",
+   "project": "code4rena_mantra-dex_2025_03",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2024-11-mantra-dex_H-09",
+   "project": "code4rena_mantra-dex_2025_03",
+   "severity": "high",
+   "class": "dos-griefing",
+   "rule": "denial of service"
+  },
+  {
+   "finding_id": "2024-11-mantra-dex_H-10",
+   "project": "code4rena_mantra-dex_2025_03",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2024-11-mantra-dex_H-11",
+   "project": "code4rena_mantra-dex_2025_03",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2024-11-mantra-dex_H-12",
+   "project": "code4rena_mantra-dex_2025_03",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2025-01-initia-move_H-01",
+   "project": "code4rena_initia-move_2025_04",
+   "severity": "high",
+   "class": "oracle-manipulation",
+   "rule": "price manipul"
+  },
+  {
+   "finding_id": "2025-01-initia-move_H-02",
+   "project": "code4rena_initia-move_2025_04",
+   "severity": "high",
+   "class": "upgrade-initializer",
+   "rule": "initializ"
+  },
+  {
+   "finding_id": "2025-01-initia-move_H-03",
+   "project": "code4rena_initia-move_2025_04",
+   "severity": "high",
+   "class": "upgrade-initializer",
+   "rule": "initializ"
+  },
+  {
+   "finding_id": "2025-01-initia-move_H-04",
+   "project": "code4rena_initia-move_2025_04",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2025-04-forte-float128-solidity-library_H-01",
+   "project": "code4rena_forte-float128-solidity-library_2025_04",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2025-04-forte-float128-solidity-library_H-02",
+   "project": "code4rena_forte-float128-solidity-library_2025_04",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2025-04-forte-float128-solidity-library_H-03",
+   "project": "code4rena_forte-float128-solidity-library_2025_04",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2025-04-forte-float128-solidity-library_H-04",
+   "project": "code4rena_forte-float128-solidity-library_2025_04",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2025-04-forte-float128-solidity-library_H-05",
+   "project": "code4rena_forte-float128-solidity-library_2025_04",
+   "severity": "high",
+   "class": "precision-rounding",
+   "rule": "precision loss"
+  },
+  {
+   "finding_id": "2025-01-next-generation_H-01",
+   "project": "code4rena_next-generation_2025_05",
+   "severity": "high",
+   "class": "upgrade-initializer",
+   "rule": "upgrade"
+  },
+  {
+   "finding_id": "2025-04-cabal-liquid-staking-token_H-01",
+   "project": "code4rena_cabal-liquid-staking-token_2025_05",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2025-03-starknet-perpetual_H-01",
+   "project": "code4rena_starknet-perpetual_2025_06",
+   "severity": "high",
+   "class": "liveness",
+   "rule": "halt"
+  },
+  {
+   "finding_id": "2025-03-starknet-perpetual_H-02",
+   "project": "code4rena_starknet-perpetual_2025_06",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2025-05-blackhole_H-01",
+   "project": "code4rena_blackhole_2025_07",
+   "severity": "high",
+   "class": "logic-error",
+   "rule": "logic error"
+  },
+  {
+   "finding_id": "2025-05-blackhole_H-02",
+   "project": "code4rena_blackhole_2025_07",
+   "severity": "high",
+   "class": "reentrancy",
+   "rule": "reentran"
+  },
+  {
+   "finding_id": "2025-04-kinetiq_H-01",
+   "project": "code4rena_kinetiq_2025_07",
+   "severity": "high",
+   "class": "precision-rounding",
+   "rule": "truncat"
+  },
+  {
+   "finding_id": "2025-04-kinetiq_H-02",
+   "project": "code4rena_kinetiq_2025_07",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2025-04-kinetiq_H-03",
+   "project": "code4rena_kinetiq_2025_07",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2025-04-virtuals-protocol_H-01",
+   "project": "code4rena_virtuals-protocol_2025_08",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2025-04-virtuals-protocol_H-02",
+   "project": "code4rena_virtuals-protocol_2025_08",
+   "severity": "high",
+   "class": "bridge-message",
+   "rule": "bridge"
+  },
+  {
+   "finding_id": "2025-04-virtuals-protocol_H-03",
+   "project": "code4rena_virtuals-protocol_2025_08",
+   "severity": "high",
+   "class": "upgrade-initializer",
+   "rule": "upgrade"
+  },
+  {
+   "finding_id": "2025-04-virtuals-protocol_H-04",
+   "project": "code4rena_virtuals-protocol_2025_08",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2025-04-virtuals-protocol_H-05",
+   "project": "code4rena_virtuals-protocol_2025_08",
+   "severity": "high",
+   "class": "upgrade-initializer",
+   "rule": "initializ"
+  },
+  {
+   "finding_id": "2025-04-virtuals-protocol_H-06",
+   "project": "code4rena_virtuals-protocol_2025_08",
+   "severity": "high",
+   "class": "upgrade-initializer",
+   "rule": "uninitialized"
+  },
+  {
+   "finding_id": "bde1352c-e0f2-47db-b9f7-231ed1b20642_H-01",
+   "project": "cantina_smart-contract-audit-of-tn-contracts_2025_08",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "bde1352c-e0f2-47db-b9f7-231ed1b20642_H-02",
+   "project": "cantina_smart-contract-audit-of-tn-contracts_2025_08",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "bde1352c-e0f2-47db-b9f7-231ed1b20642_H-03",
+   "project": "cantina_smart-contract-audit-of-tn-contracts_2025_08",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "5df7a03f-e3d3-4407-9b21-8a36f1739d3e_H-01",
+   "project": "cantina_minimal-delegation_2025_04",
+   "severity": "high",
+   "class": "cross-chain-replay",
+   "rule": "same signature"
+  },
+  {
+   "finding_id": "5df7a03f-e3d3-4407-9b21-8a36f1739d3e_H-02",
+   "project": "cantina_minimal-delegation_2025_04",
+   "severity": "high",
+   "class": "unchecked-external-call",
+   "rule": "low-level call"
+  },
+  {
+   "finding_id": "2024.09.13 - Final - Perennial V2 Update 3 Audit Report_H-01",
+   "project": "sherlock_20240913---final---perennial-v2-update-3-audit-report_2024_09",
+   "severity": "high",
+   "class": "upgrade-initializer",
+   "rule": "initializ"
+  },
+  {
+   "finding_id": "2024.09.13 - Final - Perennial V2 Update 3 Audit Report_H-02",
+   "project": "sherlock_20240913---final---perennial-v2-update-3-audit-report_2024_09",
+   "severity": "high",
+   "class": "liquidation-logic",
+   "rule": "liquidation"
+  },
+  {
+   "finding_id": "2024.09.13 - Final - Perennial V2 Update 3 Audit Report_H-03",
+   "project": "sherlock_20240913---final---perennial-v2-update-3-audit-report_2024_09",
+   "severity": "high",
+   "class": "liquidation-logic",
+   "rule": "liquidation"
+  },
+  {
+   "finding_id": "2024.09.13 - Final - Perennial V2 Update 3 Audit Report_H-04",
+   "project": "sherlock_20240913---final---perennial-v2-update-3-audit-report_2024_09",
+   "severity": "high",
+   "class": "upgrade-initializer",
+   "rule": "initializ"
+  },
+  {
+   "finding_id": "2024.09.13 - Final - Perennial V2 Update 3 Audit Report_H-05",
+   "project": "sherlock_20240913---final---perennial-v2-update-3-audit-report_2024_09",
+   "severity": "high",
+   "class": "access-control",
+   "rule": "missing access control"
+  },
+  {
+   "finding_id": "2024.09.13 - Final - Perennial V2 Update 3 Audit Report_H-06",
+   "project": "sherlock_20240913---final---perennial-v2-update-3-audit-report_2024_09",
+   "severity": "high",
+   "class": "liquidation-logic",
+   "rule": "bad debt"
+  },
+  {
+   "finding_id": "2024.09.13 - Final - Perennial V2 Update 3 Audit Report_H-07",
+   "project": "sherlock_20240913---final---perennial-v2-update-3-audit-report_2024_09",
+   "severity": "high",
+   "class": "precision-rounding",
+   "rule": "round down"
+  },
+  {
+   "finding_id": "2024.09.20 - Final - Boost Core Incentive Protocol Audit Report_H-01",
+   "project": "sherlock_20240920---final---boost-core-incentive-protocol-audit-report_2024_09",
+   "severity": "high",
+   "class": "upgrade-initializer",
+   "rule": "initializ"
+  },
+  {
+   "finding_id": "2024.09.20 - Final - Boost Core Incentive Protocol Audit Report_H-02",
+   "project": "sherlock_20240920---final---boost-core-incentive-protocol-audit-report_2024_09",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2024.09.23 - Final - MorphL2 Audit Report_H-01",
+   "project": "sherlock_morph-l-2_2024_09",
+   "severity": "high",
+   "class": "reentrancy",
+   "rule": "reentran"
+  },
+  {
+   "finding_id": "2024.09.23 - Final - MorphL2 Audit Report_H-02",
+   "project": "sherlock_morph-l-2_2024_09",
+   "severity": "high",
+   "class": "liveness",
+   "rule": "halt"
+  },
+  {
+   "finding_id": "2024.12.09 - Final - Oku's New Order Types Contract Contest Audit Report_H-01",
+   "project": "sherlock_oku_2024_12",
+   "severity": "high",
+   "class": "reentrancy",
+   "rule": "reentran"
+  },
+  {
+   "finding_id": "2024.12.09 - Final - Oku's New Order Types Contract Contest Audit Report_H-02",
+   "project": "sherlock_oku_2024_12",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2024.12.09 - Final - Oku's New Order Types Contract Contest Audit Report_H-03",
+   "project": "sherlock_oku_2024_12",
+   "severity": "high",
+   "class": "reentrancy",
+   "rule": "reentran"
+  },
+  {
+   "finding_id": "2024.12.09 - Final - Oku's New Order Types Contract Contest Audit Report_H-04",
+   "project": "sherlock_oku_2024_12",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2024.12.09 - Final - Oku's New Order Types Contract Contest Audit Report_H-05",
+   "project": "sherlock_oku_2024_12",
+   "severity": "high",
+   "class": "reentrancy",
+   "rule": "reentran"
+  },
+  {
+   "finding_id": "2024.12.09 - Final - Oku's New Order Types Contract Contest Audit Report_H-06",
+   "project": "sherlock_oku_2024_12",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2024.12.09 - Final - Oku's New Order Types Contract Contest Audit Report_H-07",
+   "project": "sherlock_oku_2024_12",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2024.12.09 - Final - Oku's New Order Types Contract Contest Audit Report_H-08",
+   "project": "sherlock_oku_2024_12",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2024.12.17 - Final - Tally Collaborative Audit Report_H-01",
+   "project": "sherlock_tally_2024_12",
+   "severity": "high",
+   "class": "liquidation-logic",
+   "rule": "insolven"
+  },
+  {
+   "finding_id": "2024.12.17 - Final - Tally Collaborative Audit Report_H-02",
+   "project": "sherlock_tally_2024_12",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2024.12.21 - Final - Idle Finance Credit Vaults Audit Report_H-01",
+   "project": "sherlock_idle-finance_2024_12",
+   "severity": "high",
+   "class": "upgrade-initializer",
+   "rule": "initializ"
+  },
+  {
+   "finding_id": "2024.12.21 - Final - Idle Finance Credit Vaults Audit Report_H-02",
+   "project": "sherlock_idle-finance_2024_12",
+   "severity": "high",
+   "class": "share-price-inflation",
+   "rule": "share inflation"
+  },
+  {
+   "finding_id": "2025.01.02 - Final - Cork Best Efforts Audit Contest Report _H-01",
+   "project": "sherlock_cork-protocol_2025_01",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2025.01.02 - Final - Cork Best Efforts Audit Contest Report _H-02",
+   "project": "sherlock_cork-protocol_2025_01",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2025.01.02 - Final - Cork Best Efforts Audit Contest Report _H-03",
+   "project": "sherlock_cork-protocol_2025_01",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2025.01.02 - Final - Cork Best Efforts Audit Contest Report _H-04",
+   "project": "sherlock_cork-protocol_2025_01",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2025.01.02 - Final - Cork Best Efforts Audit Contest Report _H-05",
+   "project": "sherlock_cork-protocol_2025_01",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2025.01.02 - Final - Cork Best Efforts Audit Contest Report _H-06",
+   "project": "sherlock_cork-protocol_2025_01",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2025.01.02 - Final - Cork Best Efforts Audit Contest Report _H-07",
+   "project": "sherlock_cork-protocol_2025_01",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2025.01.02 - Final - Cork Best Efforts Audit Contest Report _H-08",
+   "project": "sherlock_cork-protocol_2025_01",
+   "severity": "high",
+   "class": "upgrade-initializer",
+   "rule": "initializ"
+  },
+  {
+   "finding_id": "2025.01.02 - Final - Cork Best Efforts Audit Contest Report _H-09",
+   "project": "sherlock_cork-protocol_2025_01",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2025.01.02 - Final - Cork Best Efforts Audit Contest Report _H-10",
+   "project": "sherlock_cork-protocol_2025_01",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2025.01.02 - Final - Cork Best Efforts Audit Contest Report _H-11",
+   "project": "sherlock_cork-protocol_2025_01",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2025.01.03 - Final - Axion Audit Report_H-01",
+   "project": "sherlock_axion_2025_01",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2025.01.03 - Final - Axion Audit Report_H-02",
+   "project": "sherlock_axion_2025_01",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2025.01.03 - Final - Axion Audit Report_H-03",
+   "project": "sherlock_axion_2025_01",
+   "severity": "high",
+   "class": "unmapped",
+   "rule": "unmapped"
+  },
+  {
+   "finding_id": "2025.01.03 - Final - Axion Audit Report_H-04",
+   "project": "sherlock_axion_2025_01",
+   "severity": "high",
+   "class": "upgrade-initializer",
+   "rule": "upgrade"
+  },
+  {
+   "finding_id": "2025.03.10 - Final - Symmio, Staking and Vesting Audit Report_H-01",
+   "project": "sherlock_symmio_2025_03",
+   "severity": "high",
+   "class": "dos-griefing",
+   "rule": "grief"
+  },
+  {
+   "finding_id": "2025.03.14 - Final - Crestal Network Audit Report_H-01",
+   "project": "sherlock_crestal-network_2025_03",
+   "severity": "high",
+   "class": "access-control",
+   "rule": "anyone can call"
+  }
+ ],
+ "counts": {
+  "unmapped": 62,
+  "liveness": 4,
+  "upgrade-initializer": 20,
+  "access-control": 4,
+  "precision-rounding": 4,
+  "liquidation-logic": 5,
+  "flash-loan": 1,
+  "dos-griefing": 3,
+  "oracle-manipulation": 1,
+  "logic-error": 1,
+  "reentrancy": 5,
+  "bridge-message": 1,
+  "cross-chain-replay": 1,
+  "unchecked-external-call": 1,
+  "share-price-inflation": 1
+ },
+ "schema_version": 1,
+ "unmapped_reviewed": true,
+ "reviewed_by": "xand"
+}

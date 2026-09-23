@@ -64,6 +64,25 @@ checks = [
   { name = "jsonl-parses", scope = "file", command = ["python3", "-c", "import json,sys\nfor p in sys.argv[1:]:\n for i,l in enumerate(open(p),1):\n  if l.strip():\n   try: json.loads(l)\n   except ValueError as e:\n    print('%s:%d: %s'%(p,i,e)); sys.exit(1)", "{files}"] },
 ]
 
+# The repo-level record writer (internal/regression/repofile.go, and the
+# evalstore before it) puts a `<sha256>  <path>` sidecar beside every record it
+# writes, and the READ path refuses a record whose sidecar is missing or
+# mismatched — so the sidecar is load-bearing and must be committed with its
+# record. Without a block here, fail_on_unknown_language blocks ANY commit that
+# adds one, and the message it prints is about the language, not about the file
+# being wrong. Same reasoning as [languages.jsonl] above.
+#
+# The check is real, not a bypass: the sidecar must be exactly one non-blank
+# line holding a bare 64-hex digest — which is exactly what
+# internal/regression/repofile.go writes and what its read path expects. A malformed sidecar is always
+# an error, so file scope is right and there is no ceiling to ratchet.
+[languages.sha256]
+enabled = true
+extensions = [".sha256"]
+checks = [
+  { name = "sha256-sidecar-format", scope = "file", command = ["python3", "-c", "import re,sys\nfor p in sys.argv[1:]:\n ls=[l for l in open(p) if l.strip()]\n if len(ls)!=1:\n  print('%s: expected exactly 1 non-blank line, got %d'%(p,len(ls))); sys.exit(1)\n if not re.fullmatch(r'[0-9a-f]{64}\\n?', ls[0]):\n  print('%s: not a bare 64-hex digest: %r'%(p,ls[0])); sys.exit(1)", "{files}"] },
+]
+
 # --- adding a language later ---------------------------------------------- #
 # Uncomment and fill in; until then, committing these files is blocked.
 #
