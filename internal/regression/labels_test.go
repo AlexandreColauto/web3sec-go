@@ -132,6 +132,33 @@ func TestClassifyIsDeterministicAndCaseInsensitive(t *testing.T) {
 	}
 }
 
+// TestContainsWordKeepsTheLeftEdgeStrictAndTheRightEdgeOpen pins both edges of
+// the matcher, which the doc comment argues for and nothing observed: the RIGHT
+// edge is OPEN so a stem matches its own inflections, the LEFT edge is STRICT so
+// a stem cannot ride inside an unrelated token. Closing the right edge (which
+// the plan's Step 5 did) makes "reentran" miss "Reentrancy" and the whole table
+// go unmapped; dropping the left check turns "grounding" into
+// precision-rounding and "asphalt" into liveness.
+func TestContainsWordKeepsTheLeftEdgeStrictAndTheRightEdgeOpen(t *testing.T) {
+	if !containsWord("reentrancy in withdraw()", "reentran") {
+		t.Error(`the right edge is closed: the stem "reentran" did not match its ` +
+			`own inflection "reentrancy", which disables the whole rule table`)
+	}
+	for _, tc := range []struct{ hay, needle string }{
+		{"grounding the invariants", "rounding"},
+		{"asphalt of the vault", "halt"},
+	} {
+		if containsWord(tc.hay, tc.needle) {
+			t.Errorf("%q matched inside %q: the left edge is not strict, so a stem "+
+				"rides inside an unrelated token", tc.needle, tc.hay)
+		}
+	}
+	if got, _ := Classify("Grounding the invariants", ""); got != unmappedClass {
+		t.Errorf("Classify(\"Grounding the invariants\") = %q, want unmapped — a "+
+			"left-open matcher reads it as precision-rounding", got)
+	}
+}
+
 func TestDeriveLabelsRefusesARowMissingTheDatasetsFields(t *testing.T) {
 	good := validation.VObj(
 		kv("finding_id", validation.VStr("S-1")),
