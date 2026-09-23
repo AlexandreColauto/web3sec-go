@@ -1,7 +1,7 @@
 package envgo
 
 // classifier_toolabsent_test.go — Task 9 of the production-readiness plan
-// (docs/superpowers/plans/2026-09-17-trust-boundary-hardening.md §Task 9):
+// (docs/archive/PORT-ERA-DIGEST.md §II (2026-09-17-trust-boundary-hardening) §Task 9):
 // a MISSING TOOLCHAIN BINARY (solc, the foundry tools, the docker client) is
 // an ENVIRONMENT failure, per the runbook's own vocabulary —
 //

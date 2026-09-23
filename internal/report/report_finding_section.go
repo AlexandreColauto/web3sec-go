@@ -229,7 +229,8 @@ func appendFindingSectionGate(out []string, campaign *state.Campaign,
 		// G7 hygiene (Task 15): a policy claim without a reference is
 		// still valid, but the report stamps it. Golden-safe by evidence:
 		// no golden policy carries accepted_risks and no golden tree
-		// renders an accepted-risk bullet (see task-15-report.md), so the
+		// renders an accepted-risk bullet (see docs/archive/PORT-ERA-DIGEST.md §II,
+		// task-15-report.md), so the
 		// absent-branch suffix moves zero golden bytes.
 		if refURL := validation.ObjStr(ar, "reference_url"); refURL != "" {
 			line += " — cites " + refURL

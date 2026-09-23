@@ -1,5 +1,12 @@
 # web3sec-go Improvement Plan — post morph-campaign review
 
+> **Plan-trail paths in this ledger are historical.** On 2026-09-23 the closed wave plans
+> under `docs/superpowers/plans/` and the port-era task trail under `docs/sdd/` were
+> collapsed into `docs/archive/PORT-ERA-DIGEST.md` (see `docs/INDEX.md` §5). Where this
+> ledger names one of those paths — e.g. `plan: docs/superpowers/plans/2026-09-20-…` — the
+> digest section for it is §I–§IV, and the original text is recoverable with
+> `git show <removal-commit>^:<path>`.
+
 ## 2026-09-20 — morph pass-1 framework review: the six ranked gaps closed (plan: docs/superpowers/plans/2026-09-20-morph-pass2-framework-fixes.md)
 
 The ScaBench-morph review (`../morph/FRAMEWORK_REVIEW.md`) scored the run bonus-tier with the

@@ -1,7 +1,0 @@
---- FAIL: TestConcurrentLoadModifyWritesLoseNothing (5.09s)
-    processlock_r13_test.go:156: worker 1: exit status 1
-        campaign C-lmwrace001 is locked by another process (waited 5s; holder: 954077 /tmp/go-build351526845/b001/state.test -test.run=TestConcurrentLoadModifyWritesLoseNothing) — let the running webv2 finish and retry; do NOT edit the ledger or state by hand
-    processlock_r13_test.go:185: ledger lost a class: 5 of 6
-FAIL
-FAIL	websec/internal/state	5.109s
-FAIL

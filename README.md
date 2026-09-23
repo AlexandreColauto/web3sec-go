@@ -228,15 +228,24 @@ Step 9 is also daemon-free by design: the docker e2e tiers live in
 Live runs also enforce the tool's line-shape law: verdict-bearing lines that match no real `cli.py` shape are excluded and named per line on stderr (loud partial, exit 0) — the grade can never be fabricated by a pasted or truncated line.
 ## Docs
 
+- `docs/INDEX.md` — **the documentation map**: what is live, what is frozen, and
+  what was compacted where. Start there.
+- `docs/REVIEW-BRIEF.md` — the external-review brief: what the product is, what
+  it refuses, what is measured vs asserted vs unproven, and the ranked list of
+  known weaknesses.
+- `docs/gates/v16-prompt.md` — the current phase: the standing laws, the done
+  ledger, and the work queue.
 - `assets/runbook/RUNBOOK.md` — the operator runbook (a test: the D7
   registry↔document check keeps it honest).
 - `docs/IMPROVEMENTS.md` — the improvement plan driven by real campaigns
   (waves A–J, with Wave K parked; navigate by heading — `## Wave G`, `## Wave H
   — review backlog`, `## Wave I`, `# Wave J — definitive close-out`, `# Wave K`)
   and its design principles, incl. the surface budget.
+- `docs/CRITICAL_HUNTING_PLAN.md` — the strategic gap analysis and the six-wave
+  plan for finding criticals.
 - `docs/LEANNESS_REVIEW.md` — the wave-F leanness review (what was removed
   from the port scaffolding, and why the rest stayed).
 - `docs/runbook-go-notes.md` — RUNBOOK substitutions the Go binary needs
   (port-era history).
 - `docs/gates/P4-gate.md` — the cutover gate report; `docs/archive/` holds
-  the divergence ledger and other frozen port records.
+  the divergence ledger, the port-era digest and other frozen port records.

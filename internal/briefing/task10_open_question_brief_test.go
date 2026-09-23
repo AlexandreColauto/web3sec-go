@@ -1,5 +1,5 @@
 // task10_open_question_brief_test.go — Task 10 follow-up, from the
-// independent Phase C review (docs/sdd/task-10-12-review.md, Task 10
+// independent Phase C review (docs/archive/PORT-ERA-DIGEST.md §II (task-10-12-review.md), Task 10
 // finding 1): the plan's open-question row must reach the BRIEF, not only
 // `webv2 plan --json`.
 //

@@ -3,7 +3,7 @@
 # sync-assets.sh — Task 15: copy the Python reference schemas into the Go
 # embedded assets and verify the result is byte-identical.
 #
-# Contract (docs/superpowers/plans/2026-09-08-p0-trust-core.md, Task 15):
+# Contract (docs/archive/PORT-ERA-DIGEST.md §IV (2026-09-08-p0-trust-core), Task 15):
 #   * copies web3sec-final/schema/*.json -> assets/schema/
 #   * verifies every file is byte-identical (diff -r)
 #   * the expected set is derived from the reference's KNOWN_SCHEMAS tuple

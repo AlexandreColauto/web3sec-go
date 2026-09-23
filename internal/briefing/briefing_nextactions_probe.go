@@ -235,7 +235,7 @@ func (n *nextActionsCtx) nextActionsPlanPriorities() {
 	if n.campaign != nil {
 		if plan, err := planner.LoadPlanReadonly(n.campaign); err == nil {
 			// Task 10's Law ends "brief shows it" (independent Phase C
-			// review, docs/sdd/task-10-12-review.md, Task 10 finding 1):
+			// review, docs/archive/PORT-ERA-DIGEST.md §II (task-10-12-review.md), Task 10 finding 1):
 			// the minted `resolve open question Q-…: <text>` row was visible
 			// only through `webv2 plan --json` and the queue-debt counts, so
 			// the question's own text never reached the brief. It now renders

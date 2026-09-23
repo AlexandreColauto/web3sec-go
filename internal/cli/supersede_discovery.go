@@ -27,7 +27,7 @@ package cli
 // notice in this CLI (mint's notice, verify's layout note, ingest's hints).
 //
 // The controller ruling this file implements (plan
-// docs/superpowers/plans/2026-09-13-wave-n-operator-friction.md, T5) is
+// docs/archive/PORT-ERA-DIGEST.md §IV (2026-09-13-wave-n-operator-friction), T5) is
 // explicit that NO basis vocabulary changes: there is no `duplicate`
 // adjudication basis. A second exclusion path would hide double-booked rows
 // from the precision denominator without retiring them, which silently

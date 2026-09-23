@@ -1,5 +1,5 @@
 // task13_lifecycle_surfaces_test.go — plan §Task 2
-// (docs/superpowers/plans/2026-09-18-gold-findings-closure.md, defect 4): the
+// (docs/archive/PORT-ERA-DIGEST.md §III (2026-09-18-gold-findings-closure), defect 4): the
 // model's OWN adversarial lifecycle machines mint into the work queue.
 //
 // Law: a state machine qualifies when >= 2 DISTINCT adversarial-vocabulary
