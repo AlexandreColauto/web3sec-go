@@ -94,6 +94,8 @@ serve archive state; the real hazard is **silent pruning**. Reported loss is not
 | 10b fork spike              | `c5ba1048`             | `fork_block_used` 108375557 from observed output; **`extractable_usd` refused** |
 | P5 scoped, handoff refused  | `9ba6bb12`             | scope written, not built; handoff refusal is the sharper result (§5.1)          |
 | **handoff unpriceable escape** | `911be0a9`         | `priceable:false` + ceiling + reason + actor; audit now schema-validates **and** reconciles with the ledger |
+| codebase_id gap resolved    | `b7b063fd`             | tie measured 3–3; `project` stays the picker's key, `codebase_id` added as the optional checkout key |
+| Task 3 re-measured          | `9ea30f55`             | **no result changes** — the broken matcher was never committed; left edge now pinned |
 
 ### 3.1 The gate mechanics that took the most work to establish
 
@@ -143,7 +145,11 @@ serve archive state; the real hazard is **silent pruning**. Reported loss is not
 
 See §3. The escape exists; the queue continues at §5.2.
 
-### 5.2 Resolve the `codebase_id` gap — blocks Step 7 and Task 4
+### 5.2 ~~Resolve the `codebase_id` gap~~ — DONE, `b7b063fd`
+
+See §3. The queue continues at §5.3.
+
+<!-- old heading kept for reference:
 
 Step 7's extractor joins `project_id`; the correction table demands `codebase_id`; the row schema
 has no such key.
@@ -153,7 +159,13 @@ majority, record the count in the commit. This is a fact, not a judgement. Only 
 50/50, pick `codebase_id` (a correction table keys on code identity) and say so. Then give the row
 schema the needed key per schema discipline.
 
-### 5.3 P0 Task 3 — disposition the review defects, fix `containsWord`, **re-measure**
+### 5.3 ~~P0 Task 3 disposition + `containsWord` + re-measure~~ — DONE, `9ea30f55`
+
+See §3. **Answer: re-running Steps 1–6 changed no result** — the spec's broken matcher
+was never committed (it exists only in the plan document), no artifact was ever produced
+from it, and all nine review defects are closed. The queue continues at §5.4.
+
+<!-- old heading kept for reference:
 
 Two spec defects found in `414b4a0c`: (a) the spec's own `containsWord` closes **both** word
 boundaries, making every stem phrase in its own table unmatchable — **its own test fails under
