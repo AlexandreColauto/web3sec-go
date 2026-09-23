@@ -90,3 +90,27 @@ re-derive them:
    DebtManager's own balance delta would miss value that never returns to it.
 
 A reported loss is never laundered into `extractable_usd`; the refusal is the deliverable.
+
+## The `regression_suite` audit problem — also refused, for the same reason
+
+`webv2 audit --root .scratch/p0/root C-725aa2c6a8` reports one problem, in `regression_suite`:
+
+```
+control target T-7e2781f96e25 carries no P1 handoff — the Phase 2 spike's extraction half
+stays blocked until a CONFIRMED finding and its extractable_usd are recorded here
+```
+
+The check is `!validation.HasKey(target, "handoff")`, so closing it means writing a `handoff`
+object on the control target. **It cannot be closed honestly.** The `handoff` object's schema
+(`assets/schema/regression_target.schema.json`) requires `finding_id`, `extractable_usd`,
+`source` and `recorded_at`, and `extractable_usd` is a number with `exclusiveMinimum: 0` — a
+strictly positive figure. There is no way to record the handoff without one.
+
+Half the condition is met: `F-cfff3ebc0250` **is** CONFIRMED. The other half is the figure this
+spike **refused**, because no attack was run and no loss was measured. Writing a number to clear
+the audit would be exactly the fabrication the standing law forbids — and the schema is right to
+require it: `exclusiveMinimum: 0` is what stops a handoff from carrying a placeholder zero.
+
+So the problem stays, and it is **correctly reported**. The audit is not stuck; it is telling the
+truth about a control target whose extraction half has not succeeded. The honest next step is the
+extraction half (P1 plan Task 10), not a handoff record.
